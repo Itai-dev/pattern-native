@@ -35,6 +35,11 @@
           "defaultChannel": "reminders"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f5e7cd7c-e6e3-4c5c-83e6-2862baf6b8d8"
+      }
+    }
   }
 }
