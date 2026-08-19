@@ -211,11 +211,11 @@ export function radiusFor(h: number): number {
   return Math.max(0, Math.min(100, r));
 }
 
-/* ── the glow ───────────────────────────────────────────────
-   Every log is a square gradient, from the app icon's recipe: a saturated
-   rim easing into a pale core, corners following the box. Native has no
-   inset shadows, so the easing is drawn as nested rounded squares —
-   GLOWSTEPS of them, which reads as smooth at every size we use. */
+/* ── the mark ───────────────────────────────────────────────
+   The app icon's recipe — a saturated rim easing into a pale core — used
+   for the brand mark only. Logged days do NOT use it: one log is a flat
+   colour, and the gradient is what several logs make together. Native has
+   no inset shadows, so easing is drawn as nested rounded squares. */
 export const GLOWLIFT = 0.55;
 export const GLOWSTEPS = 7;
 
@@ -235,6 +235,17 @@ export function inkForBg(hex: string): string {
 }
 
 export interface Layer { color: string; inset: number }
+
+/** steps drawn between two neighbouring moments so stacked solids read as
+ *  one gradient — native's stand-in for a blurred shadow */
+export const BLENDSTEPS = 8;
+
+export function mixHex(a: string, b: string, t: number): string {
+  const na = parseInt(a.slice(1), 16), nb = parseInt(b.slice(1), 16);
+  const at = (n: number, s: number) => (n >> s) & 255;
+  const m = (s: number) => Math.round(at(na, s) + (at(nb, s) - at(na, s)) * t);
+  return '#' + [m(16), m(8), m(0)].map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+}
 
 /** one log as a square gradient: concentric squares, rim colour → pale core.
  *  `from` is the inset the glow starts at, `half` the box's half-edge. */
@@ -262,14 +273,26 @@ export function dayBands(e: Entry, half: number, ramp: readonly string[]): Band[
   return bands;
 }
 
-/** the full paint order for one day cell, outermost layer first: bands for
- *  the earlier moments, then the innermost moment as a square gradient. */
+/** The full paint order for one day cell, outermost layer first.
+ *  ONE log is a flat colour. The gradient is what a second and third log
+ *  make: each moment lays down its own solid colour and they blend —
+ *  earliest at the rim, latest at the core. A day touched once looks like
+ *  one decision; a day followed through the hours earns the depth. */
 export function dayLayers(e: Entry, half: number, ramp: readonly string[]): Layer[] {
   const bands = dayBands(e, half, ramp);
-  if (!bands.length) return glowLayers(ramp[e.pain], half);
-  const out: Layer[] = bands.slice(0, -1).map((b) => ({ color: b.color, inset: b.depth }));
-  const core = bands[bands.length - 1];
-  return out.concat(glowLayers(core.color, half, core.depth));
+  if (!bands.length) return [{ color: ramp[e.pain], inset: 0 }];
+  /* CSS gets this blend from a blurred shadow; native has to draw it, so
+     each pair of neighbouring moments is walked in BLENDSTEPS. */
+  const out: Layer[] = [];
+  for (let i = 0; i < bands.length - 1; i++) {
+    const from = bands[i], to = bands[i + 1];
+    for (let s = 0; s < BLENDSTEPS; s++) {
+      const t = s / BLENDSTEPS;
+      out.push({ color: mixHex(from.color, to.color, t), inset: from.depth + (to.depth - from.depth) * t });
+    }
+  }
+  out.push({ color: bands[bands.length - 1].color, inset: bands[bands.length - 1].depth });
+  return out;
 }
 
 /** the colour at the centre of the day's fill */
