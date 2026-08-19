@@ -147,6 +147,16 @@ export function cleanBackup(data: unknown): Entries {
 
 /* ── the peak rule ──────────────────────────────────────────── */
 
+/** a day's moments, always an array — screens should not repeat this check */
+export function logsOf(e: Entry | null | undefined): Moment[] {
+  return e && e.logs ? e.logs : [];
+}
+
+/** minutes since midnight as a clock time */
+export function fmtTime(h: number): string {
+  return Math.floor(h / 60) + ':' + String(h % 60).padStart(2, '0');
+}
+
 export function peakOf(logs: Moment[]): number {
   return logs.reduce((m, l) => (l.pain > m ? l.pain : m), 0);
 }

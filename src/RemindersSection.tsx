@@ -1,16 +1,20 @@
 /**
- * The reminder rows: three slots, each a checkbox and a time.
- * Every change applies immediately — the phone's queue is rewritten to match
- * the saved settings, so what iOS holds and what the screen shows can never
- * drift apart. Tapping a time steps it by 30 minutes, which is enough control
- * for a nudge and avoids dragging a whole picker into this build.
+ * The reminder rows — lives on the Profile sheet. Three slots, each a
+ * checkbox and a time; tapping the time opens the iPhone's own spinner,
+ * because a schedule deserves the control iOS users already know.
+ * Every change applies immediately: the phone's notification queue is
+ * rewritten to match the saved settings, so what iOS holds and what the
+ * screen shows can never drift apart.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import * as db from './db';
-import { DEFAULT_SLOTS, Slot, ensurePermission, fmt, hasPermission, reschedule } from './reminders';
-import { color, radius, size } from './theme';
+import {
+  DEFAULT_SLOTS, Slot, ensurePermission, fmt, hasPermission, reschedule,
+} from './reminders';
+import { color, radius } from './theme';
 
 const PREF = 'reminders.slots';
 const LABELS: Record<Slot['key'], string> = { m: 'Morning', d: 'Midday', e: 'Evening' };
@@ -18,11 +22,11 @@ const LABELS: Record<Slot['key'], string> = { m: 'Morning', d: 'Midday', e: 'Eve
 export default function RemindersSection() {
   const [slots, setSlots] = useState<Slot[]>(() => db.getPref<Slot[]>(PREF, DEFAULT_SLOTS));
   const [status, setStatus] = useState('');
+  const [picking, setPicking] = useState<Slot['key'] | null>(null);
 
-  /* Bring the phone's queue in line with what was saved, once, on mount —
-     but never prompt here: a permission sheet on launch is an ambush, and
-     scheduling without permission would fail silently. Toggling a slot is
-     what asks, because there the question explains itself. */
+  /* Restore the saved schedule once, on mount — but never prompt here: a
+     permission sheet on launch is an ambush. Toggling a slot is what asks,
+     because there the question explains itself. */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -39,16 +43,14 @@ export default function RemindersSection() {
 
   const apply = useCallback(async (next: Slot[]) => {
     setSlots(next);
-    db.setPref(PREF, next);
+    db.setPref(PREF, next); // the user's choices are stored before anything can fail
     const wanted = next.filter((s) => s.on);
     if (wanted.length && !(await ensurePermission())) {
       setStatus('Notifications are off for Pattern — turn them on in iPhone Settings.');
       return;
     }
     await reschedule(next);
-    setStatus(wanted.length
-      ? 'On ✓ ' + wanted.map(fmt).join(' · ')
-      : 'Off');
+    setStatus(wanted.length ? 'On ✓ ' + wanted.map(fmt).join(' · ') : 'Off');
   }, []);
 
   const toggle = (key: Slot['key']) => {
@@ -56,14 +58,13 @@ export default function RemindersSection() {
     apply(slots.map((s) => (s.key === key ? { ...s, on: !s.on } : s)));
   };
 
-  const bump = (key: Slot['key']) => {
-    Haptics.selectionAsync().catch(() => {});
-    apply(slots.map((s) => {
-      if (s.key !== key) return s;
-      const total = (s.hour * 60 + s.minute + 30) % (24 * 60);
-      return { ...s, hour: Math.floor(total / 60), minute: total % 60 };
-    }));
+  const setTime = (key: Slot['key'], date: Date) => {
+    apply(slots.map((s) => (s.key === key
+      ? { ...s, hour: date.getHours(), minute: date.getMinutes() }
+      : s)));
   };
+
+  const pickingSlot = slots.find((s) => s.key === picking) || null;
 
   return (
     <View style={styles.root}>
@@ -71,6 +72,7 @@ export default function RemindersSection() {
       <Text style={styles.sub}>
         {status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere.'}
       </Text>
+
       {slots.map((s) => (
         <View key={s.key} style={styles.row}>
           <Pressable onPress={() => toggle(s.key)} style={styles.left} hitSlop={6}>
@@ -79,17 +81,41 @@ export default function RemindersSection() {
             </View>
             <Text style={styles.label}>{LABELS[s.key]}</Text>
           </Pressable>
-          <Pressable onPress={() => bump(s.key)} style={styles.time} hitSlop={6}>
+          <Pressable onPress={() => setPicking(s.key)} style={styles.time} hitSlop={6}>
             <Text style={styles.timeText}>{fmt(s)}</Text>
           </Pressable>
         </View>
       ))}
+
+      {/* the iPhone's own wheel, in a bottom card — Done is the only button,
+          because every spin already applied */}
+      <Modal visible={!!pickingSlot} transparent animationType="fade" onRequestClose={() => setPicking(null)}>
+        <Pressable style={styles.scrim} onPress={() => setPicking(null)}>
+          <Pressable style={styles.pickerCard} onPress={() => {}}>
+            {pickingSlot && (
+              <>
+                <Text style={styles.pickerTitle}>{LABELS[pickingSlot.key]}</Text>
+                <DateTimePicker
+                  value={new Date(2000, 0, 1, pickingSlot.hour, pickingSlot.minute)}
+                  mode="time"
+                  display="spinner"
+                  themeVariant="dark"
+                  onChange={(_, date) => { if (date) setTime(pickingSlot.key, date); }}
+                />
+                <Pressable onPress={() => setPicking(null)} style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.85 }]}>
+                  <Text style={styles.doneText}>Done</Text>
+                </Pressable>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { paddingHorizontal: size.pageX, marginTop: 28 },
+  root: { marginTop: 28 },
   title: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
   sub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginTop: 4 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 10 },
@@ -106,4 +132,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7, paddingHorizontal: 12,
   },
   timeText: { color: color.textPrimary, fontSize: 15 },
+  scrim: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  pickerCard: {
+    backgroundColor: color.bgSheet,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 20, paddingBottom: 34,
+  },
+  pickerTitle: { color: color.textSecondary, fontSize: 14, textAlign: 'center', marginBottom: 4 },
+  doneBtn: {
+    height: 50, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    alignItems: 'center', justifyContent: 'center', marginTop: 8,
+  },
+  doneText: { color: '#000000', fontSize: 16, fontWeight: '600' },
 });
