@@ -8,8 +8,9 @@
  * summary with no way to correct it.
  */
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { reduceMotion } from './motion';
 import DaySquare from './DaySquare';
 import * as db from './db';
 import {
@@ -45,6 +46,10 @@ export default function DaySheet({ dateIso, entry, onChanged, onAddLog, onAddCap
 
   const remove = (h: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // the list closes over the gap instead of jumping — a bridge, not a glitch
+    if (!reduceMotion) {
+      LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    }
     db.dropMoment(dateIso, h);
     onChanged();
   };

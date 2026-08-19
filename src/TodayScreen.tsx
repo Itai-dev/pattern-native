@@ -7,8 +7,9 @@
  * through the day is exactly what the month will remember.
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import DaySquare from './DaySquare';
+import { Press } from './motion';
 import { Entries, fmtTime, logsOf, todayISO } from './model';
 import { PAINWORDS, color, radius, size } from './theme';
 
@@ -32,17 +33,17 @@ export default function TodayScreen({ entries, onLog, onOpenDay }: TodayScreenPr
   return (
     <View style={styles.root}>
       <View style={styles.centre}>
-        <Pressable onPress={() => (e ? onOpenDay(t) : onLog())} style={({ pressed }) => pressed && { opacity: 0.85 }}>
+        <Press onPress={() => (e ? onOpenDay(t) : onLog())} pressScale={0.97} pressOpacity={0.9}>
           <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS} plus today />
-        </Pressable>
+        </Press>
         <Text style={styles.word}>{e ? PAINWORDS[e.pain] : 'Today'}</Text>
         <Text style={styles.caption}>{caption}</Text>
         <Text style={styles.times}>{logs.map((l) => fmtTime(l.h)).join(' · ')}</Text>
       </View>
 
-      <Pressable onPress={onLog} style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
+      <Press onPress={onLog} pressScale={0.985} style={styles.primary}>
         <Text style={styles.primaryText}>{e ? 'Add a log' : 'Add today'}</Text>
-      </Pressable>
+      </Press>
 
       <View style={styles.privacyRow}>
         <Text style={styles.privacy}>Stored privately on this device</Text>

@@ -11,6 +11,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
+import { Press } from './motion';
 import * as db from './db';
 import { CAPWORDS, PAINWORDS, color, radius, size, theme } from './theme';
 import {
@@ -166,9 +167,9 @@ export default function CheckinScreen({ now, initialStep, onDone, onClose }: Che
             </View>
           </>
         )}
-        <Pressable onPress={onPrimary} style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
+        <Press onPress={onPrimary} pressScale={0.985} style={styles.primary}>
           <Text style={styles.primaryText}>{primaryLabel}</Text>
-        </Pressable>
+        </Press>
         {step === 'capacity' && (
           <Pressable onPress={() => onCapNext(true)} style={styles.quiet}>
             <Text style={styles.quietText}>Done for today</Text>

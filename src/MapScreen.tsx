@@ -5,9 +5,10 @@
  * whose corners stay parallel by construction — no shadow tricks needed.
  */
 import React, { useMemo } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { color, theme, size } from './theme';
 import { Entries, Entry, dayLayers, iso, todayISO } from './model';
+import { Press } from './motion';
 
 const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
@@ -84,14 +85,13 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
           const isToday = dISO === t;
           const future = dISO > t;
           return (
-            <Pressable
+            <Press
               key={dISO}
               disabled={future}
               onPress={() => onDayPress(dISO)}
-              style={({ pressed }) => [
-                { width: cell, height: cell, borderRadius: radius },
-                pressed && { transform: [{ scale: 0.96 }] },
-              ]}
+              pressScale={0.96}
+              pressOpacity={1}
+              style={{ width: cell, height: cell, borderRadius: radius }}
             >
               {e
                 ? <DayFill e={e} cell={cell} radius={radius} />
@@ -109,7 +109,7 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
                   }}
                 />
               )}
-            </Pressable>
+            </Press>
           );
         })}
       </View>

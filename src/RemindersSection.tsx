@@ -6,10 +6,11 @@
  * rewritten to match the saved settings, so what iOS holds and what the
  * screen shows can never drift apart.
  */
-import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
+import { EASE_OUT, reduceMotion } from './motion';
 import * as db from './db';
 import {
   DEFAULT_SLOTS, Slot, ensurePermission, fmt, hasPermission, reschedule,
@@ -66,6 +67,23 @@ export default function RemindersSection() {
 
   const pickingSlot = slots.find((s) => s.key === picking) || null;
 
+  /* The picker card lives at the bottom edge, so it enters and leaves
+     through it — scrim fades while the card slides, both on the strong
+     curve. Under reduced motion the slide becomes a plain cross-fade. */
+  const cardIn = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (pickingSlot) {
+      Animated.timing(cardIn, {
+        toValue: 1, duration: reduceMotion ? 150 : 260, easing: EASE_OUT, useNativeDriver: true,
+      }).start();
+    }
+  }, [!!pickingSlot]);
+  const closePicker = useCallback(() => {
+    Animated.timing(cardIn, {
+      toValue: 0, duration: reduceMotion ? 120 : 170, easing: EASE_OUT, useNativeDriver: true,
+    }).start(() => setPicking(null));
+  }, [cardIn]);
+
   return (
     <View style={styles.root}>
       <Text style={styles.title}>Daily reminders</Text>
@@ -89,9 +107,19 @@ export default function RemindersSection() {
 
       {/* the iPhone's own wheel, in a bottom card — Done is the only button,
           because every spin already applied */}
-      <Modal visible={!!pickingSlot} transparent animationType="fade" onRequestClose={() => setPicking(null)}>
-        <Pressable style={styles.scrim} onPress={() => setPicking(null)}>
-          <Pressable style={styles.pickerCard} onPress={() => {}}>
+      <Modal visible={!!pickingSlot} transparent animationType="none" onRequestClose={closePicker}>
+        <Animated.View style={[styles.scrim, { opacity: cardIn }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closePicker} />
+          <Animated.View
+            style={[
+              styles.pickerCard,
+              {
+                transform: reduceMotion ? [] : [{
+                  translateY: cardIn.interpolate({ inputRange: [0, 1], outputRange: [420, 0] }),
+                }],
+              },
+            ]}
+          >
             {pickingSlot && (
               <>
                 <Text style={styles.pickerTitle}>{LABELS[pickingSlot.key]}</Text>
@@ -102,13 +130,13 @@ export default function RemindersSection() {
                   themeVariant="dark"
                   onChange={(_, date) => { if (date) setTime(pickingSlot.key, date); }}
                 />
-                <Pressable onPress={() => setPicking(null)} style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.85 }]}>
+                <Pressable onPress={closePicker} style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.85 }]}>
                   <Text style={styles.doneText}>Done</Text>
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </Animated.View>
+        </Animated.View>
       </Modal>
     </View>
   );
