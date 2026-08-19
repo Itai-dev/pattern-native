@@ -7,7 +7,7 @@
 import React, { useMemo } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { color, themes, size } from './theme';
-import { Entries, Entry, dayBands, iso, todayISO } from './model';
+import { Entries, Entry, dayLayers, iso, todayISO } from './model';
 
 const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
@@ -27,22 +27,24 @@ function cellMetrics() {
   return { cell, radius: cell * 0.24 };
 }
 
+/** a day cell: bands for the earlier moments, the latest one as a square
+ *  gradient — drawn as nested rounded squares, since native has no inset
+ *  shadows. Corners stay parallel because each layer keeps the same ratio. */
 function DayFill({ e, cell, radius }: { e: Entry; cell: number; radius: number }) {
-  const ramp = themes.bloom.ramp;
-  const bands = dayBands(e, cell / 2, ramp);
-  if (!bands.length) {
-    return <View style={{ width: cell, height: cell, borderRadius: radius, backgroundColor: ramp[e.pain] }} />;
-  }
+  const layers = dayLayers(e, cell / 2, themes.bloom.ramp);
   return (
-    <View style={{ width: cell, height: cell, borderRadius: radius, backgroundColor: bands[0].color, overflow: 'hidden' }}>
-      {bands.slice(1).map((b, i) => (
+    <View style={{
+      width: cell, height: cell, borderRadius: radius,
+      backgroundColor: layers[0].color, overflow: 'hidden',
+    }}>
+      {layers.slice(1).map((l, i) => (
         <View
           key={i}
           style={{
             position: 'absolute',
-            left: b.depth, right: b.depth, top: b.depth, bottom: b.depth,
-            borderRadius: Math.max(3, radius - b.depth),
-            backgroundColor: b.color,
+            left: l.inset, right: l.inset, top: l.inset, bottom: l.inset,
+            borderRadius: Math.max(2, radius - l.inset),
+            backgroundColor: l.color,
           }}
         />
       ))}

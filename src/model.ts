@@ -211,6 +211,43 @@ export function radiusFor(h: number): number {
   return Math.max(0, Math.min(100, r));
 }
 
+/* ── the glow ───────────────────────────────────────────────
+   Every log is a square gradient, from the app icon's recipe: a saturated
+   rim easing into a pale core, corners following the box. Native has no
+   inset shadows, so the easing is drawn as nested rounded squares —
+   GLOWSTEPS of them, which reads as smooth at every size we use. */
+export const GLOWLIFT = 0.55;
+export const GLOWSTEPS = 7;
+
+export function lighten(hex: string, t: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (v: number) => Math.round(v + (255 - v) * t);
+  return '#' + [mix((n >> 16) & 255), mix((n >> 8) & 255), mix(n & 255)]
+    .map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+}
+
+/** ink that stays legible on a given background, by real luminance */
+export function inkForBg(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const lin = (c: number) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return L > 0.45 ? '#000000' : '#FFFFFF';
+}
+
+export interface Layer { color: string; inset: number }
+
+/** one log as a square gradient: concentric squares, rim colour → pale core.
+ *  `from` is the inset the glow starts at, `half` the box's half-edge. */
+export function glowLayers(hex: string, half: number, from = 0): Layer[] {
+  const span = (half - from) * 0.86; // the core keeps a flat pale centre
+  const out: Layer[] = [];
+  for (let i = 0; i < GLOWSTEPS; i++) {
+    const t = i / (GLOWSTEPS - 1);
+    out.push({ color: lighten(hex, GLOWLIFT * t), inset: from + span * t });
+  }
+  return out;
+}
+
 export interface Band { color: string; depth: number }
 /** concentric square bands, outermost first; [] = paint the day value solid.
  *  `half` is half the box edge in px; depth is inset from the edge. */
@@ -223,6 +260,16 @@ export function dayBands(e: Entry, half: number, ramp: readonly string[]): Band[
     bands.push({ color: ramp[logs[i].pain], depth: ((100 - radiusFor(logs[i].h)) / 100) * half });
   }
   return bands;
+}
+
+/** the full paint order for one day cell, outermost layer first: bands for
+ *  the earlier moments, then the innermost moment as a square gradient. */
+export function dayLayers(e: Entry, half: number, ramp: readonly string[]): Layer[] {
+  const bands = dayBands(e, half, ramp);
+  if (!bands.length) return glowLayers(ramp[e.pain], half);
+  const out: Layer[] = bands.slice(0, -1).map((b) => ({ color: b.color, inset: b.depth }));
+  const core = bands[bands.length - 1];
+  return out.concat(glowLayers(core.color, half, core.depth));
 }
 
 /** the colour at the centre of the day's fill */
