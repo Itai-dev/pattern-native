@@ -25,12 +25,14 @@ const SQUARE = 150, SQ_RADIUS = 36;
 export interface CheckinScreenProps {
   /** minutes since midnight; injected so tests and previews can fix the clock */
   now?: number;
+  /** open directly on a later step — the day sheet's "add capacity" row */
+  initialStep?: Step;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenProps) {
-  const [step, setStep] = useState<Step>('pain');
+export default function CheckinScreen({ now, initialStep, onDone, onClose }: CheckinScreenProps) {
+  const [step, setStep] = useState<Step>(initialStep || 'pain');
   const [pain, setPain] = useState(5);
   const [cap, setCap] = useState(5);
   const [loc, setLoc] = useState<string[]>([]);

@@ -82,7 +82,7 @@ export default function App() {
       </SafeAreaView>
 
       <Modal visible={!!checkin} animationType="fade" presentationStyle="fullScreen">
-        <CheckinScreen onDone={closeCheckin} onClose={closeCheckin} />
+        <CheckinScreen initialStep={checkin?.step} onDone={closeCheckin} onClose={closeCheckin} />
       </Modal>
 
       <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
