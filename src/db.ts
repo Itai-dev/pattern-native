@@ -21,8 +21,22 @@ function conn(): SQLiteDatabase {
       'date TEXT PRIMARY KEY, pain INTEGER NOT NULL, cap INTEGER, ' +
       'note TEXT NOT NULL DEFAULT "", factors TEXT, logs TEXT)'
     );
+    // preferences live beside the entries — one file to back up, one to delete
+    db.execSync('CREATE TABLE IF NOT EXISTS prefs (k TEXT PRIMARY KEY, v TEXT NOT NULL)');
   }
   return db;
+}
+
+/* ── preferences (small JSON values, never entry data) ─────── */
+
+export function getPref<T>(key: string, fallback: T): T {
+  const r = conn().getFirstSync<{ v: string }>('SELECT v FROM prefs WHERE k = ?', key);
+  if (!r) return fallback;
+  try { return JSON.parse(r.v) as T; } catch { return fallback; }
+}
+
+export function setPref(key: string, value: unknown): void {
+  conn().runSync('INSERT OR REPLACE INTO prefs (k, v) VALUES (?, ?)', key, JSON.stringify(value));
 }
 
 interface Row { date: string; pain: number; cap: number | null; note: string; factors: string | null; logs: string | null }

@@ -4,8 +4,12 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { color, size } from './src/theme';
 import MapScreen from './src/MapScreen';
 import CheckinScreen from './src/CheckinScreen';
+import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { iso } from './src/model';
+import { configureHandler } from './src/reminders';
+
+configureHandler(); // set once, before anything can be delivered
 
 /**
  * Shell: the Pattern Map, live from SQLite. Check-in, journal, day sheet
@@ -44,6 +48,7 @@ export default function App() {
       <Pressable onPress={() => setCheckin(true)} style={({ pressed }) => [styles.log, pressed && { opacity: 0.85 }]}>
         <Text style={styles.logText}>{entries[iso(new Date())] ? 'Add a log' : 'Add today'}</Text>
       </Pressable>
+      <RemindersSection />
       <View style={styles.devRow}>
         {empty ? (
           <Pressable onPress={seedDemo}><Text style={styles.devLink}>Load demo month (dev)</Text></Pressable>
