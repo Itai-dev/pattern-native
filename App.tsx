@@ -1,29 +1,50 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
-import { color, themes, size } from './src/theme';
+import React, { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { color, size } from './src/theme';
+import MapScreen from './src/MapScreen';
+import * as db from './src/db';
+import { iso } from './src/model';
 
 /**
- * Foundation shell — proves the dark theme and Bloom ramp render
- * correctly on-device. Screens are ported from the PWA next:
- * Pattern Map → Check-in (tri-log) → Journal → Day sheet → Settings.
+ * Shell: the Pattern Map, live from SQLite. Check-in, journal, day sheet
+ * and settings are ported next — until then a clearly-labelled demo seed
+ * lets the map be judged on a phone with real-looking data.
  */
 export default function App() {
-  const rampSample = [0, 2, 4, 6, 8, 10].map((v) => themes.bloom.ramp[v]);
+  const [entries, setEntries] = useState(() => db.getAll());
+  const refresh = useCallback(() => setEntries(db.getAll()), []);
+
+  const seedDemo = useCallback(() => {
+    const today = new Date();
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      db.putClean(iso(d), { pain: (i * 3) % 11, cap: 5, note: '' });
+    }
+    const spread = new Date(today); spread.setDate(spread.getDate() - 2);
+    db.putClean(iso(spread), {
+      pain: 8, cap: 3, note: '',
+      logs: [{ h: 540, pain: 4, loc: ['neck'] }, { h: 840, pain: 6 }, { h: 1200, pain: 8, loc: ['lowerBack'] }],
+      factors: ['sleep', 'sitting'],
+    });
+    refresh();
+  }, [refresh]);
+
+  const clearAll = useCallback(() => { db.deleteAll(); refresh(); }, [refresh]);
+
+  const empty = Object.keys(entries).length === 0;
+
   return (
     <View style={styles.root}>
       <Text style={styles.wordmark}>Pattern</Text>
-      <View style={styles.center}>
-        <View style={styles.dots}>
-          {rampSample.map((c, i) => (
-            <View key={i} style={[styles.dot, { backgroundColor: c }]} />
-          ))}
-        </View>
-        <Text style={styles.title}>Your days,{'\n'}as colour.</Text>
-        <Text style={styles.body}>
-          Native foundation is up. Map, check-in and journal arrive next.
-        </Text>
+      <MapScreen entries={entries} onDayPress={() => { /* day sheet arrives with the next port step */ }} />
+      <View style={styles.devRow}>
+        {empty ? (
+          <Pressable onPress={seedDemo}><Text style={styles.devLink}>Load demo month (dev)</Text></Pressable>
+        ) : (
+          <Pressable onPress={clearAll}><Text style={styles.devLink}>Clear data (dev)</Text></Pressable>
+        )}
       </View>
-      <Text style={styles.footer}>Everything stays on this phone. No account.</Text>
       <StatusBar style="light" />
     </View>
   );
@@ -33,35 +54,13 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: color.bgRoot,
-    paddingHorizontal: size.pageX,
     paddingTop: 68,
     paddingBottom: 40,
   },
   wordmark: {
-    color: color.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.1,
+    color: color.textPrimary, fontSize: 17, fontWeight: '600',
+    paddingHorizontal: size.pageX, marginBottom: 26,
   },
-  center: { flex: 1, justifyContent: 'center' },
-  dots: { flexDirection: 'row', gap: 6, marginBottom: 22 },
-  dot: { width: 22, height: 22, borderRadius: 11 },
-  title: {
-    color: color.textPrimary,
-    fontSize: 34,
-    fontWeight: '600',
-    letterSpacing: -0.5,
-    lineHeight: 41,
-  },
-  body: {
-    color: color.textSecondary,
-    fontSize: 15,
-    lineHeight: 23,
-    marginTop: 14,
-  },
-  footer: {
-    color: color.textTertiary,
-    fontSize: 12,
-    textAlign: 'center',
-  },
+  devRow: { alignItems: 'center', marginTop: 'auto' },
+  devLink: { color: color.textTertiary, fontSize: 13, padding: 10 },
 });
