@@ -19,15 +19,21 @@ export const color = {
   shieldOk: '#7CC9A6',
 } as const;
 
-/** Colour themes — every ramp keeps the descending-lightness
- *  (colourblind-safe) guarantee. inkAbove = pain level from which
- *  foreground ink flips to light. */
+/** Colour themes — every ramp is a light→dark scale of ONE hue, which keeps
+ *  the descending-lightness (colourblind-safe) guarantee and reads as an
+ *  amount rather than a verdict. The multi-hue "Bloom" ramp was retired on
+ *  2026-08-19; blue carries the app's identity, and #0A84FF — the app icon's
+ *  own rim colour — sits at the neutral middle of the scale.
+ *  inkAbove = the last pain level that still takes dark ink on top. */
 export const themes = {
-  bloom: {
-    nameEn: 'Bloom', nameHe: 'פריחה', inkAbove: 7,
-    ramp: ['#FF9F0A', '#FFD60A', '#FFD60A', '#32D74B', '#32D74B', '#64D2FF', '#0A84FF', '#0A84FF', '#5E5CE6', '#5E5CE6', '#BF5AF2'],
+  blue: {
+    nameEn: 'Blue', nameHe: 'כחול', inkAbove: 5,
+    ramp: ['#91C8FF', '#65B2FF', '#65B2FF', '#369AFF', '#369AFF', '#0A84FF', '#086ACC', '#086ACC', '#06529E', '#06529E', '#053B73'],
   },
 } as const;
+
+/** the scale everything paints with until themes become a setting here */
+export const theme = themes.blue;
 
 export type SlotKey = 'm' | 'd' | 'e';
 

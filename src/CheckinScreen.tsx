@@ -12,7 +12,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import * as db from './db';
-import { CAPWORDS, PAINWORDS, color, radius, size, themes } from './theme';
+import { CAPWORDS, PAINWORDS, color, radius, size, theme } from './theme';
 import {
   FACTORIDS, FACTOR_NAMES, LOCIDS, LOC_NAMES,
   minutesNow, nextEveningStep, todayISO,
@@ -38,7 +38,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const [writtenAt, setWrittenAt] = useState<number | null>(null);
 
   const minutes = now != null ? now : minutesNow();
-  const ramp = themes.bloom.ramp;
+  const ramp = theme.ramp;
   const isChips = step === 'where' || step === 'impact';
 
   const title = step === 'pain' ? 'How intense has your pain\nfelt today?'
@@ -120,7 +120,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             : { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
         ]}
       >
-        <Text style={[styles.chipText, on && { color: pain <= themes.bloom.inkAbove ? '#000000' : '#FFFFFF' }]}>
+        <Text style={[styles.chipText, on && { color: pain <= theme.inkAbove ? '#000000' : '#FFFFFF' }]}>
           {chipNames[id] || id}
         </Text>
       </Pressable>

@@ -6,7 +6,7 @@
  */
 import React, { useMemo } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
-import { color, themes, size } from './theme';
+import { color, theme, size } from './theme';
 import { Entries, Entry, dayLayers, iso, todayISO } from './model';
 
 const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -31,7 +31,7 @@ function cellMetrics() {
  *  gradient — drawn as nested rounded squares, since native has no inset
  *  shadows. Corners stay parallel because each layer keeps the same ratio. */
 function DayFill({ e, cell, radius }: { e: Entry; cell: number; radius: number }) {
-  const layers = dayLayers(e, cell / 2, themes.bloom.ramp);
+  const layers = dayLayers(e, cell / 2, theme.ramp);
   return (
     <View style={{
       width: cell, height: cell, borderRadius: radius,
