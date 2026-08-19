@@ -21,10 +21,14 @@ export interface Slot {
   on: boolean;
 }
 
+/* All off until asked for. A reminder that defaults to on would be scheduled
+   before iOS has ever granted permission — silently dropped, with the user
+   never prompted and never nudged. Turning one on is also what makes the
+   permission question arrive at a moment that explains itself. */
 export const DEFAULT_SLOTS: Slot[] = [
   { key: 'm', hour: 8, minute: 0, on: false },
   { key: 'd', hour: 13, minute: 0, on: false },
-  { key: 'e', hour: 20, minute: 0, on: true },
+  { key: 'e', hour: 20, minute: 0, on: false },
 ];
 
 /* the copy follows the hour it fires in — same voice, different moment.
@@ -53,6 +57,11 @@ export async function ensurePermission(): Promise<boolean> {
   if (!current.canAskAgain) return false;      // denied for good — Settings only
   const asked = await Notifications.requestPermissionsAsync();
   return asked.granted;
+}
+
+/** already granted? — asked on launch, where prompting would be ambush */
+export async function hasPermission(): Promise<boolean> {
+  return (await Notifications.getPermissionsAsync()).granted;
 }
 
 /** replace the phone's queue with exactly the slots that are on */

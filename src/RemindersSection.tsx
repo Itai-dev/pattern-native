@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as db from './db';
-import { DEFAULT_SLOTS, Slot, ensurePermission, fmt, reschedule } from './reminders';
+import { DEFAULT_SLOTS, Slot, ensurePermission, fmt, hasPermission, reschedule } from './reminders';
 import { color, radius, size } from './theme';
 
 const PREF = 'reminders.slots';
@@ -19,8 +19,23 @@ export default function RemindersSection() {
   const [slots, setSlots] = useState<Slot[]>(() => db.getPref<Slot[]>(PREF, DEFAULT_SLOTS));
   const [status, setStatus] = useState('');
 
-  // bring the phone's queue in line with what was saved, once, on mount
-  useEffect(() => { reschedule(slots).catch(() => {}); }, []);
+  /* Bring the phone's queue in line with what was saved, once, on mount —
+     but never prompt here: a permission sheet on launch is an ambush, and
+     scheduling without permission would fail silently. Toggling a slot is
+     what asks, because there the question explains itself. */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!slots.some((s) => s.on)) return;
+      if (!(await hasPermission())) {
+        if (alive) setStatus('Notifications are off for Pattern — turn them on in iPhone Settings.');
+        return;
+      }
+      await reschedule(slots);
+      if (alive) setStatus('On ✓ ' + slots.filter((s) => s.on).map(fmt).join(' · '));
+    })().catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const apply = useCallback(async (next: Slot[]) => {
     setSlots(next);
