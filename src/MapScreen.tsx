@@ -54,7 +54,7 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
         {MONTHS[now.getMonth()]}
       </Text>
       <Text style={styles.legend} allowFontScaling maxFontSizeMultiplier={1.4}>
-        Colour shows each day’s average pain, 0–10. Dots show check-ins.
+        Colour = average pain, 0–10 · dots = check-ins
       </Text>
 
       <View style={[styles.grid, { columnGap: GAP, rowGap: GAP }]}>
@@ -160,11 +160,12 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 
 const styles = StyleSheet.create({
   root: { paddingHorizontal: size.pageX },
+  /* the Map page's own large title — the month is what this screen is */
   title: {
-    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
-    letterSpacing: -0.4, marginBottom: 4,
+    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    letterSpacing: -0.5, marginBottom: 4,
   },
-  legend: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 14 },
+  legend: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   wd: {
     textAlign: 'center', color: color.textSecondary,

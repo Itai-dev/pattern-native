@@ -1,16 +1,16 @@
 /**
- * One screen: today at the top, the activity you want back, the month
- * beneath.
+ * The Today tab: the day so far, the actions, the activity you want back.
+ * The month lives one tab away — act here, reflect there.
  *
  * The hero states TODAY'S AVERAGE across completed check-ins, and says so.
  * It is not "your pain right now" — a single word floating over a colour
  * invited exactly that misreading. Number, label and count are all present,
- * so the value never depends on the colour alone.
+ * so the value never depends on the colour alone. No "Today" caption:
+ * the selected tab already says it.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import DaySquare from './DaySquare';
-import MapScreen from './MapScreen';
 import { Press } from './motion';
 import {
   Entries, FuncEntry, checkinCount, dailyAverage, dateFromISO, funcStatus,
@@ -77,9 +77,6 @@ export default function HomeScreen({
           />
         </Press>
 
-        <Text style={styles.todayLabel} allowFontScaling maxFontSizeMultiplier={1.5}>
-          Today
-        </Text>
         {avg == null ? (
           <Text style={styles.empty} allowFontScaling maxFontSizeMultiplier={1.5}>
             No check-ins yet today
@@ -152,14 +149,16 @@ export default function HomeScreen({
           <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
             {goalText}
           </Text>
-          <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {latest
-              ? 'Weekly ability: ' + latest.ability + '/' + ABILITY_MAX
-              : 'Not rated yet'}
-            {trend
-              ? '  ·  ' + trend.first.ability + ' → ' + trend.last.ability + ' so far'
-              : ''}
-          </Text>
+          {/* one status line is enough — "Not rated yet" next to "Set your
+              starting point" said the same thing twice */}
+          {latest && (
+            <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {'Weekly ability: ' + latest.ability + '/' + ABILITY_MAX}
+              {trend
+                ? '  ·  ' + trend.first.ability + ' → ' + trend.last.ability + ' so far'
+                : ''}
+            </Text>
+          )}
           {status.kind === 'baseline' && (
             <Text style={styles.cardDue} allowFontScaling maxFontSizeMultiplier={1.4}>
               Set your starting point →
@@ -193,28 +192,21 @@ export default function HomeScreen({
         </Press>
       )}
 
-      <View style={styles.mapWrap}>
-        <MapScreen entries={entries} onDayPress={onOpenDay} />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  today: { alignItems: 'center', marginTop: 22 },
-  todayLabel: {
-    color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600',
-    marginTop: 16,
-  },
+  today: { alignItems: 'center', marginTop: 26 },
   /* the main pain value — a large display size, still scaling with
-     Dynamic Type */
+     Dynamic Type. It can breathe now that the month lives on its own tab. */
   avg: {
-    color: color.textPrimary, fontSize: 30, fontWeight: '700',
-    letterSpacing: -0.6, marginTop: 2, textAlign: 'center',
+    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    letterSpacing: -0.7, marginTop: 18, textAlign: 'center',
   },
   count: { color: color.textSecondary, fontSize: font.subheadline, marginTop: 4 },
-  empty: { color: color.textSecondary, fontSize: font.body, marginTop: 4 },
-  actions: { paddingHorizontal: size.pageX, marginTop: 22 },
+  empty: { color: color.textSecondary, fontSize: font.body, marginTop: 18 },
+  actions: { paddingHorizontal: size.pageX, marginTop: 26 },
   primary: {
     minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
@@ -225,7 +217,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12,
   },
-  secondaryText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '500' },
+  secondaryText: { color: color.textPrimary, fontSize: font.body, fontWeight: '500' },
   card: {
     marginHorizontal: size.pageX, marginTop: 14, minHeight: 44,
     borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth,
@@ -239,5 +231,4 @@ const styles = StyleSheet.create({
   cardSub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20, marginTop: 4 },
   cardDue: { color: color.tint, fontSize: font.subheadline, fontWeight: '500', marginTop: 8 },
   cardWait: { color: color.textSecondary, fontSize: font.subheadline, marginTop: 8 },
-  mapWrap: { marginTop: 26 },
 });

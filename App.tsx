@@ -8,6 +8,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import HomeScreen from './src/HomeScreen';
+import MapScreen from './src/MapScreen';
+import TabBar, { Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
 import FunctionSheet from './src/FunctionSheet';
@@ -33,6 +35,7 @@ export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
   const [func, setFunc] = useState(() => db.getFunc());
   const [goalText, setGoalText] = useState(() => db.getGoal());
+  const [tab, setTab] = useState<Tab>('today'); // act first, reflect one tab away
   const [sheet, setSheet] = useState<Sheet>(null);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
@@ -181,9 +184,13 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          {/* one large title per screen: the wordmark leads Today; the
+              month name leads the Map */}
           <View style={styles.topBar}>
-            <Text style={styles.wordmark}>Pattern</Text>
+            {tab === 'today'
+              ? <Text style={styles.wordmark}>Pattern</Text>
+              : <View />}
             <Pressable
               onPress={() => setProfile(true)}
               hitSlop={8}
@@ -197,17 +204,23 @@ export default function App() {
           </View>
 
           <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-            <HomeScreen
-              entries={entries}
-              func={func}
-              goalText={goalText}
-              onLog={() => setSheet('checkin')}
-              onOpenDay={setDaySheet}
-              onEvent={() => setSheet('event')}
-              onFunc={(baseline) => setSheet(baseline ? 'funcBaseline' : 'func')}
-              onSetGoal={editGoal}
-            />
+            {tab === 'today' ? (
+              <HomeScreen
+                entries={entries}
+                func={func}
+                goalText={goalText}
+                onLog={() => setSheet('checkin')}
+                onOpenDay={setDaySheet}
+                onEvent={() => setSheet('event')}
+                onFunc={(baseline) => setSheet(baseline ? 'funcBaseline' : 'func')}
+                onSetGoal={editGoal}
+              />
+            ) : (
+              <MapScreen entries={entries} onDayPress={setDaySheet} />
+            )}
           </ScrollView>
+
+          <TabBar tab={tab} onChange={setTab} />
         </SafeAreaView>
 
         {/* a full-screen flow keeps its own ✕ */}
