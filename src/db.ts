@@ -8,7 +8,8 @@
  */
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import {
-  Entries, Entry, applyMoment, cleanBackup, cleanEntry, removeMoment, syncDayPain,
+  Entries, Entry, EventKind, PainEvent, WeeklyEntry,
+  applyMoment, cleanBackup, cleanEntry, cleanQuality, removeMoment, syncDayPain,
 } from './model';
 
 let db: SQLiteDatabase | null = null;
@@ -23,6 +24,18 @@ function conn(): SQLiteDatabase {
     );
     // preferences live beside the entries — one file to back up, one to delete
     db.execSync('CREATE TABLE IF NOT EXISTS prefs (k TEXT PRIMARY KEY, v TEXT NOT NULL)');
+    // flares, treatments and notable moments — the Character and Tried answers
+    db.execSync(
+      'CREATE TABLE IF NOT EXISTS events (' +
+      'id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, h INTEGER NOT NULL, ' +
+      'kind TEXT NOT NULL, text TEXT NOT NULL DEFAULT "", quality TEXT, helped INTEGER)'
+    );
+    // one row per rated week: PEG + the function-goal ability
+    db.execSync(
+      'CREATE TABLE IF NOT EXISTS weekly (' +
+      'week TEXT PRIMARY KEY, pegPain INTEGER NOT NULL, pegEnjoy INTEGER NOT NULL, ' +
+      'pegActivity INTEGER NOT NULL, goal INTEGER, note TEXT NOT NULL DEFAULT "")'
+    );
   }
   return db;
 }
@@ -122,7 +135,65 @@ export function dropMoment(date: string, h: number): Entry | null {
   return e;
 }
 
-/** import a PWA backup (current or legacy shape); returns days imported */
+/* ── events ─────────────────────────────────────────────────── */
+
+interface EventRow { id: number; date: string; h: number; kind: string; text: string; quality: string | null; helped: number | null }
+
+function rowToEvent(r: EventRow): PainEvent {
+  const ev: PainEvent = { id: r.id, date: r.date, h: r.h, kind: r.kind as EventKind, text: r.text };
+  if (r.quality != null) { try { ev.quality = JSON.parse(r.quality); } catch {} }
+  if (r.helped != null) ev.helped = r.helped;
+  return ev;
+}
+
+export function addEvent(ev: Omit<PainEvent, 'id'>): void {
+  conn().runSync(
+    'INSERT INTO events (date, h, kind, text, quality, helped) VALUES (?, ?, ?, ?, ?, ?)',
+    ev.date, ev.h, ev.kind, ev.text,
+    ev.quality && ev.quality.length ? JSON.stringify(ev.quality) : null,
+    ev.helped != null ? ev.helped : null
+  );
+}
+
+export function getEvents(): PainEvent[] {
+  return conn().getAllSync<EventRow>('SELECT * FROM events ORDER BY date, h').map(rowToEvent);
+}
+
+export function dropEvent(id: number): void {
+  conn().runSync('DELETE FROM events WHERE id = ?', id);
+}
+
+/* ── the week ───────────────────────────────────────────────── */
+
+interface WeekRow { week: string; pegPain: number; pegEnjoy: number; pegActivity: number; goal: number | null; note: string }
+
+export function putWeekly(w: WeeklyEntry): void {
+  conn().runSync(
+    'INSERT OR REPLACE INTO weekly (week, pegPain, pegEnjoy, pegActivity, goal, note) VALUES (?, ?, ?, ?, ?, ?)',
+    w.week, w.pegPain, w.pegEnjoy, w.pegActivity, w.goal != null ? w.goal : null, w.note || ''
+  );
+}
+
+export function getWeekly(): WeeklyEntry[] {
+  return conn().getAllSync<WeekRow>('SELECT * FROM weekly ORDER BY week').map((r) => ({
+    week: r.week, pegPain: r.pegPain, pegEnjoy: r.pegEnjoy, pegActivity: r.pegActivity,
+    goal: r.goal, note: r.note,
+  }));
+}
+
+/* ── the function goal ──────────────────────────────────────── */
+
+export function getGoal(): string | null {
+  return getPref<string | null>('goal.text', null);
+}
+export function setGoal(text: string): void {
+  setPref('goal.text', text.trim() || null);
+}
+
+/* ── backup ─────────────────────────────────────────────────── */
+
+/** import a backup: the web app's v1 (entries only) or native v2 (entries +
+ *  events + weekly + goal). Returns days imported, -1 on unreadable input. */
 export function importBackup(json: string): number {
   let data: unknown;
   try { data = JSON.parse(json); } catch { return -1; }
@@ -131,17 +202,57 @@ export function importBackup(json: string): number {
   const c = conn();
   c.withTransactionSync(() => {
     keys.forEach((k) => put(k, incoming[k]));
+    const d = data as { events?: unknown; weekly?: unknown; goal?: unknown };
+    if (Array.isArray(d.events)) {
+      d.events.forEach((raw) => {
+        const r = raw as Partial<PainEvent>;
+        if (typeof r.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return;
+        if (typeof r.h !== 'number' || r.h < 0 || r.h > 1439) return;
+        if (r.kind !== 'flare' && r.kind !== 'treatment' && r.kind !== 'activity') return;
+        addEvent({
+          date: r.date, h: Math.round(r.h), kind: r.kind,
+          text: typeof r.text === 'string' ? r.text : '',
+          quality: cleanQuality(r.quality),
+          helped: typeof r.helped === 'number' && r.helped >= 0 && r.helped <= 10 ? Math.round(r.helped) : null,
+        });
+      });
+    }
+    if (Array.isArray(d.weekly)) {
+      d.weekly.forEach((raw) => {
+        const r = raw as Partial<WeeklyEntry>;
+        const okNum = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 10;
+        if (typeof r.week !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.week)) return;
+        if (!okNum(r.pegPain) || !okNum(r.pegEnjoy) || !okNum(r.pegActivity)) return;
+        putWeekly({
+          week: r.week,
+          pegPain: Math.round(r.pegPain), pegEnjoy: Math.round(r.pegEnjoy), pegActivity: Math.round(r.pegActivity),
+          goal: okNum(r.goal) ? Math.round(r.goal) : null,
+          note: typeof r.note === 'string' ? r.note : '',
+        });
+      });
+    }
+    if (typeof d.goal === 'string' && d.goal.trim()) setGoal(d.goal);
   });
   return keys.length;
 }
 
-/** export in the exact shape the PWA writes, so restores go both ways */
+/** export everything; version 2 carries events, weekly and the goal, and
+ *  stays a superset of the web app's shape so it can restore there too */
 export function exportBackup(todayIso: string): string {
-  return JSON.stringify({ app: 'pattern', version: 1, exported: todayIso, entries: getAll() }, null, 2);
+  return JSON.stringify({
+    app: 'pattern', version: 2, exported: todayIso,
+    entries: getAll(), events: getEvents(), weekly: getWeekly(), goal: getGoal(),
+  }, null, 2);
 }
 
 export function deleteAll(): void {
-  conn().runSync('DELETE FROM days');
+  const c = conn();
+  c.withTransactionSync(() => {
+    c.runSync('DELETE FROM days');
+    c.runSync('DELETE FROM events');
+    c.runSync('DELETE FROM weekly');
+    c.runSync('DELETE FROM prefs');
+  });
 }
 
 /** dev helper: normalize a single raw entry through the model (used by seeds) */

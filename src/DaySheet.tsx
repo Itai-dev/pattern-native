@@ -31,11 +31,10 @@ export interface DaySheetProps {
   entry: Entry | null;
   onChanged: () => void;
   onAddLog: () => void;
-  onAddCapacity: () => void;
   onClose: () => void;
 }
 
-export default function DaySheet({ dateIso, entry, onChanged, onAddLog, onAddCapacity, onClose }: DaySheetProps) {
+export default function DaySheet({ dateIso, entry, onChanged, onAddLog, onClose }: DaySheetProps) {
   const d = dateFromISO(dateIso);
   const isToday = dateIso === todayISO();
   const logs = logsOf(entry);
@@ -95,16 +94,9 @@ export default function DaySheet({ dateIso, entry, onChanged, onAddLog, onAddCap
         {entry?.note ? <Text style={styles.note}>“{entry.note}”</Text> : null}
 
         {isToday && (
-          <>
-            <Pressable onPress={onAddLog} style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
-              <Text style={styles.primaryText}>Add a log</Text>
-            </Pressable>
-            {entry && entry.cap == null && (
-              <Pressable onPress={onAddCapacity} style={styles.quiet}>
-                <Text style={styles.quietText}>How much could you do today?</Text>
-              </Pressable>
-            )}
-          </>
+          <Pressable onPress={onAddLog} style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
+            <Text style={styles.primaryText}>Add a log</Text>
+          </Pressable>
         )}
       </ScrollView>
 

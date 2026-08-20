@@ -1,34 +1,54 @@
 /**
- * Today — the page that acts. One big square carrying the day so far, the
- * word for it, the times you logged, and a single button. Everything else
- * lives one tab away, on the Pattern.
- *
- * The square is the map's cell magnified, so the gradient you watch build
- * through the day is exactly what the month will remember.
+ * Today — the page that acts. The big square carrying the day so far, one
+ * button to log, and two quiet doorways that appear only when they have
+ * something to offer: the weekly questions when the week is due, and
+ * "Something changed?" for flares and treatments. No stats, no streaks,
+ * no badges.
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import DaySquare from './DaySquare';
+import * as db from './db';
 import { Press } from './motion';
-import { Entries, fmtTime, logsOf, todayISO } from './model';
+import { Entries, WeeklyEntry, fmtTime, logsOf, todayISO, weeklyDue } from './model';
 import { PAINWORDS, color, radius, size } from './theme';
 
 const SQUARE = 128, SQ_RADIUS = 30;
 
 export interface TodayScreenProps {
   entries: Entries;
+  weekly: WeeklyEntry[];
+  goalText: string | null;
   onLog: () => void;
   onOpenDay: (dateIso: string) => void;
+  onEvent: () => void;
+  onWeekly: () => void;
+  onChanged: () => void;
 }
 
-export default function TodayScreen({ entries, onLog, onOpenDay }: TodayScreenProps) {
+export default function TodayScreen({
+  entries, weekly, goalText, onLog, onOpenDay, onEvent, onWeekly, onChanged,
+}: TodayScreenProps) {
   const t = todayISO();
   const e = entries[t] || null;
   const logs = logsOf(e);
+  const showWeekly = weeklyDue(weekly, t);
 
   const caption = e
     ? 'Today is logged. You don’t need to solve it right now.'
     : (Object.keys(entries).length ? 'Tap the square to add today.' : 'Tap the square to begin.');
+
+  const askGoal = () => {
+    // the one activity you want back — named once, rated weekly
+    Alert.prompt(
+      'One activity you want back',
+      'Finish the sentence: “I want to be able to …” — one specific thing pain took. You’ll rate it weekly; it becomes the headline of your doctor summary.',
+      (text) => {
+        if (text && text.trim()) { db.setGoal(text.trim()); onChanged(); }
+      },
+      'plain-text'
+    );
+  };
 
   return (
     <View style={styles.root}>
@@ -45,8 +65,28 @@ export default function TodayScreen({ entries, onLog, onOpenDay }: TodayScreenPr
         <Text style={styles.primaryText}>{e ? 'Add a log' : 'Add today'}</Text>
       </Press>
 
+      <Press onPress={onEvent} style={styles.quiet}>
+        <Text style={styles.quietText}>Something changed? Flare, treatment, unusual day</Text>
+      </Press>
+
+      {showWeekly && (
+        <Press onPress={onWeekly} pressOpacity={0.85} style={styles.card}>
+          <Text style={styles.cardTitle}>Your week, in three questions</Text>
+          <Text style={styles.cardSub}>Under a minute. It becomes the trend your doctor sees.</Text>
+        </Press>
+      )}
+
+      {!goalText && Object.keys(entries).length >= 3 && (
+        <Press onPress={askGoal} pressOpacity={0.85} style={styles.card}>
+          <Text style={styles.cardTitle}>Name one activity you want back</Text>
+          <Text style={styles.cardSub}>
+            Progress will be measured against your life, not just a pain score.
+          </Text>
+        </Press>
+      )}
+
       <View style={styles.privacyRow}>
-        <Text style={styles.privacy}>Stored privately on this device</Text>
+        <Text style={styles.privacy}>Stored privately on this phone</Text>
       </View>
     </View>
   );
@@ -54,7 +94,7 @@ export default function TodayScreen({ entries, onLog, onOpenDay }: TodayScreenPr
 
 const styles = StyleSheet.create({
   root: { paddingHorizontal: size.pageX },
-  centre: { alignItems: 'center', marginTop: 44 },
+  centre: { alignItems: 'center', marginTop: 40 },
   word: {
     color: color.textPrimary, fontSize: 22, fontWeight: '600',
     letterSpacing: -0.3, marginTop: 20,
@@ -66,9 +106,18 @@ const styles = StyleSheet.create({
   times: { color: color.textTertiary, fontSize: 12, marginTop: 8, minHeight: 15 },
   primary: {
     height: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 30,
+    alignItems: 'center', justifyContent: 'center', marginTop: 26,
   },
   primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
-  privacyRow: { alignItems: 'center', marginTop: 26 },
+  quiet: { paddingVertical: 13, alignItems: 'center' },
+  quietText: { color: color.textTertiary, fontSize: 13 },
+  card: {
+    borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.borderDivider, backgroundColor: color.bgSurface,
+    padding: 16, marginTop: 10,
+  },
+  cardTitle: { color: color.textPrimary, fontSize: 15, fontWeight: '600' },
+  cardSub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginTop: 3 },
+  privacyRow: { alignItems: 'center', marginTop: 22 },
   privacy: { color: color.textTertiary, fontSize: 12 },
 });

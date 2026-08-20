@@ -1,54 +1,87 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
 import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import MapScreen from './src/MapScreen';
 import TodayScreen from './src/TodayScreen';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
+import WeeklySheet from './src/WeeklySheet';
+import EventSheet from './src/EventSheet';
+import ReportSheet from './src/ReportSheet';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
-import { configureHandler } from './src/reminders';
+import { configureHandler, cancelAll } from './src/reminders';
 import { todayISO } from './src/model';
 import { color, size } from './src/theme';
 
 configureHandler(); // set once, before anything can be delivered
 
 type Tab = 'today' | 'map';
+type Sheet = null | 'checkin' | 'weekly' | 'event' | 'report';
 
 /**
- * The shell: two pages and a profile, mirroring the web app. Today acts,
- * the Pattern reflects, and the person icon holds everything about the data
- * itself. Sheets are real iOS page sheets — the platform's own grabber and
- * swipe-to-dismiss, which is what the web version spends code imitating.
+ * The shell: two pages and a profile. Today acts, the Pattern reflects,
+ * and Profile holds the data itself — the goal, the reminders, the doctor
+ * summary, backup in and out. Sheets are real iOS page sheets.
  */
 export default function App() {
   const [tab, setTab] = useState<Tab>('today');
   const [entries, setEntries] = useState(() => db.getAll());
-  const [checkin, setCheckin] = useState<null | { step?: 'capacity' }>(null);
+  const [weekly, setWeekly] = useState(() => db.getWeekly());
+  const [goalText, setGoalText] = useState(() => db.getGoal());
+  const [sheet, setSheet] = useState<Sheet>(null);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
 
-  const refresh = useCallback(() => setEntries(db.getAll()), []);
+  const refresh = useCallback(() => {
+    setEntries(db.getAll());
+    setWeekly(db.getWeekly());
+    setGoalText(db.getGoal());
+  }, []);
 
-  const openLog = useCallback(() => setCheckin({}), []);
-  const closeCheckin = useCallback(() => { setCheckin(null); refresh(); }, [refresh]);
+  const closeSheet = useCallback(() => { setSheet(null); refresh(); }, [refresh]);
   const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
 
-  /* deletion is real and confirmed with the platform's own dialog — no demo
-     seeds and no dev shortcuts live on a device that holds real history */
+  const importBackup = useCallback(async () => {
+    // the bridge from the web app: Profile → Save backup file → pick it here
+    const res = await DocumentPicker.getDocumentAsync({ type: 'application/json' }).catch(() => null);
+    if (!res || res.canceled || !res.assets?.length) return;
+    try {
+      const json = await FileSystem.readAsStringAsync(res.assets[0].uri);
+      const n = db.importBackup(json);
+      refresh();
+      Alert.alert(n >= 0 ? 'Restored ' + n + ' days' : 'Couldn’t read that file',
+        n >= 0 ? 'Your history is on this phone now.' : 'It doesn’t look like a Pattern backup.');
+    } catch {
+      Alert.alert('Couldn’t read that file');
+    }
+  }, [refresh]);
+
   const wipe = useCallback(() => {
     Alert.alert(
       'Delete all entries from this phone?',
-      'This permanently removes your map. This cannot be undone.',
+      'This permanently removes your map, events, weeks, goal and reminders. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete all data', style: 'destructive',
-          onPress: () => { db.deleteAll(); refresh(); setProfile(false); },
+          onPress: () => { db.deleteAll(); cancelAll().catch(() => {}); refresh(); setProfile(false); },
         },
       ]
     );
   }, [refresh]);
+
+  const editGoal = useCallback(() => {
+    Alert.prompt(
+      'One activity you want back',
+      'Rated weekly; it becomes the headline of your doctor summary.',
+      (text) => { if (text != null) { db.setGoal(text); refresh(); } },
+      'plain-text',
+      goalText || ''
+    );
+  }, [goalText, refresh]);
 
   return (
     <View style={styles.root}>
@@ -63,7 +96,12 @@ export default function App() {
 
         <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
           {tab === 'today'
-            ? <TodayScreen entries={entries} onLog={openLog} onOpenDay={setDaySheet} />
+            ? <TodayScreen
+                entries={entries} weekly={weekly} goalText={goalText}
+                onLog={() => setSheet('checkin')} onOpenDay={setDaySheet}
+                onEvent={() => setSheet('event')} onWeekly={() => setSheet('weekly')}
+                onChanged={refresh}
+              />
             : <MapScreen entries={entries} onDayPress={setDaySheet} />}
         </ScrollView>
 
@@ -81,8 +119,20 @@ export default function App() {
         </View>
       </SafeAreaView>
 
-      <Modal visible={!!checkin} animationType="fade" presentationStyle="fullScreen">
-        <CheckinScreen initialStep={checkin?.step} onDone={closeCheckin} onClose={closeCheckin} />
+      <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
+        <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
+      </Modal>
+
+      <Modal visible={sheet === 'weekly'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+        <WeeklySheet onDone={closeSheet} />
+      </Modal>
+
+      <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+        <EventSheet onDone={closeSheet} />
+      </Modal>
+
+      <Modal visible={sheet === 'report'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+        <ReportSheet onDone={closeSheet} />
       </Modal>
 
       <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
@@ -91,8 +141,7 @@ export default function App() {
             dateIso={daySheet}
             entry={db.getDay(daySheet)}
             onChanged={refresh}
-            onAddLog={() => { setDaySheet(null); setCheckin({}); }}
-            onAddCapacity={() => { setDaySheet(null); setCheckin({ step: 'capacity' }); }}
+            onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
             onClose={closeDay}
           />
         )}
@@ -102,15 +151,34 @@ export default function App() {
         <View style={styles.sheet}>
           <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
             <Text style={styles.sheetTitle}>Profile</Text>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Data stays on this phone</Text>
-              <Text style={styles.rowValue}>✓</Text>
-            </View>
+
+            <Pressable onPress={() => { setProfile(false); setSheet('report'); }} style={styles.row}>
+              <Text style={styles.rowLabel}>Summary for your doctor</Text>
+              <Text style={styles.rowChevron}>›</Text>
+            </Pressable>
+
+            <Pressable onPress={editGoal} style={styles.row}>
+              <Text style={styles.rowLabel}>Activity I want back</Text>
+              <Text style={styles.rowValue} numberOfLines={1}>{goalText || 'Name one'}</Text>
+            </Pressable>
+
             <View style={styles.row}>
               <Text style={styles.rowLabel}>Days logged</Text>
               <Text style={styles.rowValue}>{Object.keys(entries).length}</Text>
             </View>
+
             <RemindersSection />
+
+            <Text style={styles.groupTitle}>Data</Text>
+            <Pressable onPress={importBackup} style={styles.row}>
+              <Text style={styles.rowLabel}>Import backup</Text>
+              <Text style={styles.rowValue}>From the web app</Text>
+            </Pressable>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Data stays on this phone</Text>
+              <Text style={styles.rowValue}>✓</Text>
+            </View>
+
             <Pressable onPress={wipe} style={styles.deleteRow}>
               <Text style={styles.danger}>Delete all my data</Text>
             </Pressable>
@@ -157,13 +225,18 @@ const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   sheetBody: { padding: size.sheetX, paddingTop: 22 },
   sheetTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600', marginBottom: 8 },
+  groupTitle: {
+    color: color.textTertiary, fontSize: 12, fontWeight: '600',
+    letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 28, marginBottom: 2,
+  },
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    minHeight: size.rowH,
+    minHeight: size.rowH, gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
   rowLabel: { color: color.textPrimary, fontSize: 17 },
-  rowValue: { color: color.textSecondary, fontSize: 15 },
+  rowValue: { color: color.textSecondary, fontSize: 15, flexShrink: 1 },
+  rowChevron: { color: color.textTertiary, fontSize: 20 },
   deleteRow: { marginTop: 34, paddingVertical: 10 },
   danger: { color: color.danger, fontSize: 15 },
   done: { paddingVertical: 16, alignItems: 'center' },

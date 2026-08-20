@@ -1,121 +1,67 @@
 /**
- * The check-in, ported from the PWA with its rules intact:
- *   pain → where → (after 17:00, once a day) capacity → impact
+ * The daily check-in: pain → where. Under ten seconds.
  *
- * The moment is written the instant the pain step ends, so closing anywhere
- * in the chip steps costs taps and never data. Both chip steps are optional —
- * tapping straight through is a complete answer, and an empty impact answer
- * still counts, which is what stops the evening re-ask.
+ * The moment is written the instant the pain step ends, so closing on the
+ * where step costs taps, never data. The where step opens with the most
+ * recent places already selected — chronic pain usually lives in the same
+ * places, so the common case is one confirming tap, not a nightly re-survey.
+ *
+ * The old capacity and impact steps are gone on purpose (2026-08-20): PEG
+ * asks the capacity question better — weekly, validated — and impact context
+ * moved into the flare log, where "what was going on" means something.
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
-import { Press } from './motion';
 import * as db from './db';
-import { CAPWORDS, PAINWORDS, color, radius, size, theme } from './theme';
-import {
-  FACTORIDS, FACTOR_NAMES, LOCIDS, LOC_NAMES,
-  minutesNow, nextEveningStep, todayISO,
-} from './model';
-
-type Step = 'pain' | 'where' | 'capacity' | 'impact';
+import { Press } from './motion';
+import { PAINWORDS, color, radius, size, theme } from './theme';
+import { LOCIDS, LOC_NAMES, defaultLocs, minutesNow, todayISO } from './model';
 
 const SQUARE = 150, SQ_RADIUS = 36;
 
 export interface CheckinScreenProps {
-  /** minutes since midnight; injected so tests and previews can fix the clock */
+  /** minutes since midnight; injectable so previews can fix the clock */
   now?: number;
-  /** open directly on a later step — the day sheet's "add capacity" row */
-  initialStep?: Step;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function CheckinScreen({ now, initialStep, onDone, onClose }: CheckinScreenProps) {
-  const [step, setStep] = useState<Step>(initialStep || 'pain');
+export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenProps) {
+  const [step, setStep] = useState<'pain' | 'where'>('pain');
   const [pain, setPain] = useState(5);
-  const [cap, setCap] = useState(5);
   const [loc, setLoc] = useState<string[]>([]);
-  const [factors, setFactors] = useState<string[]>([]);
   const [writtenAt, setWrittenAt] = useState<number | null>(null);
 
   const minutes = now != null ? now : minutesNow();
   const ramp = theme.ramp;
-  const isChips = step === 'where' || step === 'impact';
-
-  const title = step === 'pain' ? 'How intense has your pain\nfelt today?'
-    : step === 'where' ? 'Where in your body\nwas it?'
-    : step === 'capacity' ? 'And how much\ncould you do today?'
-    : 'What had an impact\non today?';
-
-  /* the evening questions are asked once a day, in order, and only when they
-     are still unanswered — the model decides, not this screen */
-  const advanceEvening = () => {
-    const next = nextEveningStep(db.getDay(todayISO()), minutes);
-    if (next) { setStep(next); return true; }
-    return false;
-  };
 
   const onPainNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     // durable now; the where step edits this same moment in place
-    const h = minutes;
-    db.writeMoment(todayISO(), h, pain);
-    setWrittenAt(h);
+    db.writeMoment(todayISO(), minutes, pain);
+    setWrittenAt(minutes);
+    setLoc(defaultLocs(db.getAll(), todayISO()));
     setStep('where');
   };
 
   const onWhereSave = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (writtenAt != null) db.writeMoment(todayISO(), writtenAt, pain, loc);
-    if (!advanceEvening()) { onDone(); }
-  };
-
-  const onCapNext = (done: boolean) => {
-    db.setCap(todayISO(), cap);
-    if (done) {
-      // "done for today" answers what is left with silence — nothing re-prompts
-      const e = db.getDay(todayISO());
-      if (e && e.factors == null) db.setFactors(todayISO(), []);
-      onDone();
-      return;
-    }
-    if (!advanceEvening()) onDone();
-  };
-
-  const onImpactSave = () => {
-    db.setFactors(todayISO(), factors);
     onDone();
   };
 
-  const chipIds = step === 'where' ? LOCIDS : FACTORIDS;
-  const chipNames = step === 'where' ? LOC_NAMES : FACTOR_NAMES;
-  const chosen = step === 'where' ? loc : factors;
-  const setChosen = step === 'where' ? setLoc : setFactors;
-
-  const swatchColor = ramp[step === 'capacity' ? (db.getDay(todayISO())?.pain ?? pain) : pain];
-  const word = step === 'capacity' ? CAPWORDS[cap] : PAINWORDS[pain];
-
-  const primaryLabel = step === 'pain' ? 'Continue'
-    : step === 'where' ? 'Save today'
-    : step === 'capacity' ? 'Continue'
-    : 'Continue';
-
-  const onPrimary = step === 'pain' ? onPainNext
-    : step === 'where' ? onWhereSave
-    : step === 'capacity' ? () => onCapNext(false)
-    : onImpactSave;
-
-  const chips = useMemo(() => chipIds.map((id) => {
-    const on = chosen.indexOf(id) >= 0;
+  const chips = useMemo(() => LOCIDS.map((id) => {
+    const on = loc.indexOf(id) >= 0;
     return (
-      <Pressable
+      <Press
         key={id}
         onPress={() => {
           Haptics.selectionAsync().catch(() => {});
-          setChosen(on ? chosen.filter((x) => x !== id) : chosen.concat(id));
+          setLoc(on ? loc.filter((x) => x !== id) : loc.concat(id));
         }}
+        pressOpacity={0.8}
         style={[
           styles.chip,
           on
@@ -124,67 +70,62 @@ export default function CheckinScreen({ now, initialStep, onDone, onClose }: Che
         ]}
       >
         <Text style={[styles.chipText, on && { color: pain <= theme.inkAbove ? '#000000' : '#FFFFFF' }]}>
-          {chipNames[id] || id}
+          {LOC_NAMES[id] || id}
         </Text>
-      </Pressable>
+      </Press>
     );
-  }), [chipIds, chipNames, chosen, pain, ramp, setChosen]);
+  }), [loc, pain, ramp]);
 
   return (
     <View style={styles.root}>
       <View style={styles.topBar}>
-        <Pressable onPress={onClose} style={styles.close} hitSlop={10}>
+        <Press onPress={onClose} style={styles.close} hitSlop={10}>
           <Text style={styles.closeGlyph}>✕</Text>
-        </Pressable>
+        </Press>
       </View>
 
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title}>
+        {step === 'pain' ? 'How intense has your pain\nfelt today?' : 'Where in your body\nwas it?'}
+      </Text>
 
-      {isChips ? (
+      {step === 'pain' ? (
+        <View style={styles.middle}>
+          <View style={[styles.square, { backgroundColor: ramp[pain] }]} />
+          <Text style={styles.word}>{PAINWORDS[pain]}</Text>
+        </View>
+      ) : (
         <>
-          <Text style={styles.hint}>Optional — tap all that apply</Text>
+          <Text style={styles.hint}>Your usual places are pre-selected — adjust if today differs</Text>
           <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
             {chips}
           </ScrollView>
         </>
-      ) : (
-        <View style={styles.middle}>
-          <View style={[styles.square, { backgroundColor: swatchColor }]} />
-          <Text style={styles.word}>{word}</Text>
-        </View>
       )}
 
       <View style={styles.bottom}>
-        {!isChips && (
+        {step === 'pain' && (
           <>
-            <Slider
-              value={step === 'capacity' ? cap : pain}
-              onChange={step === 'capacity' ? setCap : setPain}
-            />
+            <Slider value={pain} onChange={setPain} />
             <View style={styles.ends}>
-              <Text style={styles.endText}>{step === 'capacity' ? CAPWORDS[0] : PAINWORDS[0]}</Text>
-              <Text style={styles.endText}>{step === 'capacity' ? CAPWORDS[10] : PAINWORDS[10]}</Text>
+              <Text style={styles.endText}>{PAINWORDS[0]}</Text>
+              <Text style={styles.endText}>{PAINWORDS[10]}</Text>
             </View>
           </>
         )}
-        <Press onPress={onPrimary} pressScale={0.985} style={styles.primary}>
-          <Text style={styles.primaryText}>{primaryLabel}</Text>
+        <Press
+          onPress={step === 'pain' ? onPainNext : onWhereSave}
+          pressScale={0.985}
+          style={styles.primary}
+        >
+          <Text style={styles.primaryText}>{step === 'pain' ? 'Continue' : 'Save today'}</Text>
         </Press>
-        {step === 'capacity' && (
-          <Pressable onPress={() => onCapNext(true)} style={styles.quiet}>
-            <Text style={styles.quietText}>Done for today</Text>
-          </Pressable>
-        )}
         {step === 'pain' && pain >= 7 && (
-          <Pressable
-            onPress={() => {
-              db.writeMoment(todayISO(), minutes, pain);
-              onDone();
-            }}
+          <Press
+            onPress={() => { db.writeMoment(todayISO(), minutes, pain); onDone(); }}
             style={styles.quiet}
           >
             <Text style={styles.quietText}>A hard day? Save and close — this is enough.</Text>
-          </Pressable>
+          </Press>
         )}
       </View>
     </View>
