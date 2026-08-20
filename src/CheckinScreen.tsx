@@ -16,8 +16,8 @@
  * Apple's insight, kept: the shape is analogue while the label is discrete,
  * and every step edits the same already-durable moment in place.
  */
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -54,6 +54,35 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
 
   const minutes = now != null ? now : minutesNow();
   const ramp = theme.ramp;
+  const [showAllChips, setShowAllChips] = useState(false);
+
+  /* chips in personal order: what you actually pick floats to the front,
+     and the rest waits behind "Show more" — a wall of fourteen options is
+     a form, five of your usual ones is a question */
+  const ranked = useMemo(() => {
+    const locCount: Record<string, number> = {};
+    const qCount: Record<string, number> = {};
+    const all = db.getAll();
+    Object.keys(all).forEach((k) => (all[k].logs || []).forEach((l) => {
+      (l.loc || []).forEach((id) => { locCount[id] = (locCount[id] || 0) + 1; });
+      (l.q || []).forEach((id) => { qCount[id] = (qCount[id] || 0) + 1; });
+    }));
+    const rank = (ids: string[], counts: Record<string, number>) =>
+      ids.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+    return { loc: rank(LOCIDS, locCount), q: rank(QUALITYIDS, qCount) };
+  }, []);
+
+  /* the logged screen acknowledges and leaves — no button tax on every log */
+  useEffect(() => {
+    if (step !== 'done') return;
+    const t = setTimeout(onDone, 1600);
+    return () => clearTimeout(t);
+  }, [step, onDone]);
+
+  const back = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setStep(step === 'where' ? 'feel' : 'pain');
+  };
 
   const advance = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -101,7 +130,10 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     const e = db.getDay(todayISO());
     const count = e && e.logs ? e.logs.length : 1;
     return (
-      <View style={[styles.root, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}>
+      <Pressable
+        onPress={onDone}
+        style={[styles.root, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}
+      >
         <View style={styles.middle}>
           <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS} />
           <Text style={styles.doneTitle}>Logged</Text>
@@ -111,12 +143,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
               : 'Today is on the map. You don’t need to solve it right now.'}
           </Text>
         </View>
-        <View style={styles.bottom}>
-          <Press onPress={onDone} pressScale={0.985} style={styles.primary}>
-            <Text style={styles.primaryText}>Done</Text>
-          </Press>
-        </View>
-      </View>
+      </Pressable>
     );
   }
 
@@ -128,9 +155,23 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     : step === 'where' ? 'Your usual places are already selected'
     : null;
 
+  /* collapsed chips: the six you use most, plus anything already selected;
+     "Show more" reveals the rest */
+  const visibleIds = (ids: string[], chosen: string[]) => {
+    if (showAllChips) return ids;
+    const head = ids.slice(0, 6);
+    chosen.forEach((id) => { if (head.indexOf(id) < 0) head.push(id); });
+    return head;
+  };
+
   return (
     <View style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}>
       <View style={styles.topBar}>
+        {step !== 'pain' ? (
+          <Press onPress={back} style={styles.close} hitSlop={12}>
+            <Text style={styles.closeGlyph}>‹</Text>
+          </Press>
+        ) : <View style={styles.close2} />}
         <Press onPress={onClose} style={styles.close} hitSlop={12}>
           <Text style={styles.closeGlyph}>✕</Text>
         </Press>
@@ -147,8 +188,13 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       ) : (
         <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
           {step === 'feel'
-            ? chipRow(QUALITYIDS, QUALITY_NAMES, quality, setQuality)
-            : chipRow(LOCIDS, LOC_NAMES, loc, setLoc)}
+            ? chipRow(visibleIds(ranked.q, quality), QUALITY_NAMES, quality, setQuality)
+            : chipRow(visibleIds(ranked.loc, loc), LOC_NAMES, loc, setLoc)}
+          {!showAllChips && (
+            <Press onPress={() => setShowAllChips(true)} style={styles.more} pressOpacity={0.7}>
+              <Text style={styles.moreText}>Show more ›</Text>
+            </Press>
+          )}
         </ScrollView>
       )}
 
@@ -172,11 +218,14 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bgRoot, paddingHorizontal: 28 },
-  topBar: { flexDirection: 'row', justifyContent: 'flex-end' },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between' },
   close: {
     width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: color.borderDivider,
     alignItems: 'center', justifyContent: 'center',
   },
+  close2: { width: 40, height: 40 },
+  more: { paddingVertical: 12, paddingHorizontal: 8, alignSelf: 'center' },
+  moreText: { color: color.textTertiary, fontSize: 14 },
   closeGlyph: { color: color.textSecondary, fontSize: 15, lineHeight: 18 },
   title: {
     color: color.textPrimary, fontSize: 20, fontWeight: '600', letterSpacing: -0.25,
