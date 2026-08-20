@@ -172,6 +172,28 @@ export default function ReportSheet({ onDone }: { onDone: () => void }) {
               Days without check-ins stay blank — nothing is filled in for you.
             </Text>
 
+            {data.timeOfDay.length > 0 && (
+              <>
+                <Text style={styles.section}>Time of day</Text>
+                {data.timeOfDay.map((b) => (
+                  <View key={b.key} style={styles.locRow}>
+                    <View style={styles.bandMain}>
+                      <Text style={styles.bodyText}>{b.label}</Text>
+                      <Text style={styles.bandRange}>{b.range}</Text>
+                    </View>
+                    <Text style={styles.locDays}>
+                      {formatScore(b.avg)}/10 · {b.checkins}
+                    </Text>
+                  </View>
+                ))}
+                <Text style={styles.noteLine}>
+                  Average of the check-ins recorded in each part of the day, with
+                  how many check-ins that average came from. It reflects when you
+                  checked in — not a claim about when pain is worst.
+                </Text>
+              </>
+            )}
+
             {!!data.goalText && (
               <>
                 <Text style={styles.section}>Function</Text>
@@ -292,6 +314,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
   locDays: { color: color.textSecondary, fontSize: font.subheadline, fontVariant: ['tabular-nums'] },
+  bandMain: { flexShrink: 1, gap: 1 },
+  bandRange: { color: color.textTertiary, fontSize: font.footnote, fontVariant: ['tabular-nums'] },
   primary: {
     minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,

@@ -370,6 +370,66 @@ ok('segments stay in day order', (() => {
 ok('an unbroken record is one segment',
   report.chartSegments(report.buildReportData({ entries: mk(10), ...base }).days).length === 1);
 
+/* ── time of day ───────────────────────────────────────────── */
+group('time of day');
+ok('midnight is night', report.bandOf(0) === 'night');
+ok('04:59 is still night', report.bandOf(4 * 60 + 59) === 'night');
+ok('05:00 starts the morning', report.bandOf(5 * 60) === 'morning');
+ok('11:59 is still morning', report.bandOf(11 * 60 + 59) === 'morning');
+ok('12:00 starts the afternoon', report.bandOf(12 * 60) === 'afternoon');
+ok('16:59 is still afternoon', report.bandOf(16 * 60 + 59) === 'afternoon');
+ok('17:00 starts the evening', report.bandOf(17 * 60) === 'evening');
+ok('21:59 is still evening', report.bandOf(21 * 60 + 59) === 'evening');
+ok('22:00 starts the night', report.bandOf(22 * 60) === 'night');
+ok('the last minute of the day is night', report.bandOf(1439) === 'night');
+ok('every minute of the day lands in exactly one band', (() => {
+  const KEYS = ['morning', 'afternoon', 'evening', 'night'];
+  for (let h = 0; h <= 1439; h++) if (KEYS.indexOf(report.bandOf(h)) < 0) return false;
+  return true;
+})());
+
+/* the twenty-day fixture logs at 09:00 and 20:40 every day */
+ok('bands are aggregated from real check-in times',
+  twenty.timeOfDay.length === 2, twenty.timeOfDay);
+ok('bands come out in day order',
+  twenty.timeOfDay[0].key === 'morning' && twenty.timeOfDay[1].key === 'evening');
+ok('each band counts its own check-ins',
+  twenty.timeOfDay[0].checkins === 20 && twenty.timeOfDay[1].checkins === 20);
+ok('each band counts the days behind it',
+  twenty.timeOfDay[0].days === 20 && twenty.timeOfDay[1].days === 20);
+ok('band averages differ from the daily average when the times differ',
+  twenty.timeOfDay[0].avg !== twenty.timeOfDay[1].avg, twenty.timeOfDay);
+ok('the morning band averages its own check-ins only', (() => {
+  const mornings = Object.values(mk(20)).map((e) => e.logs[0].pain);
+  const want = Math.round((mornings.reduce((s, v) => s + v, 0) / mornings.length) * 10) / 10;
+  return twenty.timeOfDay[0].avg === want;
+})(), twenty.timeOfDay[0]);
+ok('empty parts of the day are omitted, never shown as zero',
+  twenty.timeOfDay.every((b) => b.checkins > 0) &&
+  twenty.timeOfDay.every((b) => b.key !== 'afternoon' && b.key !== 'night'));
+ok('a night check-in lands in the night band', (() => {
+  const e = { '2026-08-20': day([{ h: 23 * 60 + 30, pain: 8 }]) };
+  const b = report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 8, count: 1 }]);
+  return b.length === 1 && b[0].key === 'night' && b[0].avg === 8;
+})());
+ok('an early-hours check-in lands in the night band, not the morning', (() => {
+  const e = { '2026-08-20': day([{ h: 3 * 60, pain: 6 }]) };
+  return report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 6, count: 1 }])[0].key === 'night';
+})());
+ok('legacy days with no timestamps contribute to no band', (() => {
+  const e = { '2026-08-20': { pain: 7, cap: null, note: '' } };
+  return report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 7, count: 1 }]).length === 0;
+})());
+ok('many check-ins from one day still count as one day', (() => {
+  const e = { '2026-08-20': day([{ h: 6 * 60, pain: 4 }, { h: 7 * 60, pain: 6 }, { h: 8 * 60, pain: 8 }]) };
+  const b = report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 6, count: 3 }]);
+  return b[0].checkins === 3 && b[0].days === 1 && b[0].avg === 6;
+})());
+ok('a limited record shows no time-of-day breakdown at all',
+  two.timeOfDay.length === 0, two.timeOfDay);
+ok('a gapped record still reports the bands it has',
+  gapped.timeOfDay.length === 2 && gapped.timeOfDay[0].days === gapped.days.length);
+
 /* ── the PDF document ──────────────────────────────────────── */
 group('report HTML');
 const html20 = report.reportHtml(twenty);
@@ -404,6 +464,17 @@ ok('treatment effect labelled as patient-reported', /patient-reported effect 7\/
 ok('no causal claims', /No causal relationship with pain is implied/.test(html20) &&
   !/caus(ed|es) your/i.test(html20));
 ok('sections avoid page breaks inside (multi-page safe)', /page-break-inside:avoid/.test(html20));
+ok('time-of-day section present with its bands',
+  html20.indexOf('Time of day') > 0 && html20.indexOf('05:00–11:59') > 0 &&
+  html20.indexOf('17:00–21:59') > 0);
+ok('each band prints its check-in count beside its average',
+  /<th>Check-ins<\/th><th>Days<\/th>/.test(html20));
+ok('the sampling caveat is stated, and no "worse in the mornings" claim',
+  /not a claim about when pain is worst/.test(html20) &&
+  !/worse in the (morning|evening)/i.test(html20));
+ok('the section says how many timestamped check-ins it rests on',
+  /Based on 40 timestamped check-ins/.test(html20));
+ok('two days: no time-of-day section at all', html2.indexOf('Time of day') < 0);
 ok('goal text is HTML-escaped', (() => {
   const sneaky = report.buildReportData({
     entries: mk(3), ...base, goalText: '<script>alert(1)</script>',

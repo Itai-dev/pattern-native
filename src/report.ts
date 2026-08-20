@@ -45,6 +45,11 @@ export interface ReportData {
   /** only present with fourteen or more logged days */
   halves: { first: number; second: number } | null;
   days: ReportDay[]; // logged days only, ascending
+  /** parts of the day that hold check-ins. EMPTY on a limited record:
+   *  under seven logged days there is not enough to compare parts of a
+   *  day against each other, and gating it here means the preview and
+   *  the PDF can never disagree about that. */
+  timeOfDay: TimeBand[];
   goalText: string | null;
   func: FuncEntry[]; // ascending by week
   latestAbility: FuncEntry | null;
@@ -117,6 +122,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
 
   const sortedFunc = func.slice().sort((a, b) => (a.week < b.week ? -1 : 1));
   const trend = funcTrend(func);
+  const limited = days.length < 7;
 
   return {
     rangeStart: days[0].date,
@@ -124,12 +130,13 @@ export function buildReportData(inp: ReportInput): ReportData | null {
     exportDate: todayIso,
     loggedDays: days.length,
     totalCheckins: days.reduce((s, d) => s + d.count, 0),
-    limited: days.length < 7,
+    limited,
     avg: avgOf(avgs),
     lowestDay: Math.min.apply(null, avgs),
     highestDay: Math.max.apply(null, avgs),
     halves,
     days,
+    timeOfDay: limited ? [] : timeOfDayBands(entries, days),
     goalText,
     func: sortedFunc,
     latestAbility: sortedFunc.length ? sortedFunc[sortedFunc.length - 1] : null,
@@ -145,6 +152,75 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       .slice()
       .sort((a, b) => (a.date === b.date ? a.h - b.h : a.date < b.date ? -1 : 1)),
   };
+}
+
+/* ── time of day ─────────────────────────────────────────────
+   Timing is one of the standard questions a clinician asks, and every
+   check-in already carries the minute it was recorded — so the report can
+   answer it instead of throwing that away into the daily average.
+
+   What it reports is DESCRIPTIVE only: the average of the check-ins
+   recorded in each part of the day, always beside the number of check-ins
+   behind it, so a band resting on four answers can never read like one
+   resting on forty. It is not a claim about when pain is worst — when a
+   check-in happens is itself a choice, and with reminders on it is a
+   schedule.
+
+   Days with no timestamped moments (legacy and backfilled records) carry
+   no time at all and are left out rather than guessed at. */
+
+export type TimeBandKey = 'morning' | 'afternoon' | 'evening' | 'night';
+
+export interface TimeBand {
+  key: TimeBandKey;
+  label: string;
+  range: string;
+  avg: number;
+  checkins: number;
+  /** how many distinct days contributed — a band can hold many check-ins
+   *  from very few days */
+  days: number;
+}
+
+const BANDS: { key: TimeBandKey; label: string; range: string }[] = [
+  { key: 'morning', label: 'Morning', range: '05:00–11:59' },
+  { key: 'afternoon', label: 'Afternoon', range: '12:00–16:59' },
+  { key: 'evening', label: 'Evening', range: '17:00–21:59' },
+  { key: 'night', label: 'Night', range: '22:00–04:59' },
+];
+
+/** which part of the day a minute-of-day belongs to. Night wraps midnight:
+ *  pain that wakes you belongs with pain at 23:00, not with the morning. */
+export function bandOf(h: number): TimeBandKey {
+  if (h >= 5 * 60 && h < 12 * 60) return 'morning';
+  if (h >= 12 * 60 && h < 17 * 60) return 'afternoon';
+  if (h >= 17 * 60 && h < 22 * 60) return 'evening';
+  return 'night';
+}
+
+/** the bands that actually hold check-ins, in day order. Bands with
+ *  nothing recorded are omitted rather than shown as a zero. */
+export function timeOfDayBands(entries: Entries, days: ReportDay[]): TimeBand[] {
+  const acc: Record<string, { sum: number; n: number; days: Record<string, true> }> = {};
+  days.forEach((d) => {
+    logsOf(entries[d.date]).forEach((l) => {
+      const k = bandOf(l.h);
+      const a = acc[k] || (acc[k] = { sum: 0, n: 0, days: {} });
+      a.sum += l.pain;
+      a.n += 1;
+      a.days[d.date] = true;
+    });
+  });
+  return BANDS
+    .filter((b) => acc[b.key] && acc[b.key].n > 0)
+    .map((b) => ({
+      key: b.key,
+      label: b.label,
+      range: b.range,
+      avg: round1(acc[b.key].sum / acc[b.key].n),
+      checkins: acc[b.key].n,
+      days: Object.keys(acc[b.key].days).length,
+    }));
 }
 
 /* ── the chart ───────────────────────────────────────────────
@@ -340,6 +416,29 @@ export function reportHtml(data: ReportData): string {
       : '') +
     '</div>');
   s.push('</section>');
+
+  // ── time of day ──
+  if (data.timeOfDay.length) {
+    const timed = data.timeOfDay.reduce((s, b) => s + b.checkins, 0);
+    s.push('<section><h2>Time of day</h2>');
+    s.push('<div class="note">Average of the check-ins recorded in each part of the day, ' +
+      'shown with the number of check-ins behind it. This reflects when check-ins were made ' +
+      '— including any reminder times — and is not a claim about when pain is worst.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>Part of day</th><th>Average pain</th>' +
+      '<th>Check-ins</th><th>Days</th></tr>');
+    data.timeOfDay.forEach((b) => {
+      s.push('<tr><td>' + esc(b.label) + ' <span class="note num">' + esc(b.range) + '</span></td>' +
+        '<td class="num"><span class="bar" style="width:' + Math.round(b.avg * 8) + 'px"></span>' +
+        formatScore(b.avg) + '/10</td>' +
+        '<td class="num">' + b.checkins + '</td>' +
+        '<td class="num">' + b.days + '</td></tr>');
+    });
+    s.push('</table>');
+    s.push('<div class="note num" style="margin-top:6px">Based on ' + timed +
+      ' timestamped check-in' + (timed === 1 ? '' : 's') +
+      '. Parts of the day with nothing recorded are not listed.</div>');
+    s.push('</section>');
+  }
 
   // ── function over time ──
   if (data.goalText) {
