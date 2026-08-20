@@ -86,7 +86,7 @@ export default function RemindersSection() {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>Daily reminders</Text>
+      {/* the group's header names the section — in here only the status */}
       <Text style={styles.sub}>
         {status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere.'}
       </Text>
@@ -143,9 +143,8 @@ export default function RemindersSection() {
 }
 
 const styles = StyleSheet.create({
-  root: { marginTop: 28 },
-  title: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
-  sub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  root: {},
+  sub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginBottom: 4 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 10 },
   left: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   box: {

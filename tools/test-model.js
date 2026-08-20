@@ -100,13 +100,13 @@ ok('a decimal sits between its neighbours in luminance', (() => {
 })());
 ok('out-of-range clamps to the anchors',
   scale.painColor(-2) === scale.painColor(0) && scale.painColor(14) === scale.painColor(10));
-ok('the whole-step ramp has eleven colours', scale.PAIN_RAMP.length === 11);
+ok('the whole-step ramp has eleven colours', scale.painRamp().length === 11);
 
 /* ── calendar readability: ink for every pain value ────────── */
 group('ink and contrast');
 ok('ink follows real luminance at every value', (() => {
   for (let i = 0; i <= 10; i++) {
-    const expected = scale.luminanceOf(scale.painColor(i)) > 0.45 ? '#000000' : '#FFFFFF';
+    const expected = scale.luminanceOf(scale.painColor(i)) > 0.179 ? '#000000' : '#FFFFFF';
     if (scale.inkOn(i) !== expected) return false;
   }
   return true;
@@ -497,6 +497,67 @@ const htmlGap = report.reportHtml(gapped);
 ok('gapped chart draws separate lines, none across the hole',
   (htmlGap.match(/<polyline/g) || []).length === 2, (htmlGap.match(/<polyline/g) || []).length);
 ok('every logged day gets a point', (htmlGap.match(/<circle/g) || []).length === gapped.days.length);
+
+/* ── colour themes ─────────────────────────────────────────── */
+group('colour themes');
+const themeMod = require(path.join(OUT, 'theme.js'));
+ok('four themes exist and blue is first/default', (() => {
+  const ids = themeMod.PAIN_THEMES.map((x) => x.id);
+  return ids.length === 4 && ids[0] === 'blue' && themeMod.DEFAULT_PAIN_THEME === 'blue';
+})(), themeMod.PAIN_THEMES.map((x) => x.id));
+ok('the default theme is blue', scale.getPainTheme() === 'blue');
+ok('blue keeps the documented anchors', (() =>
+  scale.painColor(0) === '#070C16' && scale.painColor(5) === '#0A84FF' && scale.painColor(10) === '#EAF6FF'
+)(), [scale.painColor(0), scale.painColor(5), scale.painColor(10)]);
+ok('every theme rises monotonically in luminance 0→10', (() => {
+  for (const th of themeMod.PAIN_THEMES) {
+    let prev = -1;
+    for (let i = 0; i <= 10; i++) {
+      const L = scale.luminanceOf(scale.painColor(i, th.id));
+      if (L <= prev) return false;
+      prev = L;
+    }
+  }
+  return true;
+})());
+ok('no theme reaches pure white or pure black', (() =>
+  themeMod.PAIN_THEMES.every((th) =>
+    scale.painColor(10, th.id) !== '#FFFFFF' && scale.painColor(0, th.id) !== '#000000')
+)());
+ok('switching the theme changes the colour but not the words', (() => {
+  const before = scale.painColor(5);
+  const labelBefore = scale.painLabel(5);
+  scale.setPainTheme('violet');
+  const changed = scale.painColor(5) !== before && scale.painColor(5) === '#A455F0';
+  const sameWords = scale.painLabel(5) === labelBefore && scale.formatOutOf(5) === '5/10';
+  const brand = scale.themeBrand() === '#BF5AF2';
+  scale.setPainTheme('blue');
+  return changed && sameWords && brand;
+})());
+ok('an unknown theme id is ignored, never a crash', (() => {
+  scale.setPainTheme('neon-argyle');
+  return scale.getPainTheme() === 'blue' && scale.painColor(5) === '#0A84FF';
+})());
+ok('the animated ramp follows the active theme', (() => {
+  scale.setPainTheme('mint');
+  const r = scale.painRamp();
+  const okRamp = r.length === 11 && r[5] === '#2AC0B0';
+  scale.setPainTheme('blue');
+  return okRamp && scale.painRamp()[5] === '#0A84FF';
+})());
+ok('ink stays legible on every theme at every value', (() => {
+  for (const th of themeMod.PAIN_THEMES) {
+    for (let i = 0; i <= 10; i++) {
+      const bg = scale.painColor(i, th.id);
+      const ink = scale.inkForBg(bg);
+      const lum = scale.luminanceOf(bg);
+      const inkLum = ink === '#000000' ? 0 : 1;
+      const contrast = (Math.max(lum, inkLum) + 0.05) / (Math.min(lum, inkLum) + 0.05);
+      if (contrast < 4.5) return false;
+    }
+  }
+  return true;
+})());
 
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

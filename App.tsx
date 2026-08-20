@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './src/HomeScreen';
 import MapScreen from './src/MapScreen';
 import TabBar, { Tab } from './src/TabBar';
@@ -16,25 +17,50 @@ import FunctionSheet from './src/FunctionSheet';
 import EventSheet from './src/EventSheet';
 import GoalSheet from './src/GoalSheet';
 import ReportSheet from './src/ReportSheet';
+import AppearanceSheet from './src/AppearanceSheet';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
 import { PainEvent, ValidBackup, todayISO } from './src/model';
-import { color, font, size } from './src/theme';
+import { getPainTheme, setPainTheme } from './src/painScale';
+import {
+  DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
+} from './src/theme';
 
 configureHandler(); // set once, before anything can be delivered
+/* the chosen hue is part of the app's identity — restore it before the
+   first frame ever renders */
+setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
 type Sheet = null | 'checkin' | 'func' | 'funcBaseline' | 'event' | 'report' | 'goal';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** "Wednesday 20 August" — the day is the screen's subject, so the day is
+ *  the title */
+function todayTitle(): string {
+  const d = new Date();
+  return WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+}
+
+/** an iOS-Settings icon: a white glyph in a coloured rounded square */
+function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: string }) {
+  return (
+    <View style={[styles.rowIcon, { backgroundColor: bg }]}>
+      <Ionicons name={name} size={17} color="#FFFFFF" />
+    </View>
+  );
+}
 
 /**
- * Two tabs and a profile. The top bar carries the screen's large title —
- * the wordmark on Today, the month name on the Map — so both tabs share
- * one hierarchy. Sheets are real iOS page sheets, each with a native
- * control in its own navigation bar — the check-in keeps its ✕ because
- * it is a full-screen flow, everything else says Done or Close.
+ * Two tabs under a floating glass bar, and a profile built like the iOS
+ * Settings app. The top bar carries the screen's large title — today's
+ * date on Today, the month name on the Map — so both tabs share one
+ * hierarchy. Sheets are real iOS page sheets, each with a native control
+ * in its own navigation bar — the check-in keeps its ✕ because it is a
+ * full-screen flow, everything else says Done or Close.
  */
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
@@ -44,6 +70,9 @@ export default function App() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
+  const [appearance, setAppearance] = useState(false);
+  /* bumping this repaints every pain colour in the app after a theme pick */
+  const [, setThemeTick] = useState(0);
   /* an event being edited, and the day sheet to return to afterwards */
   const [editEvent, setEditEvent] = useState<PainEvent | null>(null);
   const [returnDay, setReturnDay] = useState<string | null>(null);
@@ -74,6 +103,12 @@ export default function App() {
     setEditEvent(ev);
     setSheet('event');
   }, [daySheet]);
+
+  const pickTheme = useCallback((id: PainThemeId) => {
+    setPainTheme(id);
+    db.setPref('theme.pain', id);
+    setThemeTick((v) => v + 1);
+  }, []);
 
   /* Restore: the file is fully validated BEFORE anything is touched, then
      the user chooses what the restore means — replace or merge. */
@@ -172,6 +207,7 @@ export default function App() {
                   onPress: () => {
                     db.deleteAll();
                     cancelAll().catch(() => {});
+                    setPainTheme(DEFAULT_PAIN_THEME);
                     refresh();
                     setProfile(false);
                   },
@@ -185,34 +221,29 @@ export default function App() {
   }, [refresh]);
 
   const dayCount = Object.keys(entries).length;
+  const themeName = (PAIN_THEMES.find((t) => t.id === getPainTheme()) || PAIN_THEMES[0]).name;
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <SafeAreaView style={styles.safe} edges={['top']}>
-          {/* one large title per screen, always in the same place */}
+          {/* one large title per screen, always in the same place — the
+              date on Today, the month on the Map */}
           <View style={styles.topBar}>
             <Text
               style={styles.wordmark}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? 'Pattern' : MONTHS[new Date().getMonth()]}
+              {tab === 'today' ? todayTitle() : MONTHS[new Date().getMonth()]}
             </Text>
-            <Pressable
-              onPress={() => setProfile(true)}
-              hitSlop={8}
-              style={styles.person}
-              accessibilityRole="button"
-              accessibilityLabel="Profile and settings"
-            >
-              <View style={styles.personHead} />
-              <View style={styles.personBody} />
-            </Pressable>
           </View>
 
-          {/* keyed per tab so each place starts at its own top */}
+          {/* keyed per tab so each place starts at its own top; the page
+              scrolls on under the floating glass bar */}
           <ScrollView key={tab} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
             {tab === 'today' ? (
               <HomeScreen
@@ -230,7 +261,7 @@ export default function App() {
             )}
           </ScrollView>
 
-          <TabBar tab={tab} onChange={setTab} />
+          <TabBar tab={tab} onChange={setTab} onProfile={() => setProfile(true)} />
         </SafeAreaView>
 
         {/* a full-screen flow keeps its own ✕ */}
@@ -278,6 +309,8 @@ export default function App() {
           )}
         </Modal>
 
+        {/* the profile — grouped like the iOS Settings app: inset cards,
+            uniform rows, a coloured icon leading each one */}
         <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProfile(false)}>
           <View style={styles.sheet}>
             <View style={styles.navBar}>
@@ -295,80 +328,118 @@ export default function App() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
-              <Pressable
-                onPress={() => { setProfile(false); setSheet('report'); }}
-                style={styles.row}
-                accessibilityRole="button"
-                accessibilityLabel={'Summary for your doctor, based on ' + dayCount + ' logged days'}
-              >
-                <View style={styles.rowMain}>
-                  <Text style={styles.rowLabel}>Summary for your doctor</Text>
-                  <Text style={styles.rowSub}>
-                    Based on {dayCount} logged {dayCount === 1 ? 'day' : 'days'}
-                  </Text>
-                </View>
-                <Text style={styles.rowChevron}>›</Text>
-              </Pressable>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => { setProfile(false); setSheet('report'); }}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Summary for your doctor, based on ' + dayCount + ' logged days'}
+                >
+                  <RowIcon name="document-text" bg="#0A84FF" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Summary for your doctor</Text>
+                    <Text style={styles.rowValue}>
+                      {dayCount} {dayCount === 1 ? 'day' : 'days'}
+                    </Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
 
-              <Pressable
-                onPress={editGoal}
-                style={styles.row}
-                accessibilityRole="button"
-                accessibilityLabel={'Activity I want back' + (goalText ? ': ' + goalText : ', not set')}
-              >
-                <View style={styles.rowMain}>
-                  <Text style={styles.rowLabel}>Activity I want back</Text>
-                  <Text style={styles.rowSub} numberOfLines={1}>
-                    {goalText || 'Not set'}
-                  </Text>
-                </View>
-                <Text style={styles.rowChevron}>›</Text>
-              </Pressable>
+                <Pressable
+                  onPress={editGoal}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Activity I want back' + (goalText ? ': ' + goalText : ', not set')}
+                >
+                  <RowIcon name="walk" bg="#30D158" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Activity I want back</Text>
+                    <Text style={styles.rowValue} numberOfLines={1}>
+                      {goalText || 'Not set'}
+                    </Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
 
-              <RemindersSection />
+              <Text style={styles.groupTitle}>Reminders</Text>
+              <View style={[styles.group, styles.groupPad]}>
+                <RemindersSection />
+              </View>
+
+              <Text style={styles.groupTitle}>Appearance</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => setAppearance(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Colour theme, ' + themeName}
+                >
+                  <RowIcon name="color-palette" bg="#BF5AF2" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Colour theme</Text>
+                    <Text style={styles.rowValue}>{themeName}</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
 
               <Text style={styles.groupTitle}>Your data</Text>
-              {/* a fact, not a row — nothing here to tap */}
-              <Text style={styles.privacyNote}>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={exportBackup}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Export backup"
+                >
+                  <RowIcon name="arrow-up" bg="#64D2FF" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Export backup</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  onPress={restoreBackup}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Restore backup"
+                >
+                  <RowIcon name="arrow-down" bg="#FF9F0A" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Restore backup</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+              {/* a fact, not a row — iOS puts it under the group */}
+              <Text style={styles.groupFooter}>
                 Stored only on this iPhone. Your health data stays here unless
-                you choose to export or restore a backup.
+                you choose to export or restore a backup. Restoring lets you
+                replace or merge — you decide before anything changes.
               </Text>
 
-              <Pressable
-                onPress={exportBackup}
-                style={styles.row}
-                accessibilityRole="button"
-                accessibilityLabel="Export backup"
-              >
-                <View style={styles.rowMain}>
-                  <Text style={styles.rowLabel}>Export backup</Text>
-                  <Text style={styles.rowSub}>A JSON file you can keep or move to another device</Text>
-                </View>
-                <Text style={styles.rowChevron}>›</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={restoreBackup}
-                style={styles.row}
-                accessibilityRole="button"
-                accessibilityLabel="Restore backup"
-              >
-                <View style={styles.rowMain}>
-                  <Text style={styles.rowLabel}>Restore backup</Text>
-                  <Text style={styles.rowSub}>Choose a file, then replace or merge — you decide before anything changes</Text>
-                </View>
-                <Text style={styles.rowChevron}>›</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={wipe}
-                style={styles.deleteRow}
-                accessibilityRole="button"
-                accessibilityLabel="Delete all my data"
-              >
-                <Text style={styles.danger}>Delete all my data</Text>
-              </Pressable>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={wipe}
+                  style={[styles.row, styles.rowCentre]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete all my data"
+                >
+                  <Text style={styles.danger}>Delete all my data</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.groupFooter}>
+                Removes every check-in, event and weekly rating from this
+                iPhone. There is no copy anywhere else.
+              </Text>
             </ScrollView>
+
+            {/* the theme picker, pushed on top the way Settings pushes a
+                detail page — Done falls back here */}
+            <Modal visible={appearance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAppearance(false)}>
+              <AppearanceSheet onPick={pickTheme} onDone={() => setAppearance(false)} />
+            </Modal>
           </View>
         </Modal>
 
@@ -386,17 +457,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: size.pageX, paddingTop: 4,
   },
   /* the main screen's title — iOS large-title weight and size */
-  wordmark: { color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700', letterSpacing: -0.5 },
-  person: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  personHead: {
-    width: 8, height: 8, borderRadius: 4, borderWidth: 1.4,
-    borderColor: color.textSecondary, marginBottom: 1,
+  wordmark: {
+    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    letterSpacing: -0.5, flex: 1,
   },
-  personBody: {
-    width: 16, height: 8, borderTopLeftRadius: 8, borderTopRightRadius: 8,
-    borderWidth: 1.4, borderBottomWidth: 0, borderColor: color.textSecondary,
-  },
-  page: { paddingBottom: 40 },
+  /* room at the bottom so the last content clears the floating bar */
+  page: { paddingBottom: 132 },
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -407,24 +473,43 @@ const styles = StyleSheet.create({
   navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
   navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
-  sheetBody: { padding: size.sheetX, paddingTop: 14, paddingBottom: 40 },
+  sheetBody: { padding: 20, paddingTop: 18, paddingBottom: 40 },
+
+  /* ── iOS Settings grammar: inset groups, uniform rows, coloured icons ── */
+  group: {
+    borderRadius: 12, backgroundColor: color.bgSegmentTrack,
+    overflow: 'hidden', marginBottom: 22,
+  },
+  groupPad: { paddingHorizontal: 16, paddingVertical: 12 },
   groupTitle: {
     color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
-    marginTop: 30, marginBottom: 6,
+    textTransform: 'uppercase', letterSpacing: 0.3,
+    marginBottom: 7, marginLeft: 16,
   },
-  privacyNote: {
-    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18,
-    paddingBottom: 8,
+  groupFooter: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
+    marginTop: -14, marginBottom: 22, marginHorizontal: 16,
   },
   row: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    minHeight: 56, gap: 12, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    minHeight: 48, paddingLeft: 16,
+  },
+  rowCentre: { justifyContent: 'center', paddingLeft: 0 },
+  rowIcon: {
+    width: 29, height: 29, borderRadius: 6.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  /* the divider is inset past the icon, exactly as Settings draws it */
+  rowMain: {
+    flex: 1, paddingRight: 14, minHeight: 48,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+  },
+  rowLine: {
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
-  rowMain: { flex: 1, gap: 2 },
-  rowLabel: { color: color.textPrimary, fontSize: font.body },
-  rowSub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20 },
-  rowChevron: { color: color.textTertiary, fontSize: 20 },
-  deleteRow: { marginTop: 34, minHeight: 44, justifyContent: 'center' },
+  rowLineLast: { borderBottomWidth: 0 },
+  rowLabel: { color: color.textPrimary, fontSize: font.body, flex: 1 },
+  rowValue: { color: color.textSecondary, fontSize: font.body, maxWidth: 140 },
+  rowChevron: { color: color.textTertiary, fontSize: 20, marginTop: -2 },
   danger: { color: color.danger, fontSize: font.body },
 });

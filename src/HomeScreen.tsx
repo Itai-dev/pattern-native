@@ -13,11 +13,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import DaySquare from './DaySquare';
 import { Press } from './motion';
 import {
-  Entries, FuncEntry, checkinCount, dailyAverage, dateFromISO, funcStatus,
-  funcTrend, latestFunc, todayISO,
+  Entries, FuncEntry, QUALITY_NAMES, checkinCount, dailyAverage, dateFromISO,
+  fmtTime, funcStatus, funcTrend, latestFunc, todayISO,
 } from './model';
 import {
-  ABILITY_MAX, formatCheckins, formatScoreAndLabel, speakScore,
+  ABILITY_MAX, formatCheckins, formatScore, formatScoreAndLabel, inkOn,
+  painColor, painLabel, speakScore,
 } from './painScale';
 import { color, font, radius, size } from './theme';
 
@@ -52,6 +53,10 @@ export default function HomeScreen({
   const latest = latestFunc(func);
   const trend = funcTrend(func);
   const status = funcStatus(func, t, !!goalText);
+
+  /* today's check-ins, newest first — the most recent one is "the current
+     log", the rest are the day so far */
+  const logs = (e && e.logs ? e.logs.slice() : []).sort((a, b) => b.h - a.h);
 
   return (
     <View>
@@ -120,6 +125,52 @@ export default function HomeScreen({
           </Text>
         </Press>
       </View>
+
+      {/* what was actually logged today: each check-in with its time, its
+          score, and how it felt — the day's record, not just its average */}
+      {logs.length > 0 && (
+        <View style={styles.logsCard}>
+          <Text style={styles.logsKicker}>Today’s check-ins</Text>
+          {logs.map((l, i) => {
+            const q = (l.q || []).map((id) => QUALITY_NAMES[id] || id).join(', ');
+            return (
+              <Press
+                key={l.h + '-' + i}
+                onPress={() => onOpenDay(t)}
+                pressOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={fmtTime(l.h) + ', pain ' + speakScore(l.pain) +
+                  (q ? ', ' + q : '')}
+                accessibilityHint="Opens today’s detail"
+                style={[styles.logRow, i > 0 && styles.logRowDivider]}
+              >
+                <View style={[styles.logSquare, { backgroundColor: painColor(l.pain) }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.logScore, { color: inkOn(l.pain) }]}
+                  >
+                    {formatScore(l.pain)}
+                  </Text>
+                </View>
+                <View style={styles.logMain}>
+                  <Text style={styles.logLabel} allowFontScaling maxFontSizeMultiplier={1.4}>
+                    {painLabel(l.pain)}
+                  </Text>
+                  {!!q && (
+                    <Text style={styles.logQuality} numberOfLines={1}
+                      allowFontScaling maxFontSizeMultiplier={1.4}>
+                      {q}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.logTime} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {fmtTime(l.h)}
+                </Text>
+              </Press>
+            );
+          })}
+        </View>
+      )}
 
       {/* the activity you want back — the outcome the app is actually for.
           Three states: no starting point yet → set it; rated within the
@@ -231,4 +282,26 @@ const styles = StyleSheet.create({
   cardSub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20, marginTop: 4 },
   cardDue: { color: color.tint, fontSize: font.subheadline, fontWeight: '500', marginTop: 8 },
   cardWait: { color: color.textSecondary, fontSize: font.subheadline, marginTop: 8 },
+  logsCard: {
+    marginHorizontal: size.pageX, marginTop: 14,
+    borderRadius: radius.card, backgroundColor: color.bgSurface,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
+    paddingHorizontal: 16, paddingVertical: 12,
+  },
+  logsKicker: {
+    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    marginBottom: 4,
+  },
+  logRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54 },
+  logRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
+  logSquare: {
+    width: 34, height: 34, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+  },
+  logScore: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  logMain: { flex: 1, gap: 1 },
+  logLabel: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
+  logQuality: { color: color.textSecondary, fontSize: font.footnote },
+  logTime: { color: color.textSecondary, fontSize: font.subheadline, fontVariant: ['tabular-nums'] },
 });

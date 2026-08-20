@@ -16,7 +16,7 @@
  *   domain, and `SCALE_VERSION` is written into backups so a future
  *   reader can tell which label set the numbers were captured under.
  */
-import { RAMP_ANCHORS } from './theme';
+import { DEFAULT_PAIN_THEME, PAIN_THEMES, PainTheme, PainThemeId } from './theme';
 
 export const SCALE_VERSION = 3;
 export const PAIN_MIN = 0;
@@ -84,21 +84,47 @@ function mixHexColor(a: string, b: string, t: number): string {
     .join('').toUpperCase();
 }
 
-/** the ramp colour for any score 0–10, decimals included */
-export function painColor(v: number): string {
-  const x = Math.max(PAIN_MIN, Math.min(PAIN_MAX, v));
-  for (let i = 1; i < RAMP_ANCHORS.length; i++) {
-    const [v0, c0] = RAMP_ANCHORS[i - 1];
-    const [v1, c1] = RAMP_ANCHORS[i];
-    if (x <= v1) return mixHexColor(c0, c1, (x - v0) / (v1 - v0));
-  }
-  return RAMP_ANCHORS[RAMP_ANCHORS.length - 1][1];
+/* ── the active theme ────────────────────────────────────────
+   The hue is a preference; the scale is not. Switching themes swaps the
+   anchor colours and nothing else — every label, number and rule above
+   stays identical, so a violet 7 and a blue 7 are the same fact. */
+
+let active: PainTheme = PAIN_THEMES.find((t) => t.id === DEFAULT_PAIN_THEME)!;
+
+/** set the active pain palette; an unknown id is ignored, never a crash */
+export function setPainTheme(id: unknown): void {
+  const t = PAIN_THEMES.find((x) => x.id === id);
+  if (t) active = t;
 }
 
-/** the eleven whole-step colours — for animated interpolation that needs
- *  a fixed stop list (the check-in shape) */
-export const PAIN_RAMP: readonly string[] =
-  Array.from({ length: PAIN_MAX + 1 }, (_, i) => painColor(i));
+export function getPainTheme(): PainThemeId {
+  return active.id;
+}
+
+/** the active theme's saturated accent — today's ring, tinted highlights */
+export function themeBrand(): string {
+  return active.brand;
+}
+
+/** the ramp colour for any score 0–10, decimals included */
+export function painColor(v: number, theme?: PainThemeId): string {
+  const anchors = theme
+    ? (PAIN_THEMES.find((t) => t.id === theme) || active).anchors
+    : active.anchors;
+  const x = Math.max(PAIN_MIN, Math.min(PAIN_MAX, v));
+  for (let i = 1; i < anchors.length; i++) {
+    const [v0, c0] = anchors[i - 1];
+    const [v1, c1] = anchors[i];
+    if (x <= v1) return mixHexColor(c0, c1, (x - v0) / (v1 - v0));
+  }
+  return anchors[anchors.length - 1][1];
+}
+
+/** the eleven whole-step colours of the ACTIVE theme — for animated
+ *  interpolation that needs a fixed stop list (the check-in shape) */
+export function painRamp(): string[] {
+  return Array.from({ length: PAIN_MAX + 1 }, (_, i) => painColor(i));
+}
 
 /** relative luminance of a hex colour, 0–1 (WCAG formula) */
 export function luminanceOf(hex: string): number {
@@ -110,9 +136,12 @@ export function luminanceOf(hex: string): number {
   return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
 }
 
-/** ink that stays legible on a given background, chosen by real luminance */
+/** Ink that stays legible on a given background, chosen by real luminance.
+ *  The crossover is 0.179 — the point where black and white give equal
+ *  WCAG contrast — so whichever ink is chosen always reaches at least
+ *  4.5:1 on ANY background, in any theme. */
 export function inkForBg(hex: string): string {
-  return luminanceOf(hex) > 0.45 ? '#000000' : '#FFFFFF';
+  return luminanceOf(hex) > 0.179 ? '#000000' : '#FFFFFF';
 }
 
 /** the legible foreground for a pain colour — light on the dark low end,

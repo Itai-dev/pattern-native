@@ -28,7 +28,8 @@ import * as db from './db';
 import { Press } from './motion';
 import { color, font, radius, size } from './theme';
 import {
-  PAIN_END_HIGH, PAIN_END_LOW, formatOutOf, inkOn, painColor, painLabel, speakScore,
+  PAIN_END_HIGH, PAIN_END_LOW, formatOutOf, inkForBg, inkOn, painColor,
+  painLabel, speakScore, themeBrand,
 } from './painScale';
 import {
   LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
@@ -192,6 +193,8 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             <Text style={styles.closeGlyph}>‹</Text>
           </Press>
         ) : <View style={styles.close2} />}
+        {/* the flow's name sits between the controls, the reference's way */}
+        <Text style={styles.navTitle} allowFontScaling={false}>Check-In</Text>
         <Press onPress={onClose} style={styles.close} hitSlop={12}>
           <Text style={styles.closeGlyph}>✕</Text>
         </Press>
@@ -255,8 +258,8 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
                 : { min: 0, max: 10, now: pain, text: speakScore(pain) }}
             />
             <View style={styles.ends}>
-              <Text style={styles.endText}>{PAIN_END_LOW}</Text>
-              <Text style={styles.endText}>{PAIN_END_HIGH}</Text>
+              <Text style={styles.endText}>{PAIN_END_LOW.toUpperCase()}</Text>
+              <Text style={styles.endText}>{PAIN_END_HIGH.toUpperCase()}</Text>
             </View>
           </>
         )}
@@ -267,9 +270,17 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           accessibilityRole="button"
           accessibilityState={{ disabled: !canAdvance }}
           accessibilityHint={canAdvance ? undefined : 'Choose a pain level first'}
-          style={[styles.primary, !canAdvance && styles.primaryOff]}
+          style={[
+            styles.primary,
+            /* the reference fills its Next button with its accent; ours is
+               the theme's own hue, ink chosen by real luminance */
+            canAdvance ? { backgroundColor: themeBrand() } : styles.primaryOff,
+          ]}
         >
-          <Text style={[styles.primaryText, !canAdvance && styles.primaryTextOff]}>
+          <Text style={[
+            styles.primaryText,
+            canAdvance ? { color: inkForBg(themeBrand()) } : styles.primaryTextOff,
+          ]}>
             {step === 'where' ? 'Save today' : 'Continue'}
           </Text>
         </Press>
@@ -280,7 +291,8 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bgRoot, paddingHorizontal: 28 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between' },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   close: {
     width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: color.borderDivider,
     alignItems: 'center', justifyContent: 'center',
@@ -330,10 +342,14 @@ const styles = StyleSheet.create({
   chipText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
   bottom: { flexShrink: 0 },
   ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 2 },
-  endText: { color: color.textTertiary, fontSize: font.footnote },
+  /* CAPS at the ends of the slider, exactly as the reference sets them */
+  endText: {
+    color: color.textTertiary, fontSize: 11, fontWeight: '600', letterSpacing: 0.6,
+  },
+  /* a full pill, the reference's button shape */
   primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    minHeight: size.buttonH, borderRadius: size.buttonH / 2,
     alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,
   },
-  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
+  primaryText: { fontSize: font.title3, fontWeight: '600' },
 });

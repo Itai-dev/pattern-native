@@ -23,18 +23,74 @@ export const color = {
   brand: '#0A84FF',
 } as const;
 
-/** The pain colour scale is a single brightness ramp of the brand hue:
- *  0 sits in blue-black darkness and 10 is an icy near-white — pain rises
- *  as luminosity, an amount rather than a verdict. Pure white is reserved
- *  for controls and selection, so 10 stops at #EAF6FF.
- *  Anchors are interpolated smoothly in painScale.painColor. */
-export const RAMP_ANCHORS: ReadonlyArray<readonly [number, string]> = [
-  [0, '#070C16'],   // very dark blue-black
-  [2, '#152C52'],   // muted navy
-  [5, '#0A84FF'],   // saturated Pattern blue
-  [8, '#5FBEFF'],   // luminous sky
-  [10, '#EAF6FF'],  // icy near-white — never pure white
+/** The pain colour scale is a single brightness ramp of one hue:
+ *  0 sits in near-black darkness and 10 is a luminous near-white — pain
+ *  rises as luminosity, an amount rather than a verdict. Pure white is
+ *  reserved for controls and selection, so 10 always stops short of it.
+ *  Anchors are interpolated smoothly in painScale.painColor.
+ *
+ *  The HUE is the user's choice. Every theme keeps the same brightness
+ *  story — anchors are channel-monotone, so luminance rises strictly from
+ *  0 to 10 in every palette and the meaning of "brighter = more" never
+ *  changes when the colour does. */
+export type PainThemeId = 'blue' | 'violet' | 'rose' | 'mint';
+
+export interface PainTheme {
+  id: PainThemeId;
+  name: string;
+  /** the theme's saturated middle — today's ring, tinted accents */
+  brand: string;
+  anchors: ReadonlyArray<readonly [number, string]>;
+}
+
+export const PAIN_THEMES: readonly PainTheme[] = [
+  {
+    id: 'blue', name: 'Pattern Blue', brand: '#0A84FF',
+    anchors: [
+      [0, '#070C16'],   // very dark blue-black
+      [2, '#152C52'],   // muted navy
+      [5, '#0A84FF'],   // saturated Pattern blue
+      [8, '#5FBEFF'],   // luminous sky
+      [10, '#EAF6FF'],  // icy near-white — never pure white
+    ],
+  },
+  {
+    id: 'violet', name: 'Violet', brand: '#BF5AF2',
+    anchors: [
+      [0, '#0E0714'],
+      [2, '#2E1650'],
+      [5, '#A455F0'],
+      [8, '#CDA0FF'],
+      [10, '#F3EAFF'],
+    ],
+  },
+  {
+    id: 'rose', name: 'Rose', brand: '#FF375F',
+    anchors: [
+      [0, '#14070B'],
+      [2, '#4A1430'],
+      [5, '#F0447A'],
+      [8, '#FC96B4'],
+      [10, '#FFEAF4'],
+    ],
+  },
+  {
+    id: 'mint', name: 'Mint', brand: '#2AC0B0',
+    anchors: [
+      [0, '#071412'],
+      [2, '#124A44'],
+      [5, '#2AC0B0'],
+      [8, '#8FE0D6'],
+      [10, '#EAFBF8'],
+    ],
+  },
 ] as const;
+
+export const DEFAULT_PAIN_THEME: PainThemeId = 'blue';
+
+/** the default (blue) anchors — kept as a named export because the scale's
+ *  documented contract is defined against them */
+export const RAMP_ANCHORS = PAIN_THEMES[0].anchors;
 
 /** semantic type scale — iOS text styles by name, in points. The system
  *  font (SF Pro on iOS) is the default family; Dynamic Type comes from

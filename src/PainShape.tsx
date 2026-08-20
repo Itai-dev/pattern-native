@@ -16,7 +16,7 @@ import Animated, {
   SharedValue, interpolate, interpolateColor, useAnimatedStyle,
   useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
-import { PAIN_RAMP } from './painScale';
+import { painRamp } from './painScale';
 import { reduceMotion } from './motion';
 
 const STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -28,7 +28,7 @@ export interface PainShapeProps {
 }
 
 export default function PainShape({ progress, size }: PainShapeProps) {
-  const ramp = PAIN_RAMP as string[];
+  const ramp = painRamp();
   const breath = useSharedValue(0);
 
   useEffect(() => {
