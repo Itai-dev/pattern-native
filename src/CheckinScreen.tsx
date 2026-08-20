@@ -1,28 +1,40 @@
 /**
- * The daily check-in: pain → where → logged. Under ten seconds.
+ * The check-in, in State of Mind's cadence: one question per screen, a
+ * living shape under the finger, and chips you tap through rather than
+ * forms you fill.
  *
- * The moment is written the instant the pain step ends, so closing on the
- * where step costs taps, never data. The where step opens with the most
- * recent places already selected — chronic pain lives in the same places,
- * so the common case is one confirming tap, not a nightly re-survey.
+ *   1. How intense?      — slider; the shape moves with the finger, the
+ *                          word snaps. The moment is WRITTEN when this
+ *                          step ends, so nothing later can lose it.
+ *   2. How does it feel? — quality words (SOCRATES "Character", the answer
+ *                          every clinician asks for). Optional; Continue
+ *                          with nothing selected is a complete answer.
+ *   3. Where?            — body places, the most recent ones pre-selected
+ *                          so the common case is one confirming tap.
+ *   4. Logged.           — the day you just made, then out on one tap.
  *
- * The old "a hard day? save and close" escape hatch is gone (2026-08-20).
- * It existed to let someone skip four steps; there are now two. Worse, it
- * appeared and vanished as the slider crossed 7, moving the primary button
- * under a finger already travelling toward it.
+ * Apple's insight, kept: the shape is analogue while the label is discrete,
+ * and every step edits the same already-durable moment in place.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
+import PainShape from './PainShape';
 import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press } from './motion';
 import { PAINWORDS, color, radius, size, theme } from './theme';
-import { LOCIDS, LOC_NAMES, defaultLocs, fmtTime, minutesNow, todayISO } from './model';
+import {
+  LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
+  defaultLocs, fmtTime, minutesNow, todayISO,
+} from './model';
 
 const SQUARE = 150, SQ_RADIUS = 36;
+
+type Step = 'pain' | 'feel' | 'where' | 'done';
 
 export interface CheckinScreenProps {
   /** minutes since midnight; injectable so previews can fix the clock */
@@ -33,56 +45,58 @@ export interface CheckinScreenProps {
 
 export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<'pain' | 'where' | 'done'>('pain');
+  const [step, setStep] = useState<Step>('pain');
   const [pain, setPain] = useState(5);
+  const [quality, setQuality] = useState<string[]>([]);
   const [loc, setLoc] = useState<string[]>([]);
   const [writtenAt, setWrittenAt] = useState<number | null>(null);
+  const progress = useSharedValue(5);
 
   const minutes = now != null ? now : minutesNow();
   const ramp = theme.ramp;
 
-  const onPainNext = () => {
+  const advance = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    db.writeMoment(todayISO(), minutes, pain);   // durable before the chips
-    setWrittenAt(minutes);
-    setLoc(defaultLocs(db.getAll(), todayISO()));
-    setStep('where');
+    if (step === 'pain') {
+      db.writeMoment(todayISO(), minutes, pain);        // durable before the chips
+      setWrittenAt(minutes);
+      setStep('feel');
+    } else if (step === 'feel') {
+      if (writtenAt != null) db.writeMoment(todayISO(), writtenAt, pain, null, quality);
+      setLoc(defaultLocs(db.getAll(), todayISO()));
+      setStep('where');
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (writtenAt != null) db.writeMoment(todayISO(), writtenAt, pain, loc, quality);
+      setStep('done');
+    }
   };
 
-  const onWhereSave = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    if (writtenAt != null) db.writeMoment(todayISO(), writtenAt, pain, loc);
-    setStep('done');
-  };
+  const chipRow = (ids: string[], names: Record<string, string>, chosen: string[], setChosen: (v: string[]) => void) =>
+    ids.map((id) => {
+      const on = chosen.indexOf(id) >= 0;
+      return (
+        <Press
+          key={id}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            setChosen(on ? chosen.filter((x) => x !== id) : chosen.concat(id));
+          }}
+          pressOpacity={0.8}
+          style={[
+            styles.chip,
+            on
+              ? { backgroundColor: ramp[pain], borderColor: 'transparent' }
+              : { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
+          ]}
+        >
+          <Text style={[styles.chipText, on && { color: pain <= theme.inkAbove ? '#000000' : '#FFFFFF' }]}>
+            {names[id] || id}
+          </Text>
+        </Press>
+      );
+    });
 
-  const chips = useMemo(() => LOCIDS.map((id) => {
-    const on = loc.indexOf(id) >= 0;
-    return (
-      <Press
-        key={id}
-        onPress={() => {
-          Haptics.selectionAsync().catch(() => {});
-          setLoc(on ? loc.filter((x) => x !== id) : loc.concat(id));
-        }}
-        pressOpacity={0.8}
-        style={[
-          styles.chip,
-          on
-            ? { backgroundColor: ramp[pain], borderColor: 'transparent' }
-            : { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
-        ]}
-      >
-        <Text style={[styles.chipText, on && { color: pain <= theme.inkAbove ? '#000000' : '#FFFFFF' }]}>
-          {LOC_NAMES[id] || id}
-        </Text>
-      </Press>
-    );
-  }), [loc, pain, ramp]);
-
-  /* ── the logged screen: the day, as it now stands ──
-     A save that just closes leaves you wondering whether it worked. This
-     shows the thing you made — today's square, with this moment in it — and
-     gets out of the way on one tap. */
   if (step === 'done') {
     const e = db.getDay(todayISO());
     const count = e && e.logs ? e.logs.length : 1;
@@ -106,6 +120,14 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     );
   }
 
+  const title = step === 'pain' ? 'How intense has your pain\nfelt today?'
+    : step === 'feel' ? 'How does it feel?'
+    : 'Where in your body?';
+
+  const hint = step === 'feel' ? 'Optional — tap any that fit'
+    : step === 'where' ? 'Your usual places are already selected'
+    : null;
+
   return (
     <View style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}>
       <View style={styles.topBar}>
@@ -114,40 +136,34 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         </Press>
       </View>
 
-      <Text style={styles.title}>
-        {step === 'pain' ? 'How intense has your pain\nfelt today?' : 'Where in your body\nwas it?'}
-      </Text>
+      <Text style={styles.title}>{title}</Text>
+      {hint && <Text style={styles.hint}>{hint}</Text>}
 
       {step === 'pain' ? (
         <View style={styles.middle}>
-          <View style={[styles.square, { backgroundColor: ramp[pain] }]} />
+          <PainShape progress={progress} size={SQUARE} />
           <Text style={styles.word}>{PAINWORDS[pain]}</Text>
         </View>
       ) : (
-        <>
-          <Text style={styles.hint}>Your usual places are already selected</Text>
-          <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
-            {chips}
-          </ScrollView>
-        </>
+        <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
+          {step === 'feel'
+            ? chipRow(QUALITYIDS, QUALITY_NAMES, quality, setQuality)
+            : chipRow(LOCIDS, LOC_NAMES, loc, setLoc)}
+        </ScrollView>
       )}
 
       <View style={styles.bottom}>
         {step === 'pain' && (
           <>
-            <Slider value={pain} onChange={setPain} />
+            <Slider value={pain} onChange={setPain} progress={progress} />
             <View style={styles.ends}>
               <Text style={styles.endText}>{PAINWORDS[0]}</Text>
               <Text style={styles.endText}>{PAINWORDS[10]}</Text>
             </View>
           </>
         )}
-        <Press
-          onPress={step === 'pain' ? onPainNext : onWhereSave}
-          pressScale={0.985}
-          style={styles.primary}
-        >
-          <Text style={styles.primaryText}>{step === 'pain' ? 'Continue' : 'Save today'}</Text>
+        <Press onPress={advance} pressScale={0.985} style={styles.primary}>
+          <Text style={styles.primaryText}>{step === 'where' ? 'Save today' : 'Continue'}</Text>
         </Press>
       </View>
     </View>
@@ -166,9 +182,8 @@ const styles = StyleSheet.create({
     color: color.textPrimary, fontSize: 20, fontWeight: '600', letterSpacing: -0.25,
     lineHeight: 27, textAlign: 'center', marginTop: 14,
   },
-  hint: { color: color.textTertiary, fontSize: 13, textAlign: 'center', marginTop: 10 },
+  hint: { color: color.textTertiary, fontSize: 13, textAlign: 'center', marginTop: 8 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  square: { width: SQUARE, height: SQUARE, borderRadius: SQ_RADIUS },
   word: {
     color: color.textPrimary, fontSize: 22, fontWeight: '600',
     letterSpacing: -0.3, marginTop: 30, textAlign: 'center',
@@ -183,7 +198,7 @@ const styles = StyleSheet.create({
   },
   chipWrap: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
-    justifyContent: 'center', paddingVertical: 20,
+    justifyContent: 'center', paddingVertical: 24,
   },
   chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderWidth: 1 },
   chipText: { color: '#D0D0D6', fontSize: 15, fontWeight: '500' },

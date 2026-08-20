@@ -18,6 +18,8 @@ export interface Moment {
   h: number;
   pain: number;
   loc?: string[];
+  /** pain-quality words — the SOCRATES "Character" answer, per moment */
+  q?: string[];
 }
 
 export interface Entry {
@@ -85,16 +87,18 @@ const LEGACYSLOT: Record<string, number> = { m: 9 * 60, d: 14 * 60, e: 20 * 60 }
 export function cleanLogs(l: unknown): Moment[] | undefined {
   if (!l || typeof l !== 'object') return undefined;
   const out: Moment[] = [];
-  const push = (h: unknown, pain: unknown, loc?: unknown) => {
+  const push = (h: unknown, pain: unknown, loc?: unknown, q?: unknown) => {
     if (typeof pain !== 'number' || pain < 0 || pain > 10) return;
     if (typeof h !== 'number' || h < 0 || h > 1439) return;
     const v: Moment = { h: Math.round(h), pain: Math.round(pain) };
     const lc = cleanIds(loc, LOCIDS);
     if (lc) v.loc = lc;
+    const qc = cleanIds(q, QUALITYIDS);
+    if (qc) v.q = qc;
     out.push(v);
   };
   if (Array.isArray(l)) {
-    l.forEach((v) => { if (v) push(v.h, v.pain, v.loc); });
+    l.forEach((v) => { if (v) push(v.h, v.pain, v.loc, v.q); });
   } else {
     (['m', 'd', 'e'] as const).forEach((s) => {
       const slot = (l as Record<string, { pain?: unknown }>)[s];
@@ -179,7 +183,10 @@ function carryDay(prev: Entry | null, pain: number): Entry {
 }
 
 /** write one moment; edit-in-place when a moment at `h` exists */
-export function applyMoment(prev: Entry | null, h: number, pain: number, loc?: string[] | null): Entry {
+export function applyMoment(
+  prev: Entry | null, h: number, pain: number,
+  loc?: string[] | null, q?: string[] | null
+): Entry {
   const prevLogs = (prev && prev.logs) || [];
   const prevFloor = prev && prev.pain != null && prev.pain > (prevLogs.length ? peakOf(prevLogs) : -1)
     ? prev.pain : null;
@@ -187,6 +194,7 @@ export function applyMoment(prev: Entry | null, h: number, pain: number, loc?: s
   const logs = prevLogs.slice();
   const moment: Moment = { h, pain };
   if (loc && loc.length) moment.loc = loc.slice();
+  if (q && q.length) moment.q = q.slice();
   const i = logs.findIndex((l) => l.h === h);
   if (i >= 0) logs[i] = moment; else logs.push(moment);
   logs.sort((a, b) => a.h - b.h);
@@ -503,12 +511,13 @@ export function buildReport(inp: ReportInput): string {
     L.push('');
   }
 
-  // ── Character ──
+  // ── Character: quality words from daily logs and flares alike ──
   const qual: Record<string, number> = {};
   flares.forEach((ev) => (ev.quality || []).forEach((q) => { qual[q] = (qual[q] || 0) + 1; }));
+  days.forEach((d) => logsOf(d.e).forEach((l) => (l.q || []).forEach((q) => { qual[q] = (qual[q] || 0) + 1; })));
   const topQual = Object.keys(qual).sort((a, b) => qual[b] - qual[a]).slice(0, 4);
   if (topQual.length) {
-    L.push('CHARACTER (words chosen during flares)');
+    L.push('CHARACTER (times chosen)');
     L.push('  ' + topQual.map((q) => (QUALITY_NAMES[q] || q) + ' x' + qual[q]).join(', '));
     L.push('');
   }

@@ -16,7 +16,8 @@ import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, withSpring,
+  SharedValue, runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue,
+  withSpring, withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { color, size } from './theme';
@@ -27,9 +28,12 @@ export interface SliderProps {
   value: number;
   onChange: (v: number) => void;
   max?: number;
+  /** optional continuous 0–max value, driven on the UI thread — for a shape
+   *  that must move with the finger while the value itself snaps */
+  progress?: SharedValue<number>;
 }
 
-export default function Slider({ value, onChange, max = 10 }: SliderProps) {
+export default function Slider({ value, onChange, max = 10, progress }: SliderProps) {
   const width = useSharedValue(0);
   const x = useSharedValue(0);
   const dragging = useSharedValue(false);
@@ -59,6 +63,7 @@ export default function Slider({ value, onChange, max = 10 }: SliderProps) {
       dragging.value = true;
       const usable = Math.max(1, width.value - THUMB);
       x.value = Math.max(0, Math.min(usable, e.x - THUMB / 2));
+      if (progress) progress.value = (x.value / usable) * max;
       const step = Math.round((x.value / usable) * max);
       if (step !== lastStep.value) { lastStep.value = step; runOnJS(emit)(step); }
     })
@@ -66,6 +71,7 @@ export default function Slider({ value, onChange, max = 10 }: SliderProps) {
       'worklet';
       const usable = Math.max(1, width.value - THUMB);
       x.value = Math.max(0, Math.min(usable, e.x - THUMB / 2));
+      if (progress) progress.value = (x.value / usable) * max;
       const step = Math.round((x.value / usable) * max);
       if (step !== lastStep.value) { lastStep.value = step; runOnJS(emit)(step); }
     })
@@ -75,6 +81,7 @@ export default function Slider({ value, onChange, max = 10 }: SliderProps) {
       // settle onto the chosen stop, carrying the gesture's own momentum
       const usable = Math.max(1, width.value - THUMB);
       x.value = withSpring((usable * lastStep.value) / max, { damping: 40, stiffness: 400, mass: 1 });
+      if (progress) progress.value = withTiming(lastStep.value, { duration: 160 });
     });
 
   const thumbStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));

@@ -87,8 +87,11 @@ export function countDays(): number {
 }
 
 /** write one moment into a day; returns the updated entry */
-export function writeMoment(date: string, h: number, pain: number, loc?: string[] | null): Entry {
-  const e = applyMoment(getDay(date), h, pain, loc);
+export function writeMoment(
+  date: string, h: number, pain: number,
+  loc?: string[] | null, q?: string[] | null
+): Entry {
+  const e = applyMoment(getDay(date), h, pain, loc, q);
   put(date, e);
   return e;
 }

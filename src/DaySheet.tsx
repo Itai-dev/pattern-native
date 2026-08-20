@@ -14,7 +14,7 @@ import { reduceMotion } from './motion';
 import DaySquare from './DaySquare';
 import * as db from './db';
 import {
-  Entry, FACTOR_NAMES, LOC_NAMES, dateFromISO, fmtTime, logsOf, todayISO,
+  Entry, FACTOR_NAMES, LOC_NAMES, QUALITY_NAMES, dateFromISO, fmtTime, logsOf, todayISO,
 } from './model';
 import { CAPWORDS, PAINWORDS, color, radius, size, theme } from './theme';
 
@@ -79,9 +79,13 @@ export default function DaySheet({ dateIso, entry, onChanged, onAddLog, onClose 
                 <Text style={styles.logTime}>{fmtTime(l.h)}</Text>
                 <View style={styles.logMid}>
                   <Text style={styles.logWord}>{PAINWORDS[l.pain]}</Text>
-                  {l.loc && l.loc.length > 0 && (
-                    <Text style={styles.logLoc}>{names(l.loc, LOC_NAMES)}</Text>
-                  )}
+                  {((l.loc && l.loc.length) || (l.q && l.q.length)) ? (
+                    <Text style={styles.logLoc}>
+                      {[l.q && l.q.length ? names(l.q, QUALITY_NAMES) : '',
+                        l.loc && l.loc.length ? names(l.loc, LOC_NAMES) : '']
+                        .filter(Boolean).join(' · ')}
+                    </Text>
+                  ) : null}
                 </View>
                 <Pressable onPress={() => remove(l.h)} hitSlop={10} style={styles.remove}>
                   <Text style={styles.removeGlyph}>✕</Text>
