@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# test build output
+.testbuild/
+
 # Expo
 .expo/
 dist/

@@ -26,7 +26,10 @@ import PainShape from './PainShape';
 import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press } from './motion';
-import { PAINWORDS, color, radius, size, theme } from './theme';
+import { color, radius, size } from './theme';
+import {
+  PAIN_END_HIGH, PAIN_END_LOW, formatOutOf, inkOn, painColor, painLabel, speakScore,
+} from './painScale';
 import {
   LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
   defaultLocs, fmtTime, minutesNow, todayISO,
@@ -46,14 +49,16 @@ export interface CheckinScreenProps {
 export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>('pain');
-  const [pain, setPain] = useState(5);
+  /* the selected value is optional and starts unset: nothing is recorded
+     until the user actually moves or taps the slider. The shape needs a
+     position to draw, so its internal 0-10 progress is kept separate. */
+  const [pain, setPain] = useState<number | null>(null);
   const [quality, setQuality] = useState<string[]>([]);
   const [loc, setLoc] = useState<string[]>([]);
   const [writtenAt, setWrittenAt] = useState<number | null>(null);
-  const progress = useSharedValue(5);
+  const progress = useSharedValue(0);
 
   const minutes = now != null ? now : minutesNow();
-  const ramp = theme.ramp;
   const [showAllChips, setShowAllChips] = useState(false);
 
   /* chips in personal order: what you actually pick floats to the front,
@@ -84,7 +89,12 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     setStep(step === 'where' ? 'feel' : 'pain');
   };
 
+  /* nothing may be written until a value has actually been chosen — closing
+     the flow before that records no check-in at all */
+  const canAdvance = pain != null;
+
   const advance = () => {
+    if (pain == null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (step === 'pain') {
       db.writeMoment(todayISO(), minutes, pain);        // durable before the chips
@@ -112,14 +122,20 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             setChosen(on ? chosen.filter((x) => x !== id) : chosen.concat(id));
           }}
           pressOpacity={0.8}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: on }}
+          accessibilityLabel={names[id] || id}
           style={[
             styles.chip,
             on
-              ? { backgroundColor: ramp[pain], borderColor: 'transparent' }
+              ? { backgroundColor: painColor(pain ?? 5), borderColor: 'transparent' }
               : { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
           ]}
         >
-          <Text style={[styles.chipText, on && { color: pain <= theme.inkAbove ? '#000000' : '#FFFFFF' }]}>
+          <Text
+            allowFontScaling maxFontSizeMultiplier={1.4}
+            style={[styles.chipText, on && { color: inkOn(pain ?? 5) }]}
+          >
             {names[id] || id}
           </Text>
         </Press>
@@ -147,7 +163,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     );
   }
 
-  const title = step === 'pain' ? 'How intense has your pain\nfelt today?'
+  /* "right now", not "today": reminders arrive several times a day, so each
+     check-in is a moment, and the day is their average */
+  const title = step === 'pain' ? 'How intense is your pain\nright now?'
     : step === 'feel' ? 'How does it feel?'
     : 'Where in your body?';
 
@@ -182,8 +200,30 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
 
       {step === 'pain' ? (
         <View style={styles.middle}>
-          <PainShape progress={progress} size={SQUARE} />
-          <Text style={styles.word}>{PAINWORDS[pain]}</Text>
+          <View
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={pain == null
+              ? 'No pain level selected yet'
+              : 'Pain ' + speakScore(pain)}
+            style={pain == null && styles.shapeUnset}
+          >
+            <PainShape progress={progress} size={SQUARE} />
+          </View>
+          {/* the number and the word carry the value; colour never carries
+              it alone, and an unset scale says so in words */}
+          {pain == null ? (
+            <Text style={styles.unsetWord}>Move the slider to choose</Text>
+          ) : (
+            <>
+              <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>
+                {formatOutOf(pain)}
+              </Text>
+              <Text style={styles.word} allowFontScaling maxFontSizeMultiplier={1.6}>
+                {painLabel(pain)}
+              </Text>
+            </>
+          )}
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
@@ -201,15 +241,33 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       <View style={styles.bottom}>
         {step === 'pain' && (
           <>
-            <Slider value={pain} onChange={setPain} progress={progress} />
+            <Slider
+              value={pain}
+              onChange={setPain}
+              progress={progress}
+              accessibilityLabel="Pain right now, 0 to 10"
+              accessibilityValue={pain == null
+                ? { text: 'Not set' }
+                : { min: 0, max: 10, now: pain, text: speakScore(pain) }}
+            />
             <View style={styles.ends}>
-              <Text style={styles.endText}>{PAINWORDS[0]}</Text>
-              <Text style={styles.endText}>{PAINWORDS[10]}</Text>
+              <Text style={styles.endText}>{PAIN_END_LOW}</Text>
+              <Text style={styles.endText}>{PAIN_END_HIGH}</Text>
             </View>
           </>
         )}
-        <Press onPress={advance} pressScale={0.985} style={styles.primary}>
-          <Text style={styles.primaryText}>{step === 'where' ? 'Save today' : 'Continue'}</Text>
+        <Press
+          onPress={advance}
+          disabled={!canAdvance}
+          pressScale={canAdvance ? 0.985 : 1}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canAdvance }}
+          accessibilityHint={canAdvance ? undefined : 'Choose a pain level first'}
+          style={[styles.primary, !canAdvance && styles.primaryOff]}
+        >
+          <Text style={[styles.primaryText, !canAdvance && styles.primaryTextOff]}>
+            {step === 'where' ? 'Save today' : 'Continue'}
+          </Text>
         </Press>
       </View>
     </View>
@@ -233,9 +291,21 @@ const styles = StyleSheet.create({
   },
   hint: { color: color.textTertiary, fontSize: 13, textAlign: 'center', marginTop: 8 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  /* unset reads as waiting, not as a value: the shape is dimmed rather than
+     showing a colour the user has not chosen */
+  shapeUnset: { opacity: 0.28 },
+  unsetWord: {
+    color: color.textSecondary, fontSize: 16, marginTop: 30, textAlign: 'center',
+  },
+  score: {
+    color: color.textPrimary, fontSize: 34, fontWeight: '700',
+    letterSpacing: -0.6, marginTop: 26, fontVariant: ['tabular-nums'],
+  },
+  primaryOff: { backgroundColor: color.bgSegmentActive },
+  primaryTextOff: { color: color.textTertiary },
   word: {
     color: color.textPrimary, fontSize: 22, fontWeight: '600',
-    letterSpacing: -0.3, marginTop: 30, textAlign: 'center',
+    letterSpacing: -0.3, marginTop: 4, textAlign: 'center',
   },
   doneTitle: {
     color: color.textPrimary, fontSize: 26, fontWeight: '600',

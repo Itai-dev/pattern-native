@@ -1,94 +1,144 @@
 /**
- * "Something changed" — the event log. Three kinds:
- *   flare      → what it felt like (the SOCRATES Character answer)
- *   treatment  → what you tried and whether it seemed to help (the "Tried"
- *                answer every clinician asks for)
- *   activity   → something unusual worth remembering
+ * "Log something that changed" — the event log.
  *
- * Everything optional beyond the kind; a bare flare with no words is a
- * complete answer.
+ * These are EVENTS, not triggers. The app records that something happened
+ * and when; it never asserts that one thing caused another, and it never
+ * recommends a medication or a dose. A treatment row may carry the user's
+ * own sense of whether it helped — that is their report, labelled as such.
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import * as db from './db';
 import { Press } from './motion';
-import { EventKind, QUALITYIDS, QUALITY_NAMES, minutesNow, todayISO } from './model';
-import { color, radius, size, theme } from './theme';
+import {
+  EVENT_KINDS, EVENT_LABELS, EventKind, checkinCount, fmtTime, minutesNow, todayISO,
+} from './model';
+import { color, radius, size } from './theme';
 
-const KINDS: { k: EventKind; label: string }[] = [
-  { k: 'flare', label: 'Flare' },
-  { k: 'treatment', label: 'Tried something' },
-  { k: 'activity', label: 'Unusual activity' },
-];
+export interface EventSheetProps {
+  onDone: () => void;
+  onClose: () => void;
+}
 
-export default function EventSheet({ onDone }: { onDone: () => void }) {
+export default function EventSheet({ onDone, onClose }: EventSheetProps) {
   const [kind, setKind] = useState<EventKind>('flare');
-  const [quality, setQuality] = useState<string[]>([]);
+  const [minutes, setMinutes] = useState(minutesNow());
+  const [showPicker, setShowPicker] = useState(false);
   const [helped, setHelped] = useState<number | null>(null);
   const [text, setText] = useState('');
+  const [link, setLink] = useState(true);
+
+  const todayCheckins = checkinCount(db.getDay(todayISO()));
 
   const save = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     db.addEvent({
-      date: todayISO(), h: minutesNow(), kind,
+      date: todayISO(),
+      h: minutes,
+      kind,
       text: text.trim(),
-      quality: kind === 'flare' && quality.length ? quality : undefined,
       helped: kind === 'treatment' ? helped : null,
+      linked: link && todayCheckins > 0 ? 1 : 0,
     });
     onDone();
   };
 
+  const pickerDate = new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60);
+
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Something changed</Text>
+      <View style={styles.navBar}>
+        <Press
+          onPress={onClose}
+          style={[styles.navBtn, styles.navLeft]}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+        >
+          <Text style={styles.navBtnText}>Cancel</Text>
+        </Press>
+        <Text style={styles.navTitle} numberOfLines={1}>Something changed</Text>
+        <Press
+          onPress={save}
+          style={styles.navBtn}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Save event"
+        >
+          <Text style={[styles.navBtnText, styles.navBtnStrong]}>Save</Text>
+        </Press>
+      </View>
 
-        <View style={styles.seg}>
-          {KINDS.map(({ k, label }) => (
-            <Press
-              key={k}
-              onPress={() => { Haptics.selectionAsync().catch(() => {}); setKind(k); }}
-              pressOpacity={0.8}
-              style={[styles.segItem, kind === k && styles.segOn]}
-            >
-              <Text style={[styles.segText, kind === k && styles.segTextOn]}>{label}</Text>
-            </Press>
-          ))}
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <Text style={styles.q}>What happened?</Text>
+        <View style={styles.kinds}>
+          {EVENT_KINDS.map((k) => {
+            const on = kind === k;
+            return (
+              <Press
+                key={k}
+                onPress={() => { Haptics.selectionAsync().catch(() => {}); setKind(k); }}
+                pressOpacity={0.8}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={EVENT_LABELS[k]}
+                style={[styles.kind, on ? styles.kindOn : styles.kindOff]}
+              >
+                <Text
+                  allowFontScaling maxFontSizeMultiplier={1.4}
+                  style={[styles.kindText, on && styles.kindTextOn]}
+                >
+                  {EVENT_LABELS[k]}
+                </Text>
+              </Press>
+            );
+          })}
         </View>
 
-        {kind === 'flare' && (
-          <>
-            <Text style={styles.q}>What did it feel like?</Text>
-            <View style={styles.chipWrap}>
-              {QUALITYIDS.map((id) => {
-                const on = quality.indexOf(id) >= 0;
-                return (
-                  <Press
-                    key={id}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setQuality(on ? quality.filter((x) => x !== id) : quality.concat(id));
-                    }}
-                    pressOpacity={0.8}
-                    style={[styles.chip, on
-                      ? { backgroundColor: theme.ramp[7], borderColor: 'transparent' }
-                      : { backgroundColor: color.bgSurface, borderColor: color.borderDivider }]}
-                  >
-                    <Text style={[styles.chipText, on && { color: '#FFFFFF' }]}>{QUALITY_NAMES[id]}</Text>
-                  </Press>
-                );
-              })}
-            </View>
-          </>
+        <Text style={[styles.q, styles.qLater]}>When?</Text>
+        <Press
+          onPress={() => setShowPicker(!showPicker)}
+          pressOpacity={0.8}
+          style={styles.timeRow}
+          accessibilityRole="button"
+          accessibilityLabel={'Time, ' + fmtTime(minutes)}
+          accessibilityHint="Opens a time picker"
+        >
+          <Text style={styles.timeText}>{fmtTime(minutes)}</Text>
+          <Text style={styles.timeHint}>{showPicker ? 'Done' : 'Change'}</Text>
+        </Press>
+        {showPicker && (
+          <DateTimePicker
+            value={pickerDate}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            themeVariant="dark"
+            onChange={(_, date) => {
+              if (date) setMinutes(date.getHours() * 60 + date.getMinutes());
+            }}
+          />
         )}
 
         {kind === 'treatment' && (
           <>
-            <Text style={styles.q}>Did it seem to help?</Text>
-            <Text style={styles.val}>{helped == null ? 'Too early to say' : helped + ' / 10'}</Text>
-            <Slider value={helped == null ? 5 : helped} onChange={setHelped} />
+            <Text style={[styles.q, styles.qLater]}>Did it seem to help?</Text>
+            <Text style={styles.sub}>
+              Your own impression. Pattern records it; it does not advise on treatment.
+            </Text>
+            <Text style={styles.value}>
+              {helped == null ? 'Too early to say' : helped + ' / 10'}
+            </Text>
+            <Slider
+              value={helped}
+              onChange={setHelped}
+              accessibilityLabel="Reported effect, 0 to 10"
+              accessibilityValue={helped == null
+                ? { text: 'Not set' }
+                : { min: 0, max: 10, now: helped }}
+            />
             <View style={styles.ends}>
               <Text style={styles.endText}>Not at all</Text>
               <Text style={styles.endText}>Completely</Text>
@@ -96,59 +146,98 @@ export default function EventSheet({ onDone }: { onDone: () => void }) {
           </>
         )}
 
-        <Text style={[styles.q, { marginTop: 22 }]}>
-          {kind === 'treatment' ? 'What did you try?' : 'A few words, if you want them kept'}
+        <Text style={[styles.q, styles.qLater]}>
+          {kind === 'treatment' ? 'What did you try?' : 'A short note'}
         </Text>
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder={kind === 'treatment' ? 'e.g. heat pack, physio session, new stretch' : 'Optional'}
+          placeholder={kind === 'treatment' ? 'e.g. heat pack, physio session' : 'Optional'}
           placeholderTextColor={color.textTertiary}
           style={styles.input}
           multiline
+          accessibilityLabel="Optional note"
         />
 
-        <Press onPress={save} pressScale={0.985} style={styles.primary}>
-          <Text style={styles.primaryText}>Save</Text>
-        </Press>
+        {todayCheckins > 0 && (
+          <Press
+            onPress={() => setLink(!link)}
+            pressOpacity={0.8}
+            style={styles.linkRow}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: link }}
+            accessibilityLabel="Link to today’s check-ins"
+          >
+            <View style={[styles.box, link && styles.boxOn]}>
+              {link && <Text style={styles.tick}>✓</Text>}
+            </View>
+            <View style={styles.linkText}>
+              <Text style={styles.linkTitle}>Link to today’s check-ins</Text>
+              <Text style={styles.sub}>
+                Kept alongside today’s entries. No cause is implied.
+              </Text>
+            </View>
+          </Press>
+        )}
       </ScrollView>
-
-      <Press onPress={onDone} style={styles.done}>
-        <Text style={styles.doneText}>Cancel</Text>
-      </Press>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bgSheet },
-  body: { padding: size.sheetX, paddingTop: 22, paddingBottom: 8 },
-  title: { color: color.textPrimary, fontSize: 17, fontWeight: '600', letterSpacing: -0.2 },
-  seg: {
-    flexDirection: 'row', gap: 2, backgroundColor: color.bgSegmentTrack,
-    borderRadius: 11, padding: 2, marginTop: 16,
+  navBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
-  segItem: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9 },
-  segOn: { backgroundColor: color.bgSegmentActive },
-  segText: { color: color.textSecondary, fontSize: 13 },
-  segTextOn: { color: color.textPrimary, fontWeight: '600' },
-  q: { color: color.textPrimary, fontSize: 15, marginTop: 22 },
-  val: { color: color.textSecondary, fontSize: 13, marginTop: 2 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  chip: { paddingVertical: 9, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1 },
-  chipText: { color: '#D0D0D6', fontSize: 14, fontWeight: '500' },
-  ends: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2 },
-  endText: { color: color.textTertiary, fontSize: 11 },
+  navTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
+  navBtn: { minWidth: 72, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  navLeft: { alignItems: 'flex-start' },
+  navBtnText: { color: '#5BA8FF', fontSize: 17 },
+  navBtnStrong: { fontWeight: '600' },
+  body: { padding: size.sheetX, paddingTop: 20, paddingBottom: 40 },
+  q: { color: color.textPrimary, fontSize: 15, fontWeight: '600' },
+  qLater: { marginTop: 28 },
+  sub: { color: color.textSecondary, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  kinds: { marginTop: 12, gap: 8 },
+  kind: {
+    minHeight: 48, borderRadius: 12, borderWidth: 1,
+    justifyContent: 'center', paddingHorizontal: 14,
+  },
+  kindOn: { backgroundColor: color.bgSegmentActive, borderColor: color.textSecondary },
+  kindOff: { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
+  kindText: { color: color.textPrimary, fontSize: 15 },
+  kindTextOn: { fontWeight: '600' },
+  timeRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    minHeight: 48, marginTop: 10, paddingHorizontal: 14,
+    borderRadius: 12, backgroundColor: color.bgSurface,
+  },
+  timeText: { color: color.textPrimary, fontSize: 17, fontVariant: ['tabular-nums'] },
+  timeHint: { color: '#5BA8FF', fontSize: 15 },
+  value: {
+    color: color.textPrimary, fontSize: 22, fontWeight: '700',
+    marginTop: 16, marginBottom: 4, fontVariant: ['tabular-nums'],
+  },
+  ends: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 8 },
+  endText: { color: color.textSecondary, fontSize: 12 },
   input: {
-    marginTop: 10, minHeight: 56, borderRadius: 12, padding: 12,
+    marginTop: 10, minHeight: 60, borderRadius: 12, padding: 12,
     backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: 15,
     textAlignVertical: 'top',
   },
-  primary: {
-    height: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 28,
+  linkRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    marginTop: 26, minHeight: 44,
   },
-  primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
-  done: { paddingVertical: 14, alignItems: 'center' },
-  doneText: { color: color.textTertiary, fontSize: 14 },
+  box: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 1,
+    borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center',
+    marginTop: 1,
+  },
+  boxOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
+  tick: { color: '#000000', fontSize: 13, fontWeight: '700', lineHeight: 16 },
+  linkText: { flex: 1 },
+  linkTitle: { color: color.textPrimary, fontSize: 15 },
 });

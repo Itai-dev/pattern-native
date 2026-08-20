@@ -11,6 +11,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Entry, dayLayers } from './model';
 import { color, theme } from './theme';
+import { painColor } from './painScale';
 
 export interface DaySquareProps {
   entry: Entry | null;
@@ -19,9 +20,26 @@ export interface DaySquareProps {
   /** an unlogged day shows an outline; today's also shows a plus */
   plus?: boolean;
   today?: boolean;
+  /** paint a single score instead of the day's moments — used wherever the
+   *  surface represents the DAILY AVERAGE rather than each check-in */
+  value?: number | null;
+  children?: React.ReactNode;
 }
 
-export default function DaySquare({ entry, size, radius, plus, today }: DaySquareProps) {
+export default function DaySquare({
+  entry, size, radius, plus, today, value, children,
+}: DaySquareProps) {
+  if (value != null) {
+    return (
+      <View style={{
+        width: size, height: size, borderRadius: radius,
+        backgroundColor: painColor(value),
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        {children}
+      </View>
+    );
+  }
   if (!entry) {
     return (
       <View
@@ -31,7 +49,8 @@ export default function DaySquare({ entry, size, radius, plus, today }: DaySquar
           { borderColor: today ? color.textTertiary : color.borderControl },
         ]}
       >
-        {plus && <Text style={{ fontSize: size * 0.26, fontWeight: '300', color: color.textTertiary }}>+</Text>}
+        {children}
+        {plus && !children && <Text style={{ fontSize: size * 0.26, fontWeight: '300', color: color.textTertiary }}>+</Text>}
       </View>
     );
   }

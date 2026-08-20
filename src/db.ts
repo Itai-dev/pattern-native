@@ -8,9 +8,11 @@
  */
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import {
-  Entries, Entry, EventKind, PainEvent, WeeklyEntry,
-  applyMoment, cleanBackup, cleanEntry, cleanQuality, removeMoment, syncDayPain,
+  Entries, Entry, EVENT_KINDS, EventKind, FuncEntry, PainEvent,
+  applyMoment, cleanBackup, cleanEntry, cleanQuality, migrateEntries,
+  removeMoment, syncDayPain,
 } from './model';
+import { SCALE_VERSION } from './painScale';
 
 let db: SQLiteDatabase | null = null;
 
@@ -28,14 +30,24 @@ function conn(): SQLiteDatabase {
     db.execSync(
       'CREATE TABLE IF NOT EXISTS events (' +
       'id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, h INTEGER NOT NULL, ' +
-      'kind TEXT NOT NULL, text TEXT NOT NULL DEFAULT "", quality TEXT, helped INTEGER)'
+      'kind TEXT NOT NULL, text TEXT NOT NULL DEFAULT "", quality TEXT, helped INTEGER, linked INTEGER)'
     );
-    // one row per rated week: PEG + the function-goal ability
+    /* DEPRECATED. An earlier build kept a three-item interference score
+       here; that wording was not ours to ship and is gone. The table is
+       retained only so v2 backups still restore — nothing writes to it. */
     db.execSync(
       'CREATE TABLE IF NOT EXISTS weekly (' +
       'week TEXT PRIMARY KEY, pegPain INTEGER NOT NULL, pegEnjoy INTEGER NOT NULL, ' +
       'pegActivity INTEGER NOT NULL, goal INTEGER, note TEXT NOT NULL DEFAULT "")'
     );
+    /* function check-ins: ability at the named activity, on its own 0–10
+       scale and stored apart from pain so the two can never be mixed. */
+    db.execSync(
+      'CREATE TABLE IF NOT EXISTS func (' +
+      'week TEXT PRIMARY KEY, ability INTEGER NOT NULL, note TEXT NOT NULL DEFAULT "")'
+    );
+    migrateWeeklyToFunc(db);
+    migratePainScale(db);
   }
   return db;
 }
@@ -140,22 +152,34 @@ export function dropMoment(date: string, h: number): Entry | null {
 
 /* ── events ─────────────────────────────────────────────────── */
 
-interface EventRow { id: number; date: string; h: number; kind: string; text: string; quality: string | null; helped: number | null }
+interface EventRow {
+  id: number; date: string; h: number; kind: string; text: string;
+  quality: string | null; helped: number | null; linked: number | null;
+}
 
 function rowToEvent(r: EventRow): PainEvent {
   const ev: PainEvent = { id: r.id, date: r.date, h: r.h, kind: r.kind as EventKind, text: r.text };
   if (r.quality != null) { try { ev.quality = JSON.parse(r.quality); } catch {} }
   if (r.helped != null) ev.helped = r.helped;
+  if (r.linked != null) ev.linked = r.linked;
   return ev;
 }
 
 export function addEvent(ev: Omit<PainEvent, 'id'>): void {
   conn().runSync(
-    'INSERT INTO events (date, h, kind, text, quality, helped) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO events (date, h, kind, text, quality, helped, linked) VALUES (?, ?, ?, ?, ?, ?, ?)',
     ev.date, ev.h, ev.kind, ev.text,
     ev.quality && ev.quality.length ? JSON.stringify(ev.quality) : null,
-    ev.helped != null ? ev.helped : null
+    ev.helped != null ? ev.helped : null,
+    ev.linked != null ? ev.linked : null
   );
+}
+
+/** events recorded on one day, for the day detail */
+export function getEventsFor(date: string): PainEvent[] {
+  return conn()
+    .getAllSync<EventRow>('SELECT * FROM events WHERE date = ? ORDER BY h', date)
+    .map(rowToEvent);
 }
 
 export function getEvents(): PainEvent[] {
@@ -168,20 +192,79 @@ export function dropEvent(id: number): void {
 
 /* ── the week ───────────────────────────────────────────────── */
 
-interface WeekRow { week: string; pegPain: number; pegEnjoy: number; pegActivity: number; goal: number | null; note: string }
+interface FuncRow { week: string; ability: number; note: string }
 
-export function putWeekly(w: WeeklyEntry): void {
+/* The weekly table briefly held a three-item pain-interference score
+   alongside an ability rating. The score is gone (its wording was not
+   ours to ship); the ability rating is the thing worth keeping, so any
+   row that carried one is copied into `func` and the old table is left
+   untouched for backup compatibility. Runs once — rows already present
+   in `func` win, so a second pass changes nothing. */
+function migrateWeeklyToFunc(database: SQLiteDatabase): void {
+  try {
+    const rows = database.getAllSync<{ week: string; goal: number | null; note: string }>(
+      'SELECT week, goal, note FROM weekly WHERE goal IS NOT NULL'
+    );
+    rows.forEach((r) => {
+      database.runSync(
+        'INSERT OR IGNORE INTO func (week, ability, note) VALUES (?, ?, ?)',
+        r.week, r.goal as number, r.note || ''
+      );
+    });
+  } catch {
+    // no weekly table on a fresh install — nothing to carry forward
+  }
+}
+
+/* Pain has always been an integer 0–10, so the v1 → v2 scale change moved
+   the words and not the numbers. This still runs once, to coerce anything
+   malformed (a decimal from a hand-edited backup, an out-of-range value)
+   into the domain, and stamps the version so it never repeats. */
+function migratePainScale(database: SQLiteDatabase): void {
+  try {
+    const row = database.getFirstSync<{ v: string }>(
+      'SELECT v FROM prefs WHERE k = ?', 'scale.version'
+    );
+    const at = row ? JSON.parse(row.v) : 0;
+    if (at >= SCALE_VERSION) return;
+
+    const rows = database.getAllSync<Row>('SELECT * FROM days');
+    const before: Entries = {};
+    rows.forEach((r) => { before[r.date] = rowToEntry(r); });
+    const { entries, corrected } = migrateEntries(before);
+
+    database.withTransactionSync(() => {
+      if (corrected > 0) {
+        Object.keys(entries).forEach((k) => {
+          const e = entries[k];
+          database.runSync(
+            'INSERT OR REPLACE INTO days (date, pain, cap, note, factors, logs) VALUES (?, ?, ?, ?, ?, ?)',
+            k, e.pain, e.cap, e.note,
+            e.factors ? JSON.stringify(e.factors) : null,
+            e.logs ? JSON.stringify(e.logs) : null
+          );
+        });
+      }
+      database.runSync(
+        'INSERT OR REPLACE INTO prefs (k, v) VALUES (?, ?)',
+        'scale.version', JSON.stringify(SCALE_VERSION)
+      );
+    });
+  } catch {
+    // a fresh install has nothing to migrate
+  }
+}
+
+export function putFunc(f: FuncEntry): void {
   conn().runSync(
-    'INSERT OR REPLACE INTO weekly (week, pegPain, pegEnjoy, pegActivity, goal, note) VALUES (?, ?, ?, ?, ?, ?)',
-    w.week, w.pegPain, w.pegEnjoy, w.pegActivity, w.goal != null ? w.goal : null, w.note || ''
+    'INSERT OR REPLACE INTO func (week, ability, note) VALUES (?, ?, ?)',
+    f.week, f.ability, f.note || ''
   );
 }
 
-export function getWeekly(): WeeklyEntry[] {
-  return conn().getAllSync<WeekRow>('SELECT * FROM weekly ORDER BY week').map((r) => ({
-    week: r.week, pegPain: r.pegPain, pegEnjoy: r.pegEnjoy, pegActivity: r.pegActivity,
-    goal: r.goal, note: r.note,
-  }));
+export function getFunc(): FuncEntry[] {
+  return conn().getAllSync<FuncRow>('SELECT * FROM func ORDER BY week')
+    .map((r) => ({ week: r.week, ability: r.ability, note: r.note }));
 }
 
 /* ── the function goal ──────────────────────────────────────── */
@@ -195,41 +278,61 @@ export function setGoal(text: string): void {
 
 /* ── backup ─────────────────────────────────────────────────── */
 
-/** import a backup: the web app's v1 (entries only) or native v2 (entries +
- *  events + weekly + goal). Returns days imported, -1 on unreadable input. */
+/** Restore a backup, MERGING into what is already here — a restored day
+ *  replaces that same day, and every other day is left alone. Accepts the
+ *  web app's v1 (entries only), native v2 (with events and the retired
+ *  weekly rows) and v3 (with function check-ins). Returns days imported,
+ *  or -1 if the file could not be read as a Pattern backup. */
 export function importBackup(json: string): number {
   let data: unknown;
   try { data = JSON.parse(json); } catch { return -1; }
   const incoming = cleanBackup(data);
+  const d = data as {
+    entries?: unknown; events?: unknown; weekly?: unknown; func?: unknown; goal?: unknown;
+  };
+  // a file with no recognisable section at all is not a Pattern backup
+  if (!d || typeof d !== 'object' || (d.entries === undefined && d.func === undefined && d.events === undefined)) {
+    return -1;
+  }
   const keys = Object.keys(incoming);
+  const okNum = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 10;
   const c = conn();
   c.withTransactionSync(() => {
     keys.forEach((k) => put(k, incoming[k]));
-    const d = data as { events?: unknown; weekly?: unknown; goal?: unknown };
     if (Array.isArray(d.events)) {
       d.events.forEach((raw) => {
         const r = raw as Partial<PainEvent>;
         if (typeof r.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return;
         if (typeof r.h !== 'number' || r.h < 0 || r.h > 1439) return;
-        if (r.kind !== 'flare' && r.kind !== 'treatment' && r.kind !== 'activity') return;
+        if (EVENT_KINDS.indexOf(r.kind as EventKind) < 0) return;
         addEvent({
-          date: r.date, h: Math.round(r.h), kind: r.kind,
+          date: r.date, h: Math.round(r.h), kind: r.kind as EventKind,
           text: typeof r.text === 'string' ? r.text : '',
           quality: cleanQuality(r.quality),
-          helped: typeof r.helped === 'number' && r.helped >= 0 && r.helped <= 10 ? Math.round(r.helped) : null,
+          helped: okNum(r.helped) ? Math.round(r.helped) : null,
         });
       });
     }
+    // v3 function check-ins
+    if (Array.isArray(d.func)) {
+      d.func.forEach((raw) => {
+        const r = raw as Partial<FuncEntry>;
+        if (typeof r.week !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.week)) return;
+        if (!okNum(r.ability)) return;
+        putFunc({
+          week: r.week, ability: Math.round(r.ability),
+          note: typeof r.note === 'string' ? r.note : '',
+        });
+      });
+    }
+    // v2 weekly rows: only the ability rating survives, under its new name
     if (Array.isArray(d.weekly)) {
       d.weekly.forEach((raw) => {
-        const r = raw as Partial<WeeklyEntry>;
-        const okNum = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 10;
+        const r = raw as { week?: unknown; goal?: unknown; note?: unknown };
         if (typeof r.week !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.week)) return;
-        if (!okNum(r.pegPain) || !okNum(r.pegEnjoy) || !okNum(r.pegActivity)) return;
-        putWeekly({
-          week: r.week,
-          pegPain: Math.round(r.pegPain), pegEnjoy: Math.round(r.pegEnjoy), pegActivity: Math.round(r.pegActivity),
-          goal: okNum(r.goal) ? Math.round(r.goal) : null,
+        if (!okNum(r.goal)) return;
+        putFunc({
+          week: r.week, ability: Math.round(r.goal),
           note: typeof r.note === 'string' ? r.note : '',
         });
       });
@@ -239,12 +342,13 @@ export function importBackup(json: string): number {
   return keys.length;
 }
 
-/** export everything; version 2 carries events, weekly and the goal, and
- *  stays a superset of the web app's shape so it can restore there too */
+/** Export everything, versioned. v3 carries entries, events, function
+ *  check-ins and the activity, and records the pain-scale version so a
+ *  future reader knows which label set the numbers were captured under. */
 export function exportBackup(todayIso: string): string {
   return JSON.stringify({
-    app: 'pattern', version: 2, exported: todayIso,
-    entries: getAll(), events: getEvents(), weekly: getWeekly(), goal: getGoal(),
+    app: 'pattern', version: 3, scaleVersion: SCALE_VERSION, exported: todayIso,
+    entries: getAll(), events: getEvents(), func: getFunc(), goal: getGoal(),
   }, null, 2);
 }
 
@@ -254,6 +358,7 @@ export function deleteAll(): void {
     c.runSync('DELETE FROM days');
     c.runSync('DELETE FROM events');
     c.runSync('DELETE FROM weekly');
+    c.runSync('DELETE FROM func');
     c.runSync('DELETE FROM prefs');
   });
 }

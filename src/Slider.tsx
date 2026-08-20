@@ -25,19 +25,27 @@ import { color, size } from './theme';
 const THUMB = size.sliderThumb;
 
 export interface SliderProps {
-  value: number;
+  /** null = nothing chosen yet. The thumb still needs a position, so the
+   *  internal one starts at the low end while the VALUE stays unset — no
+   *  score is ever recorded before the user touches the control. */
+  value: number | null;
   onChange: (v: number) => void;
   max?: number;
   /** optional continuous 0–max value, driven on the UI thread — for a shape
    *  that must move with the finger while the value itself snaps */
   progress?: SharedValue<number>;
+  accessibilityLabel?: string;
+  accessibilityValue?: { min?: number; max?: number; now?: number; text?: string };
 }
 
-export default function Slider({ value, onChange, max = 10, progress }: SliderProps) {
+export default function Slider({
+  value, onChange, max = 10, progress, accessibilityLabel, accessibilityValue,
+}: SliderProps) {
   const width = useSharedValue(0);
   const x = useSharedValue(0);
   const dragging = useSharedValue(false);
-  const lastStep = useSharedValue(value);
+  // -1 means "no step chosen yet", so the very first touch always emits
+  const lastStep = useSharedValue(value == null ? -1 : value);
 
   /* the haptic tick is fired from JS but never awaited — a dropped tick is
      invisible, a blocked frame is not */
@@ -52,7 +60,8 @@ export default function Slider({ value, onChange, max = 10, progress }: SliderPr
   useDerivedValue(() => {
     if (!dragging.value && width.value > 0) {
       const usable = Math.max(1, width.value - THUMB);
-      x.value = withSpring((usable * value) / max, { damping: 40, stiffness: 400, mass: 1 });
+      const at = value == null ? 0 : value;   // unset parks at the low end
+      x.value = withSpring((usable * at) / max, { damping: 40, stiffness: 400, mass: 1 });
     }
   }, [value, max]);
 
@@ -91,9 +100,24 @@ export default function Slider({ value, onChange, max = 10, progress }: SliderPr
       <View
         onLayout={(e) => { width.value = e.nativeEvent.layout.width; }}
         style={styles.hit}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityValue={accessibilityValue}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(e) => {
+          // VoiceOver swipes step the value, and an unset scale starts at 0
+          const at = value == null ? -1 : value;
+          const next = e.nativeEvent.actionName === 'increment'
+            ? Math.min(max, at + 1)
+            : Math.max(0, at < 0 ? 0 : at - 1);
+          if (next !== value) onChange(next);
+        }}
       >
         <View style={styles.track} />
-        <Animated.View style={[styles.thumb, thumbStyle]} />
+        <Animated.View
+          style={[styles.thumb, thumbStyle, value == null && styles.thumbUnset]}
+        />
       </View>
     </GestureDetector>
   );
@@ -114,5 +138,12 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
+  },
+  /* an untouched thumb is hollow: visibly "not yet chosen" without a
+     sentence of instruction */
+  thumbUnset: {
+    backgroundColor: 'transparent',
+    borderWidth: 2, borderColor: color.textSecondary,
+    shadowOpacity: 0,
   },
 });

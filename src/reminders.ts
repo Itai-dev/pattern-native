@@ -34,9 +34,11 @@ export const DEFAULT_SLOTS: Slot[] = [
 /* the copy follows the hour it fires in — same voice, different moment.
    Every line is an offer, never an instruction. */
 const COPY: Record<Slot['key'], string> = {
-  m: 'Morning check-in — how is the day starting? Only if there is room for it.',
-  d: 'Midday check-in — a few seconds, only if there is room for it.',
-  e: 'Evening check-in — only if today has room for it. A missed day is just a missed day.',
+  /* each nudge asks the same question the check-in asks — about NOW, not
+     about the whole day, because several of these arrive daily */
+  m: 'How intense is your pain right now? A few seconds, only if there is room for it.',
+  d: 'How intense is your pain right now? A few seconds, only if there is room for it.',
+  e: 'How intense is your pain right now? A missed day is just a missed day.',
 };
 
 /** a delivered nudge should be quiet, not a banner that demands dismissal */

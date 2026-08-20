@@ -54,14 +54,3 @@ export const size = {
   pageX: 24,
   sheetX: 26,
 } as const;
-
-export const PAINWORDS = [
-  'No pain', 'Barely there', 'Mild', 'Mild', 'Noticeable', 'Moderate',
-  'Moderate to strong', 'Strong', 'Strong', 'Very strong', 'Most intense',
-] as const;
-
-export const CAPWORDS = [
-  'Almost nothing', 'Very little', 'Very little', 'A little', 'Some things',
-  'About half', 'More than half', 'Most things', 'Most things',
-  'Nearly everything', 'Everything as usual',
-] as const;

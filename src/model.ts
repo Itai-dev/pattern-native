@@ -11,7 +11,11 @@
  *    none chosen — the empty array must survive import and migration;
  *  - unknown tag ids are dropped, never stored;
  *  - removing a day's only moment removes the day, unless words anchor it.
+ *
+ * Pain values are integers 0–10 everywhere. The labels and formatting for
+ * them live in painScale.ts, which is the single definition of the scale.
  */
+import { normalizePain } from './painScale';
 
 export interface Moment {
   /** minutes since midnight, 0–1439 — when the log actually happened */
@@ -326,7 +330,7 @@ export function centerPain(e: Entry): number {
    daily check-in cannot: what does it feel like (Character), and what have
    you tried and did it help. */
 
-export type EventKind = 'flare' | 'treatment' | 'activity';
+export type EventKind = 'flare' | 'treatment' | 'activity' | 'sleep' | 'other';
 
 export interface PainEvent {
   id?: number;
@@ -336,8 +340,12 @@ export interface PainEvent {
   text: string;
   /** pain-quality words — the SOCRATES "Character" answer */
   quality?: string[];
-  /** treatments only: perceived effect 0–10, null = not yet judged */
+  /** treatments only: the user's own impression of effect, 0–10.
+   *  A patient report, never the app's assessment. */
   helped?: number | null;
+  /** 1 = the user chose to file this alongside that day's check-ins.
+   *  Association only — no causal relationship is stored or implied. */
+  linked?: number;
 }
 
 export const QUALITY_NAMES: Record<string, string> = {
@@ -351,47 +359,9 @@ export function cleanQuality(a: unknown): string[] | undefined {
   return cleanIds(a, QUALITYIDS);
 }
 
-/* ── the week: PEG + the function goal ───────────────────────
-   PEG (pain average, enjoyment of life, general activity; 0–10 each,
-   past week; score = mean) is validated, responsive to change, and freely
-   usable — it replaces the daily capacity slider. The goal rating is the
-   IMMPACT-style function question: ability at the one activity the person
-   wants back. */
-
-export interface WeeklyEntry {
-  week: string;          // the Monday of the week rated, YYYY-MM-DD
-  pegPain: number;
-  pegEnjoy: number;
-  pegActivity: number;
-  goal?: number | null;  // 0–10 ability at the named activity
-  note?: string;         // "what seemed to help?"
-}
-
-export function pegScore(w: WeeklyEntry): number {
-  return Math.round(((w.pegPain + w.pegEnjoy + w.pegActivity) / 3) * 10) / 10;
-}
-
-export function mondayOf(dateIso: string): string {
-  const d = dateFromISO(dateIso);
-  const shift = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
-  d.setDate(d.getDate() - shift);
-  return iso(d);
-}
-
-/** the weekly questions are due when the current week has no entry and at
- *  least 4 days of it have passed — late enough to be about this week,
- *  never nagging twice */
-export function weeklyDue(weekly: WeeklyEntry[], todayIso: string): boolean {
-  const monday = mondayOf(todayIso);
-  if (weekly.some((w) => w.week === monday)) return false;
-  const dayOfWeek = (dateFromISO(todayIso).getDay() + 6) % 7;
-  return dayOfWeek >= 4; // Friday onward
-}
-
 /* ── where-step defaults: confirm, not choose ────────────────
-   Chronic pain usually lives in the same places. The where step opens with
-   the most recent places pre-selected (within a memory horizon), so the
-   common case is one confirming tap. */
+   Chronic pain usually lives in the same places, so the where step opens
+   with the most recent day's places already selected. */
 
 export function defaultLocs(entries: Entries, todayIso: string, horizon = 14): string[] {
   for (let back = 0; back <= horizon; back++) {
@@ -408,31 +378,124 @@ export function defaultLocs(entries: Entries, todayIso: string, horizon = 14): s
   return [];
 }
 
-/* ── evening questions (legacy) ──────────────────────────────
-   The daily capacity/impact steps were retired 2026-08-20: PEG asks the
-   capacity question better, weekly and validated, and impact context moved
-   into the flare log where it carries meaning. This stays because historic
-   entries still hold cap/factors and the report still reads them. */
+/* ── the daily average ───────────────────────────────────────
+   ONE definition, used by the home hero, the calendar, the day detail,
+   the report and every VoiceOver string. A day's stored `pain` remains
+   the PEAK (that is what the legacy floor protects and what old records
+   mean); the AVERAGE is derived and never stored, so the two can never
+   fall out of step. */
 
-export const EVENING = 17 * 60;
-export function nextEveningStep(e: Entry | null, minutes: number): 'capacity' | 'impact' | null {
-  if (minutes < EVENING || !e) return null;
-  if (e.cap == null) return 'capacity';
-  if (e.factors == null) return 'impact';
-  return null;
+/** how many completed check-ins a day holds */
+export function checkinCount(e: Entry | null | undefined): number {
+  if (!e) return 0;
+  const logs = logsOf(e);
+  // a legacy day carries a value with no moments behind it — still one answer
+  return logs.length ? logs.length : 1;
+}
+
+/** the mean of a day's check-ins, or the day value when there are no
+ *  timestamped moments (legacy and backfilled days). null = nothing logged. */
+export function dailyAverage(e: Entry | null | undefined): number | null {
+  if (!e) return null;
+  const logs = logsOf(e);
+  if (!logs.length) return typeof e.pain === 'number' ? e.pain : null;
+  const sum = logs.reduce((s, l) => s + l.pain, 0);
+  return Math.round((sum / logs.length) * 10) / 10;
+}
+
+/* ── function: ability at the activity you want back ─────────
+   A separate 0–10 scale, stored apart from pain and never averaged with
+   it. Asked at most once a week, updatable by hand. */
+
+export interface FuncEntry {
+  week: string;    // the Monday of the week rated, YYYY-MM-DD
+  ability: number; // 0 = not able at all, 10 = fully able
+  note?: string;
+}
+
+export function mondayOf(dateIso: string): string {
+  const d = dateFromISO(dateIso);
+  const shift = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
+  d.setDate(d.getDate() - shift);
+  return iso(d);
+}
+
+/** due when this week has no rating yet — one ask per week, no nagging */
+export function funcDue(entries: FuncEntry[], todayIso: string, hasActivity: boolean): boolean {
+  if (!hasActivity) return false;
+  const monday = mondayOf(todayIso);
+  return !entries.some((f) => f.week === monday);
+}
+
+/** first and last rating, when there are two to compare */
+export function funcTrend(entries: FuncEntry[]): { first: FuncEntry; last: FuncEntry } | null {
+  if (entries.length < 2) return null;
+  const sorted = entries.slice().sort((a, b) => (a.week < b.week ? -1 : 1));
+  return { first: sorted[0], last: sorted[sorted.length - 1] };
+}
+
+/** the most recent rating, for the home card */
+export function latestFunc(entries: FuncEntry[]): FuncEntry | null {
+  if (!entries.length) return null;
+  return entries.slice().sort((a, b) => (a.week < b.week ? -1 : 1))[entries.length - 1];
+}
+
+/* ── events ──────────────────────────────────────────────────
+   Things that happened, recorded as events — never as confirmed triggers,
+   and never with a claim that one caused another. */
+
+export const EVENT_LABELS: Record<EventKind, string> = {
+  flare: 'Flare',
+  treatment: 'Treatment or medication',
+  activity: 'Unusual activity',
+  sleep: 'Poor sleep',
+  other: 'Something else',
+};
+export const EVENT_KINDS = Object.keys(EVENT_LABELS) as EventKind[];
+
+/* ── migration ───────────────────────────────────────────────
+   Pain has always been stored as an integer 0–10, so scale v1 → v2 changes
+   no stored value: the words moved, the numbers did not. This pass exists
+   to coerce anything malformed (a decimal from a hand-edited backup, an
+   out-of-range number) into the domain. It is idempotent and reports how
+   many values it corrected, so a test can prove a clean store needs none. */
+
+export function migrateEntries(entries: Entries): { entries: Entries; corrected: number } {
+  let corrected = 0;
+  const out: Entries = {};
+  Object.keys(entries).forEach((k) => {
+    const e = entries[k];
+    if (!e) return;
+    const p = normalizePain(e.pain);
+    if (p == null) return;              // unusable day: dropped rather than guessed
+    const next: Entry = { ...e };
+    if (p !== e.pain) corrected++;
+    next.pain = p;
+    if (e.logs) {
+      const logs: Moment[] = [];
+      e.logs.forEach((l) => {
+        const lp = normalizePain(l.pain);
+        if (lp == null) return;
+        if (lp !== l.pain) corrected++;
+        logs.push({ ...l, pain: lp });
+      });
+      if (logs.length) { next.logs = logs; syncDayPain(next); }
+      else delete next.logs;
+    }
+    out[k] = next;
+  });
+  return { entries: out, corrected };
 }
 
 /* ── the clinician report ────────────────────────────────────
-   The app's primary output. One page, ordered the way clinicians assess
-   (SOCRATES): severity, site, timing, character, relieving/worsening,
-   function, treatments tried. Facts from the user's own records, association
-   language only, and short enough to survive a real appointment — the
-   patient-data literature is blunt that anything longer gets set aside. */
+   Ordered the way clinicians assess, stating observations as observations:
+   what was recorded, over how many days, with co-occurrence named as
+   co-occurrence and never as cause. */
 
 export interface ReportInput {
   entries: Entries;
   events: PainEvent[];
-  weekly: WeeklyEntry[];
+  func: FuncEntry[];
   goalText: string | null;
   todayIso: string;
   windowDays: number; // typically 90
@@ -444,8 +507,17 @@ function fmtDate(iso_: string): string {
   return d.getDate() + ' ' + M[d.getMonth()];
 }
 
+/** how many logged days the report covers — surfaced in the UI so a short
+ *  history is never mistaken for a reliable pattern */
+export function reportDayCount(entries: Entries, todayIso: string, windowDays: number): number {
+  const start = dateFromISO(todayIso);
+  start.setDate(start.getDate() - (windowDays - 1));
+  const startIso = iso(start);
+  return Object.keys(entries).filter((k) => k >= startIso && k <= todayIso).length;
+}
+
 export function buildReport(inp: ReportInput): string {
-  const { entries, events, weekly, goalText, todayIso, windowDays } = inp;
+  const { entries, events, func, goalText, todayIso, windowDays } = inp;
   const start = dateFromISO(todayIso);
   start.setDate(start.getDate() - (windowDays - 1));
   const startIso = iso(start);
@@ -454,107 +526,100 @@ export function buildReport(inp: ReportInput): string {
     .filter((k) => k >= startIso && k <= todayIso)
     .sort()
     .map((k) => ({ k, e: entries[k] }));
-  if (days.length < 5) return '';
+  if (!days.length) return '';
 
   const L: string[] = [];
-  L.push('PATTERN — SELF-LOGGED PAIN SUMMARY');
-  L.push(fmtDate(days[0].k) + ' to ' + fmtDate(todayIso) + ' · ' + days.length + ' days logged');
-  L.push('');
+  const avgOf = (a: number[]) => Math.round((a.reduce((s, v) => s + v, 0) / a.length) * 10) / 10;
+  const dayAverages = days
+    .map((d) => dailyAverage(d.e))
+    .filter((v): v is number => v != null);
+  const totalCheckins = days.reduce((s, d) => s + checkinCount(d.e), 0);
 
-  // ── Severity ──
-  const pains = days.map((d) => d.e.pain);
-  const avg = (a: number[]) => Math.round((a.reduce((s, v) => s + v, 0) / a.length) * 10) / 10;
-  const sevLine: string[] = [];
-  sevLine.push('Pain (0-10, self-rated): average ' + avg(pains) +
-    ', days at 7+: ' + pains.filter((p) => p >= 7).length);
-  const weeks = weekly.filter((w) => w.week >= startIso).sort((a, b) => (a.week < b.week ? -1 : 1));
-  if (weeks.length >= 2) {
-    const first = weeks[0], last = weeks[weeks.length - 1];
-    sevLine.push('PEG (validated 3-item, weekly): ' + pegScore(first) + ' -> ' + pegScore(last) +
-      ' (' + fmtDate(first.week) + ' -> ' + fmtDate(last.week) + ')');
-  } else if (weeks.length === 1) {
-    sevLine.push('PEG (validated 3-item): ' + pegScore(weeks[0]) + ' this week');
+  L.push('PATTERN — SELF-RECORDED PAIN SUMMARY');
+  L.push(fmtDate(days[0].k) + ' to ' + fmtDate(todayIso));
+  L.push(days.length + ' logged days · ' + totalCheckins + ' check-ins · scale 0-10, 0 = no pain');
+  if (days.length < 14) {
+    L.push('NOTE: a short record — enough to show what was logged, not');
+    L.push('enough to establish a pattern.');
   }
-  L.push('SEVERITY');
-  sevLine.forEach((s) => L.push('  ' + s));
   L.push('');
 
-  // ── Site ──
+  L.push('PAIN INTENSITY OVER TIME (daily averages)');
+  L.push('  Overall average ' + avgOf(dayAverages) +
+    ' · highest day ' + Math.max.apply(null, dayAverages) +
+    ' · lowest day ' + Math.min.apply(null, dayAverages));
+  L.push('  Days averaging 7 or above: ' + dayAverages.filter((v) => v >= 7).length +
+    ' of ' + days.length);
+  if (days.length >= 14) {
+    const half = Math.floor(days.length / 2);
+    const a = avgOf(dayAverages.slice(0, half));
+    const b = avgOf(dayAverages.slice(half));
+    const delta = Math.round((b - a) * 10) / 10;
+    L.push('  First half ' + a + ' vs second half ' + b +
+      (Math.abs(delta) >= 0.5 ? (delta > 0 ? ' (higher)' : ' (lower)') : ' (little change)'));
+  }
+  L.push('');
+
+  if (goalText) {
+    L.push('FUNCTION — "' + goalText + '" (self-rated ability 0-10, weekly)');
+    const t = funcTrend(func);
+    if (t) {
+      L.push('  ' + t.first.ability + ' (' + fmtDate(t.first.week) + ') to ' +
+        t.last.ability + ' (' + fmtDate(t.last.week) + ')');
+    } else if (func.length === 1) {
+      L.push('  ' + func[0].ability + ' (' + fmtDate(func[0].week) + ')');
+    } else {
+      L.push('  Activity chosen; no weekly ratings recorded yet.');
+    }
+    L.push('');
+  }
+
   const locDays: Record<string, number> = {};
   days.forEach((d) => {
     const seen: Record<string, boolean> = {};
     logsOf(d.e).forEach((l) => (l.loc || []).forEach((id) => { seen[id] = true; }));
     Object.keys(seen).forEach((id) => { locDays[id] = (locDays[id] || 0) + 1; });
   });
-  const topLocs = Object.keys(locDays).sort((a, b) => locDays[b] - locDays[a]).slice(0, 4);
+  const topLocs = Object.keys(locDays).sort((a, b) => locDays[b] - locDays[a]).slice(0, 5);
   if (topLocs.length) {
-    L.push('SITE (days noted)');
+    L.push('PAIN LOCATIONS (days noted)');
     L.push('  ' + topLocs.map((id) => (LOC_NAMES[id] || id) + ' ' + locDays[id]).join(', '));
     L.push('');
   }
 
-  // ── Timing / course ──
-  const half = Math.floor(days.length / 2);
-  const flares = events.filter((ev) => ev.kind === 'flare' && ev.date >= startIso);
-  const course: string[] = [];
-  if (days.length >= 14) {
-    const a = avg(days.slice(0, half).map((d) => d.e.pain));
-    const b = avg(days.slice(half).map((d) => d.e.pain));
-    const delta = Math.round((b - a) * 10) / 10;
-    course.push('Average pain, first half vs second half of period: ' + a + ' vs ' + b +
-      (Math.abs(delta) >= 0.5 ? (delta > 0 ? ' (worse)' : ' (better)') : ' (stable)'));
-  }
-  if (flares.length) course.push('Flares logged: ' + flares.length);
-  if (course.length) {
-    L.push('COURSE');
-    course.forEach((s) => L.push('  ' + s));
-    L.push('');
-  }
-
-  // ── Character: quality words from daily logs and flares alike ──
   const qual: Record<string, number> = {};
-  flares.forEach((ev) => (ev.quality || []).forEach((q) => { qual[q] = (qual[q] || 0) + 1; }));
-  days.forEach((d) => logsOf(d.e).forEach((l) => (l.q || []).forEach((q) => { qual[q] = (qual[q] || 0) + 1; })));
-  const topQual = Object.keys(qual).sort((a, b) => qual[b] - qual[a]).slice(0, 4);
+  days.forEach((d) => logsOf(d.e).forEach((l) => (l.q || []).forEach((q) => {
+    qual[q] = (qual[q] || 0) + 1;
+  })));
+  const topQual = Object.keys(qual).sort((a, b) => qual[b] - qual[a]).slice(0, 5);
   if (topQual.length) {
-    L.push('CHARACTER (times chosen)');
+    L.push('DESCRIBED AS');
     L.push('  ' + topQual.map((q) => (QUALITY_NAMES[q] || q) + ' x' + qual[q]).join(', '));
     L.push('');
   }
 
-  // ── Context noted (association language only) ──
-  const facDays: Record<string, number> = {};
-  days.forEach((d) => (d.e.factors || []).forEach((f) => { facDays[f] = (facDays[f] || 0) + 1; }));
-  const topFac = Object.keys(facDays).sort((a, b) => facDays[b] - facDays[a]).slice(0, 4);
-  if (topFac.length) {
-    L.push('SELF-MARKED CONTEXT (days noted; association, not cause)');
-    L.push('  ' + topFac.map((f) => (FACTOR_NAMES[f] || f) + ' ' + facDays[f]).join(', '));
-    L.push('');
-  }
-
-  // ── Function ──
-  const goalRatings = weeks.filter((w) => w.goal != null);
-  if (goalText && goalRatings.length) {
-    const first = goalRatings[0], last = goalRatings[goalRatings.length - 1];
-    L.push('FUNCTION — "' + goalText + '" (ability 0-10, weekly)');
-    L.push('  ' + (goalRatings.length >= 2
-      ? first.goal + ' (' + fmtDate(first.week) + ') -> ' + last.goal + ' (' + fmtDate(last.week) + ')'
-      : last.goal + ' this week'));
-    L.push('');
-  }
-
-  // ── Treatments tried ──
-  const tried = events.filter((ev) => ev.kind === 'treatment' && ev.date >= startIso);
-  if (tried.length) {
-    L.push('TRIED (patient-perceived effect, 0-10)');
-    tried.slice(-6).forEach((ev) => {
-      L.push('  ' + fmtDate(ev.date) + ' — ' + ev.text +
-        (ev.helped != null ? ' (helped: ' + ev.helped + ')' : ''));
+  const inWindow = events.filter((ev) => ev.date >= startIso && ev.date <= todayIso);
+  const treatments = inWindow.filter((ev) => ev.kind === 'treatment');
+  if (treatments.length) {
+    L.push('TREATMENTS RECORDED (patient-reported effect, 0-10)');
+    treatments.slice(-8).forEach((ev) => {
+      L.push('  ' + fmtDate(ev.date) + ' — ' + (ev.text || 'unspecified') +
+        (ev.helped != null ? ' (reported effect ' + ev.helped + ')' : ''));
     });
     L.push('');
   }
+  const others = inWindow.filter((ev) => ev.kind !== 'treatment');
+  if (others.length) {
+    const byKind: Record<string, number> = {};
+    others.forEach((ev) => { byKind[ev.kind] = (byKind[ev.kind] || 0) + 1; });
+    L.push('OTHER EVENTS RECORDED');
+    L.push('  ' + Object.keys(byKind)
+      .map((k) => (EVENT_LABELS[k as EventKind] || k) + ' ' + byKind[k]).join(', '));
+    L.push('  Recorded as events only. No causal relationship is implied.');
+    L.push('');
+  }
 
-  L.push('Recorded by the patient with Pattern, a self-tracking wellness');
-  L.push('journal. Not a medical device; does not diagnose, treat, or predict.');
+  L.push('Self-recorded by the patient using Pattern, a wellness journal.');
+  L.push('Not a medical device. Does not diagnose, treat, or predict.');
   return L.join('\n');
 }

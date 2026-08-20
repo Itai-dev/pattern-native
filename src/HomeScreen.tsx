@@ -1,89 +1,168 @@
 /**
- * One screen. Today at the top, the month beneath it, and the occasional
- * card in between.
+ * One screen: today at the top, the activity you want back, the month
+ * beneath.
  *
- * There used to be two tabs. "Today" showed the same square the map already
- * drew, so the tab bar was navigation between a thing and a smaller copy of
- * itself — cost with no content. Scrolling beats tapping when there are only
- * two destinations, and the day you just logged is now visible in the same
- * glance as the month it belongs to.
+ * The hero states TODAY'S AVERAGE across completed check-ins, and says so.
+ * It is not "your pain right now" — a single word floating over a colour
+ * invited exactly that misreading. Number, label and count are all present,
+ * so the value never depends on the colour alone.
  */
 import React from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import DaySquare from './DaySquare';
 import MapScreen from './MapScreen';
-import * as db from './db';
 import { Press } from './motion';
-import { Entries, WeeklyEntry, fmtTime, logsOf, todayISO, weeklyDue } from './model';
-import { PAINWORDS, color, radius, size } from './theme';
+import {
+  Entries, FuncEntry, checkinCount, dailyAverage, funcDue, funcTrend,
+  latestFunc, todayISO,
+} from './model';
+import {
+  ABILITY_MAX, formatCheckins, formatScore, formatScoreAndLabel, painLabel, speakScore,
+} from './painScale';
+import { color, radius, size } from './theme';
 
 const SQUARE = 116, SQ_RADIUS = 27;
 
 export interface HomeScreenProps {
   entries: Entries;
-  weekly: WeeklyEntry[];
+  func: FuncEntry[];
   goalText: string | null;
   onLog: () => void;
   onOpenDay: (dateIso: string) => void;
   onEvent: () => void;
-  onWeekly: () => void;
-  onChanged: () => void;
+  onFunc: () => void;
+  onSetGoal: () => void;
 }
 
 export default function HomeScreen({
-  entries, weekly, goalText, onLog, onOpenDay, onEvent, onWeekly, onChanged,
+  entries, func, goalText, onLog, onOpenDay, onEvent, onFunc, onSetGoal,
 }: HomeScreenProps) {
   const t = todayISO();
   const e = entries[t] || null;
-  const logs = logsOf(e);
-  const dayCount = Object.keys(entries).length;
+  const avg = dailyAverage(e);
+  const count = e ? checkinCount(e) : 0;
 
-  const askGoal = () => {
-    Alert.prompt(
-      'One activity you want back',
-      'Finish the sentence: “I want to be able to …” — one specific thing. You’ll rate it weekly, and it becomes the headline of your doctor summary.',
-      (text) => { if (text && text.trim()) { db.setGoal(text.trim()); onChanged(); } },
-      'plain-text'
-    );
-  };
+  const latest = latestFunc(func);
+  const trend = funcTrend(func);
+  const dueThisWeek = funcDue(func, t, !!goalText);
 
   return (
     <View>
-      {/* today */}
+      {/* today, as an average — labelled as one */}
       <View style={styles.today}>
-        <Press onPress={() => (e ? onOpenDay(t) : onLog())} pressScale={0.97} pressOpacity={0.9}>
-          <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS} plus today />
+        <Press
+          onPress={() => (e ? onOpenDay(t) : onLog())}
+          pressScale={0.97}
+          pressOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={avg == null
+            ? 'Today, no check-ins yet'
+            : 'Today, average pain ' + speakScore(avg) + ', ' + formatCheckins(count)}
+          accessibilityHint={e ? 'Opens today’s detail' : 'Starts a check-in'}
+        >
+          <DaySquare
+            entry={e}
+            value={avg}
+            size={SQUARE}
+            radius={SQ_RADIUS}
+            plus
+            today
+          />
         </Press>
-        <Text style={styles.word}>{e ? PAINWORDS[e.pain] : 'Today'}</Text>
-        {logs.length > 0 && (
-          <Text style={styles.times}>{logs.map((l) => fmtTime(l.h)).join(' · ')}</Text>
+
+        <Text style={styles.todayLabel} allowFontScaling maxFontSizeMultiplier={1.5}>
+          Today
+        </Text>
+        {avg == null ? (
+          <Text style={styles.empty} allowFontScaling maxFontSizeMultiplier={1.5}>
+            No check-ins yet today
+          </Text>
+        ) : (
+          <>
+            <Text style={styles.avg} allowFontScaling maxFontSizeMultiplier={1.5}>
+              {formatScoreAndLabel(avg)}
+            </Text>
+            <Text style={styles.count} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {formatCheckins(count)}
+              {count > 1 ? ' · average' : ''}
+            </Text>
+          </>
         )}
       </View>
 
       <View style={styles.actions}>
-        <Press onPress={onLog} pressScale={0.985} style={styles.primary}>
-          <Text style={styles.primaryText}>{e ? 'Add a log' : 'Add today'}</Text>
+        <Press
+          onPress={onLog}
+          pressScale={0.985}
+          style={styles.primary}
+          accessibilityRole="button"
+          accessibilityLabel="Check in now"
+        >
+          <Text style={styles.primaryText} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Check in now
+          </Text>
         </Press>
-        <Press onPress={onEvent} style={styles.quiet}>
-          <Text style={styles.quietText}>Something changed? Flare, treatment, unusual day</Text>
+
+        {/* a real secondary action, not helper text */}
+        <Press
+          onPress={onEvent}
+          pressOpacity={0.85}
+          style={styles.secondary}
+          accessibilityRole="button"
+          accessibilityLabel="Log something that changed"
+        >
+          <Text style={styles.secondaryText} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Log something that changed
+          </Text>
         </Press>
       </View>
 
-      {weeklyDue(weekly, t) && (
-        <Press onPress={onWeekly} pressOpacity={0.85} style={styles.card}>
-          <Text style={styles.cardTitle}>Your week, in three questions</Text>
-          <Text style={styles.cardSub}>Under a minute. It becomes the trend your doctor sees.</Text>
+      {/* the activity you want back — the outcome the app is actually for */}
+      {goalText ? (
+        <Press
+          onPress={onFunc}
+          pressOpacity={0.85}
+          style={styles.card}
+          accessibilityRole="button"
+          accessibilityLabel={'Activity I want back: ' + goalText +
+            (latest ? '. Weekly ability ' + latest.ability + ' out of ' + ABILITY_MAX : '. Not rated yet')}
+          accessibilityHint="Opens this week’s function check-in"
+        >
+          <Text style={styles.cardKicker}>ACTIVITY I WANT BACK</Text>
+          <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {goalText}
+          </Text>
+          <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {latest
+              ? 'Weekly ability: ' + latest.ability + ' / ' + ABILITY_MAX
+              : 'Not rated yet'}
+            {trend
+              ? '  ·  ' + trend.first.ability + ' → ' + trend.last.ability + ' so far'
+              : ''}
+          </Text>
+          {dueThisWeek && (
+            <Text style={styles.cardDue} allowFontScaling maxFontSizeMultiplier={1.4}>
+              This week’s check-in is ready →
+            </Text>
+          )}
+        </Press>
+      ) : (
+        <Press
+          onPress={onSetGoal}
+          pressOpacity={0.85}
+          style={styles.card}
+          accessibilityRole="button"
+          accessibilityLabel="Choose one activity you want back"
+        >
+          <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Choose one activity you want back
+          </Text>
+          <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+            So progress is measured against your life, not only a pain score.
+          </Text>
         </Press>
       )}
 
-      {!goalText && dayCount >= 3 && (
-        <Press onPress={askGoal} pressOpacity={0.85} style={styles.card}>
-          <Text style={styles.cardTitle}>Name one activity you want back</Text>
-          <Text style={styles.cardSub}>So progress is measured against your life, not a pain score.</Text>
-        </Press>
-      )}
-
-      {/* the month */}
       <View style={styles.mapWrap}>
         <MapScreen entries={entries} onDayPress={onOpenDay} />
       </View>
@@ -92,26 +171,40 @@ export default function HomeScreen({
 }
 
 const styles = StyleSheet.create({
-  today: { alignItems: 'center', marginTop: 24 },
-  word: {
-    color: color.textPrimary, fontSize: 20, fontWeight: '600',
-    letterSpacing: -0.3, marginTop: 16,
+  today: { alignItems: 'center', marginTop: 22 },
+  todayLabel: {
+    color: color.textSecondary, fontSize: 13, fontWeight: '600',
+    letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 16,
   },
-  times: { color: color.textTertiary, fontSize: 12, marginTop: 5 },
-  actions: { paddingHorizontal: size.pageX, marginTop: 20 },
+  avg: {
+    color: color.textPrimary, fontSize: 24, fontWeight: '700',
+    letterSpacing: -0.4, marginTop: 4, textAlign: 'center',
+  },
+  count: { color: color.textSecondary, fontSize: 13, marginTop: 4 },
+  empty: { color: color.textSecondary, fontSize: 16, marginTop: 4 },
+  actions: { paddingHorizontal: size.pageX, marginTop: 22 },
   primary: {
     height: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center',
   },
   primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
-  quiet: { paddingVertical: 12, alignItems: 'center' },
-  quietText: { color: color.textTertiary, fontSize: 13 },
+  secondary: {
+    minHeight: 48, borderRadius: radius.button, marginTop: 10,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12,
+  },
+  secondaryText: { color: color.textPrimary, fontSize: 15, fontWeight: '500' },
   card: {
-    marginHorizontal: size.pageX, marginTop: 6,
+    marginHorizontal: size.pageX, marginTop: 14, minHeight: 44,
     borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth,
     borderColor: color.borderDivider, backgroundColor: color.bgSurface, padding: 16,
   },
-  cardTitle: { color: color.textPrimary, fontSize: 15, fontWeight: '600' },
-  cardSub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginTop: 3 },
+  cardKicker: {
+    color: color.textSecondary, fontSize: 11, fontWeight: '600',
+    letterSpacing: 0.6, marginBottom: 4,
+  },
+  cardTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
+  cardSub: { color: color.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  cardDue: { color: '#5BA8FF', fontSize: 13, marginTop: 8 },
   mapWrap: { marginTop: 26 },
 });

@@ -1,23 +1,27 @@
 /**
- * The month — a grid of rounded-square day cells. A day logged once is a
- * flat colour; several logs blend into concentric bands, earliest at the
- * rim and latest at the core, drawn as nested rounded squares since native
- * has no inset shadows. Corners stay parallel by construction.
+ * The month.
  *
- * This is a section of the home screen, not a page of its own, so it owns
- * only its heading and grid.
+ * Every cell carries its DATE NUMBER, so the grid is a calendar before it
+ * is a chart. Colour shows the day's AVERAGE pain, and small dots show how
+ * many check-ins that average came from — colour alone never carries the
+ * value, and VoiceOver reads date, average and count as one sentence.
+ *
+ * A day with no logs stays visibly empty; today is marked with an outline
+ * that is distinct from any pain fill.
  */
 import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import { color, size, theme } from './theme';
-import { Entries, Entry, dayLayers, iso, todayISO } from './model';
+import { color, size } from './theme';
+import { Entries, checkinCount, dailyAverage, iso, todayISO } from './model';
+import { formatCheckins, inkOn, painColor, speakScore } from './painScale';
 import { Press } from './motion';
 
-const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
-const WEEKSTART = 1; // Monday-first; Hebrew (Sunday-first) arrives with i18n
+const WEEKSTART = 1; // Monday-first
 const GAP = 7;
+const MAX_DOTS = 3;
 
 export interface MapScreenProps {
   entries: Entries;
@@ -28,28 +32,6 @@ function cellMetrics() {
   const w = Math.min(Dimensions.get('window').width, 520) - size.pageX * 2;
   const cell = (w - GAP * 6) / 7;
   return { cell, radius: cell * 0.24 };
-}
-
-function DayFill({ e, cell, radius }: { e: Entry; cell: number; radius: number }) {
-  const layers = dayLayers(e, cell / 2, theme.ramp);
-  return (
-    <View style={{
-      width: cell, height: cell, borderRadius: radius,
-      backgroundColor: layers[0].color, overflow: 'hidden',
-    }}>
-      {layers.slice(1).map((l, i) => (
-        <View
-          key={i}
-          style={{
-            position: 'absolute',
-            left: l.inset, right: l.inset, top: l.inset, bottom: l.inset,
-            borderRadius: Math.max(2, radius - l.inset),
-            backgroundColor: l.color,
-          }}
-        />
-      ))}
-    </View>
-  );
 }
 
 export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
@@ -68,38 +50,96 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>{MONTHS[now.getMonth()]}</Text>
+      <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.4}>
+        {MONTHS[now.getMonth()]}
+      </Text>
+      <Text style={styles.legend} allowFontScaling maxFontSizeMultiplier={1.4}>
+        Colour shows each day’s average pain, 0–10. Dots show check-ins.
+      </Text>
+
       <View style={[styles.grid, { columnGap: GAP, rowGap: GAP }]}>
-        {WD.map((w) => (
-          <Text key={w} style={[styles.wd, { width: cell }]}>{w}</Text>
+        {WD.map((w, i) => (
+          <Text
+            key={w + i}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={[styles.wd, { width: cell }]}
+          >
+            {w}
+          </Text>
         ))}
+
         {days.map((dISO, i) => {
           if (!dISO) return <View key={'b' + i} style={{ width: cell, height: cell }} />;
           const e = entries[dISO] || null;
+          const avg = dailyAverage(e);
+          const n = e ? checkinCount(e) : 0;
           const isToday = dISO === t;
           const future = dISO > t;
+          const dayNum = Number(dISO.slice(8, 10));
+          const numColour = avg == null
+            ? (future ? color.textTertiary : color.textSecondary)
+            : inkOn(avg);
+
+          const label = new Date(dISO.replace(/-/g, '/')).toDateString().slice(0, 10) +
+            (avg == null
+              ? ', no check-ins'
+              : ', average pain ' + speakScore(avg) + ', ' + formatCheckins(n));
+
           return (
             <Press
               key={dISO}
-              disabled={future}
+              disabled={future || !e}
               onPress={() => onDayPress(dISO)}
               pressScale={0.96}
               pressOpacity={1}
+              accessibilityRole="button"
+              accessibilityLabel={(isToday ? 'Today, ' : '') + label}
+              accessibilityHint={e ? 'Opens the day' : undefined}
               style={{ width: cell, height: cell, borderRadius: radius }}
             >
-              {e
-                ? <DayFill e={e} cell={cell} radius={radius} />
-                : <View style={[
-                    { width: cell, height: cell, borderRadius: radius, borderWidth: 1 },
-                    { borderColor: future ? color.bgSegmentTrack : (isToday ? color.textTertiary : color.borderControl) },
-                  ]} />}
+              <View
+                style={[
+                  { width: cell, height: cell, borderRadius: radius },
+                  styles.cell,
+                  avg == null
+                    ? {
+                        borderWidth: 1,
+                        borderColor: future ? color.bgSegmentTrack : color.borderControl,
+                      }
+                    : { backgroundColor: painColor(avg) },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.dayNum, { color: numColour, fontSize: Math.max(11, cell * 0.3) }]}
+                >
+                  {dayNum}
+                </Text>
+
+                {/* how many check-ins the average came from */}
+                {n > 0 && (
+                  <View style={styles.dots}>
+                    {Array.from({ length: Math.min(n, MAX_DOTS) }).map((_, k) => (
+                      <View
+                        key={k}
+                        style={[styles.dot, { backgroundColor: avg == null ? color.textTertiary : numColour }]}
+                      />
+                    ))}
+                    {n > MAX_DOTS && (
+                      <Text style={[styles.more, { color: numColour }]}>+</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+
               {isToday && (
                 <View
                   pointerEvents="none"
                   style={{
                     position: 'absolute', left: -3, top: -3, right: -3, bottom: -3,
-                    borderRadius: radius + 3, borderWidth: 1.5,
-                    borderColor: 'rgba(255,255,255,0.35)',
+                    borderRadius: radius + 3, borderWidth: 2,
+                    borderColor: '#FFFFFF',
                   }}
                 />
               )}
@@ -115,11 +155,17 @@ const styles = StyleSheet.create({
   root: { paddingHorizontal: size.pageX },
   title: {
     color: color.textPrimary, fontSize: 22, fontWeight: '600',
-    letterSpacing: -0.4, marginBottom: 12,
+    letterSpacing: -0.4, marginBottom: 4,
   },
+  legend: { color: color.textSecondary, fontSize: 12, lineHeight: 17, marginBottom: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   wd: {
-    textAlign: 'center', color: color.textTertiary,
-    fontSize: 11, fontWeight: '500', paddingBottom: 2,
+    textAlign: 'center', color: color.textSecondary,
+    fontSize: 11, fontWeight: '600', paddingBottom: 2,
   },
+  cell: { alignItems: 'center', justifyContent: 'center' },
+  dayNum: { fontWeight: '600', fontVariant: ['tabular-nums'] },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },
+  dot: { width: 3, height: 3, borderRadius: 1.5, opacity: 0.85 },
+  more: { fontSize: 8, fontWeight: '700', marginLeft: 1 },
 });
