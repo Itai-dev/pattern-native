@@ -15,7 +15,7 @@ import * as db from './db';
 import {
   DEFAULT_SLOTS, Slot, ensurePermission, fmt, hasPermission, reschedule,
 } from './reminders';
-import { color, radius } from './theme';
+import { color, font, radius } from './theme';
 
 const PREF = 'reminders.slots';
 const LABELS: Record<Slot['key'], string> = { m: 'Morning', d: 'Midday', e: 'Evening' };
@@ -169,10 +169,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 34,
   },
-  pickerTitle: { color: color.textSecondary, fontSize: 14, textAlign: 'center', marginBottom: 4 },
+  pickerTitle: { color: color.textSecondary, fontSize: font.footnote, textAlign: 'center', marginBottom: 4 },
   doneBtn: {
     height: 50, borderRadius: radius.button, backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
-  doneText: { color: '#000000', fontSize: 16, fontWeight: '600' },
+  doneText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
 });

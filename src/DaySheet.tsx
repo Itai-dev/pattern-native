@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   navSpacer: { width: 64 },
   navTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
   navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: '#5BA8FF', fontSize: 17, fontWeight: '600' },
+  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
   body: { padding: size.sheetX, paddingTop: 20, paddingBottom: 30 },
   header: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   headerText: { flex: 1, gap: 3 },
@@ -326,9 +326,10 @@ const styles = StyleSheet.create({
     lineHeight: 23, fontStyle: 'italic',
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
   },
+  /* the same primary-button spec as everywhere else — one button, one size */
   primary: {
-    height: 48, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 24,
+    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    alignItems: 'center', justifyContent: 'center', marginTop: 24, paddingHorizontal: 16,
   },
-  primaryText: { color: '#000000', fontSize: 15, fontWeight: '600' },
+  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
 });

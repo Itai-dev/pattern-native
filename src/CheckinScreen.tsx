@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   close2: { width: 40, height: 40 },
   more: { paddingVertical: 12, paddingHorizontal: 8, alignSelf: 'center' },
-  moreText: { color: color.textTertiary, fontSize: 14 },
+  moreText: { color: color.textTertiary, fontSize: font.subheadline },
   closeGlyph: { color: color.textSecondary, fontSize: 15, lineHeight: 18 },
   title: {
     color: color.textPrimary, fontSize: font.title2, fontWeight: '700', letterSpacing: -0.3,

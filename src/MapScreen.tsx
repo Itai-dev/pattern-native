@@ -17,8 +17,6 @@ import { formatCheckins, inkOn, painColor, speakScore } from './painScale';
 import { Press } from './motion';
 
 const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
-  'August', 'September', 'October', 'November', 'December'];
 const WEEKSTART = 1; // Monday-first
 const GAP = 7;
 const MAX_DOTS = 3;
@@ -50,9 +48,7 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.4}>
-        {MONTHS[now.getMonth()]}
-      </Text>
+      {/* the month name is the screen's large title, up in the top bar */}
       <Text style={styles.legend} allowFontScaling maxFontSizeMultiplier={1.4}>
         Colour = average pain, 0–10 · dots = check-ins
       </Text>
@@ -159,12 +155,7 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  root: { paddingHorizontal: size.pageX },
-  /* the Map page's own large title — the month is what this screen is */
-  title: {
-    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
-    letterSpacing: -0.5, marginBottom: 4,
-  },
+  root: { paddingHorizontal: size.pageX, paddingTop: 2 },
   legend: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   wd: {

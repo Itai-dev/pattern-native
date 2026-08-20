@@ -26,10 +26,15 @@ configureHandler(); // set once, before anything can be delivered
 
 type Sheet = null | 'checkin' | 'func' | 'funcBaseline' | 'event' | 'report' | 'goal';
 
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+  'August', 'September', 'October', 'November', 'December'];
+
 /**
- * One screen and a profile. Sheets are real iOS page sheets, each with a
- * native control in its own navigation bar — the check-in keeps its ✕
- * because it is a full-screen flow, everything else says Done or Close.
+ * Two tabs and a profile. The top bar carries the screen's large title —
+ * the wordmark on Today, the month name on the Map — so both tabs share
+ * one hierarchy. Sheets are real iOS page sheets, each with a native
+ * control in its own navigation bar — the check-in keeps its ✕ because
+ * it is a full-screen flow, everything else says Done or Close.
  */
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
@@ -185,12 +190,16 @@ export default function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <SafeAreaView style={styles.safe} edges={['top']}>
-          {/* one large title per screen: the wordmark leads Today; the
-              month name leads the Map */}
+          {/* one large title per screen, always in the same place */}
           <View style={styles.topBar}>
-            {tab === 'today'
-              ? <Text style={styles.wordmark}>Pattern</Text>
-              : <View />}
+            <Text
+              style={styles.wordmark}
+              numberOfLines={1}
+              allowFontScaling
+              maxFontSizeMultiplier={1.2}
+            >
+              {tab === 'today' ? 'Pattern' : MONTHS[new Date().getMonth()]}
+            </Text>
             <Pressable
               onPress={() => setProfile(true)}
               hitSlop={8}
@@ -203,7 +212,8 @@ export default function App() {
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+          {/* keyed per tab so each place starts at its own top */}
+          <ScrollView key={tab} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
             {tab === 'today' ? (
               <HomeScreen
                 entries={entries}
@@ -318,13 +328,11 @@ export default function App() {
               <RemindersSection />
 
               <Text style={styles.groupTitle}>Your data</Text>
-              <View style={styles.infoBlock}>
-                <Text style={styles.rowLabel}>Stored only on this iPhone</Text>
-                <Text style={styles.rowSub}>
-                  Your health data stays on this iPhone unless you choose to export
-                  or restore a backup.
-                </Text>
-              </View>
+              {/* a fact, not a row — nothing here to tap */}
+              <Text style={styles.privacyNote}>
+                Stored only on this iPhone. Your health data stays here unless
+                you choose to export or restore a backup.
+              </Text>
 
               <Pressable
                 onPress={exportBackup}
@@ -404,9 +412,9 @@ const styles = StyleSheet.create({
     color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
     marginTop: 30, marginBottom: 6,
   },
-  infoBlock: {
-    paddingVertical: 12, gap: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
+  privacyNote: {
+    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18,
+    paddingBottom: 8,
   },
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
