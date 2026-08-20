@@ -12,16 +12,17 @@ import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
 import FunctionSheet from './src/FunctionSheet';
 import EventSheet from './src/EventSheet';
+import GoalSheet from './src/GoalSheet';
 import ReportSheet from './src/ReportSheet';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
-import { todayISO } from './src/model';
-import { color, size } from './src/theme';
+import { PainEvent, ValidBackup, todayISO } from './src/model';
+import { color, font, size } from './src/theme';
 
 configureHandler(); // set once, before anything can be delivered
 
-type Sheet = null | 'checkin' | 'func' | 'event' | 'report';
+type Sheet = null | 'checkin' | 'func' | 'funcBaseline' | 'event' | 'report' | 'goal';
 
 /**
  * One screen and a profile. Sheets are real iOS page sheets, each with a
@@ -35,6 +36,9 @@ export default function App() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
+  /* an event being edited, and the day sheet to return to afterwards */
+  const [editEvent, setEditEvent] = useState<PainEvent | null>(null);
+  const [returnDay, setReturnDay] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     setEntries(db.getAll());
@@ -42,50 +46,89 @@ export default function App() {
     setGoalText(db.getGoal());
   }, []);
 
-  const closeSheet = useCallback(() => { setSheet(null); refresh(); }, [refresh]);
+  const closeSheet = useCallback(() => {
+    setSheet(null);
+    setEditEvent(null);
+    refresh();
+    /* editing was reached from a day's detail — go back there */
+    if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
+  }, [refresh, returnDay]);
   const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
 
   const editGoal = useCallback(() => {
-    Alert.prompt(
-      'Activity I want back',
-      'One specific thing pain took — you will rate your ability at it each week.',
-      (text) => { if (text != null) { db.setGoal(text); refresh(); } },
-      'plain-text',
-      goalText || ''
-    );
-  }, [goalText, refresh]);
+    setProfile(false);
+    setSheet('goal');
+  }, []);
 
-  /* Restoring merges: a restored day replaces that same day and every other
-     day is left alone. Said plainly before anything is touched. */
-  const restoreBackup = useCallback(() => {
+  const startEditEvent = useCallback((ev: PainEvent) => {
+    setReturnDay(daySheet);
+    setDaySheet(null);
+    setEditEvent(ev);
+    setSheet('event');
+  }, [daySheet]);
+
+  /* Restore: the file is fully validated BEFORE anything is touched, then
+     the user chooses what the restore means — replace or merge. */
+  const applyRestore = useCallback((backup: ValidBackup, mode: db.RestoreMode) => {
+    try {
+      const r = db.applyBackup(backup, mode);
+      refresh();
+      Alert.alert(
+        mode === 'replace' ? 'Backup restored' : 'Backup merged',
+        r.days + (r.days === 1 ? ' day' : ' days') +
+        (r.events ? ', ' + r.events + (r.events === 1 ? ' event' : ' events') : '') +
+        (r.func ? ', ' + r.func + ' weekly ' + (r.func === 1 ? 'rating' : 'ratings') : '') +
+        (mode === 'replace' ? ' now replace what was here.' : ' were brought in. Nothing was duplicated or deleted.')
+      );
+    } catch {
+      Alert.alert('Restore failed', 'Nothing was changed. Your current data is intact.');
+    }
+  }, [refresh]);
+
+  const restoreBackup = useCallback(async () => {
+    const res = await DocumentPicker
+      .getDocumentAsync({ type: 'application/json' })
+      .catch(() => null);
+    if (!res || res.canceled || !res.assets?.length) return;
+    let backup: ValidBackup | null = null;
+    try {
+      const json = await FileSystem.readAsStringAsync(res.assets[0].uri);
+      backup = db.inspectBackup(json);
+    } catch {
+      backup = null;
+    }
+    if (!backup) {
+      Alert.alert('Couldn’t read that file', 'It doesn’t look like a Pattern backup. Nothing was changed.');
+      return;
+    }
+    const b = backup;
+    const summary = Object.keys(b.entries).length + ' days, ' +
+      b.events.length + ' events, ' + b.func.length + ' weekly ratings';
     Alert.alert(
       'Restore backup',
-      'Days in the backup will replace those same days here. Days not in the backup are kept. This cannot be undone — export a backup first if you are unsure.',
+      'This file holds ' + summary + '.\n\n' +
+      'Replace: everything currently in Pattern is removed and the backup takes its place.\n' +
+      'Merge: backup days replace those same days, other days are kept, and nothing is duplicated.',
       [
         { text: 'Cancel', style: 'cancel' },
+        { text: 'Merge without duplicates', onPress: () => applyRestore(b, 'merge') },
         {
-          text: 'Choose file',
-          onPress: async () => {
-            const res = await DocumentPicker
-              .getDocumentAsync({ type: 'application/json' })
-              .catch(() => null);
-            if (!res || res.canceled || !res.assets?.length) return;
-            try {
-              const json = await FileSystem.readAsStringAsync(res.assets[0].uri);
-              const n = db.importBackup(json);
-              refresh();
-              Alert.alert(
-                n >= 0 ? 'Restored ' + n + ' days' : 'Couldn’t read that file',
-                n >= 0 ? 'Your history is on this iPhone now.' : 'It doesn’t look like a Pattern backup.'
-              );
-            } catch {
-              Alert.alert('Couldn’t read that file');
-            }
+          text: 'Replace current data',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Replace everything?',
+              'Your current check-ins, events and weekly ratings will be removed and replaced by the backup. Export a backup of the current data first if you are unsure.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Replace', style: 'destructive', onPress: () => applyRestore(b, 'replace') },
+              ]
+            );
           },
         },
       ]
     );
-  }, [refresh]);
+  }, [applyRestore]);
 
   const exportBackup = useCallback(async () => {
     const json = db.exportBackup(todayISO());
@@ -161,7 +204,7 @@ export default function App() {
               onLog={() => setSheet('checkin')}
               onOpenDay={setDaySheet}
               onEvent={() => setSheet('event')}
-              onFunc={() => setSheet('func')}
+              onFunc={(baseline) => setSheet(baseline ? 'funcBaseline' : 'func')}
               onSetGoal={editGoal}
             />
           </ScrollView>
@@ -172,12 +215,26 @@ export default function App() {
           <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
-        <Modal visible={sheet === 'func'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          {goalText && <FunctionSheet goalText={goalText} onDone={closeSheet} onClose={closeSheet} />}
+        <Modal
+          visible={sheet === 'func' || sheet === 'funcBaseline'}
+          animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}
+        >
+          {goalText && (
+            <FunctionSheet
+              goalText={goalText}
+              baseline={sheet === 'funcBaseline'}
+              onDone={closeSheet}
+              onClose={closeSheet}
+            />
+          )}
+        </Modal>
+
+        <Modal visible={sheet === 'goal'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+          <GoalSheet initialText={goalText} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <EventSheet onDone={closeSheet} onClose={closeSheet} />
+          <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal visible={sheet === 'report'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
@@ -192,6 +249,7 @@ export default function App() {
               onChanged={refresh}
               onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
               onEditLog={() => { setDaySheet(null); setSheet('checkin'); }}
+              onEditEvent={startEditEvent}
               onClose={closeDay}
             />
           )}
@@ -246,7 +304,7 @@ export default function App() {
 
               <RemindersSection />
 
-              <Text style={styles.groupTitle}>YOUR DATA</Text>
+              <Text style={styles.groupTitle}>Your data</Text>
               <View style={styles.infoBlock}>
                 <Text style={styles.rowLabel}>Stored only on this iPhone</Text>
                 <Text style={styles.rowSub}>
@@ -276,7 +334,7 @@ export default function App() {
               >
                 <View style={styles.rowMain}>
                   <Text style={styles.rowLabel}>Restore backup</Text>
-                  <Text style={styles.rowSub}>Merges a file into what is already here</Text>
+                  <Text style={styles.rowSub}>Choose a file, then replace or merge — you decide before anything changes</Text>
                 </View>
                 <Text style={styles.rowChevron}>›</Text>
               </Pressable>
@@ -306,7 +364,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: size.pageX, paddingTop: 4,
   },
-  wordmark: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
+  /* the main screen's title — iOS large-title weight and size */
+  wordmark: { color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700', letterSpacing: -0.5 },
   person: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   personHead: {
     width: 8, height: 8, borderRadius: 4, borderWidth: 1.4,
@@ -324,13 +383,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
   navSpacer: { width: 64 },
-  navTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
+  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: '#5BA8FF', fontSize: 17, fontWeight: '600' },
+  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
   sheetBody: { padding: size.sheetX, paddingTop: 14, paddingBottom: 40 },
   groupTitle: {
-    color: color.textSecondary, fontSize: 12, fontWeight: '600',
-    letterSpacing: 0.5, marginTop: 30, marginBottom: 6,
+    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    marginTop: 30, marginBottom: 6,
   },
   infoBlock: {
     paddingVertical: 12, gap: 4,
@@ -342,9 +401,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
   rowMain: { flex: 1, gap: 2 },
-  rowLabel: { color: color.textPrimary, fontSize: 17 },
-  rowSub: { color: color.textSecondary, fontSize: 13, lineHeight: 18 },
+  rowLabel: { color: color.textPrimary, fontSize: font.body },
+  rowSub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20 },
   rowChevron: { color: color.textTertiary, fontSize: 20 },
   deleteRow: { marginTop: 34, minHeight: 44, justifyContent: 'center' },
-  danger: { color: color.danger, fontSize: 17 },
+  danger: { color: color.danger, fontSize: font.body },
 });

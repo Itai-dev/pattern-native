@@ -11,7 +11,7 @@
  */
 import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import { color, size } from './theme';
+import { color, font, size } from './theme';
 import { Entries, checkinCount, dailyAverage, iso, todayISO } from './model';
 import { formatCheckins, inkOn, painColor, speakScore } from './painScale';
 import { Press } from './motion';
@@ -107,7 +107,12 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
                         borderWidth: 1,
                         borderColor: future ? color.bgSegmentTrack : color.borderControl,
                       }
-                    : { backgroundColor: painColor(avg) },
+                    : {
+                        backgroundColor: painColor(avg),
+                        /* keeps a near-black low-pain day visible on the
+                           black ground */
+                        borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+                      },
                 ]}
               >
                 <Text
@@ -133,13 +138,15 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
                 )}
               </View>
 
+              {/* today's ring is Pattern blue, never white — white is the
+                  control colour and near-white is now maximum pain */}
               {isToday && (
                 <View
                   pointerEvents="none"
                   style={{
                     position: 'absolute', left: -3, top: -3, right: -3, bottom: -3,
                     borderRadius: radius + 3, borderWidth: 2,
-                    borderColor: '#FFFFFF',
+                    borderColor: color.brand,
                   }}
                 />
               )}
@@ -154,10 +161,10 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 const styles = StyleSheet.create({
   root: { paddingHorizontal: size.pageX },
   title: {
-    color: color.textPrimary, fontSize: 22, fontWeight: '600',
+    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
     letterSpacing: -0.4, marginBottom: 4,
   },
-  legend: { color: color.textSecondary, fontSize: 12, lineHeight: 17, marginBottom: 14 },
+  legend: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   wd: {
     textAlign: 'center', color: color.textSecondary,

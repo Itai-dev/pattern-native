@@ -5,51 +5,98 @@
  * and when; it never asserts that one thing caused another, and it never
  * recommends a medication or a dose. A treatment row may carry the user's
  * own sense of whether it helped — that is their report, labelled as such.
+ *
+ * The same sheet edits an existing event: fields arrive filled, Save
+ * updates the row in place, and Delete asks before removing it. Save is
+ * guarded against repeated taps so one tap is always one event.
  */
-import React, { useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import * as db from './db';
 import { Press } from './motion';
 import {
-  EVENT_KINDS, EVENT_LABELS, EventKind, checkinCount, fmtTime, minutesNow, todayISO,
+  EVENT_KINDS, EVENT_LABELS, EventKind, PainEvent, checkinCount, fmtTime,
+  minutesNow, todayISO,
 } from './model';
-import { color, radius, size } from './theme';
+import { color, font, size } from './theme';
+
+const LINK_NOTE = 'Events are shown alongside your check-ins without assuming they caused a change.';
 
 export interface EventSheetProps {
+  /** present = edit this event instead of creating a new one */
+  event?: PainEvent | null;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function EventSheet({ onDone, onClose }: EventSheetProps) {
-  const [kind, setKind] = useState<EventKind>('flare');
-  const [minutes, setMinutes] = useState(minutesNow());
+export default function EventSheet({ event, onDone, onClose }: EventSheetProps) {
+  const editing = !!(event && event.id != null);
+  const [kind, setKind] = useState<EventKind>(event ? event.kind : 'flare');
+  const [minutes, setMinutes] = useState(event ? event.h : minutesNow());
   const [showPicker, setShowPicker] = useState(false);
-  const [helped, setHelped] = useState<number | null>(null);
-  const [text, setText] = useState('');
-  const [link, setLink] = useState(true);
+  const [helped, setHelped] = useState<number | null>(event && event.helped != null ? event.helped : null);
+  const [text, setText] = useState(event ? event.text : '');
+  const [link, setLink] = useState(event ? event.linked === 1 : true);
+  const [saving, setSaving] = useState(false);
+  const savedRef = useRef(false);
 
-  const todayCheckins = checkinCount(db.getDay(todayISO()));
+  const date = event ? event.date : todayISO();
+  const dayCheckins = checkinCount(db.getDay(date));
 
+  /* one tap, one event: the ref blocks the double-fire a fast second tap
+     can land before React re-renders with the disabled state */
   const save = () => {
+    if (savedRef.current) return;
+    savedRef.current = true;
+    setSaving(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    db.addEvent({
-      date: todayISO(),
+    const row: Omit<PainEvent, 'id'> = {
+      date,
       h: minutes,
       kind,
       text: text.trim(),
       helped: kind === 'treatment' ? helped : null,
-      linked: link && todayCheckins > 0 ? 1 : 0,
-    });
+      linked: link && dayCheckins > 0 ? 1 : 0,
+    };
+    if (editing) db.updateEvent(event!.id!, row);
+    else db.addEvent(row);
     onDone();
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete this event?',
+      'The ' + fmtTime(event!.h) + ' ' + EVENT_LABELS[event!.kind].toLowerCase() +
+        ' event will be removed. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (savedRef.current) return;
+            savedRef.current = true;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            db.dropEvent(event!.id!);
+            onDone();
+          },
+        },
+      ]
+    );
   };
 
   const pickerDate = new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60);
 
   return (
-    <View style={styles.root}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={styles.navBar}>
         <Press
           onPress={onClose}
@@ -60,19 +107,29 @@ export default function EventSheet({ onDone, onClose }: EventSheetProps) {
         >
           <Text style={styles.navBtnText}>Cancel</Text>
         </Press>
-        <Text style={styles.navTitle} numberOfLines={1}>Something changed</Text>
+        <Text style={styles.navTitle} numberOfLines={1}>
+          {editing ? 'Edit event' : 'Something changed'}
+        </Text>
         <Press
           onPress={save}
+          disabled={saving}
           style={styles.navBtn}
           hitSlop={10}
           accessibilityRole="button"
+          accessibilityState={{ disabled: saving }}
           accessibilityLabel="Save event"
         >
-          <Text style={[styles.navBtnText, styles.navBtnStrong]}>Save</Text>
+          <Text style={[styles.navBtnText, styles.navBtnStrong, saving && styles.navBtnOff]}>
+            Save
+          </Text>
         </Press>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.q}>What happened?</Text>
         <View style={styles.kinds}>
           {EVENT_KINDS.map((k) => {
@@ -116,8 +173,8 @@ export default function EventSheet({ onDone, onClose }: EventSheetProps) {
             mode="time"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             themeVariant="dark"
-            onChange={(_, date) => {
-              if (date) setMinutes(date.getHours() * 60 + date.getMinutes());
+            onChange={(_, d) => {
+              if (d) setMinutes(d.getHours() * 60 + d.getMinutes());
             }}
           />
         )}
@@ -129,7 +186,7 @@ export default function EventSheet({ onDone, onClose }: EventSheetProps) {
               Your own impression. Pattern records it; it does not advise on treatment.
             </Text>
             <Text style={styles.value}>
-              {helped == null ? 'Too early to say' : helped + ' / 10'}
+              {helped == null ? 'Too early to say' : helped + '/10'}
             </Text>
             <Slider
               value={helped}
@@ -159,28 +216,37 @@ export default function EventSheet({ onDone, onClose }: EventSheetProps) {
           accessibilityLabel="Optional note"
         />
 
-        {todayCheckins > 0 && (
+        {dayCheckins > 0 && (
           <Press
             onPress={() => setLink(!link)}
             pressOpacity={0.8}
             style={styles.linkRow}
             accessibilityRole="switch"
             accessibilityState={{ checked: link }}
-            accessibilityLabel="Link to today’s check-ins"
+            accessibilityLabel="Show alongside that day’s check-ins"
           >
             <View style={[styles.box, link && styles.boxOn]}>
               {link && <Text style={styles.tick}>✓</Text>}
             </View>
             <View style={styles.linkText}>
-              <Text style={styles.linkTitle}>Link to today’s check-ins</Text>
-              <Text style={styles.sub}>
-                Kept alongside today’s entries. No cause is implied.
-              </Text>
+              <Text style={styles.linkTitle}>Show alongside that day’s check-ins</Text>
+              <Text style={styles.sub}>{LINK_NOTE}</Text>
             </View>
           </Press>
         )}
+
+        {editing && (
+          <Press
+            onPress={confirmDelete}
+            style={styles.deleteRow}
+            accessibilityRole="button"
+            accessibilityLabel="Delete this event"
+          >
+            <Text style={styles.deleteText}>Delete this event</Text>
+          </Press>
+        )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -191,15 +257,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
-  navTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
+  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   navBtn: { minWidth: 72, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
   navLeft: { alignItems: 'flex-start' },
-  navBtnText: { color: '#5BA8FF', fontSize: 17 },
+  navBtnText: { color: color.tint, fontSize: font.body },
   navBtnStrong: { fontWeight: '600' },
+  navBtnOff: { color: color.textTertiary },
   body: { padding: size.sheetX, paddingTop: 20, paddingBottom: 40 },
-  q: { color: color.textPrimary, fontSize: 15, fontWeight: '600' },
+  q: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   qLater: { marginTop: 28 },
-  sub: { color: color.textSecondary, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
   kinds: { marginTop: 12, gap: 8 },
   kind: {
     minHeight: 48, borderRadius: 12, borderWidth: 1,
@@ -207,24 +274,24 @@ const styles = StyleSheet.create({
   },
   kindOn: { backgroundColor: color.bgSegmentActive, borderColor: color.textSecondary },
   kindOff: { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
-  kindText: { color: color.textPrimary, fontSize: 15 },
+  kindText: { color: color.textPrimary, fontSize: font.subheadline },
   kindTextOn: { fontWeight: '600' },
   timeRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     minHeight: 48, marginTop: 10, paddingHorizontal: 14,
     borderRadius: 12, backgroundColor: color.bgSurface,
   },
-  timeText: { color: color.textPrimary, fontSize: 17, fontVariant: ['tabular-nums'] },
-  timeHint: { color: '#5BA8FF', fontSize: 15 },
+  timeText: { color: color.textPrimary, fontSize: font.body, fontVariant: ['tabular-nums'] },
+  timeHint: { color: color.tint, fontSize: font.subheadline },
   value: {
     color: color.textPrimary, fontSize: 22, fontWeight: '700',
     marginTop: 16, marginBottom: 4, fontVariant: ['tabular-nums'],
   },
   ends: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 8 },
-  endText: { color: color.textSecondary, fontSize: 12 },
+  endText: { color: color.textTertiary, fontSize: font.footnote },
   input: {
     marginTop: 10, minHeight: 60, borderRadius: 12, padding: 12,
-    backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: 15,
+    backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
     textAlignVertical: 'top',
   },
   linkRow: {
@@ -239,5 +306,7 @@ const styles = StyleSheet.create({
   boxOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
   tick: { color: '#000000', fontSize: 13, fontWeight: '700', lineHeight: 16 },
   linkText: { flex: 1 },
-  linkTitle: { color: color.textPrimary, fontSize: 15 },
+  linkTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '500' },
+  deleteRow: { marginTop: 32, minHeight: 44, justifyContent: 'center' },
+  deleteText: { color: color.danger, fontSize: font.body },
 });

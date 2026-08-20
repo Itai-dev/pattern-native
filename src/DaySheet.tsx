@@ -16,13 +16,13 @@ import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press, reduceMotion } from './motion';
 import {
-  Entry, EVENT_LABELS, LOC_NAMES, QUALITY_NAMES, checkinCount, dailyAverage,
-  dateFromISO, fmtTime, logsOf, todayISO,
+  Entry, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES, checkinCount,
+  dailyAverage, dateFromISO, fmtTime, logsOf, todayISO,
 } from './model';
 import {
   formatCheckins, formatOutOf, formatScoreAndLabel, painColor, speakScore,
 } from './painScale';
-import { color, radius, size } from './theme';
+import { color, font, radius, size } from './theme';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
@@ -38,11 +38,12 @@ export interface DaySheetProps {
   onChanged: () => void;
   onAddLog: () => void;
   onEditLog: (h: number) => void;
+  onEditEvent: (ev: PainEvent) => void;
   onClose: () => void;
 }
 
 export default function DaySheet({
-  dateIso, entry, onChanged, onAddLog, onEditLog, onClose,
+  dateIso, entry, onChanged, onAddLog, onEditLog, onEditEvent, onClose,
 }: DaySheetProps) {
   const [, force] = useState(0);
   const d = dateFromISO(dateIso);
@@ -57,6 +58,31 @@ export default function DaySheet({
   logs.forEach((l) => (l.loc || []).forEach((id) => {
     if (!seen[id]) { seen[id] = true; places.push(id); }
   }));
+
+  /* deleting an event asks first and says what it removes */
+  const confirmDeleteEvent = useCallback((ev: PainEvent) => {
+    Alert.alert(
+      'Delete this event?',
+      'The ' + fmtTime(ev.h) + ' ' + EVENT_LABELS[ev.kind].toLowerCase() +
+        ' event will be removed. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            if (!reduceMotion) {
+              LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+            }
+            if (ev.id != null) db.dropEvent(ev.id);
+            force((n) => n + 1);
+            onChanged();
+          },
+        },
+      ]
+    );
+  }, [onChanged]);
 
   /* deleting is destructive, so it asks first and says what it removes */
   const confirmDelete = useCallback((h: number) => {
@@ -130,7 +156,7 @@ export default function DaySheet({
 
         {logs.length > 0 && (
           <View style={styles.list}>
-            <Text style={styles.listTitle}>CHECK-INS</Text>
+            <Text style={styles.listTitle}>Check-ins</Text>
             {logs.map((l) => (
               <Swipeable
                 key={l.h}
@@ -178,33 +204,53 @@ export default function DaySheet({
           </View>
         )}
 
-        {/* events recorded that day — listed as events, with no suggestion
-            that any of them explains the pain */}
+        {/* events recorded that day — each one opens to edit, swipes to
+            delete, and none of them claims to explain the pain */}
         {(() => {
           const evs = db.getEventsFor(dateIso);
           if (!evs.length) return null;
           return (
             <View style={styles.list}>
-              <Text style={styles.listTitle}>EVENTS</Text>
+              <Text style={styles.listTitle}>Events</Text>
               {evs.map((ev) => (
-                <View
+                <Swipeable
                   key={ev.id}
-                  style={styles.eventRow}
-                  accessible
-                  accessibilityLabel={fmtTime(ev.h) + ', ' + EVENT_LABELS[ev.kind] +
-                    (ev.text ? ', ' + ev.text : '')}
+                  overshootRight={false}
+                  renderRightActions={() => (
+                    <Press
+                      onPress={() => confirmDeleteEvent(ev)}
+                      style={styles.deleteAction}
+                      accessibilityRole="button"
+                      accessibilityLabel={'Delete the ' + fmtTime(ev.h) + ' event'}
+                    >
+                      <Text style={styles.deleteText}>Delete</Text>
+                    </Press>
+                  )}
                 >
-                  <Text style={styles.time}>{fmtTime(ev.h)}</Text>
-                  <View style={styles.rowMid}>
-                    <Text style={styles.rowScore}>{EVENT_LABELS[ev.kind]}</Text>
-                    {!!ev.text && <Text style={styles.rowSub}>{ev.text}</Text>}
-                    {ev.helped != null && (
-                      <Text style={styles.rowSub}>Reported effect {ev.helped} / 10</Text>
-                    )}
-                  </View>
-                </View>
+                  <Press
+                    onPress={() => onEditEvent(ev)}
+                    pressOpacity={0.7}
+                    style={styles.row}
+                    accessibilityRole="button"
+                    accessibilityLabel={fmtTime(ev.h) + ', ' + EVENT_LABELS[ev.kind] +
+                      (ev.text ? ', ' + ev.text : '')}
+                    accessibilityHint="Opens this event to edit. Swipe left to delete."
+                  >
+                    <Text style={styles.time}>{fmtTime(ev.h)}</Text>
+                    <View style={styles.rowMid}>
+                      <Text style={styles.rowScore}>{EVENT_LABELS[ev.kind]}</Text>
+                      {!!ev.text && <Text style={styles.rowSub}>{ev.text}</Text>}
+                      {ev.helped != null && (
+                        <Text style={styles.rowSub}>Reported effect {ev.helped}/10</Text>
+                      )}
+                    </View>
+                    <Text style={styles.chev}>›</Text>
+                  </Press>
+                </Swipeable>
               ))}
-              <Text style={styles.swipeHint}>Recorded as events. No cause is implied.</Text>
+              <Text style={styles.swipeHint}>
+                Events are shown alongside your check-ins without assuming they caused a change.
+              </Text>
             </View>
           );
         })()}
@@ -241,36 +287,39 @@ const styles = StyleSheet.create({
   body: { padding: size.sheetX, paddingTop: 20, paddingBottom: 30 },
   header: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   headerText: { flex: 1, gap: 3 },
-  date: { color: color.textPrimary, fontSize: 17, fontWeight: '600', letterSpacing: -0.2 },
-  avg: { color: color.textPrimary, fontSize: 15, fontWeight: '500' },
-  sub: { color: color.textSecondary, fontSize: 13 },
+  date: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', letterSpacing: -0.2 },
+  avg: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '500' },
+  sub: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
   list: {
     marginTop: 22, paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
   },
   listTitle: {
-    color: color.textSecondary, fontSize: 11, fontWeight: '600',
-    letterSpacing: 0.6, marginBottom: 4,
+    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    marginBottom: 4,
   },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     minHeight: 56, backgroundColor: color.bgSheet, paddingRight: 4,
   },
-  swatch: { width: 16, height: 16, borderRadius: 5 },
+  swatch: {
+    width: 16, height: 16, borderRadius: 5,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
   time: {
-    color: color.textPrimary, fontSize: 14, minWidth: 48,
+    color: color.textPrimary, fontSize: font.subheadline, minWidth: 52,
     fontVariant: ['tabular-nums'],
   },
   rowMid: { flex: 1 },
-  rowScore: { color: color.textPrimary, fontSize: 14 },
-  rowSub: { color: color.textSecondary, fontSize: 12, marginTop: 1 },
+  rowScore: { color: color.textPrimary, fontSize: font.subheadline },
+  rowSub: { color: color.textSecondary, fontSize: font.footnote, marginTop: 1 },
   chev: { color: color.textTertiary, fontSize: 20 },
   deleteAction: {
     width: 96, minHeight: 56, backgroundColor: color.danger,
     alignItems: 'center', justifyContent: 'center',
   },
-  deleteText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  swipeHint: { color: color.textSecondary, fontSize: 11, marginTop: 10 },
+  deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
+  swipeHint: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: 10 },
   eventRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44, paddingVertical: 6 },
   note: {
     marginTop: 18, paddingTop: 14, color: color.textSecondary, fontSize: 15,

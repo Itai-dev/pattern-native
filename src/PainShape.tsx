@@ -2,24 +2,21 @@
  * The shape you're actually manipulating — Pattern's answer to State of
  * Mind's morphing blob, in this app's own square language.
  *
- * It reads the slider's shared value directly, so it moves with the finger
- * on the UI thread: colour, depth and size are continuous while the *word*
- * beneath snaps to whole steps. That split is the whole trick in Apple's
- * version — the shape is analogue, the label is discrete — and it's why
- * dragging feels like handling a material rather than setting a number.
- *
- * Construction is the app icon's: three concentric rounded squares, the
- * rim saturated and the core pale. As pain rises the whole thing grows
- * slightly and the core tightens, so intensity is felt as mass, not just
- * hue. It breathes when untouched, and stops when Reduce Motion is on.
+ * ONE solid rounded square, nothing nested inside it. Its colour follows
+ * the brightness ramp continuously under the finger — blue-black at 0
+ * rising to icy near-white at 10 — with a single soft outer glow in the
+ * same colour. The numeric score beneath carries the precise information;
+ * this surface carries the feel of it. As pain rises the square gains a
+ * little mass, it breathes when untouched, and it holds still when
+ * Reduce Motion is on.
  */
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
   SharedValue, interpolate, interpolateColor, useAnimatedStyle,
   useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
-import { theme } from './theme';
+import { PAIN_RAMP } from './painScale';
 import { reduceMotion } from './motion';
 
 const STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -31,7 +28,7 @@ export interface PainShapeProps {
 }
 
 export default function PainShape({ progress, size }: PainShapeProps) {
-  const ramp = theme.ramp as unknown as string[];
+  const ramp = PAIN_RAMP as string[];
   const breath = useSharedValue(0);
 
   useEffect(() => {
@@ -42,43 +39,36 @@ export default function PainShape({ progress, size }: PainShapeProps) {
 
   const radius = size * 0.24;
 
-  /* outer: the saturated rim. Grows a little with intensity so a bad day
-     has more weight on screen than a good one. */
-  const outer = useAnimatedStyle(() => {
+  const surface = useAnimatedStyle(() => {
+    const fill = interpolateColor(progress.value, STEPS, ramp);
     const scale = interpolate(progress.value, [0, 10], [0.94, 1.04]) +
       (reduceMotion ? 0 : breath.value * 0.008);
     return {
-      backgroundColor: interpolateColor(progress.value, STEPS, ramp),
+      backgroundColor: fill,
       transform: [{ scale }],
+      /* the one glow: the surface's own colour, soft and continuous —
+         brighter values naturally cast more light on the black ground */
+      shadowColor: fill,
+      shadowOpacity: interpolate(progress.value, [0, 10], [0.25, 0.6]),
+      shadowRadius: interpolate(progress.value, [0, 10], [14, 26]),
     };
   });
 
-  /* middle and core: the icon's inner squares. The core tightens as pain
-     rises — the light at the centre shrinking under pressure. */
-  const middle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      Math.max(0, progress.value - 2.2), STEPS, ramp
-    ),
-    transform: [{ scale: interpolate(progress.value, [0, 10], [0.78, 0.68]) }],
-  }));
-
-  const core = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      Math.max(0, progress.value - 4.4), STEPS, ramp
-    ),
-    opacity: interpolate(progress.value, [0, 10], [0.95, 0.75]),
-    transform: [{ scale: interpolate(progress.value, [0, 10], [0.5, 0.36]) }],
-  }));
-
   return (
     <View style={{ width: size, height: size }}>
-      <Animated.View style={[styles.layer, { borderRadius: radius }, outer]} />
-      <Animated.View style={[styles.layer, { borderRadius: radius * 0.8 }, middle]} />
-      <Animated.View style={[styles.layer, { borderRadius: radius * 0.6 }, core]} />
+      <Animated.View
+        style={[
+          {
+            position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+            borderRadius: radius,
+            shadowOffset: { width: 0, height: 0 },
+            /* at 0 the surface is nearly black — the hairline keeps it
+               present on the black screen without adding a second layer */
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)',
+          },
+          surface,
+        ]}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  layer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-});

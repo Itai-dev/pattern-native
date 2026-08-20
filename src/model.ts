@@ -223,108 +223,6 @@ export function removeMoment(prev: Entry, h: number): Entry | null {
   return null;
 }
 
-/* ── day-fill geometry (shared by map, day sheet, journal) ──── */
-
-/** 06:00 is always the rim and 22:00 always the core — absolute, so the
- *  same hour lands at the same depth on every day */
-export const DAYSTART = 6 * 60, DAYEND = 22 * 60;
-export function radiusFor(h: number): number {
-  const r = ((DAYEND - h) / (DAYEND - DAYSTART)) * 100;
-  return Math.max(0, Math.min(100, r));
-}
-
-/* ── the mark ───────────────────────────────────────────────
-   The app icon's recipe — a saturated rim easing into a pale core — used
-   for the brand mark only. Logged days do NOT use it: one log is a flat
-   colour, and the gradient is what several logs make together. Native has
-   no inset shadows, so easing is drawn as nested rounded squares. */
-export const GLOWLIFT = 0.55;
-export const GLOWSTEPS = 7;
-
-export function lighten(hex: string, t: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const mix = (v: number) => Math.round(v + (255 - v) * t);
-  return '#' + [mix((n >> 16) & 255), mix((n >> 8) & 255), mix(n & 255)]
-    .map((v) => ('0' + v.toString(16)).slice(-2)).join('');
-}
-
-/** ink that stays legible on a given background, by real luminance */
-export function inkForBg(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const lin = (c: number) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
-  return L > 0.45 ? '#000000' : '#FFFFFF';
-}
-
-export interface Layer { color: string; inset: number }
-
-/** steps drawn between two neighbouring moments so stacked solids read as
- *  one gradient — native's stand-in for a blurred shadow */
-export const BLENDSTEPS = 8;
-
-export function mixHex(a: string, b: string, t: number): string {
-  const na = parseInt(a.slice(1), 16), nb = parseInt(b.slice(1), 16);
-  const at = (n: number, s: number) => (n >> s) & 255;
-  const m = (s: number) => Math.round(at(na, s) + (at(nb, s) - at(na, s)) * t);
-  return '#' + [m(16), m(8), m(0)].map((v) => ('0' + v.toString(16)).slice(-2)).join('');
-}
-
-/** one log as a square gradient: concentric squares, rim colour → pale core.
- *  `from` is the inset the glow starts at, `half` the box's half-edge. */
-export function glowLayers(hex: string, half: number, from = 0): Layer[] {
-  const span = (half - from) * 0.86; // the core keeps a flat pale centre
-  const out: Layer[] = [];
-  for (let i = 0; i < GLOWSTEPS; i++) {
-    const t = i / (GLOWSTEPS - 1);
-    out.push({ color: lighten(hex, GLOWLIFT * t), inset: from + span * t });
-  }
-  return out;
-}
-
-export interface Band { color: string; depth: number }
-/** concentric square bands, outermost first; [] = paint the day value solid.
- *  `half` is half the box edge in px; depth is inset from the edge. */
-export function dayBands(e: Entry, half: number, ramp: readonly string[]): Band[] {
-  const logs = e.logs || [];
-  if (logs.length < 2) return [];
-  if (radiusFor(logs[0].h) === radiusFor(logs[logs.length - 1].h)) return [];
-  const bands: Band[] = [{ color: ramp[logs[0].pain], depth: 0 }];
-  for (let i = 1; i < logs.length; i++) {
-    bands.push({ color: ramp[logs[i].pain], depth: ((100 - radiusFor(logs[i].h)) / 100) * half });
-  }
-  return bands;
-}
-
-/** The full paint order for one day cell, outermost layer first.
- *  ONE log is a flat colour. The gradient is what a second and third log
- *  make: each moment lays down its own solid colour and they blend —
- *  earliest at the rim, latest at the core. A day touched once looks like
- *  one decision; a day followed through the hours earns the depth. */
-export function dayLayers(e: Entry, half: number, ramp: readonly string[]): Layer[] {
-  const bands = dayBands(e, half, ramp);
-  if (!bands.length) return [{ color: ramp[e.pain], inset: 0 }];
-  /* CSS gets this blend from a blurred shadow; native has to draw it, so
-     each pair of neighbouring moments is walked in BLENDSTEPS. */
-  const out: Layer[] = [];
-  for (let i = 0; i < bands.length - 1; i++) {
-    const from = bands[i], to = bands[i + 1];
-    for (let s = 0; s < BLENDSTEPS; s++) {
-      const t = s / BLENDSTEPS;
-      out.push({ color: mixHex(from.color, to.color, t), inset: from.depth + (to.depth - from.depth) * t });
-    }
-  }
-  out.push({ color: bands[bands.length - 1].color, inset: bands[bands.length - 1].depth });
-  return out;
-}
-
-/** the colour at the centre of the day's fill */
-export function centerPain(e: Entry): number {
-  const logs = e.logs || [];
-  if (logs.length < 2) return e.pain;
-  if (radiusFor(logs[0].h) === radiusFor(logs[logs.length - 1].h)) return e.pain;
-  return logs[logs.length - 1].pain;
-}
-
 /* ── events: flares, treatments, notable moments ─────────────
    The event log answers the two questions every clinician asks that the
    daily check-in cannot: what does it feel like (Character), and what have
@@ -411,6 +309,10 @@ export interface FuncEntry {
   week: string;    // the Monday of the week rated, YYYY-MM-DD
   ability: number; // 0 = not able at all, 10 = fully able
   note?: string;
+  /** the calendar day the rating was actually saved — availability is
+   *  seven elapsed days from here. Older records lack it; their week
+   *  Monday stands in. */
+  savedOn?: string;
 }
 
 export function mondayOf(dateIso: string): string {
@@ -420,12 +322,55 @@ export function mondayOf(dateIso: string): string {
   return iso(d);
 }
 
-/** due when this week has no rating yet — one ask per week, no nagging */
-export function funcDue(entries: FuncEntry[], todayIso: string, hasActivity: boolean): boolean {
-  if (!hasActivity) return false;
-  const monday = mondayOf(todayIso);
-  return !entries.some((f) => f.week === monday);
+export function addDays(dateIso: string, days: number): string {
+  const d = dateFromISO(dateIso);
+  d.setDate(d.getDate() + days);
+  return iso(d);
 }
+
+/** the day a rating was saved, falling back to its week for old records */
+export function funcSavedOn(f: FuncEntry): string {
+  return f.savedOn || f.week;
+}
+
+/** the day the next weekly check-in opens: seven elapsed calendar days
+ *  from the last saved rating. null = no rating yet (baseline first). */
+export function funcNextDate(entries: FuncEntry[]): string | null {
+  if (!entries.length) return null;
+  const last = entries.reduce((m, f) => (funcSavedOn(f) > funcSavedOn(m) ? f : m));
+  return addDays(funcSavedOn(last), 7);
+}
+
+export type FuncState =
+  | { kind: 'noGoal' }
+  | { kind: 'baseline' }                    // activity chosen, no starting point yet
+  | { kind: 'wait'; until: string }         // rated recently — next date shown
+  | { kind: 'due' };                        // seven days have elapsed
+
+/** what the home card and sheet should offer today */
+export function funcStatus(entries: FuncEntry[], todayIso: string, hasActivity: boolean): FuncState {
+  if (!hasActivity) return { kind: 'noGoal' };
+  if (!entries.length) return { kind: 'baseline' };
+  const next = funcNextDate(entries)!;
+  return todayIso >= next ? { kind: 'due' } : { kind: 'wait', until: next };
+}
+
+/** kept for old call sites: due means the weekly ask is open */
+export function funcDue(entries: FuncEntry[], todayIso: string, hasActivity: boolean): boolean {
+  return funcStatus(entries, todayIso, hasActivity).kind === 'due';
+}
+
+/* Fixed question copy. Free-text activity names are NEVER interpolated
+   into sentences ("How able have you felt to running?" is what happens
+   when they are) — the activity is always shown separately, under a
+   label, and the question stays grammatical for every possible name. */
+export const FUNC_BASELINE_TITLE = 'Set your starting point';
+export const FUNC_BASELINE_QUESTION = 'How able are you to do this activity today?';
+export const FUNC_WEEKLY_TITLE = 'This week';
+export const FUNC_WEEKLY_QUESTION = 'How able were you to do this activity this week?';
+export const GOAL_EDITOR_TITLE = 'Activity I want back';
+export const GOAL_EDITOR_DESCRIPTION =
+  'Choose one activity you want to return to or do more easily. You’ll rate your ability once a week.';
 
 /** first and last rating, when there are two to compare */
 export function funcTrend(entries: FuncEntry[]): { first: FuncEntry; last: FuncEntry } | null {
@@ -487,139 +432,123 @@ export function migrateEntries(entries: Entries): { entries: Entries; corrected:
   return { entries: out, corrected };
 }
 
-/* ── the clinician report ────────────────────────────────────
-   Ordered the way clinicians assess, stating observations as observations:
-   what was recorded, over how many days, with co-occurrence named as
-   co-occurrence and never as cause. */
+/* ── backups: validation first, writes second ────────────────
+   Restoring must never destroy current data before the incoming file has
+   been fully validated, so validation is a pure pass over the parsed JSON
+   that produces a clean, typed picture of what the file holds — or a
+   plain refusal. The caller then chooses REPLACE or MERGE. */
 
-export interface ReportInput {
+export const BACKUP_VERSION = 4;
+
+export interface ValidBackup {
+  version: number;
   entries: Entries;
-  events: PainEvent[];
+  events: Omit<PainEvent, 'id'>[];
   func: FuncEntry[];
-  goalText: string | null;
-  todayIso: string;
-  windowDays: number; // typically 90
+  goal: string | null;
 }
 
-function fmtDate(iso_: string): string {
-  const d = dateFromISO(iso_);
-  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return d.getDate() + ' ' + M[d.getMonth()];
+const okNum = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 10;
+const isIsoDate = (v: unknown): v is string =>
+  typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+/** one raw imported event → a clean one, or null to skip */
+export function cleanEvent(raw: unknown): Omit<PainEvent, 'id'> | null {
+  const r = raw as Partial<PainEvent>;
+  if (!r || typeof r !== 'object') return null;
+  if (!isIsoDate(r.date)) return null;
+  if (typeof r.h !== 'number' || r.h < 0 || r.h > 1439) return null;
+  if (EVENT_KINDS.indexOf(r.kind as EventKind) < 0) return null;
+  const ev: Omit<PainEvent, 'id'> = {
+    date: r.date, h: Math.round(r.h), kind: r.kind as EventKind,
+    text: typeof r.text === 'string' ? r.text : '',
+  };
+  const q = cleanQuality(r.quality);
+  if (q) ev.quality = q;
+  if (okNum(r.helped)) ev.helped = Math.round(r.helped);
+  if (r.linked === 1) ev.linked = 1;
+  return ev;
 }
 
-/** how many logged days the report covers — surfaced in the UI so a short
- *  history is never mistaken for a reliable pattern */
-export function reportDayCount(entries: Entries, todayIso: string, windowDays: number): number {
-  const start = dateFromISO(todayIso);
-  start.setDate(start.getDate() - (windowDays - 1));
-  const startIso = iso(start);
-  return Object.keys(entries).filter((k) => k >= startIso && k <= todayIso).length;
-}
+/** parse and fully validate a backup file. null = not a Pattern backup.
+ *  Accepts web v1 (entries only), native v2 (events + retired weekly rows),
+ *  v3 (function check-ins) and v4 (rating dates). Nothing is written. */
+export function validateBackup(json: string): ValidBackup | null {
+  let data: unknown;
+  try { data = JSON.parse(json); } catch { return null; }
+  if (!data || typeof data !== 'object') return null;
+  const d = data as {
+    version?: unknown; entries?: unknown; events?: unknown;
+    weekly?: unknown; func?: unknown; goal?: unknown;
+  };
+  // a file with no recognisable section at all is not a Pattern backup
+  if (d.entries === undefined && d.func === undefined && d.events === undefined) return null;
 
-export function buildReport(inp: ReportInput): string {
-  const { entries, events, func, goalText, todayIso, windowDays } = inp;
-  const start = dateFromISO(todayIso);
-  start.setDate(start.getDate() - (windowDays - 1));
-  const startIso = iso(start);
+  const entries = cleanBackup(data);
 
-  const days = Object.keys(entries)
-    .filter((k) => k >= startIso && k <= todayIso)
-    .sort()
-    .map((k) => ({ k, e: entries[k] }));
-  if (!days.length) return '';
-
-  const L: string[] = [];
-  const avgOf = (a: number[]) => Math.round((a.reduce((s, v) => s + v, 0) / a.length) * 10) / 10;
-  const dayAverages = days
-    .map((d) => dailyAverage(d.e))
-    .filter((v): v is number => v != null);
-  const totalCheckins = days.reduce((s, d) => s + checkinCount(d.e), 0);
-
-  L.push('PATTERN — SELF-RECORDED PAIN SUMMARY');
-  L.push(fmtDate(days[0].k) + ' to ' + fmtDate(todayIso));
-  L.push(days.length + ' logged days · ' + totalCheckins + ' check-ins · scale 0-10, 0 = no pain');
-  if (days.length < 14) {
-    L.push('NOTE: a short record — enough to show what was logged, not');
-    L.push('enough to establish a pattern.');
-  }
-  L.push('');
-
-  L.push('PAIN INTENSITY OVER TIME (daily averages)');
-  L.push('  Overall average ' + avgOf(dayAverages) +
-    ' · highest day ' + Math.max.apply(null, dayAverages) +
-    ' · lowest day ' + Math.min.apply(null, dayAverages));
-  L.push('  Days averaging 7 or above: ' + dayAverages.filter((v) => v >= 7).length +
-    ' of ' + days.length);
-  if (days.length >= 14) {
-    const half = Math.floor(days.length / 2);
-    const a = avgOf(dayAverages.slice(0, half));
-    const b = avgOf(dayAverages.slice(half));
-    const delta = Math.round((b - a) * 10) / 10;
-    L.push('  First half ' + a + ' vs second half ' + b +
-      (Math.abs(delta) >= 0.5 ? (delta > 0 ? ' (higher)' : ' (lower)') : ' (little change)'));
-  }
-  L.push('');
-
-  if (goalText) {
-    L.push('FUNCTION — "' + goalText + '" (self-rated ability 0-10, weekly)');
-    const t = funcTrend(func);
-    if (t) {
-      L.push('  ' + t.first.ability + ' (' + fmtDate(t.first.week) + ') to ' +
-        t.last.ability + ' (' + fmtDate(t.last.week) + ')');
-    } else if (func.length === 1) {
-      L.push('  ' + func[0].ability + ' (' + fmtDate(func[0].week) + ')');
-    } else {
-      L.push('  Activity chosen; no weekly ratings recorded yet.');
-    }
-    L.push('');
-  }
-
-  const locDays: Record<string, number> = {};
-  days.forEach((d) => {
-    const seen: Record<string, boolean> = {};
-    logsOf(d.e).forEach((l) => (l.loc || []).forEach((id) => { seen[id] = true; }));
-    Object.keys(seen).forEach((id) => { locDays[id] = (locDays[id] || 0) + 1; });
-  });
-  const topLocs = Object.keys(locDays).sort((a, b) => locDays[b] - locDays[a]).slice(0, 5);
-  if (topLocs.length) {
-    L.push('PAIN LOCATIONS (days noted)');
-    L.push('  ' + topLocs.map((id) => (LOC_NAMES[id] || id) + ' ' + locDays[id]).join(', '));
-    L.push('');
-  }
-
-  const qual: Record<string, number> = {};
-  days.forEach((d) => logsOf(d.e).forEach((l) => (l.q || []).forEach((q) => {
-    qual[q] = (qual[q] || 0) + 1;
-  })));
-  const topQual = Object.keys(qual).sort((a, b) => qual[b] - qual[a]).slice(0, 5);
-  if (topQual.length) {
-    L.push('DESCRIBED AS');
-    L.push('  ' + topQual.map((q) => (QUALITY_NAMES[q] || q) + ' x' + qual[q]).join(', '));
-    L.push('');
-  }
-
-  const inWindow = events.filter((ev) => ev.date >= startIso && ev.date <= todayIso);
-  const treatments = inWindow.filter((ev) => ev.kind === 'treatment');
-  if (treatments.length) {
-    L.push('TREATMENTS RECORDED (patient-reported effect, 0-10)');
-    treatments.slice(-8).forEach((ev) => {
-      L.push('  ' + fmtDate(ev.date) + ' — ' + (ev.text || 'unspecified') +
-        (ev.helped != null ? ' (reported effect ' + ev.helped + ')' : ''));
+  const events: Omit<PainEvent, 'id'>[] = [];
+  if (Array.isArray(d.events)) {
+    d.events.forEach((raw) => {
+      const ev = cleanEvent(raw);
+      if (ev) events.push(ev);
     });
-    L.push('');
-  }
-  const others = inWindow.filter((ev) => ev.kind !== 'treatment');
-  if (others.length) {
-    const byKind: Record<string, number> = {};
-    others.forEach((ev) => { byKind[ev.kind] = (byKind[ev.kind] || 0) + 1; });
-    L.push('OTHER EVENTS RECORDED');
-    L.push('  ' + Object.keys(byKind)
-      .map((k) => (EVENT_LABELS[k as EventKind] || k) + ' ' + byKind[k]).join(', '));
-    L.push('  Recorded as events only. No causal relationship is implied.');
-    L.push('');
   }
 
-  L.push('Self-recorded by the patient using Pattern, a wellness journal.');
-  L.push('Not a medical device. Does not diagnose, treat, or predict.');
-  return L.join('\n');
+  const func: FuncEntry[] = [];
+  const pushFunc = (week: unknown, ability: unknown, note: unknown, savedOn: unknown) => {
+    if (!isIsoDate(week) || !okNum(ability)) return;
+    const f: FuncEntry = {
+      week, ability: Math.round(ability),
+      note: typeof note === 'string' ? note : '',
+    };
+    if (isIsoDate(savedOn)) f.savedOn = savedOn;
+    func.push(f);
+  };
+  if (Array.isArray(d.func)) {
+    d.func.forEach((raw) => {
+      const r = raw as Partial<FuncEntry>;
+      if (r && typeof r === 'object') pushFunc(r.week, r.ability, r.note, r.savedOn);
+    });
+  }
+  // v2 weekly rows: only the ability rating survives, under its new name
+  if (Array.isArray(d.weekly)) {
+    d.weekly.forEach((raw) => {
+      const r = raw as { week?: unknown; goal?: unknown; note?: unknown };
+      if (r && typeof r === 'object') pushFunc(r.week, r.goal, r.note, undefined);
+    });
+  }
+
+  return {
+    version: typeof d.version === 'number' ? d.version : 1,
+    entries, events, func,
+    goal: typeof d.goal === 'string' && d.goal.trim() ? d.goal.trim() : null,
+  };
+}
+
+/** A content identity for one event. Local row ids are not stable across
+ *  devices, so merging deduplicates conservatively: same kind, same date
+ *  and time, same text and reported effect = the same event. */
+export function eventKey(ev: Omit<PainEvent, 'id'>): string {
+  return [
+    ev.date, ev.h, ev.kind, ev.text || '',
+    ev.helped != null ? ev.helped : '',
+    ev.quality && ev.quality.length ? ev.quality.slice().sort().join('+') : '',
+  ].join('|');
+}
+
+/** the incoming events that are NOT already present, deduplicated within
+ *  the incoming set as well */
+export function dedupeEvents(
+  existing: Omit<PainEvent, 'id'>[], incoming: Omit<PainEvent, 'id'>[]
+): Omit<PainEvent, 'id'>[] {
+  const seen: Record<string, true> = {};
+  existing.forEach((ev) => { seen[eventKey(ev)] = true; });
+  const out: Omit<PainEvent, 'id'>[] = [];
+  incoming.forEach((ev) => {
+    const k = eventKey(ev);
+    if (seen[k]) return;
+    seen[k] = true;
+    out.push(ev);
+  });
+  return out;
 }

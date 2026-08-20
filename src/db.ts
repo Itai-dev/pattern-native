@@ -8,9 +8,9 @@
  */
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import {
-  Entries, Entry, EVENT_KINDS, EventKind, FuncEntry, PainEvent,
-  applyMoment, cleanBackup, cleanEntry, cleanQuality, migrateEntries,
-  removeMoment, syncDayPain,
+  BACKUP_VERSION, Entries, Entry, EventKind, FuncEntry, PainEvent, ValidBackup,
+  applyMoment, cleanEntry, dedupeEvents, migrateEntries, removeMoment,
+  syncDayPain, validateBackup,
 } from './model';
 import { SCALE_VERSION } from './painScale';
 
@@ -46,6 +46,10 @@ function conn(): SQLiteDatabase {
       'CREATE TABLE IF NOT EXISTS func (' +
       'week TEXT PRIMARY KEY, ability INTEGER NOT NULL, note TEXT NOT NULL DEFAULT "")'
     );
+    /* additive: the calendar day a rating was saved, for the seven-day
+       availability rule. Existing rows keep NULL and fall back to their
+       week Monday. ALTER fails harmlessly once the column exists. */
+    try { db.execSync('ALTER TABLE func ADD COLUMN savedOn TEXT'); } catch {}
     migrateWeeklyToFunc(db);
     migratePainScale(db);
   }
@@ -175,6 +179,18 @@ export function addEvent(ev: Omit<PainEvent, 'id'>): void {
   );
 }
 
+/** edit an existing event in place — same row, new content */
+export function updateEvent(id: number, ev: Omit<PainEvent, 'id'>): void {
+  conn().runSync(
+    'UPDATE events SET date = ?, h = ?, kind = ?, text = ?, quality = ?, helped = ?, linked = ? WHERE id = ?',
+    ev.date, ev.h, ev.kind, ev.text,
+    ev.quality && ev.quality.length ? JSON.stringify(ev.quality) : null,
+    ev.helped != null ? ev.helped : null,
+    ev.linked != null ? ev.linked : null,
+    id
+  );
+}
+
 /** events recorded on one day, for the day detail */
 export function getEventsFor(date: string): PainEvent[] {
   return conn()
@@ -192,7 +208,7 @@ export function dropEvent(id: number): void {
 
 /* ── the week ───────────────────────────────────────────────── */
 
-interface FuncRow { week: string; ability: number; note: string }
+interface FuncRow { week: string; ability: number; note: string; savedOn: string | null }
 
 /* The weekly table briefly held a three-item pain-interference score
    alongside an ability rating. The score is gone (its wording was not
@@ -257,14 +273,18 @@ function migratePainScale(database: SQLiteDatabase): void {
 
 export function putFunc(f: FuncEntry): void {
   conn().runSync(
-    'INSERT OR REPLACE INTO func (week, ability, note) VALUES (?, ?, ?)',
-    f.week, f.ability, f.note || ''
+    'INSERT OR REPLACE INTO func (week, ability, note, savedOn) VALUES (?, ?, ?, ?)',
+    f.week, f.ability, f.note || '', f.savedOn || null
   );
 }
 
 export function getFunc(): FuncEntry[] {
   return conn().getAllSync<FuncRow>('SELECT * FROM func ORDER BY week')
-    .map((r) => ({ week: r.week, ability: r.ability, note: r.note }));
+    .map((r) => {
+      const f: FuncEntry = { week: r.week, ability: r.ability, note: r.note };
+      if (r.savedOn) f.savedOn = r.savedOn;
+      return f;
+    });
 }
 
 /* ── the function goal ──────────────────────────────────────── */
@@ -278,76 +298,64 @@ export function setGoal(text: string): void {
 
 /* ── backup ─────────────────────────────────────────────────── */
 
-/** Restore a backup, MERGING into what is already here — a restored day
- *  replaces that same day, and every other day is left alone. Accepts the
- *  web app's v1 (entries only), native v2 (with events and the retired
- *  weekly rows) and v3 (with function check-ins). Returns days imported,
- *  or -1 if the file could not be read as a Pattern backup. */
-export function importBackup(json: string): number {
-  let data: unknown;
-  try { data = JSON.parse(json); } catch { return -1; }
-  const incoming = cleanBackup(data);
-  const d = data as {
-    entries?: unknown; events?: unknown; weekly?: unknown; func?: unknown; goal?: unknown;
-  };
-  // a file with no recognisable section at all is not a Pattern backup
-  if (!d || typeof d !== 'object' || (d.entries === undefined && d.func === undefined && d.events === undefined)) {
-    return -1;
-  }
-  const keys = Object.keys(incoming);
-  const okNum = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 10;
-  const c = conn();
-  c.withTransactionSync(() => {
-    keys.forEach((k) => put(k, incoming[k]));
-    if (Array.isArray(d.events)) {
-      d.events.forEach((raw) => {
-        const r = raw as Partial<PainEvent>;
-        if (typeof r.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return;
-        if (typeof r.h !== 'number' || r.h < 0 || r.h > 1439) return;
-        if (EVENT_KINDS.indexOf(r.kind as EventKind) < 0) return;
-        addEvent({
-          date: r.date, h: Math.round(r.h), kind: r.kind as EventKind,
-          text: typeof r.text === 'string' ? r.text : '',
-          quality: cleanQuality(r.quality),
-          helped: okNum(r.helped) ? Math.round(r.helped) : null,
-        });
-      });
-    }
-    // v3 function check-ins
-    if (Array.isArray(d.func)) {
-      d.func.forEach((raw) => {
-        const r = raw as Partial<FuncEntry>;
-        if (typeof r.week !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.week)) return;
-        if (!okNum(r.ability)) return;
-        putFunc({
-          week: r.week, ability: Math.round(r.ability),
-          note: typeof r.note === 'string' ? r.note : '',
-        });
-      });
-    }
-    // v2 weekly rows: only the ability rating survives, under its new name
-    if (Array.isArray(d.weekly)) {
-      d.weekly.forEach((raw) => {
-        const r = raw as { week?: unknown; goal?: unknown; note?: unknown };
-        if (typeof r.week !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.week)) return;
-        if (!okNum(r.goal)) return;
-        putFunc({
-          week: r.week, ability: Math.round(r.goal),
-          note: typeof r.note === 'string' ? r.note : '',
-        });
-      });
-    }
-    if (typeof d.goal === 'string' && d.goal.trim()) setGoal(d.goal);
-  });
-  return keys.length;
+export type RestoreMode = 'replace' | 'merge';
+
+export interface RestoreResult {
+  ok: true;
+  mode: RestoreMode;
+  days: number;
+  events: number;
+  func: number;
 }
 
-/** Export everything, versioned. v3 carries entries, events, function
- *  check-ins and the activity, and records the pain-scale version so a
- *  future reader knows which label set the numbers were captured under. */
+/** Validate a backup file WITHOUT writing anything — the caller shows the
+ *  restore choices only for a file that passed. */
+export function inspectBackup(json: string): ValidBackup | null {
+  return validateBackup(json);
+}
+
+/** Apply an already-validated backup.
+ *
+ *  'replace' — current check-ins, events, ratings and the activity are
+ *  removed inside one transaction and the backup's contents take their
+ *  place. Reminder settings and the scale-version stamp are kept: they
+ *  are device settings, not records.
+ *
+ *  'merge' — a backup day replaces that same day and every other day is
+ *  left alone; events are added only when no identical event exists
+ *  (stable content identity — see model.eventKey); a backup week's rating
+ *  replaces that same week. Nothing is ever silently deleted.
+ */
+export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResult {
+  const c = conn();
+  const dayKeys = Object.keys(backup.entries);
+  let eventsAdded = 0;
+  c.withTransactionSync(() => {
+    if (mode === 'replace') {
+      c.runSync('DELETE FROM days');
+      c.runSync('DELETE FROM events');
+      c.runSync('DELETE FROM weekly');
+      c.runSync('DELETE FROM func');
+      c.runSync('DELETE FROM prefs WHERE k = ?', 'goal.text');
+    }
+    dayKeys.forEach((k) => put(k, backup.entries[k]));
+    const existing = mode === 'replace' ? [] : getEvents();
+    const fresh = dedupeEvents(existing, backup.events);
+    fresh.forEach((ev) => addEvent(ev));
+    eventsAdded = fresh.length;
+    backup.func.forEach((f) => putFunc(f));
+    if (backup.goal) setGoal(backup.goal);
+  });
+  return { ok: true, mode, days: dayKeys.length, events: eventsAdded, func: backup.func.length };
+}
+
+/** Export everything, versioned. v4 carries entries, events (with their
+ *  row ids), function check-ins with their saved dates, and the activity;
+ *  it records the pain-scale version so a future reader knows which label
+ *  set the numbers were captured under. */
 export function exportBackup(todayIso: string): string {
   return JSON.stringify({
-    app: 'pattern', version: 3, scaleVersion: SCALE_VERSION, exported: todayIso,
+    app: 'pattern', version: BACKUP_VERSION, scaleVersion: SCALE_VERSION, exported: todayIso,
     entries: getAll(), events: getEvents(), func: getFunc(), goal: getGoal(),
   }, null, 2);
 }

@@ -13,13 +13,19 @@ import DaySquare from './DaySquare';
 import MapScreen from './MapScreen';
 import { Press } from './motion';
 import {
-  Entries, FuncEntry, checkinCount, dailyAverage, funcDue, funcTrend,
-  latestFunc, todayISO,
+  Entries, FuncEntry, checkinCount, dailyAverage, dateFromISO, funcStatus,
+  funcTrend, latestFunc, todayISO,
 } from './model';
 import {
-  ABILITY_MAX, formatCheckins, formatScore, formatScoreAndLabel, painLabel, speakScore,
+  ABILITY_MAX, formatCheckins, formatScoreAndLabel, speakScore,
 } from './painScale';
-import { color, radius, size } from './theme';
+import { color, font, radius, size } from './theme';
+
+const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDay = (dateIso: string) => {
+  const d = dateFromISO(dateIso);
+  return d.getDate() + ' ' + M3[d.getMonth()];
+};
 
 const SQUARE = 116, SQ_RADIUS = 27;
 
@@ -30,7 +36,8 @@ export interface HomeScreenProps {
   onLog: () => void;
   onOpenDay: (dateIso: string) => void;
   onEvent: () => void;
-  onFunc: () => void;
+  /** true = the starting-point rating, false = the weekly one */
+  onFunc: (baseline: boolean) => void;
   onSetGoal: () => void;
 }
 
@@ -44,7 +51,7 @@ export default function HomeScreen({
 
   const latest = latestFunc(func);
   const trend = funcTrend(func);
-  const dueThisWeek = funcDue(func, t, !!goalText);
+  const status = funcStatus(func, t, !!goalText);
 
   return (
     <View>
@@ -117,30 +124,53 @@ export default function HomeScreen({
         </Press>
       </View>
 
-      {/* the activity you want back — the outcome the app is actually for */}
+      {/* the activity you want back — the outcome the app is actually for.
+          Three states: no starting point yet → set it; rated within the
+          last seven days → the next date, plainly; seven days elapsed →
+          this week's check-in. */}
       {goalText ? (
         <Press
-          onPress={onFunc}
-          pressOpacity={0.85}
+          onPress={() => {
+            if (status.kind === 'baseline') onFunc(true);
+            else if (status.kind === 'due') onFunc(false);
+          }}
+          disabled={status.kind === 'wait'}
+          pressOpacity={status.kind === 'wait' ? 1 : 0.85}
           style={styles.card}
           accessibilityRole="button"
           accessibilityLabel={'Activity I want back: ' + goalText +
             (latest ? '. Weekly ability ' + latest.ability + ' out of ' + ABILITY_MAX : '. Not rated yet')}
-          accessibilityHint="Opens this week’s function check-in"
+          accessibilityHint={status.kind === 'baseline'
+            ? 'Opens the starting-point rating'
+            : status.kind === 'due'
+              ? 'Opens this week’s check-in'
+              : status.kind === 'wait'
+                ? 'The next check-in opens on ' + fmtDay(status.until)
+                : undefined}
         >
-          <Text style={styles.cardKicker}>ACTIVITY I WANT BACK</Text>
+          <Text style={styles.cardKicker}>Activity I want back</Text>
           <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
             {goalText}
           </Text>
           <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
             {latest
-              ? 'Weekly ability: ' + latest.ability + ' / ' + ABILITY_MAX
+              ? 'Weekly ability: ' + latest.ability + '/' + ABILITY_MAX
               : 'Not rated yet'}
             {trend
               ? '  ·  ' + trend.first.ability + ' → ' + trend.last.ability + ' so far'
               : ''}
           </Text>
-          {dueThisWeek && (
+          {status.kind === 'baseline' && (
+            <Text style={styles.cardDue} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Set your starting point →
+            </Text>
+          )}
+          {status.kind === 'wait' && (
+            <Text style={styles.cardWait} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Next check-in available {fmtDay(status.until)}
+            </Text>
+          )}
+          {status.kind === 'due' && (
             <Text style={styles.cardDue} allowFontScaling maxFontSizeMultiplier={1.4}>
               This week’s check-in is ready →
             </Text>
@@ -173,38 +203,41 @@ export default function HomeScreen({
 const styles = StyleSheet.create({
   today: { alignItems: 'center', marginTop: 22 },
   todayLabel: {
-    color: color.textSecondary, fontSize: 13, fontWeight: '600',
-    letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 16,
+    color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600',
+    marginTop: 16,
   },
+  /* the main pain value — a large display size, still scaling with
+     Dynamic Type */
   avg: {
-    color: color.textPrimary, fontSize: 24, fontWeight: '700',
-    letterSpacing: -0.4, marginTop: 4, textAlign: 'center',
+    color: color.textPrimary, fontSize: 30, fontWeight: '700',
+    letterSpacing: -0.6, marginTop: 2, textAlign: 'center',
   },
-  count: { color: color.textSecondary, fontSize: 13, marginTop: 4 },
-  empty: { color: color.textSecondary, fontSize: 16, marginTop: 4 },
+  count: { color: color.textSecondary, fontSize: font.subheadline, marginTop: 4 },
+  empty: { color: color.textSecondary, fontSize: font.body, marginTop: 4 },
   actions: { paddingHorizontal: size.pageX, marginTop: 22 },
   primary: {
-    height: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center',
+    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
   },
-  primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
+  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
   secondary: {
     minHeight: 48, borderRadius: radius.button, marginTop: 10,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12,
   },
-  secondaryText: { color: color.textPrimary, fontSize: 15, fontWeight: '500' },
+  secondaryText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '500' },
   card: {
     marginHorizontal: size.pageX, marginTop: 14, minHeight: 44,
     borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth,
     borderColor: color.borderDivider, backgroundColor: color.bgSurface, padding: 16,
   },
   cardKicker: {
-    color: color.textSecondary, fontSize: 11, fontWeight: '600',
-    letterSpacing: 0.6, marginBottom: 4,
+    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    marginBottom: 4,
   },
-  cardTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
-  cardSub: { color: color.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 4 },
-  cardDue: { color: '#5BA8FF', fontSize: 13, marginTop: 8 },
+  cardTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  cardSub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20, marginTop: 4 },
+  cardDue: { color: color.tint, fontSize: font.subheadline, fontWeight: '500', marginTop: 8 },
+  cardWait: { color: color.textSecondary, fontSize: font.subheadline, marginTop: 8 },
   mapWrap: { marginTop: 26 },
 });

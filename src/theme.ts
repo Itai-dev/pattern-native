@@ -17,23 +17,37 @@ export const color = {
   textTertiary: '#8E8E93',
   danger: '#E0795A',
   shieldOk: '#7CC9A6',
+  /** the app's interactive tint — nav actions, links, selection */
+  tint: '#5BA8FF',
+  /** Pattern blue — the icon's rim, the brand's anchor hue */
+  brand: '#0A84FF',
 } as const;
 
-/** Colour themes — every ramp is a light→dark scale of ONE hue, which keeps
- *  the descending-lightness (colourblind-safe) guarantee and reads as an
- *  amount rather than a verdict. The multi-hue "Bloom" ramp was retired on
- *  2026-08-19; blue carries the app's identity, and #0A84FF — the app icon's
- *  own rim colour — sits at the neutral middle of the scale.
- *  inkAbove = the last pain level that still takes dark ink on top. */
-export const themes = {
-  blue: {
-    nameEn: 'Blue', nameHe: 'כחול', inkAbove: 5,
-    ramp: ['#91C8FF', '#65B2FF', '#65B2FF', '#369AFF', '#369AFF', '#0A84FF', '#086ACC', '#086ACC', '#06529E', '#06529E', '#053B73'],
-  },
-} as const;
+/** The pain colour scale is a single brightness ramp of the brand hue:
+ *  0 sits in blue-black darkness and 10 is an icy near-white — pain rises
+ *  as luminosity, an amount rather than a verdict. Pure white is reserved
+ *  for controls and selection, so 10 stops at #EAF6FF.
+ *  Anchors are interpolated smoothly in painScale.painColor. */
+export const RAMP_ANCHORS: ReadonlyArray<readonly [number, string]> = [
+  [0, '#070C16'],   // very dark blue-black
+  [2, '#152C52'],   // muted navy
+  [5, '#0A84FF'],   // saturated Pattern blue
+  [8, '#5FBEFF'],   // luminous sky
+  [10, '#EAF6FF'],  // icy near-white — never pure white
+] as const;
 
-/** the scale everything paints with until themes become a setting here */
-export const theme = themes.blue;
+/** semantic type scale — iOS text styles by name, in points. The system
+ *  font (SF Pro on iOS) is the default family; Dynamic Type comes from
+ *  allowFontScaling, which RN leaves on unless a style opts out. */
+export const font = {
+  largeTitle: 34,
+  title1: 28,
+  title2: 22,
+  title3: 20,
+  body: 17,
+  subheadline: 15,
+  footnote: 13,
+} as const;
 
 export type SlotKey = 'm' | 'd' | 'e';
 

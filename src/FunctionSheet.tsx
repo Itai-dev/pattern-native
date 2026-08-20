@@ -1,73 +1,106 @@
 /**
- * The weekly function check-in: how able you felt to do the one activity
- * you want back.
+ * The function check-in: how able you are to do the one activity you want
+ * back. A SEPARATE 0–10 scale from pain, stored in its own table and never
+ * averaged with a pain score.
  *
- * A SEPARATE 0–10 scale from pain, stored in its own table and never
- * averaged with a pain score. The point of the product is return to
- * meaningful life, which can improve while pain does not — so this number
- * has to be able to move on its own.
+ * Two modes over one layout:
+ *   baseline — right after the activity is chosen: "Set your starting
+ *              point" / "How able are you to do this activity today?"
+ *   weekly   — from seven days after the last rating: "This week" /
+ *              "How able were you to do this activity this week?"
  *
- * Asked at most once a week; the same sheet is reachable by hand from the
- * home card whenever the user wants to revise it.
+ * The activity's free-text name is never interpolated into the question —
+ * it is shown separately under its own label, so the sentence stays
+ * grammatical for every possible name.
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import * as db from './db';
 import { Press } from './motion';
-import { mondayOf, todayISO } from './model';
+import {
+  FUNC_BASELINE_QUESTION, FUNC_BASELINE_TITLE, FUNC_WEEKLY_QUESTION,
+  FUNC_WEEKLY_TITLE, mondayOf, todayISO,
+} from './model';
 import { ABILITY_END_HIGH, ABILITY_END_LOW, ABILITY_MAX } from './painScale';
-import { color, radius, size } from './theme';
+import { color, font, radius, size } from './theme';
 
 export interface FunctionSheetProps {
   goalText: string;
+  /** true = the first-ever rating, taken right after choosing the activity */
+  baseline?: boolean;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function FunctionSheet({ goalText, onDone, onClose }: FunctionSheetProps) {
+export default function FunctionSheet({ goalText, baseline, onDone, onClose }: FunctionSheetProps) {
   const [ability, setAbility] = useState<number | null>(null);
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const save = () => {
-    if (ability == null) return;
+    if (ability == null || saving) return;
+    setSaving(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    db.putFunc({ week: mondayOf(todayISO()), ability, note: note.trim() });
+    const today = todayISO();
+    db.putFunc({ week: mondayOf(today), ability, note: note.trim(), savedOn: today });
     onDone();
   };
 
   return (
-    <View style={styles.root}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={styles.navBar}>
-        <View style={styles.navSpacer} />
-        <Text style={styles.navTitle} numberOfLines={1}>This week</Text>
         <Press
           onPress={onClose}
-          style={styles.navBtn}
+          style={[styles.navBtn, styles.navLeft]}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel="Cancel"
         >
-          <Text style={styles.navBtnText}>Close</Text>
+          <Text style={styles.navBtnText}>Cancel</Text>
         </Press>
+        <Text style={styles.navTitle} numberOfLines={1}>
+          {baseline ? FUNC_BASELINE_TITLE : FUNC_WEEKLY_TITLE}
+        </Text>
+        <View style={styles.navSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.q} allowFontScaling maxFontSizeMultiplier={1.6}>
-          How able have you felt to {goalText} this week?
+          {baseline ? FUNC_BASELINE_QUESTION : FUNC_WEEKLY_QUESTION}
         </Text>
-        <Text style={styles.sub}>
+
+        {/* the activity, named apart from the sentence */}
+        <View style={styles.activity}>
+          <Text style={styles.activityLabel}>Activity</Text>
+          <Text style={styles.activityName} allowFontScaling maxFontSizeMultiplier={1.5}>
+            {goalText}
+          </Text>
+        </View>
+
+        <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.5}>
           Your own judgement, on its own scale — this is not a pain score.
         </Text>
 
         <Text style={styles.value} allowFontScaling maxFontSizeMultiplier={1.5}>
-          {ability == null ? 'Not set' : ability + ' / ' + ABILITY_MAX}
+          {ability == null ? 'Not set' : ability + '/' + ABILITY_MAX}
         </Text>
         <Slider
           value={ability}
           onChange={setAbility}
-          accessibilityLabel={'Ability to ' + goalText + ' this week, 0 to 10'}
+          accessibilityLabel={(baseline
+            ? 'Ability to do this activity today'
+            : 'Ability to do this activity this week') + ', 0 to 10'}
           accessibilityValue={ability == null
             ? { text: 'Not set' }
             : { min: 0, max: ABILITY_MAX, now: ability }}
@@ -78,7 +111,7 @@ export default function FunctionSheet({ goalText, onDone, onClose }: FunctionShe
         </View>
 
         <Text style={[styles.q, styles.qLater]} allowFontScaling maxFontSizeMultiplier={1.5}>
-          Anything worth remembering about this week?
+          {baseline ? 'Anything worth noting about where you’re starting?' : 'Anything worth remembering about this week?'}
         </Text>
         <TextInput
           value={note}
@@ -87,23 +120,24 @@ export default function FunctionSheet({ goalText, onDone, onClose }: FunctionShe
           placeholderTextColor={color.textTertiary}
           style={styles.input}
           multiline
-          accessibilityLabel="Optional note about this week"
+          accessibilityLabel="Optional note"
         />
 
         <Press
           onPress={save}
-          disabled={ability == null}
+          disabled={ability == null || saving}
           pressScale={ability == null ? 1 : 0.985}
           accessibilityRole="button"
-          accessibilityState={{ disabled: ability == null }}
-          style={[styles.primary, ability == null && styles.primaryOff]}
+          accessibilityState={{ disabled: ability == null || saving }}
+          accessibilityHint={ability == null ? 'Move the slider to choose a value first' : undefined}
+          style={[styles.primary, (ability == null || saving) && styles.primaryOff]}
         >
-          <Text style={[styles.primaryText, ability == null && styles.primaryTextOff]}>
-            Save this week
+          <Text style={[styles.primaryText, (ability == null || saving) && styles.primaryTextOff]}>
+            Save
           </Text>
         </Press>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -114,30 +148,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
-  navSpacer: { width: 64 },
-  navTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
-  navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: '#5BA8FF', fontSize: 17 },
+  navSpacer: { width: 72 },
+  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  navBtn: { minWidth: 72, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  navLeft: { alignItems: 'flex-start' },
+  navBtnText: { color: color.tint, fontSize: font.body },
   body: { padding: size.sheetX, paddingTop: 22, paddingBottom: 30 },
-  q: { color: color.textPrimary, fontSize: 18, fontWeight: '600', lineHeight: 25 },
-  qLater: { marginTop: 34, fontSize: 15, fontWeight: '400' },
-  sub: { color: color.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 6 },
+  q: { color: color.textPrimary, fontSize: font.title3, fontWeight: '600', lineHeight: 27 },
+  qLater: { marginTop: 34, fontSize: font.body, fontWeight: '400', lineHeight: 23 },
+  activity: {
+    marginTop: 16, padding: 14, borderRadius: radius.card,
+    backgroundColor: color.bgSurface, gap: 2,
+  },
+  activityLabel: { color: color.textSecondary, fontSize: font.footnote },
+  activityName: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 14 },
   value: {
-    color: color.textPrimary, fontSize: 30, fontWeight: '700',
-    marginTop: 26, marginBottom: 6, fontVariant: ['tabular-nums'],
+    color: color.textPrimary, fontSize: 34, fontWeight: '700',
+    marginTop: 22, marginBottom: 6, fontVariant: ['tabular-nums'],
   },
   ends: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 8 },
-  endText: { color: color.textSecondary, fontSize: 12 },
+  endText: { color: color.textTertiary, fontSize: font.footnote },
   input: {
     marginTop: 10, minHeight: 64, borderRadius: 12, padding: 12,
-    backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: 15,
+    backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
     textAlignVertical: 'top',
   },
   primary: {
-    height: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 30,
+    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    alignItems: 'center', justifyContent: 'center', marginTop: 30, paddingHorizontal: 16,
   },
-  primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
+  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
   primaryOff: { backgroundColor: color.bgSegmentActive },
   primaryTextOff: { color: color.textTertiary },
 });

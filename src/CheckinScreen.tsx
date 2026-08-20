@@ -26,7 +26,7 @@ import PainShape from './PainShape';
 import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press } from './motion';
-import { color, radius, size } from './theme';
+import { color, font, radius, size } from './theme';
 import {
   PAIN_END_HIGH, PAIN_END_LOW, formatOutOf, inkOn, painColor, painLabel, speakScore,
 } from './painScale';
@@ -128,7 +128,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           style={[
             styles.chip,
             on
-              ? { backgroundColor: painColor(pain ?? 5), borderColor: 'transparent' }
+              /* the border keeps a selected chip visible when a low pain
+                 value paints it nearly black */
+              ? { backgroundColor: painColor(pain ?? 5), borderColor: 'rgba(255,255,255,0.3)' }
               : { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
           ]}
         >
@@ -213,7 +215,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           {/* the number and the word carry the value; colour never carries
               it alone, and an unset scale says so in words */}
           {pain == null ? (
-            <Text style={styles.unsetWord}>Move the slider to choose</Text>
+            <Text style={styles.unsetWord} allowFontScaling maxFontSizeMultiplier={1.6}>
+              Move the slider to choose.
+            </Text>
           ) : (
             <>
               <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>
@@ -286,33 +290,36 @@ const styles = StyleSheet.create({
   moreText: { color: color.textTertiary, fontSize: 14 },
   closeGlyph: { color: color.textSecondary, fontSize: 15, lineHeight: 18 },
   title: {
-    color: color.textPrimary, fontSize: 20, fontWeight: '600', letterSpacing: -0.25,
-    lineHeight: 27, textAlign: 'center', marginTop: 14,
+    color: color.textPrimary, fontSize: font.title2, fontWeight: '700', letterSpacing: -0.3,
+    lineHeight: 29, textAlign: 'center', marginTop: 14,
   },
-  hint: { color: color.textTertiary, fontSize: 13, textAlign: 'center', marginTop: 8 },
+  hint: { color: color.textTertiary, fontSize: font.subheadline, textAlign: 'center', marginTop: 8 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   /* unset reads as waiting, not as a value: the shape is dimmed rather than
      showing a colour the user has not chosen */
   shapeUnset: { opacity: 0.28 },
   unsetWord: {
-    color: color.textSecondary, fontSize: 16, marginTop: 30, textAlign: 'center',
+    color: color.textSecondary, fontSize: font.body, marginTop: 30, textAlign: 'center',
   },
+  /* the main pain value: a large display size that still scales with
+     Dynamic Type — the number is the precise information */
   score: {
-    color: color.textPrimary, fontSize: 34, fontWeight: '700',
-    letterSpacing: -0.6, marginTop: 26, fontVariant: ['tabular-nums'],
+    color: color.textPrimary, fontSize: 44, fontWeight: '700',
+    letterSpacing: -0.8, marginTop: 26, fontVariant: ['tabular-nums'],
   },
   primaryOff: { backgroundColor: color.bgSegmentActive },
   primaryTextOff: { color: color.textTertiary },
+  /* the category beneath the score — the same five words everywhere */
   word: {
-    color: color.textPrimary, fontSize: 22, fontWeight: '600',
-    letterSpacing: -0.3, marginTop: 4, textAlign: 'center',
+    color: color.textSecondary, fontSize: font.title3, fontWeight: '600',
+    letterSpacing: -0.3, marginTop: 2, textAlign: 'center',
   },
   doneTitle: {
-    color: color.textPrimary, fontSize: 26, fontWeight: '600',
+    color: color.textPrimary, fontSize: 26, fontWeight: '700',
     letterSpacing: -0.4, marginTop: 30,
   },
   doneSub: {
-    color: color.textSecondary, fontSize: 15, lineHeight: 22,
+    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 22,
     marginTop: 8, textAlign: 'center', maxWidth: 300,
   },
   chipWrap: {
@@ -320,13 +327,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center', paddingVertical: 24,
   },
   chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderWidth: 1 },
-  chipText: { color: '#D0D0D6', fontSize: 15, fontWeight: '500' },
+  chipText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
   bottom: { flexShrink: 0 },
   ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 2 },
-  endText: { color: color.textTertiary, fontSize: 12 },
+  endText: { color: color.textTertiary, fontSize: font.footnote },
   primary: {
-    height: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 26,
+    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,
   },
-  primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
+  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
 });
