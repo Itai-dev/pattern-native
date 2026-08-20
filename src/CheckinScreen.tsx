@@ -1,23 +1,26 @@
 /**
- * The daily check-in: pain → where. Under ten seconds.
+ * The daily check-in: pain → where → logged. Under ten seconds.
  *
  * The moment is written the instant the pain step ends, so closing on the
  * where step costs taps, never data. The where step opens with the most
- * recent places already selected — chronic pain usually lives in the same
- * places, so the common case is one confirming tap, not a nightly re-survey.
+ * recent places already selected — chronic pain lives in the same places,
+ * so the common case is one confirming tap, not a nightly re-survey.
  *
- * The old capacity and impact steps are gone on purpose (2026-08-20): PEG
- * asks the capacity question better — weekly, validated — and impact context
- * moved into the flare log, where "what was going on" means something.
+ * The old "a hard day? save and close" escape hatch is gone (2026-08-20).
+ * It existed to let someone skip four steps; there are now two. Worse, it
+ * appeared and vanished as the slider crossed 7, moving the primary button
+ * under a finger already travelling toward it.
  */
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
+import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press } from './motion';
 import { PAINWORDS, color, radius, size, theme } from './theme';
-import { LOCIDS, LOC_NAMES, defaultLocs, minutesNow, todayISO } from './model';
+import { LOCIDS, LOC_NAMES, defaultLocs, fmtTime, minutesNow, todayISO } from './model';
 
 const SQUARE = 150, SQ_RADIUS = 36;
 
@@ -29,7 +32,8 @@ export interface CheckinScreenProps {
 }
 
 export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenProps) {
-  const [step, setStep] = useState<'pain' | 'where'>('pain');
+  const insets = useSafeAreaInsets();
+  const [step, setStep] = useState<'pain' | 'where' | 'done'>('pain');
   const [pain, setPain] = useState(5);
   const [loc, setLoc] = useState<string[]>([]);
   const [writtenAt, setWrittenAt] = useState<number | null>(null);
@@ -39,17 +43,16 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
 
   const onPainNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    // durable now; the where step edits this same moment in place
-    db.writeMoment(todayISO(), minutes, pain);
+    db.writeMoment(todayISO(), minutes, pain);   // durable before the chips
     setWrittenAt(minutes);
     setLoc(defaultLocs(db.getAll(), todayISO()));
     setStep('where');
   };
 
   const onWhereSave = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (writtenAt != null) db.writeMoment(todayISO(), writtenAt, pain, loc);
-    onDone();
+    setStep('done');
   };
 
   const chips = useMemo(() => LOCIDS.map((id) => {
@@ -76,10 +79,37 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     );
   }), [loc, pain, ramp]);
 
+  /* ── the logged screen: the day, as it now stands ──
+     A save that just closes leaves you wondering whether it worked. This
+     shows the thing you made — today's square, with this moment in it — and
+     gets out of the way on one tap. */
+  if (step === 'done') {
+    const e = db.getDay(todayISO());
+    const count = e && e.logs ? e.logs.length : 1;
+    return (
+      <View style={[styles.root, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}>
+        <View style={styles.middle}>
+          <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS} />
+          <Text style={styles.doneTitle}>Logged</Text>
+          <Text style={styles.doneSub}>
+            {count > 1
+              ? count + ' moments today · ' + (e!.logs || []).map((l) => fmtTime(l.h)).join(' · ')
+              : 'Today is on the map. You don’t need to solve it right now.'}
+          </Text>
+        </View>
+        <View style={styles.bottom}>
+          <Press onPress={onDone} pressScale={0.985} style={styles.primary}>
+            <Text style={styles.primaryText}>Done</Text>
+          </Press>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}>
       <View style={styles.topBar}>
-        <Press onPress={onClose} style={styles.close} hitSlop={10}>
+        <Press onPress={onClose} style={styles.close} hitSlop={12}>
           <Text style={styles.closeGlyph}>✕</Text>
         </Press>
       </View>
@@ -95,7 +125,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         </View>
       ) : (
         <>
-          <Text style={styles.hint}>Your usual places are pre-selected — adjust if today differs</Text>
+          <Text style={styles.hint}>Your usual places are already selected</Text>
           <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
             {chips}
           </ScrollView>
@@ -119,21 +149,13 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         >
           <Text style={styles.primaryText}>{step === 'pain' ? 'Continue' : 'Save today'}</Text>
         </Press>
-        {step === 'pain' && pain >= 7 && (
-          <Press
-            onPress={() => { db.writeMoment(todayISO(), minutes, pain); onDone(); }}
-            style={styles.quiet}
-          >
-            <Text style={styles.quietText}>A hard day? Save and close — this is enough.</Text>
-          </Press>
-        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgRoot, paddingHorizontal: 28, paddingTop: 20, paddingBottom: 30 },
+  root: { flex: 1, backgroundColor: color.bgRoot, paddingHorizontal: 28 },
   topBar: { flexDirection: 'row', justifyContent: 'flex-end' },
   close: {
     width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: color.borderDivider,
@@ -151,6 +173,14 @@ const styles = StyleSheet.create({
     color: color.textPrimary, fontSize: 22, fontWeight: '600',
     letterSpacing: -0.3, marginTop: 30, textAlign: 'center',
   },
+  doneTitle: {
+    color: color.textPrimary, fontSize: 26, fontWeight: '600',
+    letterSpacing: -0.4, marginTop: 30,
+  },
+  doneSub: {
+    color: color.textSecondary, fontSize: 15, lineHeight: 22,
+    marginTop: 8, textAlign: 'center', maxWidth: 300,
+  },
   chipWrap: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', paddingVertical: 20,
@@ -165,6 +195,4 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginTop: 26,
   },
   primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
-  quiet: { paddingVertical: 14, alignItems: 'center' },
-  quietText: { color: color.textTertiary, fontSize: 13, textAlign: 'center' },
 });

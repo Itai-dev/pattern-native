@@ -1,19 +1,25 @@
 /**
- * The 0–10 slider, built on PanResponder rather than a native slider package —
- * the design is bespoke anyway, and a JS-only control ships over the air.
+ * The 0–10 slider.
  *
- * The thumb tracks the finger 1:1 for the whole gesture; only the VALUE
- * snaps to whole numbers (a haptic tick per step). On release the thumb
- * settles to its stop with a short critically-damped spring that inherits
- * the finger's velocity, so there is no seam between dragging and animating.
- * The Animated.Value carries the position without re-rendering React on
- * every move event.
+ * The first version tracked the finger from JavaScript, which is why it
+ * lagged: every move crossed the bridge, and every whole-number change
+ * re-rendered the screen around it, so the thumb was always drawing a
+ * position the finger had already left. This version runs the gesture on
+ * the UI thread with Gesture Handler + Reanimated — the thumb is moved by a
+ * worklet and never waits for React. Only the VALUE crosses back to JS, and
+ * only when the whole number actually changes.
+ *
+ * `runOnJS` is the one bridge crossing left, and it happens at most eleven
+ * times in a drag rather than sixty times a second.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, withSpring,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { color, size } from './theme';
-import { reduceMotion } from './motion';
 
 const THUMB = size.sliderThumb;
 
@@ -24,79 +30,65 @@ export interface SliderProps {
 }
 
 export default function Slider({ value, onChange, max = 10 }: SliderProps) {
-  const [width, setWidth] = useState(0);
-  const x = useRef(new Animated.Value(0)).current;
-  /* the responder closes over refs, not props — it is created once */
-  const widthRef = useRef(0);
-  const valueRef = useRef(value);
-  const changeRef = useRef(onChange);
-  const draggingRef = useRef(false);
-  const originRef = useRef(0);
-  widthRef.current = width;
-  valueRef.current = value;
-  changeRef.current = onChange;
+  const width = useSharedValue(0);
+  const x = useSharedValue(0);
+  const dragging = useSharedValue(false);
+  const lastStep = useSharedValue(value);
 
-  const posOf = useCallback((v: number) => {
-    const usable = Math.max(1, widthRef.current - THUMB);
-    return (usable * v) / max;
-  }, [max]);
+  /* the haptic tick is fired from JS but never awaited — a dropped tick is
+     invisible, a blocked frame is not */
+  const emit = useCallback((v: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    onChange(v);
+  }, [onChange]);
 
-  /* an external value change (the capacity step arriving) repositions the
-     thumb — but never while a finger owns it */
-  useEffect(() => {
-    if (!draggingRef.current && width) x.setValue(posOf(value));
-  }, [value, width, posOf, x]);
-
-  const track = useCallback((fingerX: number) => {
-    const usable = Math.max(1, widthRef.current - THUMB);
-    const clamped = Math.max(0, Math.min(usable, fingerX - THUMB / 2));
-    x.setValue(clamped);                       // 1:1, no React re-render
-    const next = Math.round((clamped / usable) * max);
-    if (next !== valueRef.current) {
-      // a tick per whole number: the value change is felt, not just seen
-      Haptics.selectionAsync().catch(() => {});
-      changeRef.current(next);
+  /* while the finger is down the thumb belongs to the gesture; when it is
+     up the thumb follows the value, so an external change (a new step, a
+     reset) still moves it */
+  useDerivedValue(() => {
+    if (!dragging.value && width.value > 0) {
+      const usable = Math.max(1, width.value - THUMB);
+      x.value = withSpring((usable * value) / max, { damping: 40, stiffness: 400, mass: 1 });
     }
-  }, [max, x]);
+  }, [value, max]);
 
-  const settle = useCallback((vxPerMs: number) => {
-    draggingRef.current = false;
-    if (reduceMotion) { x.setValue(posOf(valueRef.current)); return; }
-    Animated.spring(x, {
-      toValue: posOf(valueRef.current),
-      velocity: vxPerMs * 1000,               // the finger's speed, in units/s
-      stiffness: 400, damping: 40, mass: 1,   // critically damped — settle, no bounce
-      useNativeDriver: true,
-    }).start();
-  }, [posOf, x]);
-
-  const responder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => { draggingRef.current = true; track(e.nativeEvent.locationX); },
-      onPanResponderMove: (_e, g) => track(g.moveX - originRef.current),
-      onPanResponderRelease: (_e, g) => settle(g.vx),
-      onPanResponderTerminate: (_e, g) => settle(g.vx),
-      onPanResponderTerminationRequest: () => false,
+  const pan = Gesture.Pan()
+    .minDistance(0)
+    .onBegin((e) => {
+      'worklet';
+      dragging.value = true;
+      const usable = Math.max(1, width.value - THUMB);
+      x.value = Math.max(0, Math.min(usable, e.x - THUMB / 2));
+      const step = Math.round((x.value / usable) * max);
+      if (step !== lastStep.value) { lastStep.value = step; runOnJS(emit)(step); }
     })
-  ).current;
+    .onUpdate((e) => {
+      'worklet';
+      const usable = Math.max(1, width.value - THUMB);
+      x.value = Math.max(0, Math.min(usable, e.x - THUMB / 2));
+      const step = Math.round((x.value / usable) * max);
+      if (step !== lastStep.value) { lastStep.value = step; runOnJS(emit)(step); }
+    })
+    .onFinalize(() => {
+      'worklet';
+      dragging.value = false;
+      // settle onto the chosen stop, carrying the gesture's own momentum
+      const usable = Math.max(1, width.value - THUMB);
+      x.value = withSpring((usable * lastStep.value) / max, { damping: 40, stiffness: 400, mass: 1 });
+    });
 
-  const trackRef = useRef<View>(null);
+  const thumbStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 
   return (
-    <View
-      ref={trackRef}
-      {...responder.panHandlers}
-      onLayout={(e) => {
-        setWidth(e.nativeEvent.layout.width);
-        trackRef.current?.measureInWindow((wx) => { originRef.current = wx; });
-      }}
-      style={styles.hit}
-    >
-      <View style={styles.track} />
-      <Animated.View style={[styles.thumb, { transform: [{ translateX: x }] }]} />
-    </View>
+    <GestureDetector gesture={pan}>
+      <View
+        onLayout={(e) => { width.value = e.nativeEvent.layout.width; }}
+        style={styles.hit}
+      >
+        <View style={styles.track} />
+        <Animated.View style={[styles.thumb, thumbStyle]} />
+      </View>
+    </GestureDetector>
   );
 }
 

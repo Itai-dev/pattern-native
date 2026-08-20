@@ -1,10 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
-import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import MapScreen from './src/MapScreen';
-import TodayScreen from './src/TodayScreen';
+import HomeScreen from './src/HomeScreen';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
 import WeeklySheet from './src/WeeklySheet';
@@ -12,22 +13,20 @@ import EventSheet from './src/EventSheet';
 import ReportSheet from './src/ReportSheet';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
-import { configureHandler, cancelAll } from './src/reminders';
+import { cancelAll, configureHandler } from './src/reminders';
 import { todayISO } from './src/model';
 import { color, size } from './src/theme';
 
 configureHandler(); // set once, before anything can be delivered
 
-type Tab = 'today' | 'map';
 type Sheet = null | 'checkin' | 'weekly' | 'event' | 'report';
 
 /**
- * The shell: two pages and a profile. Today acts, the Pattern reflects,
- * and Profile holds the data itself — the goal, the reminders, the doctor
- * summary, backup in and out. Sheets are real iOS page sheets.
+ * One screen and a profile. The tab bar is gone — it navigated between the
+ * map and a smaller copy of the map, which is cost without content.
+ * Everything about the data itself lives behind the person icon.
  */
 export default function App() {
-  const [tab, setTab] = useState<Tab>('today');
   const [entries, setEntries] = useState(() => db.getAll());
   const [weekly, setWeekly] = useState(() => db.getWeekly());
   const [goalText, setGoalText] = useState(() => db.getGoal());
@@ -52,8 +51,10 @@ export default function App() {
       const json = await FileSystem.readAsStringAsync(res.assets[0].uri);
       const n = db.importBackup(json);
       refresh();
-      Alert.alert(n >= 0 ? 'Restored ' + n + ' days' : 'Couldn’t read that file',
-        n >= 0 ? 'Your history is on this phone now.' : 'It doesn’t look like a Pattern backup.');
+      Alert.alert(
+        n >= 0 ? 'Restored ' + n + ' days' : 'Couldn’t read that file',
+        n >= 0 ? 'Your history is on this phone now.' : 'It doesn’t look like a Pattern backup.'
+      );
     } catch {
       Alert.alert('Couldn’t read that file');
     }
@@ -84,113 +85,100 @@ export default function App() {
   }, [goalText, refresh]);
 
   return (
-    <View style={styles.root}>
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.topBar}>
-          <Text style={styles.wordmark}>Pattern</Text>
-          <Pressable onPress={() => setProfile(true)} hitSlop={8} style={styles.person}>
-            <View style={styles.personHead} />
-            <View style={styles.personBody} />
-          </Pressable>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-          {tab === 'today'
-            ? <TodayScreen
-                entries={entries} weekly={weekly} goalText={goalText}
-                onLog={() => setSheet('checkin')} onOpenDay={setDaySheet}
-                onEvent={() => setSheet('event')} onWeekly={() => setSheet('weekly')}
-                onChanged={refresh}
-              />
-            : <MapScreen entries={entries} onDayPress={setDaySheet} />}
-        </ScrollView>
-
-        <View style={styles.tabBar}>
-          {(['today', 'map'] as Tab[]).map((k) => (
-            <Pressable key={k} onPress={() => setTab(k)} style={styles.tab}>
-              <View style={[styles.tabIcon, k === 'today' ? styles.tabIconToday : styles.tabIconMap,
-                { borderColor: tab === k ? color.textPrimary : color.textTertiary,
-                  backgroundColor: k === 'map' && tab === k ? color.textPrimary : 'transparent' }]} />
-              <Text style={[styles.tabLabel, { color: tab === k ? color.textPrimary : color.textTertiary }]}>
-                {k === 'today' ? 'Today' : 'Pattern'}
-              </Text>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <View style={styles.topBar}>
+            <Text style={styles.wordmark}>Pattern</Text>
+            <Pressable onPress={() => setProfile(true)} hitSlop={8} style={styles.person}>
+              <View style={styles.personHead} />
+              <View style={styles.personBody} />
             </Pressable>
-          ))}
-        </View>
-      </SafeAreaView>
+          </View>
 
-      <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
-        <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
-      </Modal>
-
-      <Modal visible={sheet === 'weekly'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-        <WeeklySheet onDone={closeSheet} />
-      </Modal>
-
-      <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-        <EventSheet onDone={closeSheet} />
-      </Modal>
-
-      <Modal visible={sheet === 'report'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-        <ReportSheet onDone={closeSheet} />
-      </Modal>
-
-      <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
-        {daySheet && (
-          <DaySheet
-            dateIso={daySheet}
-            entry={db.getDay(daySheet)}
-            onChanged={refresh}
-            onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
-            onClose={closeDay}
-          />
-        )}
-      </Modal>
-
-      <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProfile(false)}>
-        <View style={styles.sheet}>
-          <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sheetTitle}>Profile</Text>
-
-            <Pressable onPress={() => { setProfile(false); setSheet('report'); }} style={styles.row}>
-              <Text style={styles.rowLabel}>Summary for your doctor</Text>
-              <Text style={styles.rowChevron}>›</Text>
-            </Pressable>
-
-            <Pressable onPress={editGoal} style={styles.row}>
-              <Text style={styles.rowLabel}>Activity I want back</Text>
-              <Text style={styles.rowValue} numberOfLines={1}>{goalText || 'Name one'}</Text>
-            </Pressable>
-
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Days logged</Text>
-              <Text style={styles.rowValue}>{Object.keys(entries).length}</Text>
-            </View>
-
-            <RemindersSection />
-
-            <Text style={styles.groupTitle}>Data</Text>
-            <Pressable onPress={importBackup} style={styles.row}>
-              <Text style={styles.rowLabel}>Import backup</Text>
-              <Text style={styles.rowValue}>From the web app</Text>
-            </Pressable>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Data stays on this phone</Text>
-              <Text style={styles.rowValue}>✓</Text>
-            </View>
-
-            <Pressable onPress={wipe} style={styles.deleteRow}>
-              <Text style={styles.danger}>Delete all my data</Text>
-            </Pressable>
+          <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+            <HomeScreen
+              entries={entries} weekly={weekly} goalText={goalText}
+              onLog={() => setSheet('checkin')} onOpenDay={setDaySheet}
+              onEvent={() => setSheet('event')} onWeekly={() => setSheet('weekly')}
+              onChanged={refresh}
+            />
           </ScrollView>
-          <Pressable onPress={() => setProfile(false)} style={styles.done}>
-            <Text style={styles.doneText}>Done</Text>
-          </Pressable>
-        </View>
-      </Modal>
+        </SafeAreaView>
 
-      <StatusBar style="light" />
-    </View>
+        <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
+          <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
+        </Modal>
+
+        <Modal visible={sheet === 'weekly'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+          <WeeklySheet onDone={closeSheet} />
+        </Modal>
+
+        <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+          <EventSheet onDone={closeSheet} />
+        </Modal>
+
+        <Modal visible={sheet === 'report'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+          <ReportSheet onDone={closeSheet} />
+        </Modal>
+
+        <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
+          {daySheet && (
+            <DaySheet
+              dateIso={daySheet}
+              entry={db.getDay(daySheet)}
+              onChanged={refresh}
+              onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
+              onClose={closeDay}
+            />
+          )}
+        </Modal>
+
+        <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProfile(false)}>
+          <View style={styles.sheet}>
+            <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              <Text style={styles.sheetTitle}>Profile</Text>
+
+              <Pressable onPress={() => { setProfile(false); setSheet('report'); }} style={styles.row}>
+                <Text style={styles.rowLabel}>Summary for your doctor</Text>
+                <Text style={styles.rowChevron}>›</Text>
+              </Pressable>
+
+              <Pressable onPress={editGoal} style={styles.row}>
+                <Text style={styles.rowLabel}>Activity I want back</Text>
+                <Text style={styles.rowValue} numberOfLines={1}>{goalText || 'Name one'}</Text>
+              </Pressable>
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Days logged</Text>
+                <Text style={styles.rowValue}>{Object.keys(entries).length}</Text>
+              </View>
+
+              <RemindersSection />
+
+              <Text style={styles.groupTitle}>Data</Text>
+              <Pressable onPress={importBackup} style={styles.row}>
+                <Text style={styles.rowLabel}>Import backup</Text>
+                <Text style={styles.rowValue}>From the web app</Text>
+              </Pressable>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Data stays on this phone</Text>
+                <Text style={styles.rowValue}>✓</Text>
+              </View>
+
+              <Pressable onPress={wipe} style={styles.deleteRow}>
+                <Text style={styles.danger}>Delete all my data</Text>
+              </Pressable>
+            </ScrollView>
+            <Pressable onPress={() => setProfile(false)} style={styles.done}>
+              <Text style={styles.doneText}>Done</Text>
+            </Pressable>
+          </View>
+        </Modal>
+
+        <StatusBar style="light" />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -199,7 +187,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: size.pageX, paddingTop: 8, paddingBottom: 4,
+    paddingHorizontal: size.pageX, paddingTop: 4,
   },
   wordmark: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
   person: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -211,17 +199,7 @@ const styles = StyleSheet.create({
     width: 16, height: 8, borderTopLeftRadius: 8, borderTopRightRadius: 8,
     borderWidth: 1.4, borderBottomWidth: 0, borderColor: color.textSecondary,
   },
-  page: { paddingBottom: 24 },
-  tabBar: {
-    flexDirection: 'row', justifyContent: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
-    paddingTop: 7,
-  },
-  tab: { width: 112, alignItems: 'center', gap: 3, paddingVertical: 3 },
-  tabIcon: { width: 19, height: 19, borderWidth: 1.6 },
-  tabIconToday: { borderRadius: 5 },
-  tabIconMap: { borderRadius: 4 },
-  tabLabel: { fontSize: 11, fontWeight: '500' },
+  page: { paddingBottom: 40 },
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   sheetBody: { padding: size.sheetX, paddingTop: 22 },
   sheetTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600', marginBottom: 8 },
