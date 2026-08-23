@@ -619,5 +619,76 @@ ok('a short record prints no such section', (() => {
     && report.reportHtml(data).indexOf('Hardest and easiest days') < 0;
 })());
 
+/* ── what the check-in asks ─────────────────────────────────── */
+group('check-in questions');
+
+const INTERF = 'pain.interference.v1';
+
+ok('with no protocol, interference is still asked once a day', (() => {
+  const ids = protocol.questionsNow(null, { h: 9 * M, isFirstOfDay: true, entry: null }, [INTERF]);
+  return ids.length === 1 && ids[0] === INTERF;
+})());
+ok('...and not again on a later check-in the same day', (() => {
+  const entry = { pain: 5, cap: null, note: '', ctx: ctxOf({ [INTERF]: answer(6) }) };
+  return protocol.questionsNow(null, { h: 15 * M, isFirstOfDay: false, entry }, [INTERF]).length === 0;
+})());
+ok('with a protocol, the factors come first and interference last', (() => {
+  const ids = protocol.questionsNow(proto, { h: 19 * M, isFirstOfDay: true, entry: null }, [INTERF]);
+  return ids.length === 3 && ids[2] === INTERF
+    && ids[0] === 'stress.level.v1' && ids[1] === 'load.physical.v1';
+})());
+ok('a morning check-in with an evening factor asks two, not three', (() => {
+  const ids = protocol.questionsNow(proto, { h: 8 * M, isFirstOfDay: true, entry: null }, [INTERF]);
+  return ids.length === 2 && ids.indexOf('load.physical.v1') < 0;
+})());
+ok('the same extra passed twice is asked once', (() => {
+  const ids = protocol.questionsNow(null, { h: 9 * M, isFirstOfDay: true, entry: null },
+    [INTERF, INTERF]);
+  return ids.length === 1;
+})());
+ok('a numeric answer is accepted, an out-of-range one is not',
+  metrics.validAnswerValue(INTERF, 0) && metrics.validAnswerValue(INTERF, 10)
+  && !metrics.validAnswerValue(INTERF, 11) && !metrics.validAnswerValue(INTERF, -1));
+
+group('where: confirmed, not assumed');
+ok('Same records the previous areas as answered', (() => {
+  const e = model.applyMoment(null, 600, 5, ['hands', 'neck'], null, { locAsked: true });
+  const m = e.logs[0];
+  return m.locAsked === 1 && m.loc.length === 2 && m.locSkipped === undefined;
+})());
+ok('Change with nothing picked is "asked, no areas" — not "unasked"', (() => {
+  const m = model.applyMoment(null, 600, 5, [], null, { locAsked: true }).logs[0];
+  return m.locAsked === 1 && m.loc === undefined && m.locSkipped === undefined;
+})());
+ok('Skip is its own state, distinct from both', (() => {
+  const m = model.applyMoment(null, 600, 5, null, null, { locSkipped: true }).logs[0];
+  return m.locSkipped === 1 && m.locAsked === 1 && m.loc === undefined;
+})());
+ok('a pain-only log was never asked at all', (() => {
+  const m = model.applyMoment(null, 600, 5).logs[0];
+  return m.locAsked === undefined && m.locSkipped === undefined;
+})());
+ok('the three states survive a backup round-trip', (() => {
+  const b = model.validateBackup(JSON.stringify({
+    version: 5,
+    entries: {
+      '2026-08-01': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5, loc: ['hands'], locAsked: 1 }] },
+      '2026-08-02': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5, locAsked: 1 }] },
+      '2026-08-03': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5, locSkipped: 1 }] },
+      '2026-08-04': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] },
+    },
+  }));
+  const at = (d) => b.entries['2026-08-0' + d].logs[0];
+  return at(1).loc.length === 1 && at(1).locAsked === 1
+    && at(2).locAsked === 1 && at(2).loc === undefined && at(2).locSkipped === undefined
+    && at(3).locSkipped === 1 && at(3).locAsked === 1
+    && at(4).locAsked === undefined;
+})());
+ok('editing a moment does not resurrect a skip once areas are given', (() => {
+  const first = model.applyMoment(null, 600, 5, null, null, { locSkipped: true });
+  const edited = model.applyMoment(first, 600, 5, ['hands'], null, { locAsked: true });
+  return edited.logs[0].loc.length === 1 && edited.logs[0].locSkipped === undefined;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

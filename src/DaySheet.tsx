@@ -15,8 +15,9 @@ import * as Haptics from 'expo-haptics';
 import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press, reduceMotion } from './motion';
+import { getMetric, levelLabel } from './metrics';
 import {
-  Entry, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES, checkinCount,
+  Answer, Entry, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES, checkinCount,
   dailyAverage, dateFromISO, fmtTime, logsOf, todayISO,
 } from './model';
 import {
@@ -204,6 +205,77 @@ export default function DaySheet({
           </View>
         )}
 
+        {/* what was asked that day, and what came back. A question that
+            was PUT and declined says so; a question never put is simply
+            absent from the list. The two are not the same fact and the
+            screen does not pretend otherwise. */}
+        {(() => {
+          const ctx = live && live.ctx ? live.ctx.a : null;
+          const ids = ctx ? Object.keys(ctx) : [];
+          if (!ids.length) return null;
+          const shown = ids
+            .map((id) => ({ id, m: getMetric(id), a: ctx![id] as Answer }))
+            .filter((r) => r.m != null);
+          if (!shown.length) return null;
+          return (
+            <View style={styles.list}>
+              <Text style={styles.listTitle}>Today’s questions</Text>
+              {shown.map(({ id, m, a }) => {
+                const skipped = a.skipped === 1;
+                const value = skipped
+                  ? 'Skipped'
+                  : m!.type === 'numeric'
+                    ? a.value + '/10'
+                    : levelLabel(id, String(a.value));
+                return (
+                  <Swipeable
+                    key={id}
+                    overshootRight={false}
+                    renderRightActions={() => (
+                      <Press
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          db.clearAnswer(dateIso, id);
+                          force((n) => n + 1);
+                          onChanged();
+                        }}
+                        style={styles.deleteAction}
+                        accessibilityRole="button"
+                        accessibilityLabel={'Remove the answer to: ' + m!.name}
+                      >
+                        <Text style={styles.deleteText}>Remove</Text>
+                      </Press>
+                    )}
+                  >
+                    <View
+                      style={styles.qRow}
+                      accessible
+                      accessibilityLabel={m!.name + ', ' + value}
+                    >
+                      <View style={styles.rowMid}>
+                        <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
+                          {m!.name}
+                        </Text>
+                        <Text style={styles.rowSub}>{m!.question}</Text>
+                      </View>
+                      <Text
+                        style={[styles.qValue, skipped && styles.qSkipped]}
+                        allowFontScaling maxFontSizeMultiplier={1.3}
+                      >
+                        {value}
+                      </Text>
+                    </View>
+                  </Swipeable>
+                );
+              })}
+              <Text style={styles.swipeHint}>
+                Swipe left to remove an answer · a removed answer goes back to
+                never having been asked
+              </Text>
+            </View>
+          );
+        })()}
+
         {/* events recorded that day — each one opens to edit, swipes to
             delete, and none of them claims to explain the pain */}
         {(() => {
@@ -319,6 +391,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
+  qRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: color.bgSurface,
+  },
+  qValue: {
+    color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  qSkipped: { color: color.textTertiary, fontWeight: '500' },
   swipeHint: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: 10 },
   eventRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44, paddingVertical: 6 },
   note: {

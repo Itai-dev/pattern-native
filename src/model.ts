@@ -44,6 +44,11 @@ export interface Moment {
    *  `loc` absent it means "asked, nothing selected" — which is an
    *  answer, and a different thing from never having been asked. */
   locAsked?: 1;
+  /** 1 = the question was put and the user declined it. Distinct again
+   *  from "asked, nothing selected": one says there were no areas, the
+   *  other says they would rather not answer. Both are honest; neither
+   *  is a value. */
+  locSkipped?: 1;
   /** pain-quality words — the SOCRATES "Character" answer, per moment */
   q?: string[];
 }
@@ -163,6 +168,7 @@ export function cleanLogs(l: unknown): Moment[] | undefined {
     if (lc) v.loc = lc;
     // an empty selection is an answer, so the asked-marker survives on its own
     if (raw.locAsked === 1 || (Array.isArray(loc) && !lc)) v.locAsked = 1;
+    if (raw.locSkipped === 1) { v.locSkipped = 1; v.locAsked = 1; }
     const qc = cleanIds(q, QUALITYIDS);
     if (qc) v.q = qc;
     const ts = typeof raw.ts === 'number' && isFinite(raw.ts) && raw.ts > 0 ? Math.round(raw.ts) : undefined;
@@ -336,6 +342,8 @@ export interface MomentMeta {
   sv?: number;
   /** the where question was put to the user, whatever they chose */
   locAsked?: boolean;
+  /** ...and they declined it */
+  locSkipped?: boolean;
 }
 
 /** stamp the current instant. Kept here so every writer agrees on what
@@ -359,7 +367,8 @@ export function applyMoment(
   const logs = prevLogs.slice();
   const moment: Moment = { h, pain };
   if (loc && loc.length) moment.loc = loc.slice();
-  if (meta && meta.locAsked) moment.locAsked = 1;
+  if (meta && meta.locSkipped) { moment.locSkipped = 1; moment.locAsked = 1; }
+  else if (meta && meta.locAsked) moment.locAsked = 1;
   else if (loc && loc.length) moment.locAsked = 1;
   if (q && q.length) moment.q = q.slice();
   if (meta) {
@@ -376,6 +385,7 @@ export function applyMoment(
     if (moment.tz === undefined && was.tz !== undefined) moment.tz = was.tz;
     if (moment.sv === undefined && was.sv !== undefined) moment.sv = was.sv;
     if (!moment.locAsked && was.locAsked) moment.locAsked = 1;
+    if (!moment.locSkipped && was.locSkipped && !moment.loc) moment.locSkipped = 1;
     logs[i] = moment;
   } else logs.push(moment);
   logs.sort((a, b) => a.h - b.h);

@@ -738,7 +738,7 @@ Holistic means understanding context, not collecting everything.
 
 **Step 1 — Schema and data preservation** ✅ *shipped, see §26*
 
-**Step 2 — Pain-first check-in** *(next)*
+**Step 2 — Pain-first check-in** ✅ *shipped, see §26*
 - Pain remains the only mandatory answer, with UTC and offset
 - Two-factor step driven by the active protocol and gated by §7.1
 - Evening one-question follow-up for missed evening-eligible factors
@@ -749,7 +749,7 @@ Holistic means understanding context, not collecting everything.
 
 **Step 3 — The Trends tab** ✅ *shipped, see §26*
 
-**Step 4 — The hypothesis loop**
+**Step 4 — The hypothesis loop** *(next)*
 - Setup at day 7, after the function card, once
 - Keyword matcher, factor picker, deterministic second factor with rotation
 - Confirmation screen, protocol creation, status line on Today
@@ -884,7 +884,41 @@ target, so the tab has been typechecked, unit-tested and bundled but **not seen 
 device.** The PDF renderer was checked visually against synthetic data. Someone should open
 Trends on a phone before this is called done.
 
-### Open before Step 2
+### Step 2 — shipped
+
+`npm run verify` passes: TypeScript clean, **313 assertions, 0 failures**, iOS bundle exports.
+
+`CheckinScreen.tsx` keeps its one-question-per-screen cadence and gains:
+
+- **"Just log the pain"** beside "Add context" on the first screen. Pain alone was always a
+  complete entry; the flow now says so instead of marching you onward with a ✕ as the only way
+  out.
+- **A questions step**, shown only when something is eligible: the active period's factors and
+  then interference, each skippable, the step skipped entirely when the list is empty (which is
+  every day until Step 4 ships a protocol).
+- **A question left alone is stored as skipped**, not left absent — asked-and-declined is a
+  different fact from never-asked, and `persistAnswers` writes one or the other for every
+  question actually put on screen.
+- **Where is confirmed, not assumed.** `defaultLocs` no longer pre-ticks anything. The previous
+  areas are shown as a reminder of what was true then, under **Same / Change / Skip**, and
+  Change opens the picker empty.
+- `Moment.locSkipped` — the third state for body areas. "No areas today" and "I'd rather not
+  say" were collapsing into one another, which principle 7 forbids.
+
+`DaySheet.tsx` lists the day's questions with their answers, shows a skip as *Skipped* rather
+than hiding it, and lets one be swiped away — which returns it to never-asked rather than
+recording a decline.
+
+**Worth reconsidering before beta:** interference is a second 0–10 slider immediately after the
+pain slider, every first check-in of the day. It is specced (§7.1, `firstOfDay`) and it is
+built, but it is the heaviest single addition to the daily loop and it overlaps the weekly
+ability question (§11). If the 20-second target slips in real use, this is the first thing to
+cut or move to weekly.
+
+**Not verifiable here.** No iOS simulator on Windows and no web target for `expo-sqlite`, so
+the whole check-in is typechecked, unit-tested and bundled but **not seen running.**
+
+### Open before Step 4
 
 - **Interference wording** needs a licensing review. The `weekly` table was retired because
   *"that wording was not ours to ship"*; the current item is original text, but this spec is
