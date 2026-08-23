@@ -8,6 +8,7 @@
  */
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { getMetric } from './metrics';
+import { addDays } from './model';
 import {
   Answer, BACKUP_VERSION, CONTEXT_VERSION, ContextAnswers, Entries, Entry,
   EventKind, FuncEntry, Hypothesis, PainEvent, Protocol, ProtocolStatus,
@@ -16,6 +17,7 @@ import {
   migrateEntries, nowMeta, protocolKey, removeMoment, syncDayPain, validateBackup,
 } from './model';
 import { SCALE_VERSION } from './painScale';
+import { PROTOCOL_REVIEW_DAYS } from './thresholds';
 
 let db: SQLiteDatabase | null = null;
 
@@ -462,6 +464,17 @@ export function startProtocol(p: Omit<Protocol, 'id'>): number {
     id = r ? r.id : 0;
   });
   return id;
+}
+
+/** Push the review point out by another period. Keep observing does NOT
+ *  restart the run — restarting would orphan every answer already given
+ *  from the period it belongs to, and the whole point of pooling by
+ *  (metric, wording) is that a slow question can keep accumulating. */
+export function extendProtocol(id: number, fromIso: string): void {
+  conn().runSync(
+    'UPDATE protocols SET reviewOn = ? WHERE id = ?',
+    addDays(fromIso, PROTOCOL_REVIEW_DAYS - 1), id
+  );
 }
 
 export function endProtocol(id: number, endDate: string, status: ProtocolStatus = 'completed'): void {

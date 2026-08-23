@@ -690,5 +690,65 @@ ok('editing a moment does not resurrect a skip once areas are given', (() => {
   return edited.logs[0].loc.length === 1 && edited.logs[0].locSkipped === undefined;
 })());
 
+/* ── the hypothesis loop, end to end ────────────────────────── */
+group('the focus flow');
+
+ok('a sentence about stress and cold weather proposes both', (() => {
+  const ids = metrics.matchFactors('stress and cold weather make it worse')
+    .filter((m) => m.protocolEligible).map((m) => m.id);
+  return ids.indexOf('stress.level.v1') >= 0 && ids.indexOf('weather.felt.v1') >= 0;
+})());
+ok('picking stress never hands back stress or weather as the second', (() => {
+  const matched = metrics.matchFactors('stress and cold weather make it worse').map((m) => m.id);
+  const p = protocol.pickSecondFactor('stress.level.v1', matched, null, 0);
+  return p && p.factor.id !== 'stress.level.v1' && p.factor.id !== 'weather.felt.v1';
+})());
+ok('the second factor is always one a protocol can actually run', (() => {
+  for (let r = 0; r < 15; r++) {
+    const p = protocol.pickSecondFactor('stress.level.v1', ['stress.level.v1'], null, r);
+    if (!p || !p.factor.protocolEligible) return false;
+  }
+  return true;
+})());
+ok('a period runs from today and reviews thirteen days later', (() => {
+  return protocol.reviewDateFor('2026-08-24') === '2026-09-06'
+    && protocol.dayNumber({ ...proto, startDate: '2026-08-24' }, '2026-09-06') === 14;
+})());
+
+group('the day-14 review says how much, never what');
+const focusProto = {
+  id: 9, version: 1, startDate: '2026-08-01', endDate: null, reviewOn: '2026-08-14',
+  chosenFactor: 'stress.level.v1', secondFactor: 'load.physical.v1',
+  hypothesisId: 1, status: 'active',
+};
+const focusEntries = {};
+for (let i = 1; i <= 14; i++) {
+  const d = '2026-08-' + String(i).padStart(2, '0');
+  focusEntries[d] = {
+    pain: i > 7 ? 8 : 3, cap: null, note: '',
+    logs: [{ h: 9 * M, pain: i > 7 ? 8 : 3 }],
+    /* a deliberately lopsided record: high stress on exactly the painful
+       days, which is the shape a naive reader would call a finding */
+    ctx: ctxOf({ 'stress.level.v1': answer(i > 7 ? 'high' : 'low') }),
+  };
+}
+const rev = protocol.reviewProgress(focusProto, focusEntries, '2026-08-14');
+const revStress = rev.factors.filter((f) => f.metricId === 'stress.level.v1')[0];
+ok('it counts the groups', revStress.highCount === 7 && revStress.lowCount === 7,
+  [revStress.highCount, revStress.lowCount]);
+ok('seven and seven is still short of the gate', revStress.comparable === false);
+ok('the sentence carries no pain value, even when the record looks like an answer', (() => {
+  const s = protocol.progressSentence(revStress);
+  return !/pain|higher|lower|worse|better|average|\/10/i.test(s);
+})(), protocol.progressSentence(revStress));
+ok('nothing in the whole progress object leaks a pain figure', (() => {
+  const j = JSON.stringify(rev);
+  return j.indexOf('"avg"') < 0 && j.indexOf('"mean') < 0 && j.indexOf('delta') < 0;
+})());
+ok('the factor never asked is reported as unreachable, not as zero', (() => {
+  const load = rev.factors.filter((f) => f.metricId === 'load.physical.v1')[0];
+  return load.answered === 0 && rev.unreachable.indexOf('load.physical.v1') >= 0;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

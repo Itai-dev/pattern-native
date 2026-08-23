@@ -16,10 +16,12 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import DaySquare from './DaySquare';
+import FocusCard from './FocusCard';
 import { Press } from './motion';
 import {
-  Entries, QUALITY_NAMES, checkinCount, dailyAverage, fmtTime, todayISO,
+  Entries, Protocol, QUALITY_NAMES, checkinCount, dailyAverage, fmtTime, todayISO,
 } from './model';
+import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
 import {
   formatCheckins, formatScore, inkOn, painColor, painLabel, speakScore,
 } from './painScale';
@@ -29,11 +31,16 @@ const SQUARE = 132, SQ_RADIUS = 31;
 
 export interface HomeScreenProps {
   entries: Entries;
+  protocol: Protocol | null;
   onLog: () => void;
   onOpenDay: (dateIso: string) => void;
+  onFocus: () => void;
+  onKeepFocus: () => void;
 }
 
-export default function HomeScreen({ entries, onLog, onOpenDay }: HomeScreenProps) {
+export default function HomeScreen({
+  entries, protocol, onLog, onOpenDay, onFocus, onKeepFocus,
+}: HomeScreenProps) {
   const t = todayISO();
   const e = entries[t] || null;
   const avg = dailyAverage(e);
@@ -42,6 +49,10 @@ export default function HomeScreen({ entries, onLog, onOpenDay }: HomeScreenProp
   /* today's check-ins, newest first — the most recent one is "the current
      log", the rest are the day so far */
   const logs = (e && e.logs ? e.logs.slice() : []).sort((a, b) => b.h - a.h);
+
+  /* the focus question is worth asking only once there is a record to
+     form a hypothesis about — a first-day user has nothing to suspect */
+  const offerSetup = Object.keys(entries).length >= HYPOTHESIS_OFFER_AFTER_DAYS;
 
   return (
     <View>
@@ -81,6 +92,18 @@ export default function HomeScreen({ entries, onLog, onOpenDay }: HomeScreenProp
           </>
         )}
       </View>
+
+      {/* ── the period, if one is running ────────────────────── */}
+      {!!protocol && (
+        <FocusCard
+          protocol={protocol}
+          entries={entries}
+          todayIso={t}
+          offerSetup={offerSetup}
+          onStart={onFocus}
+          onKeepGoing={onKeepFocus}
+        />
+      )}
 
       {/* ── the one action ───────────────────────────────────── */}
       <View style={styles.actions}>
@@ -148,6 +171,18 @@ export default function HomeScreen({ entries, onLog, onOpenDay }: HomeScreenProp
             })}
           </View>
         </>
+      )}
+
+      {/* ── and the invitation, below the day, when there is none ── */}
+      {!protocol && (
+        <FocusCard
+          protocol={null}
+          entries={entries}
+          todayIso={t}
+          offerSetup={offerSetup}
+          onStart={onFocus}
+          onKeepGoing={onKeepFocus}
+        />
       )}
     </View>
   );

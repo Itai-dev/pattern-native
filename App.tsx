@@ -15,12 +15,14 @@ import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
 import EventSheet from './src/EventSheet';
+import FocusSheet from './src/FocusSheet';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
 import { PainEvent, ValidBackup, todayISO } from './src/model';
+import { activeFactors } from './src/protocol';
 import { getPainTheme, setPainTheme } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
@@ -31,7 +33,7 @@ configureHandler(); // set once, before anything can be delivered
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'event';
+type Sheet = null | 'checkin' | 'event' | 'focus';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
@@ -64,6 +66,7 @@ function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: strin
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
   const [events, setEvents] = useState(() => db.getEvents());
+  const [protocol, setProtocol] = useState(() => db.activeProtocol());
   /* act on Today, see the month on Pattern, see what it adds up to on
      Trends — and the three sit side by side, so a swipe moves between
      them and the tab bar is a shortcut rather than the only way */
@@ -99,6 +102,7 @@ export default function App() {
   const refresh = useCallback(() => {
     setEntries(db.getAll());
     setEvents(db.getEvents());
+    setProtocol(db.activeProtocol());
   }, []);
 
   const closeSheet = useCallback(() => {
@@ -109,6 +113,16 @@ export default function App() {
     if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
   }, [refresh, returnDay]);
   const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
+
+  /* "Keep observing" at the review: the same two questions carry on, and
+     the next review is another fourteen days out. The period is not
+     restarted — restarting it would orphan the answers already given from
+     the run they belong to. */
+  const keepFocus = useCallback(() => {
+    const p = db.activeProtocol();
+    if (p && p.id != null) db.extendProtocol(p.id, todayISO());
+    refresh();
+  }, [refresh]);
 
   const startEditEvent = useCallback((ev: PainEvent) => {
     setReturnDay(daySheet);
@@ -289,8 +303,11 @@ export default function App() {
               showsVerticalScrollIndicator={false}>
               <HomeScreen
                 entries={entries}
+                protocol={protocol}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={setDaySheet}
+                onFocus={() => setSheet('focus')}
+                onKeepFocus={keepFocus}
               />
             </ScrollView>
 
@@ -324,6 +341,10 @@ export default function App() {
         {/* a full-screen flow keeps its own ✕ */}
         <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
           <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
+        </Modal>
+
+        <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+          <FocusSheet onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
@@ -381,6 +402,27 @@ export default function App() {
                   </View>
                 </Pressable>
 
+              </View>
+
+              <Text style={styles.groupTitle}>Observation</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => { setProfile(false); setSheet('focus'); }}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel={protocol ? 'Change your focus' : 'Choose a focus'}
+                >
+                  <RowIcon name="search" bg="#5E5CE6" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Your focus</Text>
+                    <Text style={styles.rowValue} numberOfLines={1}>
+                      {protocol
+                        ? activeFactors(protocol).map((m) => m.name).join(' · ')
+                        : 'Not set'}
+                    </Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
               </View>
 
               <Text style={styles.groupTitle}>Reminders</Text>

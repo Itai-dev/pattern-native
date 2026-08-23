@@ -749,7 +749,7 @@ Holistic means understanding context, not collecting everything.
 
 **Step 3 — The Trends tab** ✅ *shipped, see §26*
 
-**Step 4 — The hypothesis loop** *(next)*
+**Step 4 — The hypothesis loop** ✅ *shipped, see §26*
 - Setup at day 7, after the function card, once
 - Keyword matcher, factor picker, deterministic second factor with rotation
 - Confirmation screen, protocol creation, status line on Today
@@ -758,7 +758,7 @@ Holistic means understanding context, not collecting everything.
 **Step 5 — Report extensions**
 - Hypothesis verbatim; protocol summary; modifiers; missing-data limitations
 
-**Step 6 — Engine in shadow**
+**Step 6 — Engine in shadow** *(next)*
 - Same-day and next-day, writing `shadow_eval` with all three rules and `factorRole`
 - Zero user-facing surface
 
@@ -918,7 +918,53 @@ cut or move to weekly.
 **Not verifiable here.** No iOS simulator on Windows and no web target for `expo-sqlite`, so
 the whole check-in is typechecked, unit-tested and bundled but **not seen running.**
 
-### Open before Step 4
+### Step 4 — shipped
+
+`npm run verify` passes: TypeScript clean, **322 assertions, 0 failures**, iOS bundle exports.
+
+- `src/FocusSheet.tsx` — three free-text questions, then the factor picker with the
+  user's own words floated to the top, then the confirmation. The hypothesis is stored
+  verbatim and read only by a lookup table on the device.
+- `src/FocusCard.tsx` — the invitation before a period exists, one quiet line while one runs
+  (*Day 9 of 14 · Stress · Physical load*), and the day-14 review.
+- `db.extendProtocol` — **Keep observing** pushes the review out by another period rather
+  than restarting the run, which would orphan every answer already given from the period it
+  belongs to.
+- Settings gains an **Observation** group with the active factors and a way to change them.
+
+**The review reports completeness and nothing else**, and there is now a test that proves it:
+a deliberately lopsided fixture — high stress on exactly the painful days, the shape a naive
+reader would call a finding — produces a sentence with no pain figure anywhere in it, and the
+whole progress object is asserted to contain no mean, average or delta.
+
+**Two things fall out of the ordering.** The hypothesis card appears at 7 logged days, and the
+questions step in the check-in stays empty until a period exists — so on a fresh install the
+first week is pain-only by design, which is what §2.1 intends but is worth knowing when
+testing. And "Change my focus" reuses the same sheet as first-time setup, so changing a factor
+re-asks the three questions; the previous answers are not pre-filled. Fine for now, mildly
+annoying on the second run.
+
+**Not verifiable here.** No iOS simulator on Windows, no web target for `expo-sqlite`.
+Typechecked, unit-tested and bundled; not seen running.
+
+### Deferred: the home-screen widget
+
+Decided, not built. SDK 57 ships `expo-widgets`, which authors widget UI in TypeScript that
+compiles to SwiftUI and handles the App Group and extension target via its config plugin.
+
+**Design agreed:** a small widget showing the last seven days as colour-only squares, with the
+whole widget tapping through to the check-in. No number on the home screen — §13.4's
+calm-surface rule applies with more force to a surface you cannot choose not to look at, and
+the week strip serves `POSITIONING.md`'s second benefit without one.
+
+**What it needs when it happens:** a native build and a fresh TestFlight submission (a config
+plugin cannot ship over OTA) · a version bump to 1.3.0, because `runtimeVersion` is
+`appVersion` and today every OTA targets 1.2.0 including builds with no widget extension · a
+URL scheme in `app.json`, which does not currently have one, since a widget tap can only open
+the app at a URL · App Group entitlement and an extension bundle id, which EAS will provision
+on first build.
+
+### Open before Step 6
 
 - **Interference wording** needs a licensing review. The `weekly` table was retired because
   *"that wording was not ours to ship"*; the current item is original text, but this spec is
