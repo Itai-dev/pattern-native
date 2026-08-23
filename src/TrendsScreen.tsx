@@ -180,7 +180,7 @@ export default function TrendsScreen({
 
   if (!data) {
     return (
-      <View style={styles.emptyWrap}>
+      <View style={[styles.page, styles.emptyWrap]}>
         <Text style={styles.empty}>
           Nothing logged yet. Check in once and this fills in from your own
           entries — nothing here is ever filled in for you.
@@ -192,7 +192,7 @@ export default function TrendsScreen({
   const tried = data.events.filter((ev) => ev.intervention || ev.resp || ev.helped != null);
 
   return (
-    <View>
+    <View style={styles.page}>
       <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.5}>
         What you’ve recorded, {fmtReportDate(data.rangeStart)} – {fmtReportDate(data.rangeEnd)}.
       </Text>
@@ -398,6 +398,10 @@ export default function TrendsScreen({
 }
 
 const styles = StyleSheet.create({
+  /* the same gutter Today and the Map sit in. This screen used to run
+     full-bleed, which made it the one page whose text started somewhere
+     different from every other page's. */
+  page: { paddingHorizontal: size.pageX },
   emptyWrap: { paddingTop: 8 },
   empty: { color: color.textSecondary, fontSize: font.body, lineHeight: 24 },
   sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },

@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
-  Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View,
+  Alert, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView,
+  Share, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './src/HomeScreen';
 import MapScreen from './src/MapScreen';
-import TabBar, { Tab } from './src/TabBar';
+import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
 import EventSheet from './src/EventSheet';
@@ -63,8 +64,28 @@ function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: strin
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
   const [events, setEvents] = useState(() => db.getEvents());
-  /* act on Today, see the record in Trends, correct it on the Map */
+  /* act on Today, see the month on Pattern, see what it adds up to on
+     Trends — and the three sit side by side, so a swipe moves between
+     them and the tab bar is a shortcut rather than the only way */
   const [tab, setTab] = useState<Tab>('today');
+  const { width } = useWindowDimensions();
+  const pager = useRef<ScrollView>(null);
+
+  /** tapping a tab drives the pager; the pager drives the tab back when
+   *  the finger does the moving. Guarded so the two never fight. */
+  const swiping = useRef(false);
+  const goToTab = useCallback((t: Tab) => {
+    setTab(t);
+    pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
+  }, [width]);
+
+  const onPageSettled = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!width) return;
+    const i = Math.round(e.nativeEvent.contentOffset.x / width);
+    const next = TAB_ORDER[Math.max(0, Math.min(TAB_ORDER.length - 1, i))];
+    if (next && next !== tab) setTab(next);
+    swiping.current = false;
+  }, [tab, width]);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
@@ -233,7 +254,7 @@ export default function App() {
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? todayTitle()
+              {tab === 'today' ? 'Today'
                 : tab === 'trends' ? 'Trends'
                   : MONTHS[new Date().getMonth()]}
             </Text>
@@ -249,23 +270,44 @@ export default function App() {
             </Pressable>
           </View>
 
-          {/* keyed per tab so each place starts at its own top; the page
-              scrolls on under the floating glass bar */}
-          <ScrollView key={tab} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-            {tab === 'today' ? (
+          {/* three pages side by side. Each keeps its own scroll position,
+              which the old key-per-tab remount threw away every time you
+              looked at something else. Everything scrolls on under the
+              floating glass. */}
+          <ScrollView
+            ref={pager}
+            horizontal
+            pagingEnabled
+            bounces={false}
+            scrollEventThrottle={16}
+            showsHorizontalScrollIndicator={false}
+            onScrollBeginDrag={() => { swiping.current = true; }}
+            onMomentumScrollEnd={onPageSettled}
+            onScrollEndDrag={onPageSettled}
+          >
+            <ScrollView style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}>
               <HomeScreen
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={setDaySheet}
               />
-            ) : tab === 'trends' ? (
-              /* The activity goal and its weekly rating are out of the
-                 app for now — they asked for a second commitment before the
-                 first one had proved itself. The TABLE and the backup are
-                 untouched, and any rating already recorded is still exported
-                 and restored; passing nothing here is what keeps it off the
-                 screen and out of the PDF, and putting the two values back
-                 is what brings it all back. */
+            </ScrollView>
+
+            <ScrollView style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}>
+              <MapScreen entries={entries} onDayPress={setDaySheet} />
+            </ScrollView>
+
+            {/* The activity goal and its weekly rating are out of the app
+                for now — they asked for a second commitment before the
+                first had proved itself. The TABLE and the backup are
+                untouched, and any rating already recorded still exports
+                and restores; passing nothing here is what keeps it off the
+                screen and out of the PDF, and putting the two values back
+                is what brings it all back. */}
+            <ScrollView style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}>
               <TrendsScreen
                 entries={entries}
                 events={events}
@@ -273,12 +315,10 @@ export default function App() {
                 goalText={null}
                 todayIso={todayISO()}
               />
-            ) : (
-              <MapScreen entries={entries} onDayPress={setDaySheet} />
-            )}
+            </ScrollView>
           </ScrollView>
 
-          <TabBar tab={tab} onChange={setTab} />
+          <TabBar tab={tab} onChange={goToTab} />
         </SafeAreaView>
 
         {/* a full-screen flow keeps its own ✕ */}
@@ -439,7 +479,7 @@ const styles = StyleSheet.create({
   },
   /* the person, drawn in the same two strokes the tab bar used to carry */
   profileBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
