@@ -67,6 +67,9 @@ export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
   const [events, setEvents] = useState(() => db.getEvents());
   const [protocol, setProtocol] = useState(() => db.activeProtocol());
+  /* a factor the chips pointed at, carried into the focus flow so the
+     picker opens on it instead of making the user find it again */
+  const [seedFactor, setSeedFactor] = useState<string | null>(null);
   /* act on Today, see the month on Pattern, see what it adds up to on
      Trends — and the three sit side by side, so a swipe moves between
      them and the tab bar is a shortcut rather than the only way */
@@ -306,8 +309,9 @@ export default function App() {
                 protocol={protocol}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={setDaySheet}
-                onFocus={() => setSheet('focus')}
+                onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
+                onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
               />
             </ScrollView>
 
@@ -344,7 +348,7 @@ export default function App() {
         </Modal>
 
         <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <FocusSheet onDone={closeSheet} onClose={closeSheet} />
+          <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
@@ -407,7 +411,7 @@ export default function App() {
               <Text style={styles.groupTitle}>Observation</Text>
               <View style={styles.group}>
                 <Pressable
-                  onPress={() => { setProfile(false); setSheet('focus'); }}
+                  onPress={() => { setProfile(false); setSeedFactor(null); setSheet('focus'); }}
                   style={styles.row}
                   accessibilityRole="button"
                   accessibilityLabel={protocol ? 'Change your focus' : 'Choose a focus'}

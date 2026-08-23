@@ -36,10 +36,11 @@ export interface HomeScreenProps {
   onOpenDay: (dateIso: string) => void;
   onFocus: () => void;
   onKeepFocus: () => void;
+  onTestFactor: (metricId: string) => void;
 }
 
 export default function HomeScreen({
-  entries, protocol, onLog, onOpenDay, onFocus, onKeepFocus,
+  entries, protocol, onLog, onOpenDay, onFocus, onKeepFocus, onTestFactor,
 }: HomeScreenProps) {
   const t = todayISO();
   const e = entries[t] || null;
@@ -93,7 +94,7 @@ export default function HomeScreen({
         )}
       </View>
 
-      {/* ── the period, if one is running ────────────────────── */}
+      {/* ── the period, or something the chips keep pointing at ── */}
       {!!protocol && (
         <FocusCard
           protocol={protocol}
@@ -102,6 +103,7 @@ export default function HomeScreen({
           offerSetup={offerSetup}
           onStart={onFocus}
           onKeepGoing={onKeepFocus}
+          onTest={onTestFactor}
         />
       )}
 
@@ -182,6 +184,7 @@ export default function HomeScreen({
           offerSetup={offerSetup}
           onStart={onFocus}
           onKeepGoing={onKeepFocus}
+          onTest={onTestFactor}
         />
       )}
     </View>

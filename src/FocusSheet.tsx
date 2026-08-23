@@ -48,6 +48,10 @@ import { color, font, radius, size } from './theme';
 type Step = 'ask' | 'pick' | 'confirm';
 
 export interface FocusSheetProps {
+  /** a factor the chips kept pointing at — the flow opens on the picker
+   *  with it already chosen, since the question it would ask has already
+   *  been answered by the flagging */
+  seedFactor?: string | null;
   onDone: () => void;
   onClose: () => void;
 }
@@ -70,10 +74,10 @@ const QUESTIONS: { key: 'understand' | 'harder' | 'helps'; q: string; ph: string
   },
 ];
 
-export default function FocusSheet({ onDone, onClose }: FocusSheetProps) {
-  const [step, setStep] = useState<Step>('ask');
+export default function FocusSheet({ seedFactor, onDone, onClose }: FocusSheetProps) {
+  const [step, setStep] = useState<Step>(seedFactor ? 'pick' : 'ask');
   const [answers, setAnswers] = useState({ understand: '', harder: '', helps: '' });
-  const [chosen, setChosen] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<string | null>(seedFactor || null);
   const [showAll, setShowAll] = useState(false);
 
   const words = (answers.understand + ' ' + answers.harder + ' ' + answers.helps).trim();

@@ -113,7 +113,7 @@ export interface MetricDef {
   /** numeric only: what the ends mean */
   ends?: [string, string];
   /** set only: which vocabulary the ids come from */
-  vocabulary?: 'body' | 'quality' | 'modifiers';
+  vocabulary?: 'body' | 'quality' | 'modifiers' | 'impact';
   /** bump when the words change; answers across versions never pool */
   wordingVersion: number;
   eligibility?: Eligibility;
@@ -128,6 +128,9 @@ export interface MetricDef {
 }
 
 const lv = (id: string, label: string): MetricLevel => ({ id, label });
+
+const IMPACT_WORSE_ID = 'impact.worse.v1';
+const IMPACT_BETTER_ID = 'impact.better.v1';
 
 export const METRICS: MetricDef[] = [
   /* ── fixed core: always on, never part of a protocol ──────── */
@@ -169,6 +172,22 @@ export const METRICS: MetricDef[] = [
     question: 'What tends to change it?',
     type: 'set', scope: 'protocol', vocabulary: 'modifiers',
     wordingVersion: 1, eligibility: 'onceAtProtocolStart', analysis: 'frequency',
+    protocolEligible: false,
+  },
+  {
+    id: IMPACT_WORSE_ID,
+    name: 'Made it harder',
+    question: 'What made it harder today?',
+    type: 'set', scope: 'day', vocabulary: 'impact',
+    wordingVersion: 1, eligibility: 'firstOfDay', analysis: 'frequency',
+    protocolEligible: false,
+  },
+  {
+    id: IMPACT_BETTER_ID,
+    name: 'Helped',
+    question: 'What helped today?',
+    type: 'set', scope: 'day', vocabulary: 'impact',
+    wordingVersion: 1, eligibility: 'firstOfDay', analysis: 'frequency',
     protocolEligible: false,
   },
   {
@@ -332,6 +351,63 @@ export const METRICS: MetricDef[] = [
   },
 ];
 
+/* ── what you flagged ────────────────────────────────────────
+   The chips. Old ids are kept where an old id existed, so anything
+   recorded in the web app still lines up; the rest are new.
+
+   `promotesTo` is the whole point of the list. A chip that names
+   something Pattern can measure properly carries a pointer to the metric
+   that measures it, and enough flags turn into an offer to start asking
+   the real question. A chip with no pointer is still worth recording —
+   work, driving, screen time, family are real answers to "what made this
+   day harder" — it just never becomes a test.
+
+   MEDICATION is deliberately pointer-less and always will be. It is
+   recordable because leaving it out would make the record dishonest, and
+   it is never analysed because Pattern does not comment on medication. */
+
+export interface ImpactChip {
+  id: string;
+  name: string;
+  /** the metric that could measure this properly, if there is one */
+  promotesTo?: string;
+}
+
+export const IMPACT_CHIPS: ImpactChip[] = [
+  { id: 'sleep', name: 'Sleep', promotesTo: 'sleep.quality.v1' },
+  { id: 'stress', name: 'Stress', promotesTo: 'stress.level.v1' },
+  { id: 'fatigue', name: 'Fatigue', promotesTo: 'fatigue.level.v1' },
+  { id: 'stiffness', name: 'Stiffness', promotesTo: 'stiffness.level.v1' },
+  { id: 'activity', name: 'Physical activity', promotesTo: 'load.physical.v1' },
+  { id: 'lifting', name: 'Lifting or carrying', promotesTo: 'lifting.carrying.v1' },
+  { id: 'weather', name: 'Weather', promotesTo: 'weather.felt.v1' },
+  { id: 'rest', name: 'Rest or self-care', promotesTo: 'recovery.practice.v1' },
+  { id: 'alcohol', name: 'Alcohol', promotesTo: 'alcohol.intake.v1' },
+  { id: 'sitting', name: 'Long sitting' },
+  { id: 'work', name: 'Work' },
+  { id: 'driving', name: 'Driving' },
+  { id: 'screens', name: 'Screen time' },
+  { id: 'family', name: 'Family' },
+  { id: 'food', name: 'Food' },
+  { id: 'meds', name: 'Medication' },
+];
+
+export const IMPACT_IDS = IMPACT_CHIPS.map((c) => c.id);
+
+const IMPACT_BY_ID: Record<string, ImpactChip> = {};
+IMPACT_CHIPS.forEach((c) => { IMPACT_BY_ID[c.id] = c; });
+
+export function impactChip(id: string): ImpactChip | null {
+  return IMPACT_BY_ID[id] || null;
+}
+export function impactName(id: string): string {
+  const c = IMPACT_BY_ID[id];
+  return c ? c.name : id;
+}
+
+export const IMPACT_WORSE = 'impact.worse.v1';
+export const IMPACT_BETTER = 'impact.better.v1';
+
 /* ── the modifier vocabulary (asked once, not daily) ────────── */
 
 export const MODIFIER_NAMES: Record<string, string> = {
@@ -370,6 +446,22 @@ export function levelLabel(metricId: string, levelId: string): string {
 
 /** is this a value the metric could actually have produced? Used when
  *  cleaning untrusted input — a backup, an older build, a hand edit. */
+/** is this metric stored as a list of ids rather than one value? */
+export function isSetMetric(metricId: string): boolean {
+  const m = BYID[metricId];
+  return !!m && m.type === 'set';
+}
+
+/** is this id part of that set metric's vocabulary? Unknown ids are
+ *  dropped on the way in rather than stored and puzzled over later. */
+export function validSetMember(metricId: string, id: string): boolean {
+  const m = BYID[metricId];
+  if (!m || m.type !== 'set') return false;
+  if (m.vocabulary === 'impact') return IMPACT_IDS.indexOf(id) >= 0;
+  if (m.vocabulary === 'modifiers') return MODIFIERIDS.indexOf(id) >= 0;
+  return true;   // body areas and quality words are cleaned by model.ts
+}
+
 export function validAnswerValue(metricId: string, value: unknown): boolean {
   const m = BYID[metricId];
   if (!m) return false;

@@ -19,7 +19,7 @@ import { getMetric } from './metrics';
 import { Entries, Protocol } from './model';
 import {
   FactorProgress, REVIEW_CHANGE, REVIEW_KEEP, activeFactorIds, dayNumber,
-  progressSentence, reviewDue, reviewProgress,
+  progressSentence, promotionCandidate, promotionSentence, reviewDue, reviewProgress,
 } from './protocol';
 import { PROTOCOL_REVIEW_DAYS } from './thresholds';
 import { color, font, radius, size } from './theme';
@@ -32,6 +32,8 @@ export interface FocusCardProps {
   offerSetup: boolean;
   onStart: () => void;
   onKeepGoing: () => void;
+  /** open the focus flow already pointed at one factor */
+  onTest: (metricId: string) => void;
 }
 
 function factorNames(p: Protocol): string {
@@ -54,8 +56,58 @@ function Line({ f }: { f: FactorProgress }) {
 }
 
 export default function FocusCard({
-  protocol, entries, todayIso, offerSetup, onStart, onKeepGoing,
+  protocol, entries, todayIso, offerSetup, onStart, onKeepGoing, onTest,
 }: FocusCardProps) {
+  /* Something the chips keep pointing at. The count is NOT a finding and
+     is never phrased as one: it says how many times you thought this was
+     the problem, which is a fact about you rather than about your pain.
+     What it is good for is choosing what the next fourteen days should
+     actually measure. */
+  const promo = promotionCandidate(entries, todayIso, activeFactorIds(protocol));
+
+  if (promo) {
+    return (
+      <>
+        <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+          Worth a closer look
+        </Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {promo.chipName}
+          </Text>
+          <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {promotionSentence(promo)}
+          </Text>
+          <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Flagging something tells Pattern what you think. Answering it every
+            day — on the days it seems relevant and the days it doesn’t — is
+            what makes it checkable.
+          </Text>
+          <View style={styles.actions}>
+            <Press
+              onPress={() => onTest(promo.metricId)}
+              pressOpacity={0.8}
+              style={styles.ghost}
+              accessibilityRole="button"
+              accessibilityLabel={'Start asking about ' + promo.chipName + ' every day'}
+            >
+              <Text style={styles.ghostText}>Ask me daily</Text>
+            </Press>
+            <Press
+              onPress={onKeepGoing}
+              pressOpacity={0.8}
+              style={styles.ghost}
+              accessibilityRole="button"
+              accessibilityLabel="Not now"
+            >
+              <Text style={styles.ghostText}>Not now</Text>
+            </Press>
+          </View>
+        </View>
+      </>
+    );
+  }
+
   /* nothing running, and not enough record to have a question yet */
   if (!protocol && !offerSetup) return null;
 

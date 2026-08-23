@@ -22,7 +22,9 @@
  * Pain values are integers 0–10 everywhere. The labels and formatting for
  * them live in painScale.ts, which is the single definition of the scale.
  */
-import { isKnownMetric, validAnswerValue, MODIFIERIDS } from './metrics';
+import {
+  isKnownMetric, isSetMetric, validAnswerValue, validSetMember, MODIFIERIDS,
+} from './metrics';
 import { normalizePain } from './painScale';
 
 export interface Moment {
@@ -70,8 +72,13 @@ export interface Entry {
    wording can change without orphaning the answers. */
 
 export interface Answer {
-  /** level id for an ordinal, a number for a numeric scale */
+  /** level id for an ordinal, a number for a numeric scale. Empty for a
+   *  set answer, whose content lives in `values`. */
   value: string | number;
+  /** the chosen ids, for a set-typed metric. An EMPTY ARRAY is a real
+   *  answer — "asked, nothing applied" — and is not the same as the key
+   *  being absent, which is "never asked". */
+  values?: string[];
   /** minutes since local midnight when the answer was given */
   h: number;
   ts: number;
@@ -213,15 +220,21 @@ export function cleanAnswer(metricId: string, raw: unknown): Answer | null {
   const h = cleanInt(r.h, 0, 1439);
   if (h === undefined) return null;
   const skipped = r.skipped === 1;
-  if (!skipped && !validAnswerValue(metricId, r.value)) return null;
+  const set = isSetMetric(metricId);
+  if (!skipped && !set && !validAnswerValue(metricId, r.value)) return null;
+  if (!skipped && set && !Array.isArray(r.values)) return null;
   const a: Answer = {
-    value: skipped ? '' : (r.value as string | number),
+    value: skipped || set ? '' : (r.value as string | number),
     h,
     ts: typeof r.ts === 'number' && isFinite(r.ts) && r.ts > 0 ? Math.round(r.ts) : 0,
     tz: cleanInt(r.tz, -18 * 60, 18 * 60) ?? 0,
     qv: cleanInt(r.qv, 1, 999) ?? 1,
     pid: typeof r.pid === 'number' && isFinite(r.pid) ? Math.round(r.pid) : null,
   };
+  if (set && !skipped) {
+    a.values = (r.values as unknown[])
+      .filter((v): v is string => typeof v === 'string' && validSetMember(metricId, v));
+  }
   if (skipped) a.skipped = 1;
   return a;
 }
@@ -260,6 +273,14 @@ export function valueOf(e: Entry | null | undefined, metricId: string): string |
   const a = answerOf(e, metricId);
   if (!a || a.skipped === 1) return null;
   return a.value;
+}
+
+/** the chosen ids of a set answer. null = unasked or skipped; [] = asked
+ *  and nothing applied, which is an answer and is counted as one. */
+export function valuesOf(e: Entry | null | undefined, metricId: string): string[] | null {
+  const a = answerOf(e, metricId);
+  if (!a || a.skipped === 1 || !a.values) return null;
+  return a.values;
 }
 
 /** normalize one raw imported day into a clean Entry, or null to skip */

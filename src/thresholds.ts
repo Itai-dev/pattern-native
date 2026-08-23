@@ -76,6 +76,24 @@ export const BAND_MIN_CHECKINS = 5;
  *  from one sleepless night cannot look like a pattern */
 export const BAND_MIN_DAYS = 3;
 
+/* ── from a flag to a question ───────────────────────────────
+   A chip says "sleep made it worse today". That is an attribution — your
+   reading of your own day — and it can never be checked against anything,
+   because you only tick it when the answer is already yes. There are no
+   good-sleep days in a list of days you blamed sleep.
+
+   What it CAN do is point at what is worth actually measuring. Flag the
+   same thing enough times and Pattern offers to ask about it properly:
+   a graded question, every day, whether or not it seems relevant that
+   morning. That is the version with something to compare against. */
+
+/** flags of one factor before Pattern offers to test it */
+export const IMPACT_PROMOTE_MIN = 6;
+
+/** ...counted over this many days back, so an old run of flags does not
+ *  keep suggesting something that stopped mattering months ago */
+export const IMPACT_PROMOTE_WINDOW = 21;
+
 /* ── observation protocols ──────────────────────────────────── */
 
 /** factors active at once. Two is the whole point: broad underneath,

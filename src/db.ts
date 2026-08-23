@@ -199,6 +199,22 @@ export function setAnswer(
   });
 }
 
+/** record a set answer — the chips. An EMPTY list is written, not
+ *  skipped: "I looked and nothing applied" is an answer, and a day where
+ *  nothing made it harder is exactly the kind of ordinary day the record
+ *  is worst at keeping. */
+export function setAnswerList(
+  date: string, metricId: string, ids: string[], h: number, pid: number | null
+): Entry | null {
+  const m = getMetric(metricId);
+  if (!m) return null;
+  const d = new Date();
+  return writeAnswer(date, metricId, {
+    value: '', values: ids.slice(), h, ts: d.getTime(), tz: -d.getTimezoneOffset(),
+    qv: m.wordingVersion, pid,
+  });
+}
+
 /** record that the question was PUT and declined. Stored, because "I was
  *  asked and chose not to say" is information — and is not the same thing
  *  as never having been asked, which is what an absent key means. */

@@ -750,5 +750,135 @@ ok('the factor never asked is reported as unreachable, not as zero', (() => {
   return load.answered === 0 && rev.unreachable.indexOf('load.physical.v1') >= 0;
 })());
 
+/* ── the chips ──────────────────────────────────────────────── */
+group('what you pointed at');
+
+const WORSE = metrics.IMPACT_WORSE, BETTER = metrics.IMPACT_BETTER;
+const listAns = (ids, h) => ({ value: '', values: ids, h: h || 540, ts: 1, tz: 0, qv: 1, pid: null });
+
+ok('every chip that names something measurable points at a real metric', (() => {
+  return metrics.IMPACT_CHIPS.every((c) => !c.promotesTo || metrics.getMetric(c.promotesTo) != null);
+})());
+ok('medication is recordable and will never be promoted', (() => {
+  const c = metrics.impactChip('meds');
+  return c != null && !c.promotesTo;
+})());
+ok('work, driving, screens and family are recordable with nothing to promote to',
+  ['work', 'driving', 'screens', 'family']
+    .every((id) => metrics.impactChip(id) && !metrics.impactChip(id).promotesTo));
+ok('old web-app chip ids survived the merge',
+  ['sleep', 'stress', 'work', 'sitting', 'activity', 'weather', 'food', 'meds',
+    'driving', 'screens', 'family', 'rest']
+    .every((id) => metrics.IMPACT_IDS.indexOf(id) >= 0));
+
+ok('a list answer round-trips', (() => {
+  const c = model.cleanCtx(ctxOf({ [WORSE]: listAns(['sleep', 'stress']) }));
+  return c && c.a[WORSE].values.length === 2;
+})());
+ok('an EMPTY list is an answer, not an absence', (() => {
+  const c = model.cleanCtx(ctxOf({ [WORSE]: listAns([]) }));
+  return c && c.a[WORSE] && c.a[WORSE].values.length === 0
+    && model.valuesOf({ ctx: c }, WORSE) !== null;
+})());
+ok('never asked reads as null, distinct from an empty answer',
+  model.valuesOf({ pain: 5, cap: null, note: '' }, WORSE) === null);
+ok('a skipped list is null too, but is stored as a skip', (() => {
+  const c = model.cleanCtx(ctxOf({ [WORSE]: answer('', 540, { skipped: 1 }) }));
+  return c && c.a[WORSE].skipped === 1 && model.valuesOf({ ctx: c }, WORSE) === null;
+})());
+ok('a chip id that is not in the vocabulary is dropped', (() => {
+  const c = model.cleanCtx(ctxOf({ [WORSE]: listAns(['sleep', 'moonphase']) }));
+  return c.a[WORSE].values.length === 1 && c.a[WORSE].values[0] === 'sleep';
+})());
+
+group('from flags to a question');
+const flagDays = (n, ids, side) => {
+  const e = {};
+  for (let i = 1; i <= n; i++) {
+    const d = '2026-08-' + String(i).padStart(2, '0');
+    e[d] = {
+      pain: 5, cap: null, note: '', logs: [{ h: 9 * M, pain: 5 }],
+      ctx: ctxOf({ [side]: listAns(ids) }),
+    };
+  }
+  return e;
+};
+
+ok('five flags is not yet an offer',
+  protocol.promotionCandidate(flagDays(5, ['sleep'], WORSE), '2026-08-14', []) === null);
+ok('six is', (() => {
+  const p = protocol.promotionCandidate(flagDays(6, ['sleep'], WORSE), '2026-08-14', []);
+  return p !== null && p.chipId === 'sleep' && p.metricId === 'sleep.quality.v1' && p.flags === 6;
+})());
+ok('flags on the helping side count too', (() => {
+  const p = protocol.promotionCandidate(flagDays(7, ['rest'], BETTER), '2026-08-14', []);
+  return p !== null && p.chipId === 'rest' && p.side === 'better';
+})());
+ok('a chip with nothing to measure it is never offered', (() => {
+  return protocol.promotionCandidate(flagDays(12, ['work'], WORSE), '2026-08-14', []) === null;
+})());
+ok('MEDICATION is never offered, however often it is flagged',
+  protocol.promotionCandidate(flagDays(20, ['meds'], WORSE), '2026-08-14', []) === null);
+ok('something already being asked about is not offered again', (() => {
+  const e = flagDays(10, ['sleep'], WORSE);
+  return protocol.promotionCandidate(e, '2026-08-14', ['sleep.quality.v1']) === null;
+})());
+ok('the strongest candidate wins', (() => {
+  const e = flagDays(6, ['stress'], WORSE);
+  Object.keys(e).forEach((k, i) => {
+    if (i < 9) e[k].ctx = ctxOf({ [WORSE]: listAns(['stress', 'weather']) });
+  });
+  // weather appears on the same days, so both are 6 — ties keep the first seen
+  const p = protocol.promotionCandidate(e, '2026-08-14', []);
+  return p !== null && p.flags === 6;
+})());
+ok('flags older than the window stop counting', (() => {
+  const e = flagDays(10, ['sleep'], WORSE);   // 1–10 August
+  return protocol.promotionCandidate(e, '2026-10-01', []) === null;
+})());
+ok('the offer sentence counts what you thought, and claims nothing about pain', (() => {
+  const p = protocol.promotionCandidate(flagDays(8, ['sleep'], WORSE), '2026-08-14', []);
+  const s = protocol.promotionSentence(p);
+  return !/pain|worse|higher|caused|because/i.test(s) && s.indexOf('8 days') >= 0;
+})(), protocol.promotionSentence(
+  protocol.promotionCandidate(flagDays(8, ['sleep'], WORSE), '2026-08-14', [])
+));
+
+group('flags in the record');
+ok('the report counts them per side, and never mixes them', (() => {
+  const e = flagDays(9, ['sleep', 'stress'], WORSE);
+  Object.keys(e).forEach((k) => {
+    e[k].ctx = ctxOf({ [WORSE]: listAns(['sleep', 'stress']), [BETTER]: listAns(['rest']) });
+  });
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: '2026-08-09', windowDays: 90,
+  });
+  return data.flagged.worse.length === 2 && data.flagged.worse[0].days === 9
+    && data.flagged.better.length === 1 && data.flagged.better[0].id === 'rest';
+})());
+ok('the PDF prints them as self-attributed, with the reason they are not evidence', (() => {
+  const e = flagDays(9, ['sleep'], WORSE);
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: '2026-08-09', windowDays: 90,
+  });
+  const html = report.reportHtml(data);
+  return html.indexOf('What the patient points to') > 0
+    && /Self-attributed/.test(html)
+    && /no unaffected group/.test(html);
+})());
+ok('a record with no chips prints no such section', (() => {
+  const e = {
+    '2026-08-01': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] },
+  };
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: '2026-08-01', windowDays: 90,
+  });
+  return data.flagged.worse.length === 0
+    && report.reportHtml(data).indexOf('What the patient points to') < 0;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

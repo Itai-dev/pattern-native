@@ -12,17 +12,30 @@
  *                          much pain is getting in the way. Only the
  *                          ones this moment can honestly answer, only
  *                          once a day, each one skippable.
- *   3. How does it feel? — quality words (SOCRATES "Character", the answer
+ *   3. What moved it?    — the chips: what made today harder, and what
+ *                          helped. One grid, a segmented control to say
+ *                          which side you mean.
+ *   4. How does it feel? — quality words (SOCRATES "Character", the answer
  *                          every clinician asks for).
- *   4. Where?            — the places you had last time, already ticked,
+ *   5. Where?            — the places you had last time, already ticked,
  *                          so the common case is one confirming tap.
- *   5. Logged.           — the day you just made, arriving rather than
+ *   6. Logged.           — the day you just made, arriving rather than
  *                          appearing, and then breathing while you look
  *                          at it. Out on one tap.
  *
  * PAIN IS THE ONLY MANDATORY ANSWER, and after step 1 the flow says so
  * out loud. Steps 2–4 are offered, never demanded, and a pain-only entry
  * is never called incomplete anywhere in the app.
+ *
+ * WHAT THE CHIPS ARE, AND ARE NOT. "Sleep made it worse today" is your
+ * reading of your own day. It is worth recording and it belongs in the
+ * doctor summary, but it can never be checked, because you only tick it
+ * when the answer is already yes — there are no good-sleep days in a list
+ * of days you blamed sleep. So the chips are stored as attributions,
+ * shown as attributions, and never fed to the engine. What they DO is
+ * point at what is worth measuring properly: flag one enough times and
+ * Pattern offers to start asking the graded question, which is the
+ * version with something to compare against.
  *
  * A question outside its window is not asked and not recorded. "How was
  * your sleep last night", answered at nine in the evening, is a recall
@@ -53,7 +66,10 @@ import PainShape from './PainShape';
 import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press, reduceMotion } from './motion';
-import { getMetric, MetricDef } from './metrics';
+import {
+  IMPACT_BETTER, IMPACT_CHIPS, IMPACT_IDS, IMPACT_WORSE, MetricDef,
+  eligibleNow, getMetric,
+} from './metrics';
 import { questionsNow } from './protocol';
 import { color, font, size } from './theme';
 import {
@@ -62,13 +78,19 @@ import {
 } from './painScale';
 import {
   LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
-  defaultLocs, fmtTime, logsOf, minutesNow, nowMeta, todayISO,
+  answerOf, defaultLocs, fmtTime, logsOf, minutesNow, nowMeta, todayISO,
 } from './model';
+
+const IMPACT_LABELS: Record<string, string> = {};
+IMPACT_CHIPS.forEach((c) => { IMPACT_LABELS[c.id] = c.name; });
 
 const SQUARE = 150, SQ_RADIUS = 36;
 const INTERFERENCE_ID = 'pain.interference.v1';
 
-type Step = 'pain' | 'questions' | 'feel' | 'where' | 'done';
+type Step = 'pain' | 'questions' | 'impact' | 'feel' | 'where' | 'done';
+
+/** which side of the chip grid is showing */
+type Side = 'worse' | 'better';
 
 export interface CheckinScreenProps {
   /** minutes since midnight; injectable so previews can fix the clock */
@@ -122,6 +144,16 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /* answers held in memory until the step is left, so backing out of a
      half-finished screen records nothing */
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
+
+  /* the chips. Asked once a day, like the other day-scoped questions. */
+  const [askImpact] = useState<boolean>(() => {
+    const entry = db.getDay(today);
+    const first = logsOf(entry).length === 0;
+    return eligibleNow('firstOfDay', minutes, first, answerOf(entry, IMPACT_WORSE) != null);
+  });
+  const [side, setSide] = useState<Side>('worse');
+  const [worse, setWorse] = useState<string[]>([]);
+  const [better, setBetter] = useState<string[]>([]);
 
   /* Chronic pain usually lives in the same places, so the where step opens
      with the last ones already ticked and the common case is one tap on
@@ -177,8 +209,12 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     transform: [{ translateY: (1 - landed.value) * 10 }],
   }));
 
-  const order: Step[] = ['pain', 'questions', 'feel', 'where'];
-  const stepsShown = order.filter((s) => s !== 'questions' || askIds.length > 0);
+  const order: Step[] = ['pain', 'questions', 'impact', 'feel', 'where'];
+  const stepsShown = order.filter((s) => (
+    s === 'questions' ? askIds.length > 0
+      : s === 'impact' ? askImpact
+        : true
+  ));
 
   const back = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -242,6 +278,13 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     } else if (step === 'questions') {
       persistAnswers();
       setStep(nextAfter('questions'));
+    } else if (step === 'impact') {
+      /* both lists are written even when empty — "I looked and nothing
+         applied" is an answer, and an ordinary day is exactly the kind
+         this record is worst at keeping */
+      db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
+      db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
+      setStep(nextAfter('impact'));
     } else if (step === 'feel') {
       persist();
       if (nextAfter('feel') === 'where' && !loc.length) setLoc(previous);
@@ -384,10 +427,13 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      check-in is a moment, and the day is their average */
   const title = step === 'pain' ? 'How intense is your pain\nright now?'
     : step === 'questions' ? 'A couple of questions\nabout today'
-      : step === 'feel' ? 'How does it feel?'
-        : 'Where in your body?';
+      : step === 'impact' ? 'What moved it today?'
+        : step === 'feel' ? 'How does it feel?'
+          : 'Where in your body?';
 
-  const hint = step === 'questions' ? 'All optional — skip any that don’t fit'
+  const hint = step === 'impact'
+    ? 'Your read on the day — Pattern records it, it doesn’t test it'
+    : step === 'questions' ? 'All optional — skip any that don’t fit'
     : step === 'feel' ? 'Optional — tap any that fit'
       : step === 'where' ? 'Your usual places are already selected'
         : null;
@@ -457,6 +503,39 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             if (!m) return null;
             return m.type === 'numeric' ? numericRow(m) : ordinalRow(m);
           })}
+        </ScrollView>
+      ) : step === 'impact' ? (
+        <ScrollView contentContainerStyle={styles.impactWrap} showsVerticalScrollIndicator={false}>
+          <View style={styles.sideSwitch}>
+            {(['worse', 'better'] as Side[]).map((sd) => {
+              const on = side === sd;
+              const n = (sd === 'worse' ? worse : better).length;
+              return (
+                <Press
+                  key={sd}
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); setSide(sd); }}
+                  pressOpacity={0.85}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={sd === 'worse' ? 'Made it harder' : 'Helped'}
+                  style={[styles.sideItem, on && styles.sideItemOn]}
+                >
+                  <Text style={[styles.sideText, on && styles.sideTextOn]}
+                    allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {sd === 'worse' ? 'Made it harder' : 'Helped'}{n ? ' · ' + n : ''}
+                  </Text>
+                </Press>
+              );
+            })}
+          </View>
+          <View style={styles.chipGrid}>
+            {chipRow(
+              IMPACT_IDS,
+              IMPACT_LABELS,
+              side === 'worse' ? worse : better,
+              side === 'worse' ? setWorse : setBetter
+            )}
+          </View>
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
@@ -608,6 +687,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', paddingVertical: 24,
   },
+  impactWrap: { paddingVertical: 20 },
+  chipGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 9,
+    justifyContent: 'center', marginTop: 20,
+  },
+  /* one grid, two meanings — a segmented control says which, rather than
+     two grids of sixteen chips or a tap-cycle nobody would guess */
+  sideSwitch: {
+    flexDirection: 'row', gap: 4, padding: 4, borderRadius: 14,
+    backgroundColor: color.bgSurface,
+  },
+  sideItem: {
+    flex: 1, minHeight: 40, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8,
+  },
+  sideItemOn: { backgroundColor: color.bgSegmentActive },
+  sideText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
+  sideTextOn: { color: color.textPrimary },
   chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderWidth: 1 },
   chipText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
   bottom: { flexShrink: 0 },

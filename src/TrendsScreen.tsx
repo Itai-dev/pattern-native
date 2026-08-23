@@ -310,6 +310,37 @@ export default function TrendsScreen({
         </>
       )}
 
+      {/* ── what you pointed at ─────────────────────────────── */}
+      {(data.flagged.worse.length > 0 || data.flagged.better.length > 0) && (
+        <>
+          <Text style={styles.section}>What you pointed at</Text>
+          {data.flagged.worse.length > 0 && (
+            <>
+              <Text style={styles.subhead}>Made it harder</Text>
+              {data.flagged.worse.slice(0, 6).map((f) => (
+                <Row key={'w' + f.id} left={f.name}
+                  right={f.days + (f.days === 1 ? ' day' : ' days')} />
+              ))}
+            </>
+          )}
+          {data.flagged.better.length > 0 && (
+            <>
+              <Text style={styles.subhead}>Helped</Text>
+              {data.flagged.better.slice(0, 6).map((f) => (
+                <Row key={'b' + f.id} left={f.name}
+                  right={f.days + (f.days === 1 ? ' day' : ' days')} />
+              ))}
+            </>
+          )}
+          <Text style={styles.noteLine}>
+            This is your read on those days, counted — not a comparison. A thing
+            only lands here on days you already suspected it, so there are no
+            days without it to weigh against. Pattern will offer to ask about
+            something properly once you’ve pointed at it enough times.
+          </Text>
+        </>
+      )}
+
       {/* ── function ────────────────────────────────────────── */}
       {!!data.goalText && (
         <>
@@ -433,6 +464,10 @@ const styles = StyleSheet.create({
   chartAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   axisText: { color: color.textTertiary, fontSize: font.footnote },
   noteLine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 8 },
+  subhead: {
+    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    marginTop: 12, marginBottom: 2,
+  },
   bodyText: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21, flexShrink: 1 },
   row: {
     flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 5,

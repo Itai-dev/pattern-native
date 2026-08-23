@@ -15,13 +15,15 @@
  * undoes a number on a screen.
  */
 import {
-  MetricDef, eligibleNow, getMetric, protocolFactors,
+  IMPACT_BETTER, IMPACT_WORSE, MetricDef, eligibleNow, getMetric, impactChip,
+  protocolFactors,
 } from './metrics';
 import {
   Answer, Entries, Entry, Protocol, addDays, answerOf, dateFromISO, iso, logsOf,
+  valuesOf,
 } from './model';
 import {
-  PATTERN_MIN_N, PROTOCOL_REVIEW_DAYS,
+  IMPACT_PROMOTE_MIN, IMPACT_PROMOTE_WINDOW, PATTERN_MIN_N, PROTOCOL_REVIEW_DAYS,
 } from './thresholds';
 
 /* ── choosing the second factor ──────────────────────────────
@@ -264,6 +266,69 @@ export function reviewProgress(
   };
 }
 
+/* ── from flags to a question ────────────────────────────────
+   Counting how often something was blamed, and turning that into an offer
+   to measure it properly.
+
+   The count is NOT a finding and must never be shown as one. "You flagged
+   sleep nine times" says nine times you thought sleep was the problem; it
+   says nothing about whether it was, because there is no set of days you
+   thought sleep was fine to compare it against. What the count is good
+   for is choosing what to spend the next fourteen days actually asking. */
+
+export interface Promotion {
+  /** the chip that keeps coming up */
+  chipId: string;
+  chipName: string;
+  /** the metric that could measure it properly */
+  metricId: string;
+  metricName: string;
+  /** how many days it was flagged, in the window */
+  flags: number;
+  /** which side it was flagged on, for the wording */
+  side: 'worse' | 'better';
+}
+
+/** the strongest promotable chip, or null. Anything already being asked
+ *  about is skipped: offering to test what is already being tested is
+ *  noise. */
+export function promotionCandidate(
+  entries: Entries, todayIso: string, activeIds: string[]
+): Promotion | null {
+  const from = addDays(todayIso, -(IMPACT_PROMOTE_WINDOW - 1));
+  const counts: Record<string, { worse: number; better: number }> = {};
+
+  Object.keys(entries).forEach((k) => {
+    if (k < from || k > todayIso) return;
+    ([IMPACT_WORSE, IMPACT_BETTER] as const).forEach((mid) => {
+      const ids = valuesOf(entries[k], mid);
+      if (!ids) return;
+      ids.forEach((id) => {
+        const c = counts[id] || (counts[id] = { worse: 0, better: 0 });
+        if (mid === IMPACT_WORSE) c.worse++; else c.better++;
+      });
+    });
+  });
+
+  let best: Promotion | null = null;
+  Object.keys(counts).forEach((chipId) => {
+    const chip = impactChip(chipId);
+    if (!chip || !chip.promotesTo) return;                 // nothing to measure it with
+    if (activeIds.indexOf(chip.promotesTo) >= 0) return;   // already being asked
+    const m = getMetric(chip.promotesTo);
+    if (!m) return;
+    const c = counts[chipId];
+    const side: 'worse' | 'better' = c.worse >= c.better ? 'worse' : 'better';
+    const flags = Math.max(c.worse, c.better);
+    if (flags < IMPACT_PROMOTE_MIN) return;
+    if (best && best.flags >= flags) return;
+    best = {
+      chipId, chipName: chip.name, metricId: m.id, metricName: m.name, flags, side,
+    };
+  });
+  return best;
+}
+
 /* ── copy ────────────────────────────────────────────────────
    Fixed sentences. Free-text activity names taught this codebase once
    already that interpolating a user's words into a sentence produces
@@ -277,6 +342,14 @@ export const PROTOCOL_CHOSEN_NOTE = 'the one you chose';
 export const PROTOCOL_SECOND_NOTE = 'one more, so there’s something to compare against';
 
 export const REVIEW_TITLE = 'Day 14 of your first observation period';
+
+/** "You've flagged sleep on 9 days." — a count of what you thought, said
+ *  as a count of what you thought. */
+export function promotionSentence(pr: Promotion): string {
+  return 'You’ve pointed at ' + pr.chipName.toLowerCase() + ' on ' + pr.flags
+    + ' days. Pattern can start asking about it properly, so there’s something'
+    + ' to compare those days against.';
+}
 export const REVIEW_KEEP = 'Keep observing';
 export const REVIEW_CHANGE = 'Change my focus';
 

@@ -12,11 +12,13 @@
  * Pattern blue as a restrained accent — readable in grayscale and worth
  * handing to a physician.
  */
-import { BANDS, TimeBandKey, bandOf } from './metrics';
+import {
+  BANDS, IMPACT_BETTER, IMPACT_WORSE, TimeBandKey, bandOf, impactName,
+} from './metrics';
 import {
   Entries, EVENT_LABELS, EventKind, FuncEntry, LOC_NAMES, PainEvent,
   INTERVENTIONS, QUALITY_NAMES, RESPONSE_LABELS, Response, checkinCount, dailyAverage,
-  dateFromISO, fmtTime, funcTrend, iso, logsOf,
+  dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
 } from './model';
 import { formatScore, painLabel } from './painScale';
 import {
@@ -65,6 +67,29 @@ export interface ReportData {
   /** the two ends of the record, described. null until there is enough
    *  of a record for the ends to be different from the middle. */
   harderEasier: HarderEasier | null;
+  /** what the user pointed at, counted. ATTRIBUTIONS, not findings. */
+  flagged: { worse: FlagCount[]; better: FlagCount[] };
+}
+
+/* ── what you flagged ────────────────────────────────────────
+   A tally of the chips, and nothing more.
+
+   This is the one section of the record that is explicitly SUBJECTIVE,
+   and it has to be labelled that way everywhere it appears. "You pointed
+   at sleep on 9 days" is a fact about what the user thought. It is not a
+   fact about sleep, and it cannot become one, because a day is only in
+   the tally if they already believed sleep was the problem — there is no
+   set of days they thought sleep was fine sitting next to it.
+
+   Worth printing anyway. A clinician asking "what do you think sets it
+   off" gets a considered answer recorded across weeks instead of an
+   answer improvised in the room, and that is a genuinely better input to
+   the conversation than nothing. It just is not evidence. */
+
+export interface FlagCount {
+  id: string;
+  name: string;
+  days: number;
 }
 
 /* ── the two ends of the record ──────────────────────────────
@@ -196,7 +221,24 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       .slice()
       .sort((a, b) => (a.date === b.date ? a.h - b.h : a.date < b.date ? -1 : 1)),
     harderEasier: harderEasierOf(entries, days),
+    flagged: {
+      worse: countFlags(entries, days, IMPACT_WORSE),
+      better: countFlags(entries, days, IMPACT_BETTER),
+    },
   };
+}
+
+/** how many days each chip was ticked on one side */
+function countFlags(entries: Entries, days: ReportDay[], metricId: string): FlagCount[] {
+  const n: Record<string, number> = {};
+  days.forEach((d) => {
+    const ids = valuesOf(entries[d.date], metricId);
+    if (!ids) return;
+    ids.forEach((id) => { n[id] = (n[id] || 0) + 1; });
+  });
+  return Object.keys(n)
+    .sort((a, b) => n[b] - n[a])
+    .map((id) => ({ id, name: impactName(id), days: n[id] }));
 }
 
 /** what was recorded across one set of days */
@@ -592,6 +634,28 @@ export function reportHtml(data: ReportData): string {
     s.push('<div class="note num" style="margin-top:6px">' + he.middleDays +
       ' day' + (he.middleDays === 1 ? '' : 's') + ' in the middle third were set aside.</div>');
     s.push('</section>');
+  }
+
+  // ── what the patient points at ──
+  if (data.flagged.worse.length || data.flagged.better.length) {
+    const list = (f: typeof data.flagged.worse) =>
+      f.slice(0, 8).map((x) => esc(x.name) + ' (' + x.days + ')').join(' · ') || '—';
+    s.push('<section><h2>What the patient points to</h2>');
+    s.push('<div class="note"><b>Self-attributed.</b> These are the things the patient ' +
+      'identified on the day, with the number of days each was selected. They record what ' +
+      'the patient believes affects their pain. They are not a comparison and carry no ' +
+      'evidence about whether the association holds — a factor appears here only on days ' +
+      'it was already suspected, so there is no unaffected group to weigh it against.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>Direction</th><th>Selected on (days)</th></tr>');
+    if (data.flagged.worse.length) {
+      s.push('<tr><td><b>Reported as making it worse</b></td><td>' +
+        list(data.flagged.worse) + '</td></tr>');
+    }
+    if (data.flagged.better.length) {
+      s.push('<tr><td><b>Reported as helping</b></td><td>' +
+        list(data.flagged.better) + '</td></tr>');
+    }
+    s.push('</table></section>');
   }
 
   // ── described as ──
