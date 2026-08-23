@@ -16,7 +16,7 @@ import DaySheet from './src/DaySheet';
 import FunctionSheet from './src/FunctionSheet';
 import EventSheet from './src/EventSheet';
 import GoalSheet from './src/GoalSheet';
-import ReportSheet from './src/ReportSheet';
+import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
@@ -32,7 +32,7 @@ configureHandler(); // set once, before anything can be delivered
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'func' | 'funcBaseline' | 'event' | 'report' | 'goal';
+type Sheet = null | 'checkin' | 'func' | 'funcBaseline' | 'event' | 'goal';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
@@ -65,8 +65,10 @@ function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: strin
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
   const [func, setFunc] = useState(() => db.getFunc());
+  const [events, setEvents] = useState(() => db.getEvents());
   const [goalText, setGoalText] = useState(() => db.getGoal());
-  const [tab, setTab] = useState<Tab>('today'); // act first, reflect one tab away
+  /* act on Today, see the record in Trends, correct it on the Map */
+  const [tab, setTab] = useState<Tab>('today');
   const [sheet, setSheet] = useState<Sheet>(null);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
@@ -80,6 +82,7 @@ export default function App() {
   const refresh = useCallback(() => {
     setEntries(db.getAll());
     setFunc(db.getFunc());
+    setEvents(db.getEvents());
     setGoalText(db.getGoal());
   }, []);
 
@@ -238,7 +241,9 @@ export default function App() {
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? todayTitle() : MONTHS[new Date().getMonth()]}
+              {tab === 'today' ? todayTitle()
+                : tab === 'trends' ? 'Trends'
+                  : MONTHS[new Date().getMonth()]}
             </Text>
           </View>
 
@@ -255,6 +260,14 @@ export default function App() {
                 onEvent={() => setSheet('event')}
                 onFunc={(baseline) => setSheet(baseline ? 'funcBaseline' : 'func')}
                 onSetGoal={editGoal}
+              />
+            ) : tab === 'trends' ? (
+              <TrendsScreen
+                entries={entries}
+                events={events}
+                func={func}
+                goalText={goalText}
+                todayIso={todayISO()}
               />
             ) : (
               <MapScreen entries={entries} onDayPress={setDaySheet} />
@@ -289,10 +302,6 @@ export default function App() {
 
         <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
           <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
-        </Modal>
-
-        <Modal visible={sheet === 'report'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <ReportSheet onDone={closeSheet} />
         </Modal>
 
         <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
@@ -330,14 +339,15 @@ export default function App() {
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
               <View style={styles.group}>
                 <Pressable
-                  onPress={() => { setProfile(false); setSheet('report'); }}
+                  onPress={() => { setProfile(false); setTab('trends'); }}
                   style={styles.row}
                   accessibilityRole="button"
-                  accessibilityLabel={'Summary for your doctor, based on ' + dayCount + ' logged days'}
+                  accessibilityLabel={'Your record and doctor summary, based on ' + dayCount + ' logged days'}
+                  accessibilityHint="Opens the Trends tab"
                 >
                   <RowIcon name="document-text" bg="#0A84FF" />
                   <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Summary for your doctor</Text>
+                    <Text style={styles.rowLabel}>Your record and summary</Text>
                     <Text style={styles.rowValue}>
                       {dayCount} {dayCount === 1 ? 'day' : 'days'}
                     </Text>

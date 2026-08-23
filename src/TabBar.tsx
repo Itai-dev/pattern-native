@@ -7,7 +7,7 @@
  * Switching is INSTANT, on purpose: a tab change happens dozens of times
  * a day, and that frequency earns no animation — a selection haptic is
  * the whole of the feedback. The glyphs are the app's own square
- * language: one day, and a month of them.
+ * language: one day, a few of them stacked into a record, and a month.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import { color } from './theme';
 
-export type Tab = 'today' | 'map';
+export type Tab = 'today' | 'trends' | 'map';
 
 export interface TabBarProps {
   tab: Tab;
@@ -56,10 +56,29 @@ function MapGlyph({ active }: { active: boolean }) {
   );
 }
 
+/** the same square, three of them, at the heights of a record */
+function TrendsGlyph({ active }: { active: boolean }) {
+  const c = active ? color.textPrimary : color.textTertiary;
+  return (
+    <View style={styles.barsGlyph}>
+      {[7, 13, 10].map((h, i) => (
+        <View key={i} style={[styles.bar, { height: h, backgroundColor: c }]} />
+      ))}
+    </View>
+  );
+}
+
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
+  { key: 'trends', label: 'Trends' },
   { key: 'map', label: 'Map' },
 ];
+
+function glyphFor(key: Tab, active: boolean) {
+  if (key === 'today') return <TodayGlyph active={active} />;
+  if (key === 'trends') return <TrendsGlyph active={active} />;
+  return <MapGlyph active={active} />;
+}
 
 export default function TabBar({ tab, onChange, onProfile }: TabBarProps) {
   const insets = useSafeAreaInsets();
@@ -68,7 +87,7 @@ export default function TabBar({ tab, onChange, onProfile }: TabBarProps) {
       pointerEvents="box-none"
       style={[styles.wrap, { bottom: Math.max(insets.bottom, 12) + 6 }]}
     >
-      {/* the pill: Today | Map */}
+      {/* the pill: Today | Trends | Map */}
       <BlurView intensity={60} tint="dark" style={[styles.glass, styles.pill]}>
         {TABS.map((t) => {
           const active = tab === t.key;
@@ -86,7 +105,7 @@ export default function TabBar({ tab, onChange, onProfile }: TabBarProps) {
               accessibilityState={{ selected: active }}
               accessibilityLabel={t.label}
             >
-              {t.key === 'today' ? <TodayGlyph active={active} /> : <MapGlyph active={active} />}
+              {glyphFor(t.key, active)}
               <Text
                 allowFontScaling={false}
                 style={[styles.label, active && styles.labelActive]}
@@ -130,12 +149,15 @@ const styles = StyleSheet.create({
   },
   pill: {
     flexDirection: 'row', alignItems: 'center',
-    borderRadius: 27, height: 54, paddingHorizontal: 6, gap: 2,
+    borderRadius: 27, height: 54, paddingHorizontal: 5, gap: 1,
   },
+  /* three of these plus the profile circle have to clear a 375pt screen,
+     so the glyph and the word stack instead of sitting side by side —
+     the touch target stays well over 44pt in both directions */
   item: {
-    minHeight: 44, minWidth: 86, borderRadius: 22,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingHorizontal: 14,
+    minHeight: 44, minWidth: 62, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center', gap: 3,
+    paddingHorizontal: 8, paddingVertical: 5,
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
   circle: { width: 54, height: 54, borderRadius: 27 },
@@ -147,7 +169,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', alignContent: 'space-between',
   },
   gridCell: { width: 7, height: 7, borderRadius: 2 },
-  label: { fontSize: 13, fontWeight: '600', color: color.textTertiary },
+  barsGlyph: {
+    width: 16, height: 16,
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
+  },
+  bar: { width: 4, borderRadius: 1.5 },
+  label: { fontSize: 11, fontWeight: '600', color: color.textTertiary },
   labelActive: { color: color.textPrimary },
   personHead: {
     width: 8, height: 8, borderRadius: 4, borderWidth: 1.4,

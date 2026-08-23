@@ -177,12 +177,16 @@ Everything Pattern knows because you told it. No inference anywhere on this scre
 - **Described as** — quality-word frequency
 - Time of day, gated per §9
 - Function: weekly ability and daily interference, labelled distinctly
-- Harder / easier days, descriptive, gated per §13.5
+- Hardest / easiest days — describing the pain on each end, gated per §13.5
 - Interventions and what followed
 - Protocol progress — completeness only (§13.1)
 - **Share** → the PDF
 
-### History — check and correct
+### Map — check and correct
+
+*Named Map, not History. Earlier drafts of this spec said History; the repo has called the
+calendar the Map since commit `3bf5f0a` ("act on Today, reflect on the Map"), the screen and
+the glyph are built around it, and there was no reason beyond my own habit to rename it.*
 - Calendar coloured by daily average pain
 - Gaps visibly empty; multiple moments as a count or dots
 - Day detail: every timestamped log, its context, body areas, quality words, day-scoped
@@ -471,7 +475,15 @@ Top third = harder days, bottom third = easier days, **middle third discarded.**
 `TERCILE_MIN_SPREAD = 1.5` points apart — someone whose days run 5, 5, 6, 5, 6 has no
 meaningfully harder days and the section does not render.
 
-**Confinement.** This drives the descriptive section only. It never drives a finding.
+**Confinement, tightened in implementation.** This drives the descriptive section only, and
+that section describes **the pain** — where it was, what words were used for it — and **never
+the factors.**
+
+Sleep, stress and load are what the engine tests, under a rule needing eight observations at
+each end and 1.5 points between them. Printing *"stress was high on 8 of your 11 hardest
+days"* is that comparison, run at whatever sample size happens to exist, with the arithmetic
+left to the reader. Same claim, no gate. So the section stops at the pain itself and the
+factors wait for the engine.
 
 The reason is precise: dichotomizing pain into harder/easier throws away the outcome's
 magnitude and turns effect size into a proportion, which is exactly how the holistic brief
@@ -726,7 +738,7 @@ Holistic means understanding context, not collecting everything.
 
 **Step 1 — Schema and data preservation** ✅ *shipped, see §26*
 
-**Step 2 — Pain-first check-in**
+**Step 2 — Pain-first check-in** *(next)*
 - Pain remains the only mandatory answer, with UTC and offset
 - Two-factor step driven by the active protocol and gated by §7.1
 - Evening one-question follow-up for missed evening-eligible factors
@@ -735,11 +747,7 @@ Holistic means understanding context, not collecting everything.
 - Everything editable, including day-scoped answers
 - Reminders: three opt-in slots, default off; morning slot offered when the protocol needs it
 
-**Step 3 — The Trends tab**
-- Third tab; `buildReportData` as its data source
-- Every block in §5, gated per §13.8
-- Share → PDF from the tab
-- Calm-surface rules (§13.4) enforced in review
+**Step 3 — The Trends tab** ✅ *shipped, see §26*
 
 **Step 4 — The hypothesis loop**
 - Setup at day 7, after the function card, once
@@ -846,6 +854,35 @@ same way.
 **Migration stance.** `factors` and `cap` are retired but retained for restore fidelity, and
 `factors` is never converted — a presence-only tag cannot become a graded level. Timestamps
 are never backfilled. No existing event row is rewritten.
+
+### Step 3 — shipped
+
+`npm run verify` passes: TypeScript clean, **301 assertions, 0 failures**, iOS bundle exports.
+
+**New** — `src/TrendsScreen.tsx`, the record as a tab: metrics, pain over time with gaps, the
+two ends, time of day, where, described as, function, what you tried, events, and **Share with
+your doctor**. `TabBar.tsx` gains a third tab and a bar glyph in the app's square language;
+the item lays out vertically so three fit beside the profile circle on a 375pt screen.
+
+**Removed** — `src/ReportSheet.tsx`. Its content is the tab now, and the Settings row that used
+to open it jumps to Trends instead of opening a second copy of the same thing.
+
+**`report.ts`** — `harderEasierOf()`: the outer terciles with the middle discarded, gated at
+21 logged days and 1.5 points of spread. Rendered in both the tab and the PDF.
+
+**Two deviations from the spec as written, both now folded back into it:**
+
+- **The third tab is Map, not History.** The repo has called the calendar the Map since
+  `3bf5f0a`, and the screen and glyph are built around it. Renaming it was my habit, not a
+  requirement.
+- **The hardest/easiest section describes the pain, never the factors** (§13.5). Showing a
+  factor breakdown there would be the engine's comparison at whatever sample size existed,
+  with the arithmetic left to the reader — the same claim without the gate.
+
+**Not verifiable here.** The iOS simulator does not run on Windows and `expo-sqlite` has no web
+target, so the tab has been typechecked, unit-tested and bundled but **not seen running on a
+device.** The PDF renderer was checked visually against synthetic data. Someone should open
+Trends on a phone before this is called done.
 
 ### Open before Step 2
 

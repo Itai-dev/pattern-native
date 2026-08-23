@@ -21,6 +21,7 @@ import {
 import { formatScore, painLabel } from './painScale';
 import {
   BAND_MIN_CHECKINS, BAND_MIN_DAYS, HALVES_MIN_DAYS, LIMITED_RECORD_DAYS,
+  TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
 } from './thresholds';
 
 export interface ReportInput {
@@ -61,6 +62,45 @@ export interface ReportData {
   locations: { id: string; name: string; days: number }[];
   qualities: { id: string; name: string; count: number }[];
   events: PainEvent[]; // chronological
+  /** the two ends of the record, described. null until there is enough
+   *  of a record for the ends to be different from the middle. */
+  harderEasier: HarderEasier | null;
+}
+
+/* ── the two ends of the record ──────────────────────────────
+   The days that were hardest and the days that were easiest, with the
+   middle third thrown away, and what was RECORDED on each side.
+
+   Two limits on this, and both matter.
+
+   It needs TERCILE_MIN_DAYS days, and the two boundaries have to sit
+   TERCILE_MIN_SPREAD apart. Someone whose days run 5, 5, 6, 5, 6 has a
+   "hardest third" that is not meaningfully harder than the rest, and
+   ranking it would manufacture a difference out of rounding.
+
+   And it describes the PAIN — where it was, what words were used for it —
+   never the factors. Sleep, stress and load are what the engine tests,
+   under a rule that needs eight observations at each end and a point and
+   a half between them. Printing "stress was high on 8 of your 11 hardest
+   days" would be that comparison, run at whatever sample size happened to
+   exist, with the arithmetic left to the reader. Same claim, no gate. So
+   this section stops at the pain itself, and the factors wait. */
+
+export interface EndOfRecord {
+  days: number;
+  avg: number;
+  locations: { id: string; name: string; days: number }[];
+  qualities: { id: string; name: string; count: number }[];
+}
+
+export interface HarderEasier {
+  harder: EndOfRecord;
+  easier: EndOfRecord;
+  /** the daily averages the two groups are divided at */
+  boundaryLow: number;
+  boundaryHigh: number;
+  /** days in the discarded middle — shown, so the split is not a mystery */
+  middleDays: number;
 }
 
 /** how many logged days the window covers — surfaced in the UI so a short
@@ -155,6 +195,54 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       .filter((ev) => ev.date >= startIso && ev.date <= todayIso)
       .slice()
       .sort((a, b) => (a.date === b.date ? a.h - b.h : a.date < b.date ? -1 : 1)),
+    harderEasier: harderEasierOf(entries, days),
+  };
+}
+
+/** what was recorded across one set of days */
+function describeDays(entries: Entries, days: ReportDay[]): EndOfRecord {
+  const locDays: Record<string, number> = {};
+  const qual: Record<string, number> = {};
+  days.forEach((d) => {
+    const seen: Record<string, boolean> = {};
+    logsOf(entries[d.date]).forEach((l) => {
+      (l.loc || []).forEach((id) => { seen[id] = true; });
+      (l.q || []).forEach((q) => { qual[q] = (qual[q] || 0) + 1; });
+    });
+    Object.keys(seen).forEach((id) => { locDays[id] = (locDays[id] || 0) + 1; });
+  });
+  return {
+    days: days.length,
+    avg: round1(days.reduce((s, d) => s + d.avg, 0) / days.length),
+    locations: Object.keys(locDays)
+      .sort((a, b) => locDays[b] - locDays[a])
+      .map((id) => ({ id, name: LOC_NAMES[id] || id, days: locDays[id] })),
+    qualities: Object.keys(qual)
+      .sort((a, b) => qual[b] - qual[a])
+      .map((id) => ({ id, name: QUALITY_NAMES[id] || id, count: qual[id] })),
+  };
+}
+
+/** the outer terciles, middle discarded. null when the record is too
+ *  short, or when its two ends are not far enough apart to be different
+ *  from each other in any way worth printing. */
+export function harderEasierOf(entries: Entries, days: ReportDay[]): HarderEasier | null {
+  if (days.length < TERCILE_MIN_DAYS) return null;
+  const byAvg = days.slice().sort((a, b) => a.avg - b.avg);
+  const third = Math.floor(byAvg.length / 3);
+  if (third < 1) return null;
+
+  const easierDays = byAvg.slice(0, third);
+  const harderDays = byAvg.slice(byAvg.length - third);
+  const boundaryLow = easierDays[easierDays.length - 1].avg;
+  const boundaryHigh = harderDays[0].avg;
+  if (boundaryHigh - boundaryLow < TERCILE_MIN_SPREAD) return null;
+
+  return {
+    harder: describeDays(entries, harderDays),
+    easier: describeDays(entries, easierDays),
+    boundaryLow, boundaryHigh,
+    middleDays: byAvg.length - easierDays.length - harderDays.length,
   };
 }
 
@@ -477,6 +565,33 @@ export function reportHtml(data: ReportData): string {
         Math.max(6, Math.round((l.days / maxDays) * 100)) + 'px"></span>' + l.days + '</td></tr>');
     });
     s.push('</table></section>');
+  }
+
+  // ── the two ends of the record ──
+  if (data.harderEasier) {
+    const he = data.harderEasier;
+    const side = (title: string, e: typeof he.harder, cmp: string) => {
+      const locs = e.locations.slice(0, 5)
+        .map((l) => esc(l.name) + ' (' + l.days + ')').join(' · ') || '—';
+      const qs = e.qualities.slice(0, 5)
+        .map((q) => esc(q.name) + ' ×' + q.count).join(' · ') || '—';
+      return '<tr><td><b>' + esc(title) + '</b><br><span class="note num">' + e.days +
+        ' days, ' + cmp + ', averaging ' + formatScore(e.avg) + '/10</span></td>' +
+        '<td>' + locs + '</td><td>' + qs + '</td></tr>';
+    };
+    s.push('<section><h2>Hardest and easiest days</h2>');
+    s.push('<div class="note">The highest and lowest third of logged days by daily average, ' +
+      'with the middle third set aside. This describes where the pain was and how it was ' +
+      'described on each group of days. It is not a comparison of anything else that was ' +
+      'recorded, and it does not identify a cause.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>Group</th><th>Locations (days)</th>' +
+      '<th>Described as</th></tr>');
+    s.push(side('Hardest days', he.harder, formatScore(he.boundaryHigh) + '/10 and above'));
+    s.push(side('Easiest days', he.easier, formatScore(he.boundaryLow) + '/10 and below'));
+    s.push('</table>');
+    s.push('<div class="note num" style="margin-top:6px">' + he.middleDays +
+      ' day' + (he.middleDays === 1 ? '' : 's') + ' in the middle third were set aside.</div>');
+    s.push('</section>');
   }
 
   // ── described as ──

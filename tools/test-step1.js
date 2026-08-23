@@ -526,5 +526,98 @@ ok('running it twice changes nothing the second time', (() => {
   return once.corrected === 1 && twice.corrected === 0;
 })());
 
+/* ── the two ends of the record ─────────────────────────────── */
+group('hardest and easiest days');
+
+/** n logged days; `painAt(i)` gives each day its value */
+const record = (n, painAt, locAt) => {
+  const entries = {}; const days = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(2026, 0, 1); d.setDate(d.getDate() + i);
+    const k = model.iso(d);
+    const p = painAt(i);
+    const m = { h: 9 * M, pain: p };
+    if (locAt) { m.loc = [locAt(i)]; m.q = [p >= 7 ? 'burning' : 'aching']; }
+    entries[k] = { pain: p, cap: null, note: '', logs: [m] };
+    days.push({ date: k, avg: p, count: 1 });
+  }
+  return [entries, days];
+};
+
+ok('under three weeks there are no ends yet', (() => {
+  const [e, d] = record(20, (i) => (i % 2 ? 2 : 9));
+  return report.harderEasierOf(e, d) === null;
+})());
+ok('a flat record has no meaningfully harder third', (() => {
+  // 5,5,6,5,6… — a third of these is not different from another third
+  const [e, d] = record(30, (i) => (i % 2 ? 5 : 6));
+  return report.harderEasierOf(e, d) === null;
+})());
+ok('a record with real spread splits into two ends', (() => {
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9));
+  const he = report.harderEasierOf(e, d);
+  return he !== null && he.harder.days === 10 && he.easier.days === 10;
+})());
+ok('the middle third is discarded, and says so', (() => {
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9));
+  const he = report.harderEasierOf(e, d);
+  return he.middleDays === 10;
+})());
+ok('the harder end really is the harder one', (() => {
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9));
+  const he = report.harderEasierOf(e, d);
+  return he.harder.avg === 9 && he.easier.avg === 2
+    && he.boundaryHigh === 9 && he.boundaryLow === 2;
+})());
+ok('each end describes what was recorded on it', (() => {
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), (i) => (i < 20 ? 'knees' : 'hands'));
+  const he = report.harderEasierOf(e, d);
+  return he.harder.locations[0].id === 'hands' && he.harder.locations[0].days === 10
+    && he.easier.locations[0].id === 'knees'
+    && he.harder.qualities[0].id === 'burning'
+    && he.easier.qualities[0].id === 'aching';
+})());
+ok('the ends describe the PAIN and never the factors', (() => {
+  /* the line this section must not cross: a factor breakdown here would
+     be the engine's comparison, run at whatever n happened to exist and
+     with the arithmetic left to the reader */
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), () => 'hands');
+  Object.keys(e).forEach((k, i) => {
+    e[k].ctx = ctxOf({ 'stress.level.v1': answer(i >= 20 ? 'high' : 'low') });
+  });
+  const he = report.harderEasierOf(e, d);
+  const keys = Object.keys(he.harder);
+  return keys.indexOf('factors') < 0 && keys.indexOf('ctx') < 0
+    && JSON.stringify(he).indexOf('stress') < 0;
+})());
+ok('a record with ends carries them into the report data', (() => {
+  const [e] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), () => 'hands');
+  const last = Object.keys(e).sort().pop();
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null, todayIso: last, windowDays: 90,
+  });
+  return data.harderEasier !== null && data.harderEasier.harder.days === 10;
+})());
+ok('the PDF prints the section, with the caveat attached', (() => {
+  const [e] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), () => 'hands');
+  const last = Object.keys(e).sort().pop();
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null, todayIso: last, windowDays: 90,
+  });
+  const html = report.reportHtml(data);
+  return html.indexOf('Hardest and easiest days') > 0
+    && /does not identify a cause/.test(html)
+    && /middle third/.test(html);
+})());
+ok('a short record prints no such section', (() => {
+  const [e] = record(10, (i) => (i < 5 ? 2 : 9), () => 'hands');
+  const last = Object.keys(e).sort().pop();
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null, todayIso: last, windowDays: 90,
+  });
+  return data.harderEasier === null
+    && report.reportHtml(data).indexOf('Hardest and easiest days') < 0;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);
