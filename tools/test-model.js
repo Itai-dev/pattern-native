@@ -242,7 +242,13 @@ ok('the goal editor copy is the specified pair',
 
 /* ── events: identity for editing and dedup ────────────────── */
 group('events');
-ok('five event kinds', model.EVENT_KINDS.length === 5, model.EVENT_KINDS);
+ok('seven event kinds', model.EVENT_KINDS.length === 7, model.EVENT_KINDS);
+ok('the picker offers six of them — sleep is a daily factor now',
+  model.EVENT_KINDS_OFFERED.length === 6 && model.EVENT_KINDS_OFFERED.indexOf('sleep') < 0,
+  model.EVENT_KINDS_OFFERED);
+ok('a stored sleep event still reads back, unrewritten',
+  model.EVENT_KINDS.indexOf('sleep') >= 0
+  && model.cleanEvent({ date: '2026-08-19', h: 600, kind: 'sleep', text: '' }) !== null);
 ok('nothing in the labels claims a trigger',
   Object.values(model.EVENT_LABELS).every((v) => !/trigger|caus/i.test(v)), model.EVENT_LABELS);
 const evA = { date: '2026-08-19', h: 600, kind: 'treatment', text: 'heat pack', helped: 7 };
@@ -307,7 +313,7 @@ ok('an empty object is not a backup', model.validateBackup('{}') === null);
 ok('unrelated JSON is not a backup', model.validateBackup('{"foo": 1}') === null);
 ok('an empty entries backup validates to zero days',
   Object.keys(model.validateBackup(JSON.stringify({ entries: {} })).entries).length === 0);
-ok('the export format version is 4', model.BACKUP_VERSION === 4);
+ok('the export format version is 5', model.BACKUP_VERSION === 5);
 ok('the scale version is 3', scale.SCALE_VERSION === 3);
 
 /* ── the report data ───────────────────────────────────────── */
@@ -407,23 +413,36 @@ ok('the morning band averages its own check-ins only', (() => {
 ok('empty parts of the day are omitted, never shown as zero',
   twenty.timeOfDay.every((b) => b.checkins > 0) &&
   twenty.timeOfDay.every((b) => b.key !== 'afternoon' && b.key !== 'night'));
+/* A band now has to clear BAND_MIN_CHECKINS across BAND_MIN_DAYS before
+   it is shown at all, so these fixtures carry enough days to test WHERE a
+   time lands rather than whether one reading is enough to draw a band.
+   The gate itself is tested in tools/test-step1.js. */
+const spread = (times, pain) => {
+  const e = {}; const days = [];
+  for (let i = 0; i < 4; i++) {
+    const k = '2026-08-' + String(17 + i);
+    e[k] = day(times.map((h) => ({ h, pain })));
+    days.push({ date: k, avg: pain, count: times.length });
+  }
+  return [e, days];
+};
 ok('a night check-in lands in the night band', (() => {
-  const e = { '2026-08-20': day([{ h: 23 * 60 + 30, pain: 8 }]) };
-  const b = report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 8, count: 1 }]);
+  const [e, d] = spread([23 * 60 + 30, 23 * 60 + 40], 8);
+  const b = report.timeOfDayBands(e, d);
   return b.length === 1 && b[0].key === 'night' && b[0].avg === 8;
 })());
 ok('an early-hours check-in lands in the night band, not the morning', (() => {
-  const e = { '2026-08-20': day([{ h: 3 * 60, pain: 6 }]) };
-  return report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 6, count: 1 }])[0].key === 'night';
+  const [e, d] = spread([3 * 60, 3 * 60 + 10], 6);
+  return report.timeOfDayBands(e, d)[0].key === 'night';
 })());
 ok('legacy days with no timestamps contribute to no band', (() => {
   const e = { '2026-08-20': { pain: 7, cap: null, note: '' } };
   return report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 7, count: 1 }]).length === 0;
 })());
-ok('many check-ins from one day still count as one day', (() => {
-  const e = { '2026-08-20': day([{ h: 6 * 60, pain: 4 }, { h: 7 * 60, pain: 6 }, { h: 8 * 60, pain: 8 }]) };
-  const b = report.timeOfDayBands(e, [{ date: '2026-08-20', avg: 6, count: 3 }]);
-  return b[0].checkins === 3 && b[0].days === 1 && b[0].avg === 6;
+ok('many check-ins per day count as many check-ins across few days', (() => {
+  const [e, d] = spread([6 * 60, 7 * 60, 8 * 60], 6);
+  const b = report.timeOfDayBands(e, d);
+  return b[0].checkins === 12 && b[0].days === 4 && b[0].avg === 6;
 })());
 ok('a limited record shows no time-of-day breakdown at all',
   two.timeOfDay.length === 0, two.timeOfDay);
@@ -457,8 +476,10 @@ ok('chart has labelled axes', /Daily average pain over time/.test(html20) &&
   html20.indexOf('>10</text>') > 0 && html20.indexOf('>0</text>') > 0);
 ok('locations use readable labels', html20.indexOf('Lower back') > 0 &&
   html20.indexOf('Ranked by the number of days') > 0);
+/* the label lost "or medication" when medication became its own kind —
+   the old rows keep their kind, they just read as Treatment now */
 ok('events show type, date, time and note',
-  html20.indexOf('Treatment or medication') > 0 && html20.indexOf('heat pack') > 0 &&
+  html20.indexOf('>Treatment<') > 0 && html20.indexOf('heat pack') > 0 &&
   html20.indexOf('10:00') > 0);
 ok('treatment effect labelled as patient-reported', /patient-reported effect 7\/10/.test(html20));
 ok('no causal claims', /No causal relationship with pain is implied/.test(html20) &&

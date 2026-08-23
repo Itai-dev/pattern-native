@@ -31,8 +31,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:domain": "tsc src/model.ts src/painScale.ts src/report.ts --ignoreConfig --outDir .testbuild --module commonjs --target es2019 --skipLibCheck",
-    "test": "npm run build:domain && node tools/test-model.js",
+    "build:domain": "tsc src/model.ts src/painScale.ts src/report.ts src/metrics.ts src/protocol.ts src/thresholds.ts --ignoreConfig --outDir .testbuild --module commonjs --target es2019 --skipLibCheck",
+    "test": "npm run build:domain && node tools/test-model.js && node tools/test-step1.js",
     "verify": "tsc --noEmit && npm test && expo export --platform ios"
   },
   "private": true

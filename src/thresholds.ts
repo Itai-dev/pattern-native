@@ -1,0 +1,91 @@
+/**
+ * Every number that decides what Pattern is willing to say out loud.
+ *
+ * They live together, named, in one file for one reason: a threshold
+ * buried in the code that renders a finding is a threshold nobody can
+ * argue with. These are product safeguards, not claims of statistical
+ * significance, and they were chosen to be argued with — so the argument
+ * needs somewhere to happen.
+ *
+ * The rule they enforce, in one line: Pattern says nothing until the same
+ * difference has shown up in enough observations, at both ends of a
+ * factor, at a size worth a sentence, in the same direction across the
+ * record.
+ *
+ * Why these values. With eight observations per group and a within-person
+ * pain SD of 1.5–2.0, the standard error of the difference between two
+ * group means is 0.75–1.0 points. A 1.5-point threshold therefore sits at
+ * roughly z = 1.5–2.0, so an unlucky-but-meaningless difference clears it
+ * about 5–10% of the time per comparison. Comparing only the extreme
+ * levels holds the number of comparisons at two per factor per relation
+ * instead of nine, and requiring the direction to survive a split of the
+ * record removes more.
+ *
+ * For contrast, the rule this replaced — four observations per group and
+ * a one-point difference — sits BELOW one standard error, and fires on
+ * noise 35–43% of the time per comparison. Across the comparisons a
+ * protocol generates, a spurious finding was close to guaranteed.
+ *
+ * None of that makes a surviving finding true. It makes it worth showing.
+ */
+
+/* ── the exposure rule (used by the engine, Step 5) ─────────── */
+
+/** paired observations required in EACH compared group */
+export const PATTERN_MIN_N = 8;
+
+/** points of mean daily pain a difference must reach to be worth a card */
+export const PATTERN_MIN_DELTA = 1.5;
+
+/** observations required per group, per half, for the stability check */
+export const PATTERN_HALF_MIN_N = 3;
+
+/** Optional second gate: also require the difference to clear
+ *  k × the person's own within-person SD. 0 disables it.
+ *  Try 0.5 if the noise harness shows the flat 1.5 is too permissive for
+ *  high-variability users — it is one line, deliberately. */
+export const PATTERN_SD_MULTIPLIER = 0;
+
+/** never a list: only the single strongest surviving finding is shown */
+export const PATTERN_MAX_CARDS = 1;
+
+/* ── descriptive gates (no inference involved) ──────────────── */
+
+/** under this, the record shows itself and draws no comparisons */
+export const LIMITED_RECORD_DAYS = 7;
+
+/** first-half vs second-half comparison needs this many logged days */
+export const HALVES_MIN_DAYS = 14;
+
+/** Harder / easier days are the outer terciles of a person's own daily
+ *  averages, with the middle third discarded. Below this many logged days
+ *  the terciles are noise wearing a label. */
+export const TERCILE_MIN_DAYS = 21;
+
+/** ...and if the two tercile boundaries sit closer than this, the person's
+ *  days are not meaningfully different from each other and the section
+ *  does not render at all. */
+export const TERCILE_MIN_SPREAD = 1.5;
+
+/* ── time of day ────────────────────────────────────────────── */
+
+/** check-ins a band needs before it may be compared with another band */
+export const BAND_MIN_CHECKINS = 5;
+
+/** ...spread across at least this many distinct days, so forty check-ins
+ *  from one sleepless night cannot look like a pattern */
+export const BAND_MIN_DAYS = 3;
+
+/* ── observation protocols ──────────────────────────────────── */
+
+/** factors active at once. Two is the whole point: broad underneath,
+ *  narrow for the user. */
+export const PROTOCOL_FACTOR_COUNT = 2;
+
+/** days from a protocol's start to its first review. A review point, not
+ *  a promise that a conclusion will be available. */
+export const PROTOCOL_REVIEW_DAYS = 14;
+
+/** logged days before the hypothesis setup is offered — a person with no
+ *  record has nothing to form a hypothesis about */
+export const HYPOTHESIS_OFFER_AFTER_DAYS = 7;

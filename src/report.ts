@@ -12,12 +12,16 @@
  * Pattern blue as a restrained accent — readable in grayscale and worth
  * handing to a physician.
  */
+import { BANDS, TimeBandKey, bandOf } from './metrics';
 import {
   Entries, EVENT_LABELS, EventKind, FuncEntry, LOC_NAMES, PainEvent,
-  QUALITY_NAMES, checkinCount, dailyAverage, dateFromISO, fmtTime,
-  funcTrend, iso, logsOf,
+  INTERVENTIONS, QUALITY_NAMES, RESPONSE_LABELS, Response, checkinCount, dailyAverage,
+  dateFromISO, fmtTime, funcTrend, iso, logsOf,
 } from './model';
 import { formatScore, painLabel } from './painScale';
+import {
+  BAND_MIN_CHECKINS, BAND_MIN_DAYS, HALVES_MIN_DAYS, LIMITED_RECORD_DAYS,
+} from './thresholds';
 
 export interface ReportInput {
   entries: Entries;
@@ -104,7 +108,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
   const avgOf = (a: number[]) => round1(a.reduce((s, v) => s + v, 0) / a.length);
 
   let halves: { first: number; second: number } | null = null;
-  if (days.length >= 14) {
+  if (days.length >= HALVES_MIN_DAYS) {
     const half = Math.floor(days.length / 2);
     halves = { first: avgOf(avgs.slice(0, half)), second: avgOf(avgs.slice(half)) };
   }
@@ -122,7 +126,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
 
   const sortedFunc = func.slice().sort((a, b) => (a.week < b.week ? -1 : 1));
   const trend = funcTrend(func);
-  const limited = days.length < 7;
+  const limited = days.length < LIMITED_RECORD_DAYS;
 
   return {
     rangeStart: days[0].date,
@@ -169,7 +173,11 @@ export function buildReportData(inp: ReportInput): ReportData | null {
    Days with no timestamped moments (legacy and backfilled records) carry
    no time at all and are left out rather than guessed at. */
 
-export type TimeBandKey = 'morning' | 'afternoon' | 'evening' | 'night';
+/* The bands themselves live in metrics.ts, because the question windows
+   and the report headings have to mean the same thing by the same
+   numbers. Re-exported here so existing callers keep working. */
+export { bandOf, BANDS } from './metrics';
+export type { TimeBandKey } from './metrics';
 
 export interface TimeBand {
   key: TimeBandKey;
@@ -182,24 +190,16 @@ export interface TimeBand {
   days: number;
 }
 
-const BANDS: { key: TimeBandKey; label: string; range: string }[] = [
-  { key: 'morning', label: 'Morning', range: '05:00–11:59' },
-  { key: 'afternoon', label: 'Afternoon', range: '12:00–16:59' },
-  { key: 'evening', label: 'Evening', range: '17:00–21:59' },
-  { key: 'night', label: 'Night', range: '22:00–04:59' },
-];
-
-/** which part of the day a minute-of-day belongs to. Night wraps midnight:
- *  pain that wakes you belongs with pain at 23:00, not with the morning. */
-export function bandOf(h: number): TimeBandKey {
-  if (h >= 5 * 60 && h < 12 * 60) return 'morning';
-  if (h >= 12 * 60 && h < 17 * 60) return 'afternoon';
-  if (h >= 17 * 60 && h < 22 * 60) return 'evening';
-  return 'night';
-}
-
-/** the bands that actually hold check-ins, in day order. Bands with
- *  nothing recorded are omitted rather than shown as a zero. */
+/** Bands with enough behind them to sit beside each other.
+ *
+ *  A band needs BAND_MIN_CHECKINS check-ins across BAND_MIN_DAYS distinct
+ *  days before it appears. Two reasons, and the second is the real one:
+ *  a band resting on a single reading rendered an "average" that looked
+ *  exactly like one resting on forty; and forty readings from one
+ *  sleepless night are one night, not a pattern about nights.
+ *
+ *  Bands that fall short are omitted rather than shown greyed out. A
+ *  number the reader is told to discount is still a number they saw. */
 export function timeOfDayBands(entries: Entries, days: ReportDay[]): TimeBand[] {
   const acc: Record<string, { sum: number; n: number; days: Record<string, true> }> = {};
   days.forEach((d) => {
@@ -212,7 +212,11 @@ export function timeOfDayBands(entries: Entries, days: ReportDay[]): TimeBand[] 
     });
   });
   return BANDS
-    .filter((b) => acc[b.key] && acc[b.key].n > 0)
+    .filter((b) => {
+      const a = acc[b.key];
+      return !!a && a.n >= BAND_MIN_CHECKINS
+        && Object.keys(a.days).length >= BAND_MIN_DAYS;
+    })
     .map((b) => ({
       key: b.key,
       label: b.label,
@@ -490,8 +494,20 @@ export function reportHtml(data: ReportData): string {
       'No causal relationship with pain is implied.</div>');
     s.push('<table style="margin-top:8px"><tr><th>Date</th><th>Time</th><th>Type</th><th>Note</th></tr>');
     data.events.forEach((ev) => {
-      const note = (ev.text ? esc(ev.text) : '—') +
-        (ev.helped != null ? ' <span class="note num">(patient-reported effect ' + ev.helped + '/10)</span>' : '');
+      /* Two response formats coexist on purpose. Older records carry a
+         0–10 impression; newer ones carry Better / About the same /
+         Worse / Not sure. Mapping one onto the other would mean choosing
+         cutpoints nobody chose, so the report shows whichever was
+         actually recorded and names the scale it belongs to. */
+      const tried = ev.intervention
+        ? ' <span class="note">tried: ' + esc(INTERVENTIONS[ev.intervention] || ev.intervention) + '</span>'
+        : '';
+      const outcome = ev.resp
+        ? ' <span class="note">(patient-reported: ' + esc(RESPONSE_LABELS[ev.resp as Response]) + ')</span>'
+        : (ev.helped != null
+          ? ' <span class="note num">(patient-reported effect ' + ev.helped + '/10)</span>'
+          : '');
+      const note = (ev.text ? esc(ev.text) : '—') + tried + outcome;
       s.push('<tr><td class="num">' + esc(fmtShortDate(ev.date)) + '</td>' +
         '<td class="num">' + esc(fmtTime(ev.h)) + '</td>' +
         '<td>' + esc(EVENT_LABELS[ev.kind as EventKind] || ev.kind) + '</td>' +
