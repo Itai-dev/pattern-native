@@ -14,9 +14,11 @@
  *                          once a day, each one skippable.
  *   3. How does it feel? — quality words (SOCRATES "Character", the answer
  *                          every clinician asks for).
- *   4. Where?            — the same places as last time, confirmed rather
- *                          than assumed.
- *   5. Logged.           — the day you just made, then out on one tap.
+ *   4. Where?            — the places you had last time, already ticked,
+ *                          so the common case is one confirming tap.
+ *   5. Logged.           — the day you just made, arriving rather than
+ *                          appearing, and then breathing while you look
+ *                          at it. Out on one tap.
  *
  * PAIN IS THE ONLY MANDATORY ANSWER, and after step 1 the flow says so
  * out loud. Steps 2–4 are offered, never demanded, and a pain-only entry
@@ -29,17 +31,28 @@
  *
  * Apple's insight, kept: the shape is analogue while the label is discrete,
  * and every step edits the same already-durable moment in place.
+ *
+ * The confirmation is the one place in this app that gets a real
+ * animation, and it earns it: it is the end of the interaction, it
+ * happens once, and the thing it is confirming — that today is recorded —
+ * is the only thing the app promises. The square springs in under the
+ * words, then settles into the same slow breath the pain shape uses, so
+ * the day reads as something alive rather than a receipt. Reduce Motion
+ * turns all of it off and the square is simply there.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle, useSharedValue, withDelay, withRepeat,
+  withSpring, withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import PainShape from './PainShape';
 import DaySquare from './DaySquare';
 import * as db from './db';
-import { Press } from './motion';
+import { Press, reduceMotion } from './motion';
 import { getMetric, MetricDef } from './metrics';
 import { questionsNow } from './protocol';
 import { color, font, size } from './theme';
@@ -56,10 +69,6 @@ const SQUARE = 150, SQ_RADIUS = 36;
 const INTERFERENCE_ID = 'pain.interference.v1';
 
 type Step = 'pain' | 'questions' | 'feel' | 'where' | 'done';
-
-/** how the where step is being answered. `ask` is the confirm prompt;
- *  `change` opens the picker with NOTHING pre-selected. */
-type WhereMode = 'ask' | 'change';
 
 export interface CheckinScreenProps {
   /** minutes since midnight; injectable so previews can fix the clock */
@@ -78,7 +87,13 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const [quality, setQuality] = useState<string[]>([]);
   const [loc, setLoc] = useState<string[]>([]);
   const [writtenAt, setWrittenAt] = useState<number | null>(null);
-  const progress = useSharedValue(0);
+  /* the shape starts at the middle of the ramp, where the thumb parks,
+     so an untouched control and an untouched square agree with each other.
+     Both are dimmed until a value is actually chosen. */
+  const progress = useSharedValue(5);
+  /* the confirmation: arrival, then a slow breath under it */
+  const landed = useSharedValue(0);
+  const breath = useSharedValue(0);
 
   const minutes = now != null ? now : minutesNow();
   const [showAllChips, setShowAllChips] = useState(false);
@@ -108,10 +123,12 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      half-finished screen records nothing */
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
 
-  /* the places last recorded — shown as a reminder of what was true then,
-     never pre-ticked as though it were true now */
+  /* Chronic pain usually lives in the same places, so the where step opens
+     with the last ones already ticked and the common case is one tap on
+     Save. The list is on screen and Save is pressed deliberately, so what
+     gets filed is still something the user looked at and agreed to — the
+     thing to avoid was recording places nobody was ever shown. */
   const [previous] = useState<string[]>(() => defaultLocs(db.getAll(), today));
-  const [whereMode, setWhereMode] = useState<WhereMode>('ask');
 
   /* chips in personal order: what you actually pick floats to the front,
      and the rest waits behind "Show more" — a wall of fourteen options is
@@ -132,9 +149,33 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /* the logged screen acknowledges and leaves — no button tax on every log */
   useEffect(() => {
     if (step !== 'done') return;
-    const t = setTimeout(onDone, 1600);
+    const t = setTimeout(onDone, 2200);
     return () => clearTimeout(t);
   }, [step, onDone]);
+
+  useEffect(() => {
+    if (step !== 'done') return;
+    if (reduceMotion) { landed.value = 1; return; }
+    // arrive: overshoot a little, the way a thing with mass would
+    landed.value = withSpring(1, { damping: 11, stiffness: 150, mass: 0.9 });
+    // then breathe, once the arrival has settled
+    breath.value = withDelay(
+      520,
+      withRepeat(withTiming(1, { duration: 2600 }), -1, true)
+    );
+  }, [step]);
+
+  const squareStyle = useAnimatedStyle(() => ({
+    opacity: landed.value,
+    transform: [{ scale: (0.86 + landed.value * 0.14) * (1 + breath.value * 0.035) }],
+  }));
+
+  /* the words follow the square rather than arriving with it — a beat of
+     difference is what makes it read as a sequence instead of a jump */
+  const wordsStyle = useAnimatedStyle(() => ({
+    opacity: landed.value,
+    transform: [{ translateY: (1 - landed.value) * 10 }],
+  }));
 
   const order: Step[] = ['pain', 'questions', 'feel', 'where'];
   const stepsShown = order.filter((s) => s !== 'questions' || askIds.length > 0);
@@ -203,33 +244,12 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       setStep(nextAfter('questions'));
     } else if (step === 'feel') {
       persist();
+      if (nextAfter('feel') === 'where' && !loc.length) setLoc(previous);
       setStep(nextAfter('feel'));
     } else {
       persist({ locAsked: true });
       finish();
     }
-  };
-
-  /* ── the where step's three answers ──────────────────────── */
-
-  const whereSame = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    if (writtenAt != null && pain != null) {
-      db.writeMoment(today, writtenAt, pain, previous, quality, {
-        ...nowMeta(SCALE_VERSION), locAsked: true,
-      });
-    }
-    finish();
-  };
-  const whereChange = () => {
-    Haptics.selectionAsync().catch(() => {});
-    setLoc([]);                      // nothing assumed; the picker starts empty
-    setWhereMode('change');
-  };
-  const whereSkip = () => {
-    Haptics.selectionAsync().catch(() => {});
-    persist({ locSkipped: true });
-    finish();
   };
 
   const chipRow = (
@@ -344,13 +364,17 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         style={[styles.root, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}
       >
         <View style={styles.middle}>
-          <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS} />
-          <Text style={styles.doneTitle}>Logged</Text>
-          <Text style={styles.doneSub}>
-            {count > 1
-              ? count + ' moments today · ' + (e!.logs || []).map((l) => fmtTime(l.h)).join(' · ')
-              : 'Today is on the map. You don’t need to solve it right now.'}
-          </Text>
+          <Animated.View style={squareStyle}>
+            <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS} />
+          </Animated.View>
+          <Animated.View style={[styles.doneWords, wordsStyle]}>
+            <Text style={styles.doneTitle}>Logged</Text>
+            <Text style={styles.doneSub}>
+              {count > 1
+                ? count + ' moments today · ' + (e!.logs || []).map((l) => fmtTime(l.h)).join(' · ')
+                : 'Today is on the map. You don’t need to solve it right now.'}
+            </Text>
+          </Animated.View>
         </View>
       </Pressable>
     );
@@ -365,8 +389,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
 
   const hint = step === 'questions' ? 'All optional — skip any that don’t fit'
     : step === 'feel' ? 'Optional — tap any that fit'
-      : step === 'where'
-        ? (whereMode === 'change' ? 'Tap the places that fit right now' : null)
+      : step === 'where' ? 'Your usual places are already selected'
         : null;
 
   /* collapsed chips: the six you use most, plus anything already selected;
@@ -377,10 +400,6 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     chosen.forEach((id) => { if (head.indexOf(id) < 0) head.push(id); });
     return head;
   };
-
-  /* the where step asks before it assumes: with places on record it offers
-     to confirm them, and the picker it opens starts empty */
-  const showWhereConfirm = step === 'where' && whereMode === 'ask' && previous.length > 0;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}>
@@ -439,18 +458,6 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             return m.type === 'numeric' ? numericRow(m) : ordinalRow(m);
           })}
         </ScrollView>
-      ) : showWhereConfirm ? (
-        <View style={styles.middle}>
-          <Text style={styles.confirmLead} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Last time you recorded
-          </Text>
-          <Text style={styles.confirmList} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {previous.map((id) => LOC_NAMES[id] || id).join(' · ')}
-          </Text>
-          <Text style={styles.confirmNote} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Same areas right now?
-          </Text>
-        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
           {step === 'feel'
@@ -483,27 +490,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           </>
         )}
 
-        {showWhereConfirm ? (
-          /* three answers, none of them a default: same, different, or
-             not saying. Nothing is recorded as confirmed that the user
-             did not confirm. */
-          <View style={styles.confirmRow}>
-            <Press onPress={whereSkip} pressOpacity={0.75} style={styles.ghost}
-              accessibilityRole="button" accessibilityLabel="Skip the where question">
-              <Text style={styles.ghostText}>Skip</Text>
-            </Press>
-            <Press onPress={whereChange} pressOpacity={0.75} style={styles.ghost}
-              accessibilityRole="button" accessibilityLabel="Choose different areas">
-              <Text style={styles.ghostText}>Change</Text>
-            </Press>
-            <Press onPress={whereSame} pressScale={0.985}
-              style={[styles.primary, styles.primaryGrow, { backgroundColor: themeBrand() }]}
-              accessibilityRole="button" accessibilityLabel="Same areas as last time">
-              <Text style={[styles.primaryText, { color: inkForBg(themeBrand()) }]}>Same</Text>
-            </Press>
-          </View>
-        ) : (
-          <>
+        <>
             <Press
               onPress={advance}
               disabled={!canAdvance}
@@ -522,8 +509,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
                 styles.primaryText,
                 canAdvance ? { color: inkForBg(themeBrand()) } : styles.primaryTextOff,
               ]}>
-                {step === 'pain' ? 'Add context'
-                  : step === 'where' ? 'Save today' : 'Continue'}
+                {step === 'where' ? 'Save today' : 'Continue'}
               </Text>
             </Press>
 
@@ -540,12 +526,11 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
                 accessibilityLabel="Log the pain and finish"
               >
                 <Text style={[styles.secondaryText, !canAdvance && styles.primaryTextOff]}>
-                  Just log the pain
+                  That’s it for now
                 </Text>
               </Press>
             )}
-          </>
-        )}
+        </>
       </View>
     </View>
   );
@@ -588,6 +573,7 @@ const styles = StyleSheet.create({
     color: color.textSecondary, fontSize: font.title3, fontWeight: '600',
     letterSpacing: -0.3, marginTop: 2, textAlign: 'center',
   },
+  doneWords: { alignItems: 'center' },
   doneTitle: {
     color: color.textPrimary, fontSize: 26, fontWeight: '700',
     letterSpacing: -0.4, marginTop: 30,
@@ -618,23 +604,6 @@ const styles = StyleSheet.create({
   },
   segText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '600' },
 
-  /* ── the where confirmation ────────────────────────────── */
-  confirmLead: { color: color.textTertiary, fontSize: font.subheadline },
-  confirmList: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '600',
-    textAlign: 'center', marginTop: 8, lineHeight: 26,
-  },
-  confirmNote: {
-    color: color.textSecondary, fontSize: font.body, marginTop: 22, textAlign: 'center',
-  },
-  confirmRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 26 },
-  ghost: {
-    minHeight: size.buttonH, borderRadius: size.buttonH / 2, paddingHorizontal: 18,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: color.borderDivider, backgroundColor: color.bgSurface,
-  },
-  ghostText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-
   chipWrap: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', paddingVertical: 24,
@@ -652,7 +621,6 @@ const styles = StyleSheet.create({
     minHeight: size.buttonH, borderRadius: size.buttonH / 2,
     alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,
   },
-  primaryGrow: { flex: 1, marginTop: 0 },
   primaryText: { fontSize: font.title3, fontWeight: '600' },
   secondary: {
     minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6,
