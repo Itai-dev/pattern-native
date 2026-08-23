@@ -1,8 +1,12 @@
 /**
  * The floating bar — Pattern's navigation as State of Mind draws its own:
- * a glass pill hovering over the content, with the profile as a second,
- * smaller glass circle beside it. Nothing is docked to the screen edge;
- * the content scrolls underneath and reads through the blur.
+ * a glass pill hovering over the content. Nothing is docked to the screen
+ * edge; the content scrolls underneath and reads through the blur.
+ *
+ * Three places, and nothing else. The profile used to ride here in a
+ * second glass circle, which put a settings button at thumb height beside
+ * the three things people actually came to do. It lives in the top right
+ * now, where iOS keeps it, and the pill is free to centre.
  *
  * Switching is INSTANT, on purpose: a tab change happens dozens of times
  * a day, and that frequency earns no animation — a selection haptic is
@@ -22,7 +26,6 @@ export type Tab = 'today' | 'trends' | 'map';
 export interface TabBarProps {
   tab: Tab;
   onChange: (tab: Tab) => void;
-  onProfile: () => void;
 }
 
 /** one rounded square — the day */
@@ -80,7 +83,7 @@ function glyphFor(key: Tab, active: boolean) {
   return <MapGlyph active={active} />;
 }
 
-export default function TabBar({ tab, onChange, onProfile }: TabBarProps) {
+export default function TabBar({ tab, onChange }: TabBarProps) {
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -116,20 +119,6 @@ export default function TabBar({ tab, onChange, onProfile }: TabBarProps) {
           );
         })}
       </BlurView>
-
-      {/* the person, in their own circle of glass */}
-      <BlurView intensity={60} tint="dark" style={[styles.glass, styles.circle]}>
-        <Press
-          onPress={onProfile}
-          pressOpacity={0.7}
-          style={styles.circleHit}
-          accessibilityRole="button"
-          accessibilityLabel="Profile and settings"
-        >
-          <View style={styles.personHead} />
-          <View style={styles.personBody} />
-        </Press>
-      </BlurView>
     </View>
   );
 }
@@ -139,8 +128,8 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 0, right: 0,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
   },
-  /* one glass recipe for both elements — the blur does the work, the tint
-     keeps it legible over a bright day-square, the hairline catches light */
+  /* the blur does the work, the tint keeps it legible over a bright
+     day-square, the hairline catches light */
   glass: {
     overflow: 'hidden',
     backgroundColor: 'rgba(24,24,26,0.55)',
@@ -149,19 +138,16 @@ const styles = StyleSheet.create({
   },
   pill: {
     flexDirection: 'row', alignItems: 'center',
-    borderRadius: 27, height: 54, paddingHorizontal: 5, gap: 1,
+    borderRadius: 28, height: 56, paddingHorizontal: 6, gap: 2,
   },
-  /* three of these plus the profile circle have to clear a 375pt screen,
-     so the glyph and the word stack instead of sitting side by side —
-     the touch target stays well over 44pt in both directions */
+  /* with the profile gone the pill holds three items and nothing else, so
+     each one gets a real target: glyph over word, comfortably past 44pt */
   item: {
-    minHeight: 44, minWidth: 62, borderRadius: 22,
+    minHeight: 46, minWidth: 82, borderRadius: 23,
     alignItems: 'center', justifyContent: 'center', gap: 3,
-    paddingHorizontal: 8, paddingVertical: 5,
+    paddingHorizontal: 10, paddingVertical: 5,
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  circle: { width: 54, height: 54, borderRadius: 27 },
-  circleHit: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dayGlyph: { width: 16, height: 16, borderRadius: 4.5, borderWidth: 1.5 },
   gridGlyph: {
     width: 16, height: 16,
@@ -174,14 +160,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
   },
   bar: { width: 4, borderRadius: 1.5 },
-  label: { fontSize: 11, fontWeight: '600', color: color.textTertiary },
+  label: { fontSize: 12, fontWeight: '600', color: color.textTertiary },
   labelActive: { color: color.textPrimary },
-  personHead: {
-    width: 8, height: 8, borderRadius: 4, borderWidth: 1.4,
-    borderColor: color.textSecondary, marginBottom: 1,
-  },
-  personBody: {
-    width: 16, height: 8, borderTopLeftRadius: 8, borderTopRightRadius: 8,
-    borderWidth: 1.4, borderBottomWidth: 0, borderColor: color.textSecondary,
-  },
 });

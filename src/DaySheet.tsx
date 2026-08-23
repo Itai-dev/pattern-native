@@ -8,7 +8,7 @@
  */
 import React, { useCallback, useState } from 'react';
 import {
-  Alert, LayoutAnimation, ScrollView, StyleSheet, Text, View,
+  LayoutAnimation, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -61,52 +61,29 @@ export default function DaySheet({
   }));
 
   /* deleting an event asks first and says what it removes */
-  const confirmDeleteEvent = useCallback((ev: PainEvent) => {
-    Alert.alert(
-      'Delete this event?',
-      'The ' + fmtTime(ev.h) + ' ' + EVENT_LABELS[ev.kind].toLowerCase() +
-        ' event will be removed. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-            if (!reduceMotion) {
-              LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
-            }
-            if (ev.id != null) db.dropEvent(ev.id);
-            force((n) => n + 1);
-            onChanged();
-          },
-        },
-      ]
-    );
+  /* Swipe, then Delete — the iOS list gesture, and the whole confirmation.
+     The dialog that used to follow it made the deliberate act of swiping a
+     row open and tapping a red button feel like a slip the app had caught.
+     Nothing here is reachable by accident, and the record is exported and
+     restorable, so the gesture stands on its own. */
+  const deleteEvent = useCallback((ev: PainEvent) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (!reduceMotion) {
+      LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    }
+    if (ev.id != null) db.dropEvent(ev.id);
+    force((n) => n + 1);
+    onChanged();
   }, [onChanged]);
 
-  /* deleting is destructive, so it asks first and says what it removes */
-  const confirmDelete = useCallback((h: number) => {
-    Alert.alert(
-      'Delete this check-in?',
-      'The ' + fmtTime(h) + ' check-in will be removed and the day’s average recalculated. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-            if (!reduceMotion) {
-              LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
-            }
-            db.dropMoment(dateIso, h);
-            force((n) => n + 1);   // the header's average updates in place
-            onChanged();
-          },
-        },
-      ]
-    );
+  const deleteMoment = useCallback((h: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (!reduceMotion) {
+      LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    }
+    db.dropMoment(dateIso, h);
+    force((n) => n + 1);   // the header's average updates in place
+    onChanged();
   }, [dateIso, onChanged]);
 
   return (
@@ -164,7 +141,7 @@ export default function DaySheet({
                 overshootRight={false}
                 renderRightActions={() => (
                   <Press
-                    onPress={() => confirmDelete(l.h)}
+                    onPress={() => deleteMoment(l.h)}
                     style={styles.deleteAction}
                     accessibilityRole="button"
                     accessibilityLabel={'Delete the ' + fmtTime(l.h) + ' check-in'}
@@ -290,7 +267,7 @@ export default function DaySheet({
                   overshootRight={false}
                   renderRightActions={() => (
                     <Press
-                      onPress={() => confirmDeleteEvent(ev)}
+                      onPress={() => deleteEvent(ev)}
                       style={styles.deleteAction}
                       accessibilityRole="button"
                       accessibilityLabel={'Delete the ' + fmtTime(ev.h) + ' event'}
@@ -387,7 +364,7 @@ const styles = StyleSheet.create({
   rowSub: { color: color.textSecondary, fontSize: font.footnote, marginTop: 1 },
   chev: { color: color.textTertiary, fontSize: 20 },
   deleteAction: {
-    width: 96, minHeight: 56, backgroundColor: color.danger,
+    width: 88, minHeight: 56, backgroundColor: color.destructive,
     alignItems: 'center', justifyContent: 'center',
   },
   deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },

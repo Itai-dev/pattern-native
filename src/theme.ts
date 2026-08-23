@@ -15,7 +15,13 @@ export const color = {
   textPrimary: '#FFFFFF',
   textSecondary: '#A0A0A8',
   textTertiary: '#8E8E93',
+  /** the soft terracotta this app uses for destructive TEXT — a warning
+   *  that does not shout on a screen about pain */
   danger: '#E0795A',
+  /** iOS systemRed, for the one place the platform's own colour is the
+   *  clearer signal: the swipe-to-delete action, which people read by
+   *  colour before they read the word */
+  destructive: '#FF3B30',
   shieldOk: '#7CC9A6',
   /** the app's interactive tint — nav actions, links, selection */
   tint: '#5BA8FF',

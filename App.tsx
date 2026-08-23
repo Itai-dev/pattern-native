@@ -13,9 +13,7 @@ import MapScreen from './src/MapScreen';
 import TabBar, { Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
-import FunctionSheet from './src/FunctionSheet';
 import EventSheet from './src/EventSheet';
-import GoalSheet from './src/GoalSheet';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import RemindersSection from './src/RemindersSection';
@@ -32,7 +30,7 @@ configureHandler(); // set once, before anything can be delivered
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'func' | 'funcBaseline' | 'event' | 'goal';
+type Sheet = null | 'checkin' | 'event';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
@@ -64,9 +62,7 @@ function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: strin
  */
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
-  const [func, setFunc] = useState(() => db.getFunc());
   const [events, setEvents] = useState(() => db.getEvents());
-  const [goalText, setGoalText] = useState(() => db.getGoal());
   /* act on Today, see the record in Trends, correct it on the Map */
   const [tab, setTab] = useState<Tab>('today');
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -81,9 +77,7 @@ export default function App() {
 
   const refresh = useCallback(() => {
     setEntries(db.getAll());
-    setFunc(db.getFunc());
     setEvents(db.getEvents());
-    setGoalText(db.getGoal());
   }, []);
 
   const closeSheet = useCallback(() => {
@@ -94,11 +88,6 @@ export default function App() {
     if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
   }, [refresh, returnDay]);
   const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
-
-  const editGoal = useCallback(() => {
-    setProfile(false);
-    setSheet('goal');
-  }, []);
 
   const startEditEvent = useCallback((ev: PainEvent) => {
     setReturnDay(daySheet);
@@ -232,6 +221,9 @@ export default function App() {
         <SafeAreaView style={styles.safe} edges={['top']}>
           {/* one large title per screen, always in the same place — the
               date on Today, the month on the Map */}
+          {/* one large title per screen, and the person in the corner iOS
+              keeps them in — off the tab bar, out of thumb reach, and out
+              of the way of the three things the app is actually for */}
           <View style={styles.topBar}>
             <Text
               style={styles.wordmark}
@@ -245,6 +237,16 @@ export default function App() {
                 : tab === 'trends' ? 'Trends'
                   : MONTHS[new Date().getMonth()]}
             </Text>
+            <Pressable
+              onPress={() => setProfile(true)}
+              style={styles.profileBtn}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Profile and settings"
+            >
+              <View style={styles.personHead} />
+              <View style={styles.personBody} />
+            </Pressable>
           </View>
 
           {/* keyed per tab so each place starts at its own top; the page
@@ -253,20 +255,22 @@ export default function App() {
             {tab === 'today' ? (
               <HomeScreen
                 entries={entries}
-                func={func}
-                goalText={goalText}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={setDaySheet}
-                onEvent={() => setSheet('event')}
-                onFunc={(baseline) => setSheet(baseline ? 'funcBaseline' : 'func')}
-                onSetGoal={editGoal}
               />
             ) : tab === 'trends' ? (
+              /* The activity goal and its weekly rating are out of the
+                 app for now — they asked for a second commitment before the
+                 first one had proved itself. The TABLE and the backup are
+                 untouched, and any rating already recorded is still exported
+                 and restored; passing nothing here is what keeps it off the
+                 screen and out of the PDF, and putting the two values back
+                 is what brings it all back. */
               <TrendsScreen
                 entries={entries}
                 events={events}
-                func={func}
-                goalText={goalText}
+                func={[]}
+                goalText={null}
                 todayIso={todayISO()}
               />
             ) : (
@@ -274,30 +278,12 @@ export default function App() {
             )}
           </ScrollView>
 
-          <TabBar tab={tab} onChange={setTab} onProfile={() => setProfile(true)} />
+          <TabBar tab={tab} onChange={setTab} />
         </SafeAreaView>
 
         {/* a full-screen flow keeps its own ✕ */}
         <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
           <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
-        </Modal>
-
-        <Modal
-          visible={sheet === 'func' || sheet === 'funcBaseline'}
-          animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}
-        >
-          {goalText && (
-            <FunctionSheet
-              goalText={goalText}
-              baseline={sheet === 'funcBaseline'}
-              onDone={closeSheet}
-              onClose={closeSheet}
-            />
-          )}
-        </Modal>
-
-        <Modal visible={sheet === 'goal'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <GoalSheet initialText={goalText} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
@@ -346,7 +332,7 @@ export default function App() {
                   accessibilityHint="Opens the Trends tab"
                 >
                   <RowIcon name="document-text" bg="#0A84FF" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Your record and summary</Text>
                     <Text style={styles.rowValue}>
                       {dayCount} {dayCount === 1 ? 'day' : 'days'}
@@ -355,21 +341,6 @@ export default function App() {
                   </View>
                 </Pressable>
 
-                <Pressable
-                  onPress={editGoal}
-                  style={styles.row}
-                  accessibilityRole="button"
-                  accessibilityLabel={'Activity I want back' + (goalText ? ': ' + goalText : ', not set')}
-                >
-                  <RowIcon name="walk" bg="#30D158" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Activity I want back</Text>
-                    <Text style={styles.rowValue} numberOfLines={1}>
-                      {goalText || 'Not set'}
-                    </Text>
-                    <Text style={styles.rowChevron}>›</Text>
-                  </View>
-                </Pressable>
               </View>
 
               <Text style={styles.groupTitle}>Reminders</Text>
@@ -465,6 +436,21 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: size.pageX, paddingTop: 4,
+  },
+  /* the person, drawn in the same two strokes the tab bar used to carry */
+  profileBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: color.bgSurface,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  },
+  personHead: {
+    width: 8, height: 8, borderRadius: 4, borderWidth: 1.4,
+    borderColor: color.textSecondary, marginBottom: 1,
+  },
+  personBody: {
+    width: 16, height: 8, borderTopLeftRadius: 8, borderTopRightRadius: 8,
+    borderWidth: 1.4, borderBottomWidth: 0, borderColor: color.textSecondary,
   },
   /* the main screen's title — iOS large-title weight and size */
   wordmark: {
