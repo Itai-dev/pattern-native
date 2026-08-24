@@ -51,14 +51,12 @@ import { color, font, radius, size } from './theme';
 
 const SQUARE = 132, SQ_RADIUS = 31;
 
-/** how much of the screen each neighbour is allowed to show through.
- *  Roughly SIDE − GAP − (card × (1 − MIN_SCALE) ÷ 2) actually lands. */
-const SIDE = 48;
-/** the breathing room between one card and the next */
-const GAP = 5;
-/** how small a neighbour gets. Shallow on purpose: the shrink is what
- *  eats the sliver, and the job here is only to say "not this one". */
-const MIN_SCALE = 0.95;
+/** how much of the screen each neighbour shows. With no scaling in the
+ *  way, exactly SIDE − GAP of a neighbour lands on screen. */
+const SIDE = 24;
+/** the black between one card and the next — real spacing, so the peek
+ *  reads as a separate card rather than as this one running off */
+const GAP = 9;
 /** how far off centre a card can be and still show its words. Past this
  *  it is a blank surface; before it, fully readable — so a swipe never
  *  passes through a dark gap. */
@@ -119,12 +117,11 @@ function DayCard({
   /* full size at centre, smaller and dimmer at either side, continuously
      — a card that only resized once the swipe settled would read as a
      glitch rather than as depth */
+  /* no scale: the neighbour keeps its full size so every reserved pt is
+     a pt you can see. Depth comes from the surface dimming instead. */
   const pageStyle = useAnimatedStyle(() => {
     const off = Math.abs(scrollX.value / itemW - index);
-    return {
-      transform: [{ scale: interpolate(off, [0, 1], [1, MIN_SCALE], Extrapolation.CLAMP) }],
-      opacity: interpolate(off, [0, 1], [1, 0.8], Extrapolation.CLAMP),
-    };
+    return { opacity: interpolate(off, [0, 1], [1, 0.75], Extrapolation.CLAMP) };
   });
   /* the words, separately: gone at rest, back well before centre */
   const contentStyle = useAnimatedStyle(() => {
@@ -438,9 +435,11 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
     paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16,
   },
+  /* centred over the square, like the number and the word beneath it —
+     the whole hero block reads down one axis */
   when: {
     color: color.textTertiary, fontSize: font.footnote, fontWeight: '600',
-    letterSpacing: 0.6, marginBottom: 4,
+    letterSpacing: 0.6, marginBottom: 4, textAlign: 'center',
   },
   cardRule: {
     height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider,
@@ -456,9 +455,13 @@ const styles = StyleSheet.create({
      own day does not need reminding what it is out of. */
   score: {
     color: color.textPrimary, fontSize: 34, fontWeight: '700', letterSpacing: -0.8,
-    lineHeight: 40, marginTop: 10, fontVariant: ['tabular-nums'],
+    lineHeight: 40, marginTop: 10, textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
-  underLine: { color: color.textTertiary, fontSize: font.subheadline, marginTop: 2 },
+  underLine: {
+    color: color.textTertiary, fontSize: font.subheadline, marginTop: 2,
+    textAlign: 'center',
+  },
   underWord: { color: color.textSecondary, fontWeight: '600' },
   empty: { color: color.textSecondary, fontSize: font.body, marginTop: 20 },
   backRow: {

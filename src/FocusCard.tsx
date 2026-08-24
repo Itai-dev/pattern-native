@@ -18,7 +18,7 @@ import { Press } from './motion';
 import { getMetric } from './metrics';
 import { Entries, Protocol } from './model';
 import {
-  FactorProgress, REVIEW_CHANGE, REVIEW_KEEP, activeFactorIds, dayNumber,
+  FactorProgress, REVIEW_CHANGE, REVIEW_KEEP, activeFactorIds,
   progressSentence, promotionCandidate, promotionSentence, reviewDue, reviewProgress,
 } from './protocol';
 import { PROTOCOL_REVIEW_DAYS } from './thresholds';
@@ -34,12 +34,6 @@ export interface FocusCardProps {
   onKeepGoing: () => void;
   /** open the focus flow already pointed at one factor */
   onTest: (metricId: string) => void;
-}
-
-function factorNames(p: Protocol): string {
-  return activeFactorIds(p)
-    .map((id) => { const m = getMetric(id); return m ? m.name : id; })
-    .join(' · ');
 }
 
 function Line({ f }: { f: FactorProgress }) {
@@ -139,34 +133,25 @@ export default function FocusCard({
   }
 
   const due = reviewDue(protocol, todayIso);
-  const day = dayNumber(protocol, todayIso);
 
-  /* running, and not yet at the review — one quiet line, no progress bar,
-     no streak, nothing that rewards looking at it */
-  if (!due) {
-    return (
-      <View
-        style={[styles.card, styles.statusCard]}
-        accessible
-        accessibilityLabel={'Your focus. Watching ' + factorNames(protocol)
-          + ' alongside your pain. Day ' + day + ' of ' + PROTOCOL_REVIEW_DAYS
-          + '. Nothing to do — keep checking in as usual.'}
-      >
-        <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-          YOUR FOCUS
-        </Text>
-        <Text style={styles.statusWhat} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Watching {factorNames(protocol).replace(' · ', ' and ')} alongside your pain
-        </Text>
-        {/* the day number as orientation, and a sentence saying there is
-            nothing being asked of you — the absence of a task is the part
-            people otherwise read a progress line as demanding */}
-        <Text style={styles.statusWhen} allowFontScaling maxFontSizeMultiplier={1.3}>
-          Day {day} of {PROTOCOL_REVIEW_DAYS} · nothing to do, just keep checking in
-        </Text>
-      </View>
-    );
-  }
+  /* Running, and not yet at the review: NOTHING.
+
+     This was a line, then a card, and both were wrong in the same way —
+     a period you are inside has nothing to say to you. It cannot report
+     what it is finding, because saying anything before day fourteen is
+     the exact thing the threshold exists to prevent. It cannot ask for
+     anything, because the asking happens inside the check-in. So it sat
+     on Today restating a decision you already made, which is how a
+     screen fills up with things that are true and useless.
+
+     It comes back on day fourteen with something to say. Until then the
+     period is running whether or not it is drawn, and Today is about the
+     day. What is being watched is in the check-in itself, where it is
+     being answered.
+     
+     Kept out of the way rather than deleted: the review below, the
+     invitation above, and the promotion offer all still render. */
+  if (!due) return null;
 
   /* day fourteen: how much, never what */
   const prog = reviewProgress(protocol, entries, todayIso);
@@ -230,17 +215,6 @@ const styles = StyleSheet.create({
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
     letterSpacing: -0.2, marginTop: 34, marginBottom: 10,
     paddingHorizontal: size.pageX,
-  },
-  statusCard: { marginTop: 26 },
-  eyebrow: {
-    color: color.textTertiary, fontSize: font.footnote, fontWeight: '600',
-    letterSpacing: 0.6, marginBottom: 8,
-  },
-  statusWhat: {
-    color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22,
-  },
-  statusWhen: {
-    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 6,
   },
   card: {
     marginHorizontal: size.pageX,
