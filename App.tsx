@@ -384,6 +384,12 @@ export default function App() {
               onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
               onEditLog={() => { setDaySheet(null); setSheet('checkin'); }}
               onEditEvent={startEditEvent}
+              onAddEvent={() => {
+                setReturnDay(daySheet);
+                setDaySheet(null);
+                setEditEvent(null);
+                setSheet('event');
+              }}
               onClose={closeDay}
             />
           )}

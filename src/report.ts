@@ -17,7 +17,8 @@ import {
 } from './metrics';
 import {
   Entries, EVENT_LABELS, EventKind, FuncEntry, LOC_NAMES, PainEvent,
-  INTERVENTIONS, QUALITY_NAMES, RESPONSE_LABELS, Response, checkinCount, dailyAverage,
+  DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, QUALITY_NAMES, RESPONSE_LABELS,
+  Response, checkinCount, dailyAverage,
   dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
 } from './model';
 import { formatScore, painLabel } from './painScale';
@@ -686,7 +687,19 @@ export function reportHtml(data: ReportData): string {
         : (ev.helped != null
           ? ' <span class="note num">(patient-reported effect ' + ev.helped + '/10)</span>'
           : '');
-      const note = (ev.text ? esc(ev.text) : '—') + tried + outcome;
+      /* SOCRATES onset and radiation, where they were answered. These
+         are the two questions asked first in a consultation and the two
+         nobody can reconstruct weeks later, which is the whole reason
+         they are collected at the time. */
+      const guided: string[] = [];
+      if (ev.onset) guided.push(esc(ONSET_LABELS[ev.onset]));
+      if (ev.doing) guided.push('doing: ' + esc(ev.doing));
+      if (ev.spread) guided.push('spread: ' + esc(ev.spread));
+      if (ev.duration) guided.push('lasted: ' + esc(DURATION_LABELS[ev.duration]));
+      const detail = guided.length
+        ? '<br><span class="note">' + guided.join(' · ') + '</span>'
+        : '';
+      const note = (ev.text ? esc(ev.text) : '—') + tried + outcome + detail;
       s.push('<tr><td class="num">' + esc(fmtShortDate(ev.date)) + '</td>' +
         '<td class="num">' + esc(fmtTime(ev.h)) + '</td>' +
         '<td>' + esc(EVENT_LABELS[ev.kind as EventKind] || ev.kind) + '</td>' +

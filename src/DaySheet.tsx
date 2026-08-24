@@ -40,11 +40,12 @@ export interface DaySheetProps {
   onAddLog: () => void;
   onEditLog: (h: number) => void;
   onEditEvent: (ev: PainEvent) => void;
+  onAddEvent: () => void;
   onClose: () => void;
 }
 
 export default function DaySheet({
-  dateIso, entry, onChanged, onAddLog, onEditLog, onEditEvent, onClose,
+  dateIso, entry, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, onClose,
 }: DaySheetProps) {
   const [, force] = useState(0);
   const d = dateFromISO(dateIso);
@@ -181,6 +182,21 @@ export default function DaySheet({
             <Text style={styles.swipeHint}>Tap to edit · swipe left to delete</Text>
           </View>
         )}
+
+        {/* A flare, a treatment, anything that happened. This used to be
+            a button on Today; it lives here now, next to the day it would
+            be about, which is also where it is read back. Without it
+            nothing could create an event at all. */}
+        <Press
+          onPress={onAddEvent}
+          pressOpacity={0.85}
+          style={styles.addEvent}
+          accessibilityRole="button"
+          accessibilityLabel="Note something that happened"
+          accessibilityHint="Opens a short set of questions about a flare or a treatment"
+        >
+          <Text style={styles.addEventText}>Note something that happened</Text>
+        </Press>
 
         {/* what was asked that day, and what came back. A question that
             was PUT and declined says so; a question never put is simply
@@ -368,6 +384,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
+  addEvent: {
+    marginTop: 20, minHeight: 48, borderRadius: radius.button,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  },
+  addEventText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   qRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 10, paddingHorizontal: 14,

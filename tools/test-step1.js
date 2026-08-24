@@ -934,5 +934,85 @@ ok('the colours come from the one pain ramp, not a second one', (() => {
   return widget.weekColors(e, '2026-08-10')[6] === scale.painColor(7);
 })());
 
+/* ── the guided note ────────────────────────────────────────── */
+group('the guided note');
+
+const flare = (extra) => Object.assign(
+  { date: '2026-08-10', h: 9 * M, kind: 'flare', text: '' }, extra || {}
+);
+
+ok('the two missing SOCRATES answers round-trip', (() => {
+  const ev = model.cleanEvent(flare({
+    onset: 'sudden', doing: 'carrying shopping', spread: 'down my left leg',
+    duration: 'hours',
+  }));
+  return ev.onset === 'sudden' && ev.doing === 'carrying shopping'
+    && ev.spread === 'down my left leg' && ev.duration === 'hours';
+})());
+ok('an invented onset is dropped rather than stored',
+  model.cleanEvent(flare({ onset: 'exploded' })).onset === undefined);
+ok('an invented duration is dropped',
+  model.cleanEvent(flare({ duration: 'a fortnight' })).duration === undefined);
+ok('whitespace is not an answer', (() => {
+  const ev = model.cleanEvent(flare({ spread: '   ', doing: '' }));
+  return ev.spread === undefined && ev.doing === undefined;
+})());
+ok('a flare with nothing but a time is still a flare', (() => {
+  const ev = model.cleanEvent(flare({}));
+  return ev !== null && ev.onset === undefined && ev.duration === undefined;
+})());
+ok('unanswered stays absent — never an empty string', (() => {
+  const ev = model.cleanEvent(flare({ onset: 'gradual' }));
+  return ev.onset === 'gradual' && !('spread' in ev) && !('doing' in ev);
+})());
+ok('two flares differing only in onset are different events', (() => {
+  const a = flare({ onset: 'sudden' });
+  const b = flare({ onset: 'gradual' });
+  return model.eventKey(a) !== model.eventKey(b);
+})());
+ok('the labels read as things a person would say', (() => {
+  return model.ONSET_LABELS.sudden === 'Came on suddenly'
+    && model.DURATION_LABELS.mostDay === 'Most of the day'
+    && model.ONSETS.length === 3 && model.DURATIONS.length === 4;
+})());
+ok('a v5 backup carries the guided answers', (() => {
+  const b = model.validateBackup(JSON.stringify({
+    version: 5, entries: {},
+    events: [flare({ onset: 'sudden', spread: 'left arm', duration: 'minutes' })],
+  }));
+  const ev = b.events[0];
+  return ev.onset === 'sudden' && ev.spread === 'left arm' && ev.duration === 'minutes';
+})());
+ok('the PDF prints onset and radiation beside the event', (() => {
+  const e = {
+    '2026-08-10': { pain: 8, cap: null, note: '', logs: [{ h: 9 * M, pain: 8 }] },
+  };
+  const data = report.buildReportData({
+    entries: e,
+    events: [flare({
+      id: 1, onset: 'sudden', doing: 'lifting a box',
+      spread: 'down the back of my leg', duration: 'hours',
+    })],
+    func: [], goalText: null, todayIso: '2026-08-10', windowDays: 90,
+  });
+  const html = report.reportHtml(data);
+  return html.indexOf('Came on suddenly') > 0
+    && html.indexOf('lifting a box') > 0
+    && html.indexOf('down the back of my leg') > 0
+    && html.indexOf('A few hours') > 0;
+})());
+ok('an event nobody described prints no empty detail line', (() => {
+  const e = {
+    '2026-08-10': { pain: 8, cap: null, note: '', logs: [{ h: 9 * M, pain: 8 }] },
+  };
+  const data = report.buildReportData({
+    entries: e, events: [flare({ id: 1, text: 'bad one' })],
+    func: [], goalText: null, todayIso: '2026-08-10', windowDays: 90,
+  });
+  const html = report.reportHtml(data);
+  return html.indexOf('bad one') > 0 && html.indexOf('doing:') < 0
+    && html.indexOf('spread:') < 0 && html.indexOf('lasted:') < 0;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

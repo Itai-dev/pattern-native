@@ -471,6 +471,35 @@ export const RESPONSE_LABELS: Record<Response, string> = {
 };
 export const RESPONSES = Object.keys(RESPONSE_LABELS) as Response[];
 
+/* ── the guided note ─────────────────────────────────────────
+   Against SOCRATES — the frame the report already follows — this record
+   had Site, Character, Severity, Time and Exacerbating/relieving, and was
+   missing ONSET and RADIATION. Those two are what a clinician asks first
+   about a flare and what nobody can reconstruct three weeks later.
+
+   They are asked as a short run of fixed questions, not a conversation.
+   A conversation would imply something is listening, and nothing is: the
+   questions are a list in this file. Naming it a chat is how a scripted
+   tree turns into pattern-matching theatre, which this app has retired
+   once already. */
+
+export type Onset = 'sudden' | 'gradual' | 'ongoing';
+export const ONSET_LABELS: Record<Onset, string> = {
+  sudden: 'Came on suddenly',
+  gradual: 'Built up gradually',
+  ongoing: 'It was already there',
+};
+export const ONSETS = Object.keys(ONSET_LABELS) as Onset[];
+
+export type Duration = 'minutes' | 'hours' | 'mostDay' | 'days';
+export const DURATION_LABELS: Record<Duration, string> = {
+  minutes: 'Minutes',
+  hours: 'A few hours',
+  mostDay: 'Most of the day',
+  days: 'Days',
+};
+export const DURATIONS = Object.keys(DURATION_LABELS) as Duration[];
+
 export interface PainEvent {
   id?: number;
   date: string;      // YYYY-MM-DD
@@ -489,6 +518,17 @@ export interface PainEvent {
   intervention?: string;
   /** how it went, on records written since. Never mapped onto `helped`. */
   resp?: Response;
+  /** how it started — SOCRATES "Onset" */
+  onset?: Onset;
+  /** how long it lasted, in the coarse buckets people actually recall */
+  duration?: Duration;
+  /** where it travelled to, in the user's words — SOCRATES "Radiation".
+   *  Free text rather than body regions: "down the back of my leg" is the
+   *  answer a clinician wants, and a region picker cannot say it. */
+  spread?: string;
+  /** what they were doing when it started. Free text, because the useful
+   *  answers are too various to list and too specific to guess. */
+  doing?: string;
   /** 1 = the user chose to file this alongside that day's check-ins.
    *  Association only — no causal relationship is stored or implied. */
   linked?: number;
@@ -836,6 +876,14 @@ export function cleanEvent(raw: unknown): Omit<PainEvent, 'id'> | null {
   if (typeof r.resp === 'string' && RESPONSES.indexOf(r.resp as Response) >= 0) {
     ev.resp = r.resp as Response;
   }
+  if (typeof r.onset === 'string' && ONSETS.indexOf(r.onset as Onset) >= 0) {
+    ev.onset = r.onset as Onset;
+  }
+  if (typeof r.duration === 'string' && DURATIONS.indexOf(r.duration as Duration) >= 0) {
+    ev.duration = r.duration as Duration;
+  }
+  if (typeof r.spread === 'string' && r.spread.trim()) ev.spread = r.spread;
+  if (typeof r.doing === 'string' && r.doing.trim()) ev.doing = r.doing;
   if (r.linked === 1) ev.linked = 1;
   return ev;
 }
@@ -925,6 +973,7 @@ export function eventKey(ev: Omit<PainEvent, 'id'>): string {
     ev.quality && ev.quality.length ? ev.quality.slice().sort().join('+') : '',
     ev.intervention || '',
     ev.resp || '',
+    ev.onset || '', ev.duration || '', ev.spread || '', ev.doing || '',
   ].join('|');
 }
 

@@ -11,7 +11,7 @@ import { getMetric } from './metrics';
 import { addDays } from './model';
 import {
   Answer, BACKUP_VERSION, CONTEXT_VERSION, ContextAnswers, Entries, Entry,
-  EventKind, FuncEntry, Hypothesis, PainEvent, Protocol, ProtocolStatus,
+  Duration, EventKind, FuncEntry, Hypothesis, Onset, PainEvent, Protocol, ProtocolStatus,
   MomentMeta, Response, ValidBackup,
   applyMoment, cleanCtx, cleanEntry, cleanModifiers, dedupeEvents,
   migrateEntries, nowMeta, protocolKey, removeMoment, syncDayPain, validateBackup,
@@ -47,6 +47,14 @@ function conn(): SQLiteDatabase {
        anything but invented. Both are stored; the report says which. */
     try { db.execSync('ALTER TABLE events ADD COLUMN intervention TEXT'); } catch {}
     try { db.execSync('ALTER TABLE events ADD COLUMN resp TEXT'); } catch {}
+    /* M10 — the guided note. Onset and radiation were the two SOCRATES
+       answers the record could not hold; duration and what-you-were-doing
+       are what make them usable. All four are NULL on every existing row,
+       which is honest: nobody was ever asked. */
+    try { db.execSync('ALTER TABLE events ADD COLUMN onset TEXT'); } catch {}
+    try { db.execSync('ALTER TABLE events ADD COLUMN duration TEXT'); } catch {}
+    try { db.execSync('ALTER TABLE events ADD COLUMN spread TEXT'); } catch {}
+    try { db.execSync('ALTER TABLE events ADD COLUMN doing TEXT'); } catch {}
 
     /* M2 — the hypothesis in the user's own words. Never leaves the
        device, never parsed by anything remote. */
@@ -292,6 +300,8 @@ interface EventRow {
   id: number; date: string; h: number; kind: string; text: string;
   quality: string | null; helped: number | null; linked: number | null;
   intervention: string | null; resp: string | null;
+  onset: string | null; duration: string | null;
+  spread: string | null; doing: string | null;
 }
 
 function rowToEvent(r: EventRow): PainEvent {
@@ -301,19 +311,25 @@ function rowToEvent(r: EventRow): PainEvent {
   if (r.intervention != null) ev.intervention = r.intervention;
   if (r.resp != null) ev.resp = r.resp as Response;
   if (r.linked != null) ev.linked = r.linked;
+  if (r.onset != null) ev.onset = r.onset as Onset;
+  if (r.duration != null) ev.duration = r.duration as Duration;
+  if (r.spread != null) ev.spread = r.spread;
+  if (r.doing != null) ev.doing = r.doing;
   return ev;
 }
 
 export function addEvent(ev: Omit<PainEvent, 'id'>): void {
   conn().runSync(
-    'INSERT INTO events (date, h, kind, text, quality, helped, linked, intervention, resp) ' +
-    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO events (date, h, kind, text, quality, helped, linked, intervention, ' +
+    'resp, onset, duration, spread, doing) ' +
+    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ev.date, ev.h, ev.kind, ev.text,
     ev.quality && ev.quality.length ? JSON.stringify(ev.quality) : null,
     ev.helped != null ? ev.helped : null,
     ev.linked != null ? ev.linked : null,
     ev.intervention || null,
-    ev.resp || null
+    ev.resp || null,
+    ev.onset || null, ev.duration || null, ev.spread || null, ev.doing || null
   );
 }
 
@@ -321,13 +337,15 @@ export function addEvent(ev: Omit<PainEvent, 'id'>): void {
 export function updateEvent(id: number, ev: Omit<PainEvent, 'id'>): void {
   conn().runSync(
     'UPDATE events SET date = ?, h = ?, kind = ?, text = ?, quality = ?, helped = ?, ' +
-    'linked = ?, intervention = ?, resp = ? WHERE id = ?',
+    'linked = ?, intervention = ?, resp = ?, onset = ?, duration = ?, spread = ?, ' +
+    'doing = ? WHERE id = ?',
     ev.date, ev.h, ev.kind, ev.text,
     ev.quality && ev.quality.length ? JSON.stringify(ev.quality) : null,
     ev.helped != null ? ev.helped : null,
     ev.linked != null ? ev.linked : null,
     ev.intervention || null,
     ev.resp || null,
+    ev.onset || null, ev.duration || null, ev.spread || null, ev.doing || null,
     id
   );
 }
