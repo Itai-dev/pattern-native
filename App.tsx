@@ -184,7 +184,7 @@ export default function App() {
      the same whether the app was already running or not. */
   useEffect(() => {
     const open = (url: string | null) => {
-      if (url && url.indexOf('checkin') >= 0) setSheet('checkin');
+      if (url && url.indexOf('checkin') >= 0) { track('widget_tap'); setSheet('checkin'); }
     };
     Linking.getInitialURL().then(open).catch(() => {});
     const sub = Linking.addEventListener('url', (ev) => open(ev.url));
@@ -228,6 +228,7 @@ export default function App() {
   const applyRestore = useCallback((backup: ValidBackup, mode: db.RestoreMode) => {
     try {
       const r = db.applyBackup(backup, mode);
+      track('backup_restored', { mode });
       refresh();
       Alert.alert(
         mode === 'replace' ? 'Backup restored' : 'Backup merged',
@@ -287,6 +288,7 @@ export default function App() {
   }, [applyRestore]);
 
   const exportBackup = useCallback(async () => {
+    track('backup_exported');
     const json = db.exportBackup(todayISO());
     const path = FileSystem.cacheDirectory + 'pattern-backup-' + todayISO() + '.json';
     try {

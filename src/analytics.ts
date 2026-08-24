@@ -48,6 +48,8 @@ export type EventName =
   | 'trends_opened'
   | 'history_opened'
   | 'pdf_shared'
+  | 'backup_exported'
+  | 'backup_restored'
   | 'widget_tap';
 
 type PropValue = number | boolean | string;

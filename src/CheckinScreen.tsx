@@ -71,6 +71,7 @@ import {
   eligibleNow, getMetric,
 } from './metrics';
 import { questionsNow } from './protocol';
+import { track, trackCheckin } from './analytics';
 import { color, font, size } from './theme';
 import {
   PAIN_END_HIGH, PAIN_END_LOW, formatScore, inkForBg, inkOn, painColor,
@@ -470,7 +471,14 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         ) : <View style={styles.close2} />}
         {/* the flow's name sits between the controls, the reference's way */}
         <Text style={styles.navTitle} allowFontScaling={false}>Check-In</Text>
-        <Press onPress={onClose} style={styles.close} hitSlop={12}
+        <Press
+          onPress={() => {
+            /* opened, chose nothing, left — the funnel's quietest number
+               and the one that says whether the first screen is working */
+            if (writtenAt == null) track('checkin_abandoned');
+            onClose();
+          }}
+          style={styles.close} hitSlop={12}
           accessibilityRole="button" accessibilityLabel="Close">
           <Text style={styles.closeGlyph}>✕</Text>
         </Press>
