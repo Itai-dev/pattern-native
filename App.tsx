@@ -454,10 +454,6 @@ export default function App() {
           <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
-        <Modal visible={about} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAbout(false)}>
-          <OnboardingScreen review onDone={() => setAbout(false)} />
-        </Modal>
-
         <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
           <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
@@ -633,6 +629,13 @@ export default function App() {
 
             {/* the theme picker, pushed on top the way Settings pushes a
                 detail page — Done falls back here */}
+            {/* nested inside the profile sheet, like Appearance — iOS
+                will not present a sibling sheet while this one is up,
+                which is why the first placement never opened */}
+            <Modal visible={about} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAbout(false)}>
+              <OnboardingScreen review onDone={() => setAbout(false)} />
+            </Modal>
+
             <Modal visible={appearance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAppearance(false)}>
               <AppearanceSheet onPick={pickTheme} onDone={() => setAppearance(false)} />
             </Modal>
