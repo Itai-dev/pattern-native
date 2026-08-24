@@ -20,14 +20,15 @@
  * The user can turn it off in Profile. The identifier is a random id
  * minted on this device, linked to nothing. Events go to Aptabase
  * (EU-hosted, open source), named in the privacy policy; until an app key
- * is configured, every call is a no-op and nothing is sent anywhere.
+ * was configured (24 Aug 2026), every call was a no-op; the ingestion
+ * shape was verified against the live endpoint before the first ship.
  */
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as db from './db';
 
 /* set when the Aptabase app is created; empty = analytics entirely off */
-const APP_KEY = '';
+const APP_KEY = 'A-EU-5124485143';
 const INGEST_URL = 'https://eu.aptabase.com/api/v0/event';
 
 /** every event Pattern may ever count — a closed list, on purpose */
