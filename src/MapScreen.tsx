@@ -61,10 +61,20 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
   /* every month from this one back to the one holding the oldest entry,
      newest first */
   const months = useMemo<MonthBlock[]>(() => {
-    const keys = Object.keys(entries).sort();
+    /* only well-formed date keys decide how far back the stack goes — a
+       single malformed key from an old import would otherwise pin
+       "oldest" somewhere meaningless and unroll a year of empty grids,
+       which is exactly what it did */
+    const keys = Object.keys(entries)
+      .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+      .sort();
     const now = new Date();
-    const oldest = keys.length ? new Date(keys[0].slice(0, 4) + '/' + keys[0].slice(5, 7) + '/01')
+    let oldest = keys.length
+      ? new Date(+keys[0].slice(0, 4), +keys[0].slice(5, 7) - 1, 1)
       : new Date(now.getFullYear(), now.getMonth(), 1);
+    if (isNaN(oldest.getTime()) || oldest > now) {
+      oldest = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
     const out: MonthBlock[] = [];
     const cur = new Date(now.getFullYear(), now.getMonth(), 1);
     while (out.length < MAX_MONTHS) {

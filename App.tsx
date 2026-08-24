@@ -4,6 +4,8 @@ import {
   Alert, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable,
   ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
@@ -45,6 +47,34 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 function todayTitle(): string {
   const d = new Date();
   return WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+}
+
+/** The floating return pill — the tab bar's glass, one word of it.
+ *  Top right, under the headline, where the eye goes for "take me back";
+ *  the availability check is guarded for the same reason the tab bar's
+ *  is: it throws on binaries that predate the native module. */
+const PILL_LIQUID = (() => {
+  try { return isLiquidGlassAvailable(); } catch { return false; }
+})();
+
+function GlassPill({ onPress, label, accessibilityLabel }: {
+  onPress: () => void; label: string; accessibilityLabel: string;
+}) {
+  const inner = (
+    <Pressable onPress={onPress} style={styles.pillHit}
+      accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
+      <Text style={styles.backToTodayText}>{label}</Text>
+    </Pressable>
+  );
+  return PILL_LIQUID ? (
+    <GlassView glassEffectStyle="regular" colorScheme="dark" style={styles.backToToday}>
+      {inner}
+    </GlassView>
+  ) : (
+    <BlurView intensity={80} tint="systemChromeMaterialDark" style={styles.backToToday}>
+      {inner}
+    </BlurView>
+  );
 }
 
 /** a settings row's glyph: the outline form, in line weight, the way
@@ -369,14 +399,11 @@ export default function App() {
           </ScrollView>
 
           {tab === 'map' && historyAway && (
-            <Pressable
+            <GlassPill
               onPress={() => historyScroll.current?.scrollTo({ y: 0, animated: true })}
-              style={styles.backToToday}
-              accessibilityRole="button"
+              label="Today ↑"
               accessibilityLabel="Back to today"
-            >
-              <Text style={styles.backToTodayText}>Today ↑</Text>
-            </Pressable>
+            />
           )}
 
           <TabBar tab={tab} onChange={goToTab} />
@@ -577,13 +604,14 @@ const styles = StyleSheet.create({
      21pt across, 1.9pt lines — because it sits in the same family of
      controls and was previously a lighter, smaller drawing that read as a
      different set of marks. */
-  /* floats just above the bar, only on History, only once you have left */
+  /* hovers top right, under the headline, only on History and only once
+     you have left — glass, so it sits over the grids without occluding */
   backToToday: {
-    position: 'absolute', alignSelf: 'center', bottom: 96,
-    minHeight: 38, borderRadius: 19, paddingHorizontal: 16,
-    justifyContent: 'center', backgroundColor: color.bgSegmentActive,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+    position: 'absolute', top: 78, right: size.pageX,
+    borderRadius: 19, overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
   },
+  pillHit: { minHeight: 38, paddingHorizontal: 16, justifyContent: 'center' },
   backToTodayText: { color: color.textPrimary, fontSize: font.footnote, fontWeight: '600' },
   profileBtn: {
     width: 44, height: 44, borderRadius: 22,
