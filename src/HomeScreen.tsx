@@ -33,7 +33,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Animated, {
-  Extrapolation, SharedValue, interpolate, useAnimatedScrollHandler,
+  Extrapolation, SharedValue, interpolate, runOnJS, useAnimatedScrollHandler,
   useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import DaySquare from './DaySquare';
@@ -53,12 +53,16 @@ const SQUARE = 132, SQ_RADIUS = 31;
 
 /** how much of the screen each neighbour is allowed to show through.
  *  Roughly SIDE − GAP − (card × (1 − MIN_SCALE) ÷ 2) actually lands. */
-const SIDE = 42;
+const SIDE = 48;
 /** the breathing room between one card and the next */
 const GAP = 5;
 /** how small a neighbour gets. Shallow on purpose: the shrink is what
  *  eats the sliver, and the job here is only to say "not this one". */
-const MIN_SCALE = 0.94;
+const MIN_SCALE = 0.95;
+/** how far off centre a card can be and still show its words. Past this
+ *  it is a blank surface; before it, fully readable — so a swipe never
+ *  passes through a dark gap. */
+const READABLE = 0.35;
 
 /** check-in rows a page shows before it defers to the day detail */
 const ROWS = 3;
@@ -119,8 +123,13 @@ function DayCard({
     const off = Math.abs(scrollX.value / itemW - index);
     return {
       transform: [{ scale: interpolate(off, [0, 1], [1, MIN_SCALE], Extrapolation.CLAMP) }],
-      opacity: interpolate(off, [0, 1], [1, 0.7], Extrapolation.CLAMP),
+      opacity: interpolate(off, [0, 1], [1, 0.8], Extrapolation.CLAMP),
     };
+  });
+  /* the words, separately: gone at rest, back well before centre */
+  const contentStyle = useAnimatedStyle(() => {
+    const off = Math.abs(scrollX.value / itemW - index);
+    return { opacity: interpolate(off, [READABLE, 1], [1, 0], Extrapolation.CLAMP) };
   });
   const avg = dailyAverage(entry);
   const count = entry ? checkinCount(entry) : 0;
@@ -128,16 +137,19 @@ function DayCard({
   const shown = logs.slice(0, ROWS);
   const hidden = logs.length - shown.length;
   const d = dateFromISO(dateIso);
-  const when = isToday ? 'TODAY' : (WD[d.getDay()] + ', ' + d.getDate() + ' ' + M3[d.getMonth()]).toUpperCase();
+  /* spoken, not shown: VoiceOver reads a card on its own, with no title
+     bar above it to supply the day */
+  const when = isToday ? 'Today' : WD[d.getDay()] + ', ' + d.getDate() + ' ' + M3[d.getMonth()];
 
   return (
     <Animated.View style={[{ width: itemW }, pageStyle]}>
       <View style={[styles.dayCard, { flex: 1 }]}>
-        {/* the page still names itself. The title above the screen says
-            the same thing, but only once the swipe settles — mid-gesture
-            the card in your hand has to be able to answer for itself. */}
+        <Animated.View style={[{ flex: 1 }, contentStyle]}>
+        {/* not the date — the heading above the screen carries that, and
+            tracks the swipe as it happens. This says what the number IS,
+            which nothing else on the card does. */}
         <Text style={styles.when} allowFontScaling maxFontSizeMultiplier={1.3}>
-          {when}
+          DAILY PAIN
         </Text>
 
         <View style={styles.hero}>
@@ -146,7 +158,7 @@ function DayCard({
             pressScale={0.97}
             pressOpacity={0.9}
             accessibilityRole="button"
-            accessibilityLabel={(isToday ? 'Today' : when) + ', '
+            accessibilityLabel={when + ', '
               + (avg == null
                 ? 'no check-ins'
                 : 'average pain ' + speakScore(avg) + ', ' + formatCheckins(count))}
@@ -245,6 +257,7 @@ function DayCard({
             )}
           </>
         )}
+        </Animated.View>
       </View>
     </Animated.View>
   );
@@ -289,10 +302,31 @@ export default function HomeScreen({
      and the arithmetic below never needs to know about the padding. */
   const itemW = width - SIDE * 2;
 
+  const [onToday, setOnToday] = useState(true);
+
+  /* Declared ABOVE the scroll worklet, and it has to be. Reanimated
+     builds a worklet's closure the moment the worklet is created, so a
+     const referenced inside one but declared after it is read in its
+     temporal dead zone — a ReferenceError on the first frame, which
+     TypeScript is happy to compile because the reference is inside a
+     function body. */
+  const land = (i: number) => {
+    const k = Math.max(0, Math.min(last, i));
+    setOnToday(k >= last);
+    if (onDayChange) onDayChange(days[k]);
+  };
+  const settle = (x: number) => land(Math.round(x / itemW));
+
   const scrollX = useSharedValue(last * itemW);
+  const at = useSharedValue(last);
   const onScroll = useAnimatedScrollHandler((ev) => {
     scrollX.value = ev.contentOffset.x;
-  });
+    const i = Math.round(ev.contentOffset.x / itemW);
+    if (i !== at.value) {
+      at.value = i;
+      runOnJS(land)(i);
+    }
+  }, [itemW, last, days]);
 
   /* A new day, or a first entry that lengthens the record, changes what
      the last index IS. Without this the pager keeps the pixel offset it
@@ -300,13 +334,6 @@ export default function HomeScreen({
   useEffect(() => {
     list.current?.scrollToOffset({ offset: last * itemW, animated: false });
   }, [last, itemW]);
-
-  const [onToday, setOnToday] = useState(true);
-  const settle = (x: number) => {
-    const i = Math.max(0, Math.min(last, Math.round(x / itemW)));
-    setOnToday(i >= last);
-    if (onDayChange) onDayChange(days[i]);
-  };
 
   /* the focus question is worth asking only once there is a record to
      form a hypothesis about — a first-day user has nothing to suspect */
