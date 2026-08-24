@@ -36,7 +36,7 @@ import {
 } from './src/analytics';
 import { activeFactors } from './src/protocol';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
-import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
+import { getPainTheme, inkForBg, setPainTheme, themeBrand } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
 } from './src/theme';
@@ -455,6 +455,28 @@ export default function App() {
               {tab === 'today' ? 'Today' : tab === 'trends' ? 'Trends' : 'History'}
             </Text>
             <View style={styles.topActions}>
+              {tab === 'today' && (
+                <Pressable
+                  onPress={() => setSheet('checkin')}
+                  style={({ pressed }) => [
+                    styles.logPill,
+                    { backgroundColor: themeBrand() },
+                    pressed && { opacity: 0.85 },
+                  ]}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Check in"
+                  accessibilityHint="Records how your pain is right now"
+                >
+                  <Text
+                    style={[styles.logPillText, { color: inkForBg(themeBrand()) }]}
+                    allowFontScaling maxFontSizeMultiplier={1.2}
+                    numberOfLines={1}
+                  >
+                    Log
+                  </Text>
+                </Pressable>
+              )}
               {tab === 'trends' && (
                 <Pressable
                   onPress={shareTrends}
@@ -822,6 +844,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logPill: {
+    minHeight: 38, borderRadius: 19, paddingHorizontal: 18,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  logPillText: { fontSize: font.body, fontWeight: '700', letterSpacing: -0.2 },
   profileBtnBusy: { opacity: 0.5 },
   profileBtn: {
     width: 44, height: 44, borderRadius: 22,

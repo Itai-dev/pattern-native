@@ -83,6 +83,7 @@ export default function HomeScreen({
       {/* ── the day, as one value ─────────────────────────────
           Square, then number, then what the number means. Three sizes,
           descending, and nothing else at this level of the page. */}
+      <View style={styles.dayCard}>
       <View style={styles.hero}>
         <Press
           onPress={() => (e ? onOpenDay(t) : onLog())}
@@ -125,43 +126,16 @@ export default function HomeScreen({
         )}
       </View>
 
-      {/* ── the period, or something the chips keep pointing at ── */}
-      {!!protocol && (
-        <FocusCard
-          protocol={protocol}
-          entries={entries}
-          todayIso={t}
-          offerSetup={offerSetup}
-          onStart={onFocus}
-          onKeepGoing={onKeepFocus}
-          onTest={onTestFactor}
-        />
-      )}
-
-      {/* ── the one action ───────────────────────────────────── */}
-      <View style={styles.actions}>
-        <Press
-          onPress={onLog}
-          pressScale={0.985}
-          style={styles.primary}
-          accessibilityRole="button"
-          accessibilityLabel={logs.length ? 'Check in again' : 'Check in now'}
-        >
-          <Text style={styles.primaryText} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {logs.length ? 'Check in again' : 'Check in now'}
-          </Text>
-        </Press>
-      </View>
-
-      {/* ── the day so far ───────────────────────────────────
-          A section heading outside the card rather than a caption inside
-          it: the list is a part of the page, not a widget on it. */}
+      {/* ── the moments the average is made of ───────────────
+          Inside the card, under a rule: they are what the number above
+          them IS, not a second topic that happens to share the date. */}
       {logs.length > 0 && (
         <>
-          <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Today’s check-ins
+          <View style={styles.cardRule} />
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            CHECK-INS
           </Text>
-          <View style={styles.logsCard}>
+          <View>
             {shownLogs.map((l, i) => {
               const q = (l.q || []).map((id) => QUALITY_NAMES[id] || id).join(', ');
               return (
@@ -222,25 +196,46 @@ export default function HomeScreen({
           </View>
         </>
       )}
+      </View>
 
-      {/* ── and the invitation, below the day, when there is none ── */}
-      {!protocol && (
-        <FocusCard
-          protocol={null}
-          entries={entries}
-          todayIso={t}
-          offerSetup={offerSetup}
-          onStart={onFocus}
-          onKeepGoing={onKeepFocus}
-          onTest={onTestFactor}
-        />
-      )}
+      {/* ── the period, or the invitation to start one ────────
+          One render, not two mirrored ones: the card already draws itself
+          differently for a null protocol, and keeping two call sites in
+          step by hand was a bug waiting for the next change to this
+          screen. It sits BELOW the day now — the day is why you opened
+          the app; this is what to do next. */}
+      <FocusCard
+        protocol={protocol}
+        entries={entries}
+        todayIso={t}
+        offerSetup={offerSetup}
+        onStart={onFocus}
+        onKeepGoing={onKeepFocus}
+        onTest={onTestFactor}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: 'center', marginTop: 10 },
+  /* one card for the day: the average, a rule, and the check-ins behind
+     it. The same grammar Trends uses, and the same reason — a boundary
+     says what belongs together. */
+  dayCard: {
+    marginHorizontal: size.pageX, marginTop: 8,
+    borderRadius: radius.card, backgroundColor: color.bgSurface,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
+    paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16,
+  },
+  cardRule: {
+    height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider,
+    marginTop: 20,
+  },
+  eyebrow: {
+    color: color.textTertiary, fontSize: font.footnote, fontWeight: '600',
+    letterSpacing: 0.6, marginTop: 14, marginBottom: 2,
+  },
+  hero: { alignItems: 'center' },
   /* the value lives inside the square, at the same weight the small log
      squares carry theirs — the hero is the row magnified. No "/10": the
      slider's ends and the report define the scale; a person reading
@@ -252,25 +247,6 @@ const styles = StyleSheet.create({
   underLine: { color: color.textTertiary, fontSize: font.subheadline, marginTop: 12 },
   underWord: { color: color.textSecondary, fontWeight: '600' },
   empty: { color: color.textSecondary, fontSize: font.body, marginTop: 20 },
-
-  actions: { paddingHorizontal: size.pageX, marginTop: 30 },
-  primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
-  },
-  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
-
-  sectionTitle: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    letterSpacing: -0.2, marginTop: 34, marginBottom: 10,
-    paddingHorizontal: size.pageX,
-  },
-  logsCard: {
-    marginHorizontal: size.pageX,
-    borderRadius: radius.card, backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-    paddingHorizontal: 16,
-  },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 60 },
   moreRow: {
     minHeight: 46, alignItems: 'center', justifyContent: 'center',
