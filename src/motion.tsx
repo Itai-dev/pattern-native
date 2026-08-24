@@ -7,7 +7,7 @@
  * custom animation; system-provided motion (page sheets, modals) already
  * respects it on its own.
  */
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo, Animated, Easing, Pressable, PressableProps,
   StyleProp, ViewStyle,
@@ -16,9 +16,37 @@ import {
 /** the strong curve — same house curve as the web app's --ease-out */
 export const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
+/* the current answer, readable synchronously by imperative code that
+   cannot hold a hook. Components must use useReduceMotion() instead —
+   reading this in a mount effect is what made it a race. */
 export let reduceMotion = false;
-AccessibilityInfo.isReduceMotionEnabled().then((v) => { reduceMotion = v; }).catch(() => {});
-AccessibilityInfo.addEventListener('reduceMotionChanged', (v) => { reduceMotion = v; });
+
+const watchers = new Set<(v: boolean) => void>();
+function publish(v: boolean): void {
+  if (v === reduceMotion) return;
+  reduceMotion = v;
+  watchers.forEach((f) => f(v));
+}
+AccessibilityInfo.isReduceMotionEnabled().then(publish).catch(() => {});
+AccessibilityInfo.addEventListener('reduceMotionChanged', publish);
+
+/**
+ * The setting, as state — so a component re-runs when it changes.
+ *
+ * Seeded twice on purpose: once at render from whatever has already
+ * arrived, and again on mount, because the promise can resolve in the gap
+ * between the two and a value that lands there would otherwise be missed
+ * until the next toggle.
+ */
+export function useReduceMotion(): boolean {
+  const [on, setOn] = useState(reduceMotion);
+  useEffect(() => {
+    setOn(reduceMotion);
+    watchers.add(setOn);
+    return () => { watchers.delete(setOn); };
+  }, []);
+  return on;
+}
 
 export interface PressProps extends PressableProps {
   /** scale at full press; 1 = opacity-only feedback */

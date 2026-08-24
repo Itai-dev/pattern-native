@@ -14,7 +14,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import DaySquare from './DaySquare';
 import * as db from './db';
-import { Press, reduceMotion } from './motion';
+import { Press, useReduceMotion } from './motion';
 import { getMetric, levelLabel } from './metrics';
 import {
   Answer, Entry, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES, checkinCount,
@@ -48,6 +48,7 @@ export default function DaySheet({
   dateIso, entry, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, onClose,
 }: DaySheetProps) {
   const [, force] = useState(0);
+  const rm = useReduceMotion();
   const d = dateFromISO(dateIso);
   const isToday = dateIso === todayISO();
   const live = db.getDay(dateIso) || entry;   // always the current truth
@@ -69,23 +70,23 @@ export default function DaySheet({
      restorable, so the gesture stands on its own. */
   const deleteEvent = useCallback((ev: PainEvent) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    if (!reduceMotion) {
+    if (!rm) {
       LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
     }
     if (ev.id != null) db.dropEvent(ev.id);
     force((n) => n + 1);
     onChanged();
-  }, [onChanged]);
+  }, [onChanged, rm]);
 
   const deleteMoment = useCallback((h: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    if (!reduceMotion) {
+    if (!rm) {
       LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
     }
     db.dropMoment(dateIso, h);
     force((n) => n + 1);   // the header's average updates in place
     onChanged();
-  }, [dateIso, onChanged]);
+  }, [dateIso, onChanged, rm]);
 
   return (
     <View style={styles.root}>

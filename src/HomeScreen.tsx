@@ -35,12 +35,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Animated, {
-  Extrapolation, SharedValue, interpolate, runOnJS, useAnimatedScrollHandler,
-  useAnimatedStyle, useSharedValue, withRepeat, withTiming,
+  Extrapolation, SharedValue, cancelAnimation, interpolate, runOnJS,
+  useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withRepeat,
+  withTiming,
 } from 'react-native-reanimated';
 import DaySquare from './DaySquare';
 import FocusCard from './FocusCard';
-import { Press, reduceMotion } from './motion';
+import { Press, useReduceMotion } from './motion';
 import {
   Entries, Entry, Protocol, QUALITY_NAMES, checkinCount, dailyAverage,
   dateFromISO, fmtTime, iso, todayISO,
@@ -282,10 +283,11 @@ export default function HomeScreen({
      carry — presence, not decoration. ±2.5% over 2.6s; still under
      Reduce Motion. */
   const breath = useSharedValue(0);
+  const rm = useReduceMotion();
   useEffect(() => {
-    if (reduceMotion) return;
+    if (rm) { cancelAnimation(breath); breath.value = 0; return; }
     breath.value = withRepeat(withTiming(1, { duration: 2600 }), -1, true);
-  }, []);
+  }, [rm]);
   /* Oldest first, today last, so the pager's natural resting place is the
      right-hand end and swiping right goes back in time — the direction a
      calendar runs and the direction History already scrolls. */

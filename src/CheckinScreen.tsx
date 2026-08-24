@@ -60,7 +60,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
-  useAnimatedStyle, useSharedValue, withDelay, withRepeat,
+  cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withRepeat,
   withSpring, withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -68,7 +68,7 @@ import Slider from './Slider';
 import PainShape from './PainShape';
 import DaySquare from './DaySquare';
 import * as db from './db';
-import { Press, reduceMotion } from './motion';
+import { Press, useReduceMotion } from './motion';
 import {
   IMPACT_BETTER, IMPACT_CHIPS, IMPACT_IDS, IMPACT_WORSE, MetricDef,
   eligibleNow, getMetric,
@@ -194,9 +194,15 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     return () => clearTimeout(t);
   }, [step, onDone]);
 
+  const rm = useReduceMotion();
   useEffect(() => {
     if (step !== 'done') return;
-    if (reduceMotion) { landed.value = 1; return; }
+    if (rm) {
+      cancelAnimation(breath);
+      breath.value = 0;
+      landed.value = 1;
+      return;
+    }
     // arrive: overshoot a little, the way a thing with mass would
     landed.value = withSpring(1, { damping: 11, stiffness: 150, mass: 0.9 });
     // then breathe, once the arrival has settled
@@ -204,7 +210,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       520,
       withRepeat(withTiming(1, { duration: 2600 }), -1, true)
     );
-  }, [step]);
+  }, [step, rm]);
 
   const squareStyle = useAnimatedStyle(() => ({
     opacity: landed.value,

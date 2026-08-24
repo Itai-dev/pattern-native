@@ -90,12 +90,24 @@ export default function Slider({
       const step = Math.round((x.value / usable) * max);
       if (step !== lastStep.value) { lastStep.value = step; runOnJS(emit)(step); }
     })
-    .onFinalize(() => {
+    .onFinalize((e) => {
       'worklet';
       dragging.value = false;
-      // settle onto the chosen stop, carrying the gesture's own momentum
+      /* Settle onto the chosen stop CARRYING THE FINGER'S VELOCITY.
+         This line claimed to do that for a long time and did not: the
+         spring started from rest, so at the instant of release the thumb
+         stopped dead and then re-accelerated toward the stop. It is a few
+         milliseconds and it is the difference between the thumb feeling
+         attached to your finger and feeling like a thing being animated
+         near it — on the one control this app is mostly made of.
+
+         Reanimated wants velocity in the animated value's own units per
+         second, and x is in points, so the gesture's px/s goes straight
+         in. Both are zero on a tap, which is the correct handoff too. */
       const usable = Math.max(1, width.value - THUMB);
-      x.value = withSpring((usable * lastStep.value) / max, { damping: 40, stiffness: 400, mass: 1 });
+      x.value = withSpring((usable * lastStep.value) / max, {
+        damping: 40, stiffness: 400, mass: 1, velocity: e.velocityX,
+      });
       if (progress) progress.value = withTiming(lastStep.value, { duration: 160 });
     });
 
