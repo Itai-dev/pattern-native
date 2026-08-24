@@ -22,12 +22,14 @@ import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
+import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
 import { PainEvent, ValidBackup, todayISO } from './src/model';
 import { refreshWidget } from './src/widgetPush';
 import { activeFactors } from './src/protocol';
+import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
 import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
@@ -100,6 +102,13 @@ function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
  */
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
+  /* Anyone with a record has already been onboarded, whatever the pref
+     says — the flag arrived after the app did, and showing a returning
+     user an introduction to something they have been using for a week is
+     worse than never having had one. */
+  const [onboarded, setOnboarded] = useState(
+    () => db.getPref<boolean>('onboarded', db.countDays() > 0)
+  );
   const [events, setEvents] = useState(() => db.getEvents());
   const [protocol, setProtocol] = useState(() => db.activeProtocol());
   /* a factor the chips pointed at, carried into the focus flow so the
@@ -312,7 +321,32 @@ export default function App() {
     );
   }, [refresh]);
 
+  /* The focus question is worth asking only once there is a record to
+     form a hypothesis about — Today's card has always waited a week for
+     that reason, and this row was letting a day-one user walk in the side
+     door and commit to a fortnight of questions about nothing. */
+  const focusReady = Object.keys(entries).length >= HYPOTHESIS_OFFER_AFTER_DAYS;
   const themeName = (PAIN_THEMES.find((t) => t.id === getPainTheme()) || PAIN_THEMES[0]).name;
+
+  if (!onboarded) {
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <SafeAreaProvider>
+          <OnboardingScreen
+            onDone={() => {
+              db.setPref('onboarded', true);
+              setOnboarded(true);
+              /* straight into the first check-in — the button said so, and
+                 an introduction that ends on an empty screen has taught
+                 nothing about what the app is for */
+              setSheet('checkin');
+            }}
+          />
+          <StatusBar style="light" />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -474,6 +508,7 @@ export default function App() {
               <View style={styles.group}>
                 <Pressable
                   onPress={() => { setProfile(false); setSeedFactor(null); setSheet('focus'); }}
+                  disabled={!protocol && !focusReady}
                   style={styles.row}
                   accessibilityRole="button"
                   accessibilityLabel={protocol ? 'Change your focus' : 'Choose a focus'}
@@ -484,7 +519,7 @@ export default function App() {
                     <Text style={styles.rowValue} numberOfLines={1}>
                       {protocol
                         ? activeFactors(protocol).map((m) => m.name).join(' · ')
-                        : 'Not set'}
+                        : focusReady ? 'Not set' : 'After a week of logging'}
                     </Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
