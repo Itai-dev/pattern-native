@@ -28,7 +28,7 @@ import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
-import { PainEvent, ValidBackup, todayISO } from './src/model';
+import { PainEvent, ValidBackup, dateFromISO, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { refreshWidget } from './src/widgetPush';
 import {
@@ -47,6 +47,16 @@ configureHandler(); // set once, before anything can be delivered
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
 type Sheet = null | 'checkin' | 'event' | 'focus';
+
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Thu, 21 Aug" — short enough that the large title does not have to
+ *  shrink to fit it on the narrowest phone */
+function fmtDayTitle(dateIso: string): string {
+  const d = dateFromISO(dateIso);
+  return WD[d.getDay()] + ', ' + d.getDate() + ' ' + MON[d.getMonth()];
+}
 
 /* Where feedback goes — and the address the privacy policy still needs.
    A placeholder that bounces is worse than no row at all, so this ships
@@ -152,6 +162,13 @@ export default function App() {
       setTab(next);
     }
   }, [tab, width]);
+  /* the day the Today pager is showing. Held as a label rather than a
+     date so the screen that knows the format owns it. */
+  const [dayTitle, setDayTitle] = useState('Today');
+  const onDayChange = useCallback((d: string) => {
+    setDayTitle(d === todayISO() ? 'Today' : fmtDayTitle(d));
+  }, []);
+
   const [sheet, setSheet] = useState<Sheet>(null);
   /* History stacks months newest-first, so back-to-today is simply the
      top. The pill appears only once you have actually gone somewhere. */
@@ -450,7 +467,7 @@ export default function App() {
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? 'Today' : tab === 'trends' ? 'Trends' : 'History'}
+              {tab === 'today' ? dayTitle : tab === 'trends' ? 'Trends' : 'History'}
             </Text>
             <View style={styles.topActions}>
               {tab === 'today' && (
@@ -510,17 +527,24 @@ export default function App() {
               which the old key-per-tab remount threw away every time you
               looked at something else. Everything scrolls on under the
               floating glass. */}
-          {/* The tabs no longer swipe. Two horizontal gestures on one
-              screen cannot both win, and the day pager inside Today is
-              the one with something to say — the tab bar was always the
-              real way between tabs, and the swipe was a second answer to
-              a question already answered. Programmatic paging stays, so
-              tapping a tab still slides. */}
+          {/* Swiping tabs comes back, but not on Today.
+
+              Two horizontal gestures on one screen cannot both win, and
+              the honest way to have both is to give each SCREEN one rule
+              rather than splitting a screen down the middle: sideways on
+              Today moves through days, sideways anywhere else moves
+              through tabs. A rule you can state in a sentence.
+
+              What that costs is the swipe OUT of Today — the tab bar does
+              that, which is what a tab bar is for. What it avoids is a
+              page where the top half and the bottom half answer the same
+              gesture differently, which is not a rule, it is a bug people
+              learn to work around. */}
           <ScrollView
             ref={pager}
             horizontal
             pagingEnabled
-            scrollEnabled={false}
+            scrollEnabled={tab !== 'today'}
             bounces={false}
             scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
@@ -536,6 +560,7 @@ export default function App() {
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
+                onDayChange={onDayChange}
               />
             </ScrollView>
 

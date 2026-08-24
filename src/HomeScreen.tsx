@@ -29,10 +29,12 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList, StyleSheet, Text, View, useWindowDimensions,
+  FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, {
-  SharedValue, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
+  Extrapolation, SharedValue, interpolate, useAnimatedScrollHandler,
+  useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import DaySquare from './DaySquare';
 import FocusCard from './FocusCard';
@@ -48,6 +50,11 @@ import {
 import { color, font, radius, size } from './theme';
 
 const SQUARE = 132, SQ_RADIUS = 31;
+
+/** how much of the screen each neighbour is allowed to show through */
+const SIDE = 26;
+/** the breathing room between one card and the next */
+const GAP = 5;
 
 /** check-in rows a page shows before it defers to the day detail */
 const ROWS = 3;
@@ -73,6 +80,9 @@ export interface HomeScreenProps {
   onFocus: () => void;
   onKeepFocus: () => void;
   onTestFactor: (metricId: string) => void;
+  /** which day the pager has settled on, so the large title can stop
+   *  saying "Today" over a card showing Tuesday */
+  onDayChange?: (dateIso: string) => void;
 }
 
 /* ── one day ──────────────────────────────────────────────────
@@ -80,12 +90,16 @@ export interface HomeScreenProps {
    and the day being the same thing — which is what made "Today" a screen
    that could only ever be today. */
 function DayCard({
-  dateIso, entry, isToday, width, breath, onOpenDay, onLog,
+  dateIso, entry, isToday, index, itemW, scrollX, breath, onOpenDay, onLog,
 }: {
   dateIso: string;
   entry: Entry | null;
   isToday: boolean;
-  width: number;
+  index: number;
+  itemW: number;
+  /** live scroll offset, so a card can size itself by how far off-centre
+   *  it is rather than waiting for the swipe to finish */
+  scrollX: SharedValue<number>;
   /** the screen's one breath clock; a card that is not today ignores it */
   breath: SharedValue<number>;
   onOpenDay: (dateIso: string) => void;
@@ -94,6 +108,16 @@ function DayCard({
   const breathStyle = useAnimatedStyle(() => ({
     transform: [{ scale: isToday ? 1 + breath.value * 0.025 : 1 }],
   }));
+  /* full size at centre, smaller and dimmer at either side, continuously
+     — a card that only resized once the swipe settled would read as a
+     glitch rather than as depth */
+  const pageStyle = useAnimatedStyle(() => {
+    const off = Math.abs(scrollX.value / itemW - index);
+    return {
+      transform: [{ scale: interpolate(off, [0, 1], [1, 0.9], Extrapolation.CLAMP) }],
+      opacity: interpolate(off, [0, 1], [1, 0.55], Extrapolation.CLAMP),
+    };
+  });
   const avg = dailyAverage(entry);
   const count = entry ? checkinCount(entry) : 0;
   const logs = (entry && entry.logs ? entry.logs.slice() : []).sort((a, b) => b.h - a.h);
@@ -103,10 +127,11 @@ function DayCard({
   const when = isToday ? 'TODAY' : (WD[d.getDay()] + ', ' + d.getDate() + ' ' + M3[d.getMonth()]).toUpperCase();
 
   return (
-    <View style={{ width }}>
+    <Animated.View style={[{ width: itemW }, pageStyle]}>
       <View style={[styles.dayCard, { flex: 1 }]}>
-        {/* the page says which day it is before anything else does — the
-            one thing a swipeable card cannot leave to context */}
+        {/* the page still names itself. The title above the screen says
+            the same thing, but only once the swipe settles — mid-gesture
+            the card in your hand has to be able to answer for itself. */}
         <Text style={styles.when} allowFontScaling maxFontSizeMultiplier={1.3}>
           {when}
         </Text>
@@ -228,12 +253,13 @@ function DayCard({
           </>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onFocus, onKeepFocus, onTestFactor,
+  onDayChange,
 }: HomeScreenProps) {
   const t = todayISO();
   const { width } = useWindowDimensions();
@@ -265,15 +291,29 @@ export default function HomeScreen({
 
   const list = useRef<FlatList<string>>(null);
   const last = days.length - 1;
+  /* one card, plus the sliver each neighbour shows. Content is padded by
+     SIDE at both ends, so an offset of i × itemW puts card i dead centre
+     and the arithmetic below never needs to know about the padding. */
+  const itemW = width - SIDE * 2;
+
+  const scrollX = useSharedValue(last * itemW);
+  const onScroll = useAnimatedScrollHandler((ev) => {
+    scrollX.value = ev.contentOffset.x;
+  });
 
   /* A new day, or a first entry that lengthens the record, changes what
      the last index IS. Without this the pager keeps the pixel offset it
      had and quietly lands on yesterday at midnight. */
   useEffect(() => {
-    list.current?.scrollToOffset({ offset: last * width, animated: false });
-  }, [last, width]);
+    list.current?.scrollToOffset({ offset: last * itemW, animated: false });
+  }, [last, itemW]);
 
   const [onToday, setOnToday] = useState(true);
+  const settle = (x: number) => {
+    const i = Math.max(0, Math.min(last, Math.round(x / itemW)));
+    setOnToday(i >= last);
+    if (onDayChange) onDayChange(days[i]);
+  };
 
   /* the focus question is worth asking only once there is a record to
      form a hypothesis about — a first-day user has nothing to suspect */
@@ -281,26 +321,40 @@ export default function HomeScreen({
 
   return (
     <View>
-      <FlatList
+      <Animated.FlatList
         ref={list}
         data={days}
-        keyExtractor={(d) => d}
+        keyExtractor={(d: string) => d}
         horizontal
-        pagingEnabled
         showsHorizontalScrollIndicator={false}
+        /* snapToInterval rather than pagingEnabled: a page is now one card
+           wide, not one screen wide, and pagingEnabled only ever snaps to
+           the screen. disableIntervalMomentum keeps a hard flick to one
+           day — flying past four at a time is how you lose your place. */
+        snapToInterval={itemW}
+        disableIntervalMomentum
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingHorizontal: SIDE }}
         initialScrollIndex={last}
-        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        onMomentumScrollEnd={(ev) => {
-          const i = Math.round(ev.nativeEvent.contentOffset.x / width);
-          setOnToday(i >= last);
-        }}
+        getItemLayout={(_: unknown, i: number) => ({ length: itemW, offset: itemW * i, index: i })}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={(ev: NativeSyntheticEvent<NativeScrollEvent>) =>
+          settle(ev.nativeEvent.contentOffset.x)}
+        /* a slow drag released without a flick never fires momentum end,
+           and the title above would sit on the wrong day until the next
+           swipe. Both endings are handled. */
+        onScrollEndDrag={(ev: NativeSyntheticEvent<NativeScrollEvent>) =>
+          settle(ev.nativeEvent.contentOffset.x)}
         style={{ height: PAGE_H }}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }: { item: string; index: number }) => (
           <DayCard
             dateIso={item}
             entry={entries[item] || null}
             isToday={item === t}
-            width={width}
+            index={index}
+            itemW={itemW}
+            scrollX={scrollX}
             breath={breath}
             onOpenDay={onOpenDay}
             onLog={onLog}
@@ -314,8 +368,9 @@ export default function HomeScreen({
       {!onToday && (
         <Press
           onPress={() => {
-            list.current?.scrollToOffset({ offset: last * width, animated: true });
+            list.current?.scrollToOffset({ offset: last * itemW, animated: true });
             setOnToday(true);
+            if (onDayChange) onDayChange(days[last]);
           }}
           pressOpacity={0.75}
           style={styles.backRow}
@@ -358,7 +413,7 @@ const styles = StyleSheet.create({
      it. The same grammar Trends uses, and the same reason — a boundary
      says what belongs together. */
   dayCard: {
-    marginHorizontal: size.pageX, marginTop: 8, marginBottom: 8,
+    marginHorizontal: GAP, marginTop: 8, marginBottom: 8,
     borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
     paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16,

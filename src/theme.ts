@@ -129,8 +129,8 @@ export type SlotKey = 'm' | 'd' | 'e';
  */
 export const radius = {
   button: 14,
-  card: 20,
-  sheet: 24,
+  card: 26,
+  sheet: 26,
   segment: 10,
   segmentTrack: 11,
 } as const;
