@@ -91,6 +91,14 @@ export interface Answer {
   /** 1 = the question was asked and the user declined it. A skip is an
    *  answer about the question, not an answer to it. */
   skipped?: 1;
+  /** What the user wrote alongside the choice — "20 min walk, heat pad",
+   *  in their words. Three levels are what the ANALYSIS can compare; this
+   *  is what makes an answer legible to the person six weeks later, and
+   *  to a clinician reading the day. NEVER read by the engine: it has no
+   *  levels, no extremes, and nothing to compare against. It survives a
+   *  skip, because "I didn't want to grade it, but here is what happened"
+   *  is a real thing to say. */
+  note?: string;
 }
 
 export interface ContextAnswers {
@@ -236,6 +244,10 @@ export function cleanAnswer(metricId: string, raw: unknown): Answer | null {
       .filter((v): v is string => typeof v === 'string' && validSetMember(metricId, v));
   }
   if (skipped) a.skipped = 1;
+  /* Free text, kept on a skip as readily as on an answer, and capped
+     rather than rejected: a note too long is a note to trim, never a
+     reason to lose the choice it was attached to. */
+  if (typeof r.note === 'string' && r.note.trim()) a.note = r.note.trim().slice(0, 280);
   return a;
 }
 

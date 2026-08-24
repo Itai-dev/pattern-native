@@ -122,6 +122,16 @@ export interface MetricDef {
   protocolEligible: boolean;
   /** lowercase substrings the local hypothesis matcher looks for */
   keywords?: string[];
+  /**
+   * What to put in the optional note field, when a bare "in your own
+   * words" is too vague to be useful.
+   *
+   * The note is for the user and the clinician; the ENGINE never reads
+   * it, and the placeholder is written to make that division obvious.
+   * "20 min walk, heat pad" is exactly the kind of thing three levels
+   * cannot hold and a person needs six weeks later.
+   */
+  notePlaceholder?: string;
   /** why a factor is not protocol-eligible — shown to the user rather
    *  than silently offering a worse proxy */
   excludedBecause?: string;
@@ -253,6 +263,7 @@ export const METRICS: MetricDef[] = [
     extremes: ['less', 'more'],
     wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'compareExtremes',
     protocolEligible: true,
+    notePlaceholder: 'e.g. two hours in the garden',
     keywords: ['load', 'demanding', 'exertion', 'overdo', 'overdid', 'push', 'busy day', 'work'],
   },
   {
@@ -264,6 +275,7 @@ export const METRICS: MetricDef[] = [
     extremes: ['less', 'more'],
     wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'compareExtremes',
     protocolEligible: true,
+    notePlaceholder: 'e.g. walked to the station and back',
     keywords: ['movement', 'moving', 'walk', 'walking', 'exercise', 'sitting', 'sedentary', 'active'],
   },
   {
@@ -275,6 +287,7 @@ export const METRICS: MetricDef[] = [
     extremes: ['none', 'alot'],
     wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'compareExtremes',
     protocolEligible: true,
+    notePlaceholder: 'e.g. carried shopping up two flights',
     keywords: ['lift', 'lifting', 'carry', 'carrying', 'heavy', 'bags', 'shopping'],
   },
   {
@@ -297,6 +310,7 @@ export const METRICS: MetricDef[] = [
     extremes: ['none', 'more'],
     wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'compareExtremes',
     protocolEligible: true,
+    notePlaceholder: 'e.g. two glasses of wine with dinner',
     keywords: ['alcohol', 'drink', 'drinking', 'wine', 'beer'],
   },
   {
@@ -308,6 +322,7 @@ export const METRICS: MetricDef[] = [
     extremes: ['none', 'focused'],
     wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'compareExtremes',
     protocolEligible: true,
+    notePlaceholder: 'e.g. 20 min walk, heat pad, early night',
     keywords: ['recovery', 'self-care', 'stretch', 'stretching', 'relax', 'breathing', 'bath', 'heat pad'],
   },
 
@@ -333,6 +348,7 @@ export const METRICS: MetricDef[] = [
     question: 'How did you eat today?',
     type: 'ordinal', scope: 'day', wordingVersion: 1, analysis: 'none',
     protocolEligible: false,
+    notePlaceholder: 'e.g. skipped lunch, lots of coffee',
     keywords: ['food', 'diet', 'eating', 'gluten', 'sugar', 'dairy', 'inflammation'],
     excludedBecause:
       'A single food question covers too much to measure anything. Tracking one specific ' +
@@ -344,6 +360,7 @@ export const METRICS: MetricDef[] = [
     question: 'Did your medication change?',
     type: 'ordinal', scope: 'day', wordingVersion: 1, analysis: 'none',
     protocolEligible: false,
+    notePlaceholder: 'e.g. started 20mg, stopped the evening dose',
     keywords: ['medication', 'meds', 'tablets', 'painkillers', 'dose', 'dosage'],
     excludedBecause:
       'Medication is recorded as an event so it appears in your report, but Pattern never ' +

@@ -196,14 +196,17 @@ function writeAnswer(date: string, metricId: string, a: Answer): Entry | null {
 
 /** record an answer to a day-scoped question */
 export function setAnswer(
-  date: string, metricId: string, value: string | number, h: number, pid: number | null
+  date: string, metricId: string, value: string | number, h: number,
+  pid: number | null, note?: string
 ): Entry | null {
   const m = getMetric(metricId);
   if (!m) return null;
   const d = new Date();
+  const t = (note || '').trim();
   return writeAnswer(date, metricId, {
     value, h, ts: d.getTime(), tz: -d.getTimezoneOffset(),
     qv: m.wordingVersion, pid,
+    ...(t ? { note: t.slice(0, 280) } : null),
   });
 }
 
@@ -227,14 +230,16 @@ export function setAnswerList(
  *  asked and chose not to say" is information — and is not the same thing
  *  as never having been asked, which is what an absent key means. */
 export function skipAnswer(
-  date: string, metricId: string, h: number, pid: number | null
+  date: string, metricId: string, h: number, pid: number | null, note?: string
 ): Entry | null {
   const m = getMetric(metricId);
   if (!m) return null;
   const d = new Date();
+  const t = (note || '').trim();
   return writeAnswer(date, metricId, {
     value: '', h, ts: d.getTime(), tz: -d.getTimezoneOffset(),
     qv: m.wordingVersion, pid, skipped: 1,
+    ...(t ? { note: t.slice(0, 280) } : null),
   });
 }
 

@@ -54,7 +54,10 @@
  * turns all of it off and the square is simply there.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text,
+  TextInput, View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle, useSharedValue, withDelay, withRepeat,
@@ -145,6 +148,11 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /* answers held in memory until the step is left, so backing out of a
      half-finished screen records nothing */
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
+  /* what the user wrote, per question. Kept separately from the choice
+     because the two are independent: a note can outlive a cleared answer,
+     and nothing typed is ever thrown away without being asked for. */
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({});
 
   /* the chips. Asked once a day, like the other day-scoped questions. */
   const [askImpact] = useState<boolean>(() => {
@@ -226,6 +234,13 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /* nothing may be written until a value has actually been chosen — closing
      the flow before that records no check-in at all */
   const canAdvance = pain != null;
+  /* Whether the questions step would record a value or a decline. The
+     hint said the step was skippable and nothing on screen agreed: the
+     only control read "Continue", so continuing looked like submitting a
+     blank form rather than declining. Same tap, same stored skip — but
+     now the button admits it, which is the difference between an
+     optional question and one the user could not get past. */
+  const anyAnswered = askIds.some((id) => answers[id] !== undefined);
 
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
@@ -245,8 +260,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const persistAnswers = () => {
     askIds.forEach((id) => {
       const v = answers[id];
-      if (v === undefined) db.skipAnswer(today, id, minutes, pid);
-      else db.setAnswer(today, id, v, minutes, pid);
+      const n = notes[id];
+      if (v === undefined) db.skipAnswer(today, id, minutes, pid, n);
+      else db.setAnswer(today, id, v, minutes, pid, n);
     });
   };
 
@@ -334,14 +350,25 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
 
   /* ── one of today's questions ────────────────────────────── */
 
+  /**
+   * The levels, one full-width row each rather than three across.
+   *
+   * Three-across truncated: "A focused effort" and "More than usual" do
+   * not fit a third of a phone at semibold body size, and the ellipsis
+   * fell exactly where the meaning was — a person choosing between
+   * "A focuse…" and its neighbours is guessing at the question. Stacking
+   * is not a nicer layout, it is the one that stays correct as levels are
+   * added and worded, and at every Dynamic Type size.
+   */
   const ordinalRow = (m: MetricDef) => (
     <View key={m.id} style={styles.qBlock}>
       <Text style={styles.qLabel} allowFontScaling maxFontSizeMultiplier={1.4}>
         {m.question}
       </Text>
-      <View style={styles.segment}>
+      <View style={styles.options}>
         {(m.levels || []).map((l) => {
           const on = answers[m.id] === l.id;
+          const ink = inkForBg(themeBrand());
           return (
             <Pressable
               key={l.id}
@@ -356,24 +383,71 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
               accessibilityLabel={l.label}
+              accessibilityHint={on ? 'Tap again to unselect' : undefined}
               style={({ pressed }) => [
-                styles.segItem, on && { backgroundColor: themeBrand() },
+                styles.optRow, on && { backgroundColor: themeBrand(), borderColor: themeBrand() },
                 pressed && { opacity: 0.8 },
               ]}
             >
               <Text
-                allowFontScaling maxFontSizeMultiplier={1.3}
-                numberOfLines={1}
-                style={[styles.segText, on && { color: inkForBg(themeBrand()) }]}
+                allowFontScaling maxFontSizeMultiplier={1.4}
+                style={[styles.optText, on && { color: ink }]}
               >
                 {l.label}
               </Text>
+              {on && (
+                <Text style={[styles.optCheck, { color: ink }]} allowFontScaling={false}>
+                  ✓
+                </Text>
+              )}
             </Pressable>
           );
         })}
       </View>
+      {noteRow(m)}
     </View>
   );
+
+  /**
+   * A place to say it in your own words.
+   *
+   * Three levels are what the ANALYSIS can compare — it needs days that
+   * group. "20 min walk, heat pad, early night" is what makes the answer
+   * legible to you six weeks later, and to a clinician reading the day.
+   * So the note is offered on every question and read by nothing: it has
+   * no levels, no extremes, and no days to compare against.
+   *
+   * Collapsed until asked for, because a text field under every question
+   * turns a ten-second check-in into a form.
+   */
+  const noteRow = (m: MetricDef) => {
+    const open = noteOpen[m.id] || !!notes[m.id];
+    if (!open) {
+      return (
+        <Press
+          onPress={() => setNoteOpen((o) => ({ ...o, [m.id]: true }))}
+          pressOpacity={0.7}
+          style={styles.noteAdd}
+          accessibilityRole="button"
+          accessibilityLabel={'Add a note about: ' + m.name}
+        >
+          <Text style={styles.noteAddText}>+ Add a note</Text>
+        </Press>
+      );
+    }
+    return (
+      <TextInput
+        value={notes[m.id] || ''}
+        onChangeText={(t) => setNotes((n) => ({ ...n, [m.id]: t }))}
+        placeholder={m.notePlaceholder || 'In your own words — optional'}
+        placeholderTextColor={color.textTertiary}
+        style={styles.noteInput}
+        multiline
+        maxLength={280}
+        accessibilityLabel={'Note about: ' + m.name}
+      />
+    );
+  };
 
   const numericRow = (m: MetricDef) => {
     const v = typeof answers[m.id] === 'number' ? (answers[m.id] as number) : null;
@@ -397,6 +471,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           <Text style={styles.endText}>{(m.ends ? m.ends[0] : '0').toUpperCase()}</Text>
           <Text style={styles.endText}>{(m.ends ? m.ends[1] : '10').toUpperCase()}</Text>
         </View>
+        {noteRow(m)}
       </View>
     );
   };
@@ -439,14 +514,18 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /* "right now", not "today": reminders arrive several times a day, so each
      check-in is a moment, and the day is their average */
   const title = step === 'pain' ? 'How intense is your pain\nright now?'
-    : step === 'questions' ? 'A couple of questions\nabout today'
+    /* "A couple of questions" over a single question is a small lie that
+       makes the whole screen read as broken — the user looks for the one
+       that failed to load. The heading counts what is actually there. */
+    : step === 'questions'
+      ? (askIds.length === 1 ? 'One question\nabout today' : 'A couple of questions\nabout today')
       : step === 'impact' ? 'What moved it today?'
         : step === 'feel' ? 'How does it feel?'
           : 'Where in your body?';
 
   const hint = step === 'impact'
     ? 'Your read on the day — Pattern records it, it doesn’t test it'
-    : step === 'questions' ? 'All optional — skip any that don’t fit'
+    : step === 'questions' ? 'Optional — Skip if it doesn’t fit today'
     : step === 'feel' ? 'Optional — tap any that fit'
       : step === 'where' ? 'Your usual places are already selected'
         : null;
@@ -461,7 +540,10 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}
+    >
       <View style={styles.topBar}>
         {step !== 'pain' ? (
           <Press onPress={back} style={styles.close} hitSlop={12}
@@ -517,7 +599,12 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           )}
         </View>
       ) : step === 'questions' ? (
-        <ScrollView contentContainerStyle={styles.qWrap} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.qWrap}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
           {askIds.map((id) => {
             const m = getMetric(id);
             if (!m) return null;
@@ -609,7 +696,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
                 styles.primaryText,
                 canAdvance ? { color: inkForBg(themeBrand()) } : styles.primaryTextOff,
               ]}>
-                {step === 'where' ? 'Save today' : 'Continue'}
+                {step === 'where' ? 'Save today'
+                  : step === 'questions' && !anyAnswered ? 'Skip'
+                    : 'Continue'}
               </Text>
             </Press>
 
@@ -632,7 +721,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             )}
         </>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -697,16 +786,26 @@ const styles = StyleSheet.create({
     color: color.textSecondary, fontSize: font.subheadline,
     fontVariant: ['tabular-nums'], marginTop: -4,
   },
-  segment: {
-    flexDirection: 'row', gap: 8,
-  },
-  segItem: {
-    flex: 1, minHeight: 46, borderRadius: 14, paddingHorizontal: 6,
-    alignItems: 'center', justifyContent: 'center',
+  /* stacked, so a level is never abbreviated into ambiguity */
+  options: { gap: 8 },
+  optRow: {
+    minHeight: 52, borderRadius: 14, paddingHorizontal: 15, paddingVertical: 13,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: color.bgSurface,
     borderWidth: 1, borderColor: color.borderDivider,
   },
-  segText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '600' },
+  optText: {
+    flex: 1, color: '#D0D0D6', fontSize: font.body, fontWeight: '600', lineHeight: 21,
+  },
+  optCheck: { fontSize: 15, fontWeight: '700' },
+  noteAdd: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },
+  noteAddText: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },
+  noteInput: {
+    minHeight: 58, borderRadius: 12, padding: 12,
+    backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
+    borderWidth: 1, borderColor: color.borderDivider,
+    textAlignVertical: 'top',
+  },
 
   chipWrap: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,

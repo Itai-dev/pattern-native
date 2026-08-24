@@ -1014,5 +1014,62 @@ ok('an event nobody described prints no empty detail line', (() => {
     && html.indexOf('spread:') < 0 && html.indexOf('lasted:') < 0;
 })());
 
+
+/* ── the free-text note ─────────────────────────────────────
+   cleanAnswer rebuilds every answer from a whitelist, so a field it does
+   not know about is dropped on the way back out of SQLite — silently, on
+   read, long after the user typed it. That is the failure this group
+   exists to catch, and the reason it also checks the skip path and the
+   fact that the ENGINE still cannot see the text. */
+group('the note in your own words');
+ok('a note survives the sanitiser', (() => {
+  const c = model.cleanCtx(ctxOf({
+    'recovery.practice.v1': answer('focused', 1140, { note: '20 min walk, heat pad' }),
+  }));
+  return c && c.a['recovery.practice.v1'].note === '20 min walk, heat pad';
+})());
+ok('a note survives on a skipped answer too', (() => {
+  const c = model.cleanCtx(ctxOf({
+    'recovery.practice.v1': answer('', 1140, { skipped: 1, note: 'stretched, could not grade it' }),
+  }));
+  const a = c && c.a['recovery.practice.v1'];
+  return a && a.skipped === 1 && a.note === 'stretched, could not grade it';
+})());
+ok('a note is trimmed and capped, never a reason to lose the answer', (() => {
+  const c = model.cleanCtx(ctxOf({
+    'recovery.practice.v1': answer('some', 1140, { note: '  ' + 'x'.repeat(400) + '  ' }),
+  }));
+  const a = c && c.a['recovery.practice.v1'];
+  return a && a.value === 'some' && a.note.length === 280;
+})());
+ok('whitespace alone is not a note', (() => {
+  const c = model.cleanCtx(ctxOf({
+    'recovery.practice.v1': answer('some', 1140, { note: '   ' }),
+  }));
+  return c && c.a['recovery.practice.v1'].note === undefined;
+})());
+ok('a non-string note is dropped, not stored', (() => {
+  const c = model.cleanCtx(ctxOf({
+    'recovery.practice.v1': answer('some', 1140, { note: { evil: 1 } }),
+  }));
+  return c && c.a['recovery.practice.v1'].note === undefined;
+})());
+ok('the engine still sees only the level', (() => {
+  const day = {
+    pain: 5, cap: null, note: '',
+    ctx: ctxOf({ 'recovery.practice.v1': answer('focused', 1140, { note: 'a long walk' }) }),
+  };
+  return model.valueOf(day, 'recovery.practice.v1') === 'focused';
+})());
+ok('every level of every asked metric fits a stacked row', (() => {
+  /* the bug was a three-across segmented control abbreviating "A focused
+     effort" into "A focuse…". Stacked rows cannot truncate, but a level
+     long enough to wrap past two lines would still be a wording problem
+     rather than a layout one — so the vocabulary is held to a length a
+     phone row can show. */
+  return metrics.METRICS.every((m) =>
+    !m.levels || m.levels.every((l) => l.label.length <= 22));
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

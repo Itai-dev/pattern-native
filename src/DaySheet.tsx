@@ -243,13 +243,23 @@ export default function DaySheet({
                     <View
                       style={styles.qRow}
                       accessible
-                      accessibilityLabel={m!.name + ', ' + value}
+                      accessibilityLabel={m!.name + ', ' + value + (a.note ? '. Note: ' + a.note : '')}
                     >
                       <View style={styles.rowMid}>
                         <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
                           {m!.name}
                         </Text>
                         <Text style={styles.rowSub}>{m!.question}</Text>
+                        {/* the user's own words, if they left any — shown
+                            under the question they qualify, and shown on a
+                            skipped answer too, because "I'd rather not
+                            grade it, but here is what happened" is a
+                            perfectly good thing to have said */}
+                        {!!a.note && (
+                          <Text style={styles.rowNote} allowFontScaling maxFontSizeMultiplier={1.4}>
+                            {a.note}
+                          </Text>
+                        )}
                       </View>
                       <Text
                         style={[styles.qValue, skipped && styles.qSkipped]}
@@ -378,6 +388,10 @@ const styles = StyleSheet.create({
   rowMid: { flex: 1 },
   rowScore: { color: color.textPrimary, fontSize: font.subheadline },
   rowSub: { color: color.textSecondary, fontSize: font.footnote, marginTop: 1 },
+  rowNote: {
+    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20,
+    marginTop: 4,
+  },
   chev: { color: color.textTertiary, fontSize: 20 },
   deleteAction: {
     width: 88, minHeight: 56, backgroundColor: color.destructive,
