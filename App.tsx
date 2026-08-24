@@ -291,7 +291,7 @@ export default function App() {
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? 'Today' : tab === 'trends' ? 'Trends' : 'Pattern'}
+              {tab === 'today' ? 'Today' : tab === 'trends' ? 'Trends' : 'History'}
             </Text>
             <Pressable
               onPress={() => setProfile(true)}

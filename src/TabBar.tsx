@@ -32,7 +32,7 @@ import { color } from './theme';
 export type Tab = 'today' | 'trends' | 'map';
 
 /** Left to right, and the same order the pages sit in. Today is where you
- *  act, Pattern is the month you made, Trends is what it adds up to. */
+ *  act, History is what has happened, Trends is what it adds up to. */
 export const TAB_ORDER: Tab[] = ['today', 'map', 'trends'];
 
 export interface TabBarProps {
@@ -105,7 +105,7 @@ function TrendsGlyph({ active }: { active: boolean }) {
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
-  { key: 'map', label: 'Pattern' },
+  { key: 'map', label: 'History' },
   { key: 'trends', label: 'Trends' },
 ];
 
