@@ -28,6 +28,9 @@ import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
 import { PainEvent, ValidBackup, todayISO } from './src/model';
 import { refreshWidget } from './src/widgetPush';
+import {
+  analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
+} from './src/analytics';
 import { activeFactors } from './src/protocol';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
 import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
@@ -125,6 +128,8 @@ export default function App() {
    *  the finger does the moving. Guarded so the two never fight. */
   const swiping = useRef(false);
   const goToTab = useCallback((t: Tab) => {
+    if (t === 'trends') track('trends_opened');
+    if (t === 'map') track('history_opened');
     setTab(t);
     pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
   }, [width]);
@@ -133,7 +138,11 @@ export default function App() {
     if (!width) return;
     const i = Math.round(e.nativeEvent.contentOffset.x / width);
     const next = TAB_ORDER[Math.max(0, Math.min(TAB_ORDER.length - 1, i))];
-    if (next && next !== tab) setTab(next);
+    if (next && next !== tab) {
+      if (next === 'trends') track('trends_opened');
+      if (next === 'map') track('history_opened');
+      setTab(next);
+    }
     swiping.current = false;
   }, [tab, width]);
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -145,6 +154,7 @@ export default function App() {
   const [profile, setProfile] = useState(false);
   const [appearance, setAppearance] = useState(false);
   const [about, setAbout] = useState(false);
+  const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
   /* an event being edited, and the day sheet to return to afterwards */
@@ -183,13 +193,14 @@ export default function App() {
 
   /* and once on launch, so a widget added before today's first check-in
      still shows the right caption */
-  useEffect(() => { refreshWidget(db.getAll()); }, []);
+  useEffect(() => { refreshWidget(db.getAll()); trackLaunch(todayISO()); }, []);
 
   /* "Keep observing" at the review: the same two questions carry on, and
      the next review is another fourteen days out. The period is not
      restarted — restarting it would orphan the answers already given from
      the run they belong to. */
   const keepFocus = useCallback(() => {
+    track('focus_extended');
     const p = db.activeProtocol();
     if (p && p.id != null) db.extendProtocol(p.id, todayISO());
     refresh();
@@ -335,6 +346,7 @@ export default function App() {
         <SafeAreaProvider>
           <OnboardingScreen
             onDone={(understand) => {
+              track('onboarding_completed', { wroteHypothesis: !!understand });
               db.setPref('onboarded', true);
               setOnboarded(true);
               /* their words, verbatim, from the moment they had the
@@ -578,6 +590,31 @@ export default function App() {
               </View>
 
               <Text style={styles.groupTitle}>Your data</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => {
+                    setAnalyticsEnabled(!analyticsOn);
+                    setAnalyticsOn(!analyticsOn);
+                  }}
+                  style={styles.row}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: analyticsOn }}
+                  accessibilityLabel="Share anonymous usage counts"
+                >
+                  <RowIcon name="stats-chart-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Share anonymous usage counts</Text>
+                    <Text style={styles.rowValue}>{analyticsOn ? 'On' : 'Off'}</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+              <Text style={styles.groupFooter}>
+                Counts that a thing happened — a check-in was completed, the app
+                was opened — never what you recorded. No pain scores, notes or
+                answers ever leave this phone.
+              </Text>
+
               <View style={styles.group}>
                 <Pressable
                   onPress={exportBackup}
