@@ -1,4 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable,
@@ -548,6 +550,13 @@ export default function App() {
                 Stored only on this iPhone. Your health data stays here unless
                 you choose to export or restore a backup. Restoring lets you
                 replace or merge — you decide before anything changes.
+              </Text>
+              {/* which code is actually running — the end of guessing
+                  whether an update has landed. updateId is null when the
+                  app runs its embedded bundle. */}
+              <Text style={styles.groupFooter} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {'Pattern v' + (Constants.expoConfig?.version || '?')
+                  + ' · ' + (Updates.updateId ? 'update ' + Updates.updateId.slice(0, 8) : 'embedded bundle')}
               </Text>
 
               <View style={styles.group}>
