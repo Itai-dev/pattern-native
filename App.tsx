@@ -463,7 +463,7 @@ export default function App() {
               style={styles.wordmark}
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.72}
+              minimumFontScale={0.8}
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
@@ -527,24 +527,18 @@ export default function App() {
               which the old key-per-tab remount threw away every time you
               looked at something else. Everything scrolls on under the
               floating glass. */}
-          {/* Swiping tabs comes back, but not on Today.
+          {/* Sideways moves between tabs everywhere — including Today,
+              where the day card keeps the gesture that starts ON it.
 
-              Two horizontal gestures on one screen cannot both win, and
-              the honest way to have both is to give each SCREEN one rule
-              rather than splitting a screen down the middle: sideways on
-              Today moves through days, sideways anywhere else moves
-              through tabs. A rule you can state in a sentence.
-
-              What that costs is the swipe OUT of Today — the tab bar does
-              that, which is what a tab bar is for. What it avoids is a
-              page where the top half and the bottom half answer the same
-              gesture differently, which is not a rule, it is a bug people
-              learn to work around. */}
+              iOS gives an inner scroll view the gesture that begins
+              inside its bounds and does not hand it back at the ends, so
+              the two never chain, but they also never fight: the card is
+              a bounded object with a visible edge, and everything outside
+              it is page. On the card, days. Off it, tabs. */}
           <ScrollView
             ref={pager}
             horizontal
             pagingEnabled
-            scrollEnabled={tab !== 'today'}
             bounces={false}
             scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
@@ -895,7 +889,7 @@ const styles = StyleSheet.create({
   },
   /* the main screen's title — iOS large-title weight and size */
   wordmark: {
-    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    color: color.textPrimary, fontSize: font.title1, fontWeight: '700',
     letterSpacing: -0.5, flex: 1,
   },
   /* room at the bottom so the last content clears the floating bar, and

@@ -51,10 +51,14 @@ import { color, font, radius, size } from './theme';
 
 const SQUARE = 132, SQ_RADIUS = 31;
 
-/** how much of the screen each neighbour is allowed to show through */
-const SIDE = 26;
+/** how much of the screen each neighbour is allowed to show through.
+ *  Roughly SIDE − GAP − (card × (1 − MIN_SCALE) ÷ 2) actually lands. */
+const SIDE = 42;
 /** the breathing room between one card and the next */
 const GAP = 5;
+/** how small a neighbour gets. Shallow on purpose: the shrink is what
+ *  eats the sliver, and the job here is only to say "not this one". */
+const MIN_SCALE = 0.94;
 
 /** check-in rows a page shows before it defers to the day detail */
 const ROWS = 3;
@@ -114,8 +118,8 @@ function DayCard({
   const pageStyle = useAnimatedStyle(() => {
     const off = Math.abs(scrollX.value / itemW - index);
     return {
-      transform: [{ scale: interpolate(off, [0, 1], [1, 0.9], Extrapolation.CLAMP) }],
-      opacity: interpolate(off, [0, 1], [1, 0.55], Extrapolation.CLAMP),
+      transform: [{ scale: interpolate(off, [0, 1], [1, MIN_SCALE], Extrapolation.CLAMP) }],
+      opacity: interpolate(off, [0, 1], [1, 0.7], Extrapolation.CLAMP),
     };
   });
   const avg = dailyAverage(entry);
