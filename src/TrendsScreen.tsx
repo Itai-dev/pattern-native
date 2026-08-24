@@ -296,7 +296,7 @@ function FoldedList({
           label={it.left}
           right={it.right}
           frac={it.frac || 0}
-          tint={it.tint || color.textSecondary}
+          tint={it.tint || color.textPrimary}
         />
       ) : (
         <Row key={it.key} left={it.left} right={it.right} />
@@ -773,7 +773,7 @@ export default function TrendsScreen({
               left: l.name,
               right: l.days + (l.days === 1 ? ' day' : ' days'),
               frac: l.days / Math.max(1, data.locations[0].days),
-              tint: color.textSecondary,
+              tint: color.textPrimary,
             }))}
           />
         </Card>
@@ -790,7 +790,7 @@ export default function TrendsScreen({
               left: q.name,
               right: '×' + q.count,
               frac: q.count / Math.max(1, data.qualities[0].count),
-              tint: color.textSecondary,
+              tint: color.textPrimary,
             }))}
           />
         </Card>
@@ -813,7 +813,7 @@ export default function TrendsScreen({
                   left: f.name,
                   right: f.days + (f.days === 1 ? ' day' : ' days'),
                   frac: f.days / Math.max(1, data.flagged.worse[0].days),
-                  tint: color.textSecondary,
+                  tint: color.textPrimary,
                 }))}
               />
             </>
@@ -829,7 +829,7 @@ export default function TrendsScreen({
                   left: f.name,
                   right: f.days + (f.days === 1 ? ' day' : ' days'),
                   frac: f.days / Math.max(1, data.flagged.better[0].days),
-                  tint: color.textSecondary,
+                  tint: color.textPrimary,
                 }))}
               />
             </>
@@ -860,7 +860,7 @@ export default function TrendsScreen({
           {data.func.length > 1 && (
             <>
               <Columns
-                tint={color.textSecondary}
+                tint={color.textPrimary}
                 values={data.func.map((f) => ({ key: f.week, v: f.ability }))}
               />
               <View style={styles.chartAxis}>
