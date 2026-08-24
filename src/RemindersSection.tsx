@@ -1,10 +1,18 @@
 /**
- * The reminder rows — lives on the Profile sheet. Three slots, each a
- * checkbox and a time; tapping the time opens the iPhone's own spinner,
- * because a schedule deserves the control iOS users already know.
- * Every change applies immediately: the phone's notification queue is
- * rewritten to match the saved settings, so what iOS holds and what the
- * screen shows can never drift apart.
+ * Reminders — one switch, and the details behind it.
+ *
+ * Three checkbox-and-time rows was the full mechanism shown as the whole
+ * interface. Most people want one thing from this screen: reminders on,
+ * or off. So that is the first row — a single switch that enables the
+ * evening slot, the default the onboarding copy has always offered — and
+ * Customise times unfolds the three slots for anyone who wants their
+ * mornings too.
+ *
+ * Every change still applies immediately: the phone's notification queue
+ * is rewritten to match the saved settings, so what iOS holds and what
+ * the screen shows can never drift apart. Tapping a time still opens the
+ * iPhone's own spinner, because a schedule deserves the control iOS
+ * users already know.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -24,6 +32,23 @@ export default function RemindersSection() {
   const [slots, setSlots] = useState<Slot[]>(() => db.getPref<Slot[]>(PREF, DEFAULT_SLOTS));
   const [status, setStatus] = useState('');
   const [picking, setPicking] = useState<Slot['key'] | null>(null);
+  /* the slot rows start folded unless something beyond the default is
+     already customised — then hiding them would hide live settings */
+  const [customising, setCustomising] = useState<boolean>(() => {
+    const saved = db.getPref<Slot[]>(PREF, DEFAULT_SLOTS);
+    return saved.some((sl) => sl.on && sl.key !== 'e');
+  });
+
+  const anyOn = slots.some((sl) => sl.on);
+
+  /* the master switch: on = the evening slot at its saved time, off = all
+     of them. It never forgets a customised schedule — the slot config
+     stays in prefs, and only the on-flags move. */
+  const toggleAll = () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (anyOn) apply(slots.map((sl) => ({ ...sl, on: false })));
+    else apply(slots.map((sl) => ({ ...sl, on: sl.key === 'e' })));
+  };
 
   /* Restore the saved schedule once, on mount — but never prompt here: a
      permission sheet on launch is an ambush. Toggling a slot is what asks,
@@ -91,7 +116,28 @@ export default function RemindersSection() {
         {status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere.'}
       </Text>
 
-      {slots.map((s) => (
+      {/* the one decision most people came for */}
+      <View style={styles.row}>
+        <Pressable onPress={toggleAll} style={styles.left} hitSlop={6}
+          accessibilityRole="switch" accessibilityState={{ checked: anyOn }}
+          accessibilityLabel="Daily reminder">
+          <View style={[styles.box, anyOn && styles.boxOn]}>
+            {anyOn && <Text style={styles.tick}>✓</Text>}
+          </View>
+          <Text style={styles.label}>Daily reminder</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: customising }}
+          accessibilityLabel="Customise times"
+        >
+          <Text style={styles.customise}>{customising ? 'Done' : 'Customise'}</Text>
+        </Pressable>
+      </View>
+
+      {customising && slots.map((s) => (
         <View key={s.key} style={styles.row}>
           <Pressable onPress={() => toggle(s.key)} style={styles.left} hitSlop={6}>
             <View style={[styles.box, s.on && styles.boxOn]}>
@@ -145,6 +191,7 @@ export default function RemindersSection() {
 const styles = StyleSheet.create({
   root: {},
   sub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginBottom: 4 },
+  customise: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 10 },
   left: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   box: {

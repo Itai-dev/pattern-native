@@ -102,6 +102,18 @@ function MiniChart({
   const logged = cols.filter((c) => c.avg != null).length;
   const pick = cols.filter((c) => c.date === selected)[0];
 
+  /* a window with nothing in it says so in words — a row of 3pt gap
+     marks is indistinguishable from a chart that failed to render */
+  if (!logged) {
+    return (
+      <View style={styles.readout}>
+        <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
+          Nothing logged in this range — try All.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View>
       {/* the readout sits ABOVE the bars and holds its height whether or
@@ -216,7 +228,11 @@ function outcomeOf(ev: PainEvent): string {
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso,
 }: TrendsScreenProps) {
-  const [rangeKey, setRangeKey] = useState('m');
+  /* All by default. The first look at this chart must show every logged
+     day — a fixed window that happens to miss the days someone logged
+     reads as "nothing here", which is exactly the bug report it
+     generated. Narrower ranges are for leaning in, not landing on. */
+  const [rangeKey, setRangeKey] = useState('a');
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -529,11 +545,11 @@ export default function TrendsScreen({
         style={[styles.primary, sharing && styles.primaryOff]}
         accessibilityRole="button"
         accessibilityState={{ disabled: sharing }}
-        accessibilityLabel="Share a summary for your doctor"
-        accessibilityHint="Creates this record as a PDF and opens the share sheet"
+        accessibilityLabel="Share this record as a PDF"
+        accessibilityHint="Creates the PDF and opens the share sheet"
       >
         <Text style={[styles.primaryText, sharing && styles.primaryTextOff]}>
-          {sharing ? 'Preparing…' : 'Share with your doctor'}
+          {sharing ? 'Preparing…' : 'Share'}
         </Text>
       </Press>
       <Text style={styles.noteLine}>

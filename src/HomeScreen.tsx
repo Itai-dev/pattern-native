@@ -13,11 +13,14 @@
  * people opened the app to do shared the fold with two things they mostly
  * did not. Hierarchy here is a subtraction, not a type scale.
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle, useSharedValue, withRepeat, withTiming,
+} from 'react-native-reanimated';
 import DaySquare from './DaySquare';
 import FocusCard from './FocusCard';
-import { Press } from './motion';
+import { Press, reduceMotion } from './motion';
 import {
   Entries, Protocol, QUALITY_NAMES, checkinCount, dailyAverage, fmtTime, todayISO,
 } from './model';
@@ -47,6 +50,18 @@ export default function HomeScreen({
   const avg = dailyAverage(e);
   const count = e ? checkinCount(e) : 0;
 
+  /* the same slow, shallow breath the pain shape and the Logged square
+     carry — presence, not decoration. ±2.5% over 2.6s; still under
+     Reduce Motion. */
+  const breath = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    breath.value = withRepeat(withTiming(1, { duration: 2600 }), -1, true);
+  }, []);
+  const breathStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + breath.value * 0.025 }],
+  }));
+
   /* today's check-ins, newest first — the most recent one is "the current
      log", the rest are the day so far */
   const logs = (e && e.logs ? e.logs.slice() : []).sort((a, b) => b.h - a.h);
@@ -71,6 +86,7 @@ export default function HomeScreen({
             : 'Today, average pain ' + speakScore(avg) + ', ' + formatCheckins(count)}
           accessibilityHint={e ? 'Opens today’s detail' : 'Starts a check-in'}
         >
+          <Animated.View style={breathStyle}>
           <DaySquare entry={e} value={avg} size={SQUARE} radius={SQ_RADIUS} plus today>
             {avg != null && (
               /* inkOn is the contrast-tested ink for this colour — the
@@ -83,6 +99,7 @@ export default function HomeScreen({
               </Text>
             )}
           </DaySquare>
+          </Animated.View>
         </Press>
 
         {avg == null ? (

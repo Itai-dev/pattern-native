@@ -47,11 +47,13 @@ function todayTitle(): string {
   return WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
 }
 
-/** an iOS-Settings icon: a white glyph in a coloured rounded square */
-function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: string }) {
+/** a settings row's glyph: the outline form, in line weight, the way
+ *  this app draws everything else. The coloured chips were the one place
+ *  the interface used colour as decoration rather than meaning. */
+function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
   return (
-    <View style={[styles.rowIcon, { backgroundColor: bg }]}>
-      <Ionicons name={name} size={17} color="#FFFFFF" />
+    <View style={styles.rowIcon}>
+      <Ionicons name={name} size={21} color={color.textSecondary} />
     </View>
   );
 }
@@ -94,6 +96,10 @@ export default function App() {
     swiping.current = false;
   }, [tab, width]);
   const [sheet, setSheet] = useState<Sheet>(null);
+  /* History stacks months newest-first, so back-to-today is simply the
+     top. The pill appears only once you have actually gone somewhere. */
+  const historyScroll = useRef<ScrollView>(null);
+  const [historyAway, setHistoryAway] = useState(false);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
   const [appearance, setAppearance] = useState(false);
@@ -333,8 +339,13 @@ export default function App() {
               />
             </ScrollView>
 
-            <ScrollView style={{ width }} contentContainerStyle={styles.page}
-              showsVerticalScrollIndicator={false}>
+            <ScrollView
+              ref={historyScroll}
+              style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={64}
+              onScroll={(e) => setHistoryAway(e.nativeEvent.contentOffset.y > 420)}
+            >
               <MapScreen entries={entries} onDayPress={setDaySheet} />
             </ScrollView>
 
@@ -356,6 +367,17 @@ export default function App() {
               />
             </ScrollView>
           </ScrollView>
+
+          {tab === 'map' && historyAway && (
+            <Pressable
+              onPress={() => historyScroll.current?.scrollTo({ y: 0, animated: true })}
+              style={styles.backToToday}
+              accessibilityRole="button"
+              accessibilityLabel="Back to today"
+            >
+              <Text style={styles.backToTodayText}>Today ↑</Text>
+            </Pressable>
+          )}
 
           <TabBar tab={tab} onChange={goToTab} />
         </SafeAreaView>
@@ -420,7 +442,7 @@ export default function App() {
                   accessibilityLabel={'Your record and doctor summary, based on ' + dayCount + ' logged days'}
                   accessibilityHint="Opens the Trends tab"
                 >
-                  <RowIcon name="document-text" bg="#0A84FF" />
+                  <RowIcon name="document-text-outline" />
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Your record and summary</Text>
                     <Text style={styles.rowValue}>
@@ -440,7 +462,7 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel={protocol ? 'Change your focus' : 'Choose a focus'}
                 >
-                  <RowIcon name="search" bg="#5E5CE6" />
+                  <RowIcon name="search-outline" />
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Your focus</Text>
                     <Text style={styles.rowValue} numberOfLines={1}>
@@ -466,7 +488,7 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel={'Colour theme, ' + themeName}
                 >
-                  <RowIcon name="color-palette" bg="#BF5AF2" />
+                  <RowIcon name="color-palette-outline" />
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Colour theme</Text>
                     <Text style={styles.rowValue}>{themeName}</Text>
@@ -483,7 +505,7 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel="Export backup"
                 >
-                  <RowIcon name="arrow-up" bg="#64D2FF" />
+                  <RowIcon name="share-outline" />
                   <View style={[styles.rowMain, styles.rowLine]}>
                     <Text style={styles.rowLabel}>Export backup</Text>
                     <Text style={styles.rowChevron}>›</Text>
@@ -496,7 +518,7 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel="Restore backup"
                 >
-                  <RowIcon name="arrow-down" bg="#FF9F0A" />
+                  <RowIcon name="download-outline" />
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Restore backup</Text>
                     <Text style={styles.rowChevron}>›</Text>
@@ -555,6 +577,14 @@ const styles = StyleSheet.create({
      21pt across, 1.9pt lines — because it sits in the same family of
      controls and was previously a lighter, smaller drawing that read as a
      different set of marks. */
+  /* floats just above the bar, only on History, only once you have left */
+  backToToday: {
+    position: 'absolute', alignSelf: 'center', bottom: 96,
+    minHeight: 38, borderRadius: 19, paddingHorizontal: 16,
+    justifyContent: 'center', backgroundColor: color.bgSegmentActive,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  },
+  backToTodayText: { color: color.textPrimary, fontSize: font.footnote, fontWeight: '600' },
   profileBtn: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
