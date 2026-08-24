@@ -35,7 +35,7 @@ import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, RESPONSE_LABELS,
   Response, dateFromISO, fmtTime,
 } from './model';
-import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
+import { BAND_AT, formatScore, painColor, painLabel, themeBrand } from './painScale';
 import { EndOfRecord, ReportData, buildReportData, fmtReportDate, reportHtml } from './report';
 import { color, font, radius, size } from './theme';
 
@@ -295,7 +295,7 @@ function FoldedList({
           label={it.left}
           right={it.right}
           frac={it.frac || 0}
-          tint={it.tint || color.tint}
+          tint={it.tint || themeBrand()}
         />
       ) : (
         <Row key={it.key} left={it.left} right={it.right} />
@@ -582,6 +582,11 @@ export default function TrendsScreen({
     );
   }
 
+  /* a fixed range longer than the record shows exactly what All shows —
+     a range that changes nothing is not offered, and when that leaves one
+     the control itself is not drawn either */
+  const ranges = RANGES.filter((r) => r.days === 0 || r.days < spanRecord);
+
   const tried = data.events.filter((ev) => ev.intervention || ev.resp || ev.helped != null);
 
   /* Days grouped by the SAME five words the slider, the day detail and
@@ -628,19 +633,15 @@ export default function TrendsScreen({
     <View style={styles.page}>
       <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.5}>
         What you’ve recorded, {fmtReportDate(data.rangeStart)} – {fmtReportDate(data.rangeEnd)}.
+        {data.limited && (
+          <Text style={styles.subCaveat}>
+            {'  '}Still a short record — {data.loggedDays}{' '}
+            {data.loggedDays === 1 ? 'day' : 'days'} logged, so changes over time
+            aren’t worth reading much into yet.
+          </Text>
+        )}
       </Text>
 
-      {data.limited && (
-        <View style={styles.limited}>
-          <Text style={styles.limitedTitle}>
-            Limited record — {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} logged
-          </Text>
-          <Text style={styles.limitedSub}>
-            This shows what’s here. More days are needed before changes over
-            time can be meaningfully reviewed.
-          </Text>
-        </View>
-      )}
 
       {/* ── the numbers ─────────────────────────────────────── */}
       <Card title="Your record">
@@ -665,10 +666,9 @@ export default function TrendsScreen({
 
       {/* ── pain over time ──────────────────────────────────── */}
       <Card title={data.limited ? 'Pain recorded so far' : 'Pain over time'}>
+      {ranges.length > 1 && (
       <View style={styles.segment}>
-        {/* a fixed range longer than the record shows exactly what All
-            shows — a control that changes nothing is not offered */}
-        {RANGES.filter((r) => r.days === 0 || r.days < spanRecord).map((r) => {
+        {ranges.map((r) => {
           const on = r.key === rangeKey;
           return (
             <Pressable
@@ -689,6 +689,7 @@ export default function TrendsScreen({
           );
         })}
       </View>
+      )}
       <MiniChart data={data} span={spanDays} selected={picked} onSelect={setPicked} />
       <Text style={styles.noteLine}>
         Days without check-ins stay blank — nothing is filled in for a day you
@@ -697,34 +698,35 @@ export default function TrendsScreen({
       {!!data.halves && (
         <Direction first={data.halves.first} second={data.halves.second} />
       )}
-      </Card>
 
-      {/* ── how the days felt ───────────────────────────────────
-          The count that goes UP as things get better.
+      {/* THE COUNT THAT GOES UP as things get better.
 
-          Every other number here falls when the record improves, which is
-          the right shape for pain and the wrong shape to look at every
-          day. This one does not: it is how many of your logged days
-          landed in each band, and the mild end grows as the record does.
+          Every other number on this screen falls when the record
+          improves, which is the right shape for pain and a discouraging
+          shape to look at daily. This one does not: it is how many of
+          your logged days landed in each band, and the easier end grows.
 
           It is a COUNT, not a second scale. Pain stays the number you
           entered — the same 0–10 on Today, in the day detail and in the
           summary a clinician reads — and this counts those days rather
           than restating them upside down. The bands are the five the app
-          already speaks in everywhere; nothing new was invented to make
-          the line point the other way. */}
+          already speaks in; nothing was invented to make a line point the
+          other way. */}
       {feltBands.length > 0 && (
-        <Card
-          title="How your days felt"
-          note={'Your ' + data.days.length + ' logged '
-            + (data.days.length === 1 ? 'day' : 'days') + ' by band. This is the '
-            + 'one figure here that rises as things get easier — it counts days, '
-            + 'it is not a second pain score.'}
-        >
+        <View style={styles.subBlock}>
+          <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Your days by band
+          </Text>
           <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
           <Key items={feltBands} />
-        </Card>
+          <Text style={styles.noteLine}>
+            The same {data.days.length} {data.days.length === 1 ? 'day' : 'days'} as
+            the chart, counted instead of laid out in time. This is the one
+            figure here that rises as things get easier.
+          </Text>
+        </View>
       )}
+      </Card>
 
       {/* ── the two ends ────────────────────────────────────── */}
       {!!data.harderEasier && (
@@ -791,7 +793,7 @@ export default function TrendsScreen({
               left: l.name,
               right: l.days + (l.days === 1 ? ' day' : ' days'),
               frac: l.days / Math.max(1, data.locations[0].days),
-              tint: color.tint,
+              tint: themeBrand(),
             }))}
           />
         </Card>
@@ -808,7 +810,7 @@ export default function TrendsScreen({
               left: q.name,
               right: '×' + q.count,
               frac: q.count / Math.max(1, data.qualities[0].count),
-              tint: color.tint,
+              tint: themeBrand(),
             }))}
           />
         </Card>
@@ -878,7 +880,7 @@ export default function TrendsScreen({
           {data.func.length > 1 && (
             <>
               <Columns
-                tint={color.tint}
+                tint={color.textSecondary}
                 values={data.func.map((f) => ({ key: f.week, v: f.ability }))}
               />
               <View style={styles.chartAxis}>
@@ -972,13 +974,16 @@ const styles = StyleSheet.create({
   emptyWrap: { paddingTop: 8 },
   empty: { color: color.textSecondary, fontSize: font.body, lineHeight: 24 },
   sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },
-  limited: {
-    marginTop: 16, padding: 12, borderRadius: radius.card,
-    backgroundColor: color.bgSurface, borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.borderControl, gap: 3,
+  subCaveat: { color: color.textTertiary },
+  /* a second thought inside a card, ruled off from the first */
+  subBlock: {
+    marginTop: 18, paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
   },
-  limitedTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
-  limitedSub: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
+  subBlockTitle: {
+    color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
+    marginBottom: 10,
+  },
   /* Health's Summary grammar: a surface per section, the title inside
      it, the qualifying sentence inside it too. Sections are told apart by
      their edges rather than by reading the type scale. */
@@ -998,7 +1003,7 @@ const styles = StyleSheet.create({
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   metric: {
     flexGrow: 1, flexBasis: '30%', borderRadius: 12, padding: 10,
-    backgroundColor: color.bgRoot, gap: 1,
+    backgroundColor: color.bgSheet, gap: 1,
   },
   metricV: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
@@ -1019,12 +1024,12 @@ const styles = StyleSheet.create({
   barSub: { color: color.textTertiary, fontSize: font.footnote },
   barTrack: {
     flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden',
-    backgroundColor: color.bgRoot,
+    backgroundColor: color.bgSegmentTrack,
   },
   barFill: { flexBasis: 0, borderRadius: 4 },
   stackTrack: {
     flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden',
-    backgroundColor: color.bgRoot, marginTop: 2,
+    backgroundColor: color.bgSegmentTrack, marginTop: 2,
   },
   keyWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   keyItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -1040,7 +1045,7 @@ const styles = StyleSheet.create({
   splitWrap: { marginBottom: 14 },
   splitTrack: {
     flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden',
-    backgroundColor: color.bgRoot,
+    backgroundColor: color.bgSegmentTrack,
   },
   splitSeg: { flexBasis: 0 },
   splitAxis: {
@@ -1085,7 +1090,7 @@ const styles = StyleSheet.create({
   readoutHint: { color: color.textTertiary, fontSize: font.footnote },
   segment: {
     flexDirection: 'row', gap: 3, padding: 3, borderRadius: 12,
-    backgroundColor: color.bgRoot, marginBottom: 12,
+    backgroundColor: color.bgSheet, marginBottom: 12,
   },
   segItem: {
     flex: 1, minHeight: 34, borderRadius: 9,
@@ -1119,7 +1124,7 @@ const styles = StyleSheet.create({
   },
   endCard: {
     borderRadius: radius.card, padding: 12, marginBottom: 8,
-    backgroundColor: color.bgRoot, gap: 3,
+    backgroundColor: color.bgSheet, gap: 3,
   },
   endTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
   endWhen: {
