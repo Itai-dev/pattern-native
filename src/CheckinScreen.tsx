@@ -548,8 +548,14 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 }]}
+      style={styles.root}
     >
+      <View
+        style={[
+          styles.inner,
+          { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 },
+        ]}
+      >
       <View style={styles.topBar}>
         {step !== 'pain' ? (
           <Press onPress={back} style={styles.close} hitSlop={12}
@@ -727,12 +733,16 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             )}
         </>
       </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgRoot, paddingHorizontal: 28 },
+  /* the avoider owns nothing but the flex box and the ground: anything
+     it can compose over, it will */
+  root: { flex: 1, backgroundColor: color.bgRoot },
+  inner: { flex: 1, paddingHorizontal: 28 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   close: {

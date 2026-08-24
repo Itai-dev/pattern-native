@@ -71,11 +71,14 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[
-        styles.root,
-        { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
-      ]}
+      style={styles.root}
     >
+      <View
+        style={[
+          styles.inner,
+          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+        ]}
+      >
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
@@ -207,12 +210,15 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
           ))}
         </View>
       </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgRoot, paddingHorizontal: 28 },
+  /* the avoider owns nothing it can overwrite — see CheckinScreen */
+  root: { flex: 1, backgroundColor: color.bgRoot },
+  inner: { flex: 1, paddingHorizontal: 28 },
   body: { flexGrow: 1, justifyContent: 'center', paddingVertical: 20 },
   marks: { flexDirection: 'row', gap: 10, marginBottom: 34 },
   mark: { width: 34, height: 34, borderRadius: 10 },
