@@ -190,6 +190,46 @@ const RANGES: { key: string; label: string; days: number }[] = [
   { key: 'a', label: 'All', days: 0 },
 ];
 
+/**
+ * A list that shows its first few and admits how many it is holding back.
+ *
+ * "Show all 11" rather than "Show more": a reader who cannot tell whether
+ * two rows are hidden or twenty cannot tell whether the list is worth
+ * opening, and a body-area tally that silently stops at eight is a
+ * frequency count that quietly lies about its own tail.
+ */
+function FoldedList({
+  items, limit = 4, label,
+}: {
+  items: { key: string; left: string; right: string }[];
+  limit?: number;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? items : items.slice(0, limit);
+  return (
+    <>
+      {shown.map((it) => <Row key={it.key} left={it.left} right={it.right} />)}
+      {items.length > limit && (
+        <Press
+          onPress={() => setOpen(!open)}
+          pressOpacity={0.7}
+          style={styles.foldRow}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={open
+            ? 'Show fewer ' + label
+            : 'Show all ' + items.length + ' ' + label}
+        >
+          <Text style={styles.foldText}>
+            {open ? 'Show fewer' : 'Show all ' + items.length}
+          </Text>
+        </Press>
+      )}
+    </>
+  );
+}
+
 function Row({ left, right }: { left: string; right?: string }) {
   return (
     <View style={styles.row}>
@@ -427,9 +467,14 @@ export default function TrendsScreen({
       {data.locations.length > 0 && (
         <>
           <Text style={styles.section}>Where</Text>
-          {data.locations.slice(0, 8).map((l) => (
-            <Row key={l.id} left={l.name} right={l.days + (l.days === 1 ? ' day' : ' days')} />
-          ))}
+          <FoldedList
+            label="body areas"
+            items={data.locations.map((l) => ({
+              key: l.id,
+              left: l.name,
+              right: l.days + (l.days === 1 ? ' day' : ' days'),
+            }))}
+          />
         </>
       )}
 
@@ -437,9 +482,14 @@ export default function TrendsScreen({
       {data.qualities.length > 0 && (
         <>
           <Text style={styles.section}>Described as</Text>
-          {data.qualities.slice(0, 8).map((q) => (
-            <Row key={q.id} left={q.name} right={'×' + q.count} />
-          ))}
+          <FoldedList
+            label="words"
+            items={data.qualities.map((q) => ({
+              key: q.id,
+              left: q.name,
+              right: '×' + q.count,
+            }))}
+          />
         </>
       )}
 
@@ -450,19 +500,27 @@ export default function TrendsScreen({
           {data.flagged.worse.length > 0 && (
             <>
               <Text style={styles.subhead}>Made it harder</Text>
-              {data.flagged.worse.slice(0, 6).map((f) => (
-                <Row key={'w' + f.id} left={f.name}
-                  right={f.days + (f.days === 1 ? ' day' : ' days')} />
-              ))}
+              <FoldedList
+                label="things"
+                items={data.flagged.worse.map((f) => ({
+                  key: 'w' + f.id,
+                  left: f.name,
+                  right: f.days + (f.days === 1 ? ' day' : ' days'),
+                }))}
+              />
             </>
           )}
           {data.flagged.better.length > 0 && (
             <>
               <Text style={styles.subhead}>Helped</Text>
-              {data.flagged.better.slice(0, 6).map((f) => (
-                <Row key={'b' + f.id} left={f.name}
-                  right={f.days + (f.days === 1 ? ' day' : ' days')} />
-              ))}
+              <FoldedList
+                label="things"
+                items={data.flagged.better.map((f) => ({
+                  key: 'b' + f.id,
+                  left: f.name,
+                  right: f.days + (f.days === 1 ? ' day' : ' days'),
+                }))}
+              />
             </>
           )}
           <Text style={styles.noteLine}>
@@ -499,17 +557,16 @@ export default function TrendsScreen({
       {tried.length > 0 && (
         <>
           <Text style={styles.section}>What you tried</Text>
-          {tried.slice(-8).map((ev, i) => (
-            <Row
-              key={ev.id != null ? 't' + ev.id : 'ti' + i}
-              left={
-                shortDate(ev.date) + ' · '
+          <FoldedList
+            label="things you tried"
+            items={tried.slice().reverse().map((ev, i) => ({
+              key: ev.id != null ? 't' + ev.id : 'ti' + i,
+              left: shortDate(ev.date) + ' · '
                 + (ev.intervention ? INTERVENTIONS[ev.intervention] || ev.intervention : EVENT_LABELS[ev.kind])
-                + (ev.text ? ' — ' + ev.text : '')
-              }
-              right={outcomeOf(ev)}
-            />
-          ))}
+                + (ev.text ? ' — ' + ev.text : ''),
+              right: outcomeOf(ev),
+            }))}
+          />
           <Text style={styles.noteLine}>
             Your own impression afterwards, recorded as you gave it. Pattern
             doesn’t assess whether something worked.
@@ -521,15 +578,15 @@ export default function TrendsScreen({
       {data.events.length > 0 && (
         <>
           <Text style={styles.section}>Events</Text>
-          {data.events.slice(-8).map((ev, i) => (
-            <Row
-              key={ev.id != null ? 'e' + ev.id : 'ei' + i}
-              left={
-                shortDate(ev.date) + ' ' + fmtTime(ev.h) + ' · ' + EVENT_LABELS[ev.kind]
-                + (ev.text ? ' — ' + ev.text : '')
-              }
-            />
-          ))}
+          <FoldedList
+            label="events"
+            items={data.events.slice().reverse().map((ev, i) => ({
+              key: ev.id != null ? 'e' + ev.id : 'ei' + i,
+              left: shortDate(ev.date) + ' ' + fmtTime(ev.h) + ' · ' + EVENT_LABELS[ev.kind]
+                + (ev.text ? ' — ' + ev.text : ''),
+              right: '',
+            }))}
+          />
           <Text style={styles.noteLine}>
             Events sit alongside your check-ins. Their timing doesn’t prove they
             caused a change.
@@ -623,6 +680,10 @@ const styles = StyleSheet.create({
   chartAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   axisText: { color: color.textTertiary, fontSize: font.footnote },
   noteLine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 8 },
+  foldRow: {
+    minHeight: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  foldText: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
   subhead: {
     color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
     marginTop: 12, marginBottom: 2,

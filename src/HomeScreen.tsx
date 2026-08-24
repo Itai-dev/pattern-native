@@ -13,7 +13,7 @@
  * people opened the app to do shared the fold with two things they mostly
  * did not. Hierarchy here is a subtraction, not a type scale.
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle, useSharedValue, withRepeat, withTiming,
@@ -65,6 +65,14 @@ export default function HomeScreen({
   /* today's check-ins, newest first — the most recent one is "the current
      log", the rest are the day so far */
   const logs = (e && e.logs ? e.logs.slice() : []).sort((a, b) => b.h - a.h);
+
+  /* A heavy day can run to six or eight moments, and Today is where you
+     act — the button belongs above the fold, not below a list. Three is
+     enough to see the shape of the day; the rest are one tap away and
+     the count says exactly how many, because a list that hides an
+     unknown number is a list you cannot trust. */
+  const [allLogs, setAllLogs] = useState(false);
+  const shownLogs = allLogs ? logs : logs.slice(0, 3);
 
   /* the focus question is worth asking only once there is a record to
      form a hypothesis about — a first-day user has nothing to suspect */
@@ -154,7 +162,7 @@ export default function HomeScreen({
             Today’s check-ins
           </Text>
           <View style={styles.logsCard}>
-            {logs.map((l, i) => {
+            {shownLogs.map((l, i) => {
               const q = (l.q || []).map((id) => QUALITY_NAMES[id] || id).join(', ');
               return (
                 <Press
@@ -194,6 +202,23 @@ export default function HomeScreen({
                 </Press>
               );
             })}
+
+            {logs.length > 3 && (
+              <Press
+                onPress={() => setAllLogs(!allLogs)}
+                pressOpacity={0.7}
+                style={styles.moreRow}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: allLogs }}
+                accessibilityLabel={allLogs
+                  ? 'Show fewer check-ins'
+                  : 'Show all ' + logs.length + ' check-ins'}
+              >
+                <Text style={styles.moreText}>
+                  {allLogs ? 'Show fewer' : 'Show all ' + logs.length}
+                </Text>
+              </Press>
+            )}
           </View>
         </>
       )}
@@ -247,6 +272,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 60 },
+  moreRow: {
+    minHeight: 46, alignItems: 'center', justifyContent: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
+  },
+  moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
   logRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
   logSquare: {
     width: 38, height: 38, borderRadius: 10,
