@@ -18,7 +18,8 @@ const OUT = process.env.PATTERN_TEST_OUT || path.join(__dirname, '..', '.testbui
 const model = require(path.join(OUT, 'model.js'));
 const metrics = require(path.join(OUT, 'metrics.js'));
 const protocol = require(path.join(OUT, 'protocol.js'));
-const th = require(path.join(OUT, 'thresholds.js'));
+const th = require(path.join(OUT, "thresholds.js"));
+const scale = require(path.join(OUT, "painScale.js"));
 const report = require(path.join(OUT, 'report.js'));
 
 let pass = 0, fail = 0;
@@ -878,6 +879,59 @@ ok('a record with no chips prints no such section', (() => {
   });
   return data.flagged.worse.length === 0
     && report.reportHtml(data).indexOf('What the patient points to') < 0;
+})());
+
+/* ── what the widget is given ───────────────────────────────── */
+group('the widget snapshot');
+
+const widget = require(path.join(OUT, 'widget.js'));
+const EMPTY_FILL = widget.WIDGET_EMPTY;
+
+ok('seven days, oldest first', (() => {
+  const e = {};
+  for (let i = 1; i <= 10; i++) {
+    e['2026-08-' + String(i).padStart(2, '0')] = {
+      pain: i, cap: null, note: '', logs: [{ h: 540, pain: Math.min(10, i) }],
+    };
+  }
+  const c = widget.weekColors(e, '2026-08-10');
+  return c.length === 7 && c[6] !== c[0];
+})());
+ok('a day with nothing logged is an outline, not a colour', (() => {
+  const c = widget.weekColors({}, '2026-08-10');
+  return c.length === 7 && c.every((x) => x === EMPTY_FILL);
+})());
+ok('a gap in the middle stays a gap', (() => {
+  const e = {
+    '2026-08-08': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] },
+    '2026-08-10': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] },
+  };
+  const c = widget.weekColors(e, '2026-08-10');
+  return c[5] === EMPTY_FILL && c[4] !== EMPTY_FILL && c[6] !== EMPTY_FILL;
+})());
+ok('the caption states, and never nudges', (() => {
+  const none = widget.weekCaption({}, '2026-08-10');
+  const some = widget.weekCaption({
+    '2026-08-10': { pain: 4, cap: null, note: '', logs: [{ h: 540, pain: 4 }] },
+  }, '2026-08-10');
+  return none === 'Check in' && some === 'Checked in today'
+    && !/haven|forgot|don.t|missed|streak/i.test(none + ' ' + some);
+})());
+ok('nothing in the snapshot is a pain value', (() => {
+  /* the whole point: a home screen you cannot choose not to look at gets
+     the shape of the week and no figure to read as a verdict */
+  const e = {
+    '2026-08-10': { pain: 9, cap: null, note: 'agony', logs: [{ h: 540, pain: 9 }] },
+  };
+  const c = widget.weekColors(e, '2026-08-10');
+  const blob = JSON.stringify(c) + widget.weekCaption(e, '2026-08-10');
+  return blob.indexOf('9') < 0 && blob.indexOf('agony') < 0 && !/\/10/.test(blob);
+})());
+ok('the colours come from the one pain ramp, not a second one', (() => {
+  const e = {
+    '2026-08-10': { pain: 7, cap: null, note: '', logs: [{ h: 540, pain: 7 }] },
+  };
+  return widget.weekColors(e, '2026-08-10')[6] === scale.painColor(7);
 })());
 
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');

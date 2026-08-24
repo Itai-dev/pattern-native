@@ -1,8 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView,
-  Share, StyleSheet, Text, View, useWindowDimensions,
+  Alert, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable,
+  ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
 import { PainEvent, ValidBackup, todayISO } from './src/model';
+import { refreshWidget } from './src/widgetPush';
 import { activeFactors } from './src/protocol';
 import { getPainTheme, setPainTheme } from './src/painScale';
 import {
@@ -103,9 +104,12 @@ export default function App() {
   const [returnDay, setReturnDay] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
-    setEntries(db.getAll());
+    const next = db.getAll();
+    setEntries(next);
     setEvents(db.getEvents());
     setProtocol(db.activeProtocol());
+    /* one place to feed the widget, so no screen has to remember to */
+    refreshWidget(next);
   }, []);
 
   const closeSheet = useCallback(() => {
@@ -116,6 +120,22 @@ export default function App() {
     if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
   }, [refresh, returnDay]);
   const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
+
+  /* the widget's whole surface is one link, and it lands here. Cold start
+     and warm resume both go through the same handler, so the tap behaves
+     the same whether the app was already running or not. */
+  useEffect(() => {
+    const open = (url: string | null) => {
+      if (url && url.indexOf('checkin') >= 0) setSheet('checkin');
+    };
+    Linking.getInitialURL().then(open).catch(() => {});
+    const sub = Linking.addEventListener('url', (ev) => open(ev.url));
+    return () => sub.remove();
+  }, []);
+
+  /* and once on launch, so a widget added before today's first check-in
+     still shows the right caption */
+  useEffect(() => { refreshWidget(db.getAll()); }, []);
 
   /* "Keep observing" at the review: the same two questions carry on, and
      the next review is another fourteen days out. The period is not
