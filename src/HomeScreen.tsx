@@ -4,8 +4,10 @@
  *
  * The hero states the DAY'S AVERAGE across completed check-ins, and says
  * so. It is not "your pain right now" — a single word floating over a
- * colour invited exactly that misreading. Number, label and count are all
- * present, so the value never depends on the colour alone.
+ * colour invited exactly that misreading. The number and the word are
+ * both there, so the value never depends on the colour alone; the count
+ * moved to the list underneath, which names it once and in full ("Show
+ * all 9") rather than three times over.
  *
  * THE DAY CARD SWIPES, the way State of Mind's does. Sideways moves back
  * through the record a day at a time; only the card moves, because only
@@ -49,7 +51,7 @@ import {
 } from './painScale';
 import { color, font, radius, size } from './theme';
 
-const SQUARE = 132, SQ_RADIUS = 31;
+const SQUARE = 116, SQ_RADIUS = 27;
 
 /** how much of the screen each neighbour shows. With no scaling in the
  *  way, exactly SIDE − GAP of a neighbour lands on screen. */
@@ -57,6 +59,9 @@ const SIDE = 24;
 /** the black between one card and the next — real spacing, so the peek
  *  reads as a separate card rather than as this one running off */
 const GAP = 9;
+/** how small a neighbour draws. It costs the sliver nothing: the card is
+ *  translated back out by whatever the scale pulls in. */
+const MIN_SCALE = 0.92;
 /** how far off centre a card can be and still show its words. Past this
  *  it is a blank surface; before it, fully readable — so a swipe never
  *  passes through a dark gap. */
@@ -117,11 +122,17 @@ function DayCard({
   /* full size at centre, smaller and dimmer at either side, continuously
      — a card that only resized once the swipe settled would read as a
      glitch rather than as depth */
-  /* no scale: the neighbour keeps its full size so every reserved pt is
-     a pt you can see. Depth comes from the surface dimming instead. */
   const pageStyle = useAnimatedStyle(() => {
-    const off = Math.abs(scrollX.value / itemW - index);
-    return { opacity: interpolate(off, [0, 1], [1, 0.75], Extrapolation.CLAMP) };
+    const d = scrollX.value / itemW - index;
+    const off = Math.abs(d);
+    const scale = interpolate(off, [0, 1], [1, MIN_SCALE], Extrapolation.CLAMP);
+    /* push back out by exactly what the scale pulled in, toward whichever
+       edge of this card the screen can actually see */
+    const back = (d === 0 ? 0 : Math.sign(d)) * (itemW * (1 - scale)) / 2;
+    return {
+      transform: [{ translateX: back }, { scale }],
+      opacity: interpolate(off, [0, 1], [1, 0.75], Extrapolation.CLAMP),
+    };
   });
   /* the words, separately: gone at rest, back well before centre */
   const contentStyle = useAnimatedStyle(() => {
@@ -184,10 +195,10 @@ function DayCard({
               <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.4}>
                 {formatScore(avg)}
               </Text>
-              {/* what the number means, and where it came from */}
-              <Text style={styles.underLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-                <Text style={styles.underWord}>{painLabel(avg)}</Text>
-                {'  ·  ' + formatCheckins(count)}{count > 1 ? ' · average' : ''}
+              {/* what the number means. Where it came from is the list
+                  below, and it says so there rather than twice. */}
+              <Text style={styles.underWord} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {painLabel(avg)}
               </Text>
             </>
           )}
@@ -419,7 +430,7 @@ export default function HomeScreen({
    silently clipping its own last line. */
 const PAGE_H = 8            // card's top margin
   + 20 + 18                 // padding, the date line
-  + SQUARE + 50 + 22        // the square, the score, the line under it
+  + SQUARE + 50 + 22        // the square, the score, the word under it
   + 20 + 14 + 18            // the rule and CHECK-INS
   + ROWS * 60               // the rows
   + 46                      // Show all
@@ -458,11 +469,10 @@ const styles = StyleSheet.create({
     lineHeight: 40, marginTop: 10, textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
-  underLine: {
-    color: color.textTertiary, fontSize: font.subheadline, marginTop: 2,
-    textAlign: 'center',
+  underWord: {
+    color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600',
+    marginTop: 2, textAlign: 'center',
   },
-  underWord: { color: color.textSecondary, fontWeight: '600' },
   empty: { color: color.textSecondary, fontSize: font.body, marginTop: 20 },
   backRow: {
     alignSelf: 'center', minHeight: 40, justifyContent: 'center',
