@@ -29,9 +29,14 @@ import { color, font, radius, size } from './theme';
 export interface OnboardingScreenProps {
   /** finished — record it and open the first check-in */
   onDone: () => void;
+  /** Reading it again from Profile, not arriving for the first time. The
+     spec requires the urgent-care guidance to stay reachable, and a
+     safety card shown once and never again is not reachable — it is
+     remembered or lost. */
+  review?: boolean;
 }
 
-export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
+export default function OnboardingScreen({ onDone, review }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<0 | 1>(0);
   const brand = themeBrand();
@@ -127,10 +132,10 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
           pressScale={0.985}
           style={[styles.primary, { backgroundColor: brand }]}
           accessibilityRole="button"
-          accessibilityLabel={step === 0 ? 'Continue' : 'Start my first check-in'}
+          accessibilityLabel={step === 0 ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
         >
           <Text style={[styles.primaryText, { color: inkForBg(brand) }]}>
-            {step === 0 ? 'Continue' : 'Start my first check-in'}
+            {step === 0 ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
           </Text>
         </Press>
 

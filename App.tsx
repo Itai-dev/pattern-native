@@ -144,6 +144,7 @@ export default function App() {
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
   const [appearance, setAppearance] = useState(false);
+  const [about, setAbout] = useState(false);
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
   /* an event being edited, and the day sheet to return to afterwards */
@@ -453,6 +454,10 @@ export default function App() {
           <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
+        <Modal visible={about} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAbout(false)}>
+          <OnboardingScreen review onDone={() => setAbout(false)} />
+        </Modal>
+
         <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
           <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
@@ -547,6 +552,22 @@ export default function App() {
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Colour theme</Text>
                     <Text style={styles.rowValue}>{themeName}</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+
+              <Text style={styles.groupTitle}>About</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => setAbout(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="What Pattern is, and when not to log"
+                >
+                  <RowIcon name="information-circle-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>What Pattern is — and isn’t</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
