@@ -11,6 +11,8 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './src/HomeScreen';
@@ -27,6 +29,7 @@ import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
 import { PainEvent, ValidBackup, todayISO } from './src/model';
+import { buildReportData, reportHtml } from './src/report';
 import { refreshWidget } from './src/widgetPush';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
@@ -233,6 +236,46 @@ export default function App() {
     ).catch(() => {});
   }, []);
 
+  /* how many days Trends is currently charting. Null until it has said
+     — and the fallback is the WHOLE record rather than a month, because a
+     summary that silently cropped a clinician's view would be the worst
+     possible thing for this button to do. */
+  const [trendsSpan, setTrendsSpan] = useState<number | null>(null);
+  const [sharing, setSharing] = useState(false);
+
+  const shareTrends = useCallback(async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const data = buildReportData({
+        entries, events, func: [], goalText: null,
+        todayIso: todayISO(), windowDays: trendsSpan || 36500,
+      });
+      if (!data) {
+        Alert.alert('Nothing to share yet', 'Check in once and there will be a record to send.');
+        return;
+      }
+      const { uri } = await Print.printToFileAsync({ html: reportHtml(data) });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+          dialogTitle: 'Pattern — summary for your doctor',
+        });
+        /* declared in the analytics union since it was written and never
+           once fired — the count of "someone took their record to an
+           appointment" is the single most useful number this app has */
+        track('pdf_shared');
+      } else {
+        Alert.alert('Sharing isn’t available on this device.');
+      }
+    } catch {
+      Alert.alert('Couldn’t create the PDF', 'Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  }, [entries, events, trendsSpan, sharing]);
+
   const pickTheme = useCallback((id: PainThemeId) => {
     setPainTheme(id);
     db.setPref('theme.pain', id);
@@ -411,16 +454,38 @@ export default function App() {
             >
               {tab === 'today' ? 'Today' : tab === 'trends' ? 'Trends' : 'History'}
             </Text>
-            <Pressable
-              onPress={() => setProfile(true)}
-              style={styles.profileBtn}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Profile and settings"
-            >
-              <View style={styles.personHead} />
-              <View style={styles.personBody} />
-            </Pressable>
+            <View style={styles.topActions}>
+              {tab === 'trends' && (
+                <Pressable
+                  onPress={shareTrends}
+                  disabled={sharing}
+                  style={[styles.profileBtn, sharing && styles.profileBtnBusy]}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: sharing }}
+                  accessibilityLabel={sharing
+                    ? 'Preparing the PDF'
+                    : 'Share this record as a PDF'}
+                  accessibilityHint="Creates the PDF and opens the share sheet"
+                >
+                  <Ionicons
+                    name={sharing ? 'ellipsis-horizontal' : 'share-outline'}
+                    size={21}
+                    color={sharing ? color.textTertiary : color.textSecondary}
+                  />
+                </Pressable>
+              )}
+              <Pressable
+                onPress={() => setProfile(true)}
+                style={styles.profileBtn}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Profile and settings"
+              >
+                <View style={styles.personHead} />
+                <View style={styles.personBody} />
+              </Pressable>
+            </View>
           </View>
 
           {/* three pages side by side. Each keeps its own scroll position,
@@ -476,6 +541,7 @@ export default function App() {
                 func={[]}
                 goalText={null}
                 todayIso={todayISO()}
+                onSpanChange={setTrendsSpan}
               />
             </ScrollView>
           </ScrollView>
@@ -755,6 +821,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderRadius: 9,
     alignItems: 'center', justifyContent: 'center',
   },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  profileBtnBusy: { opacity: 0.5 },
   profileBtn: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',

@@ -25,18 +25,16 @@
  * no notification ever originates here. It is somewhere to go, not
  * something that asks.
  */
-import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
 import { Press } from './motion';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, RESPONSE_LABELS,
   Response, dateFromISO, fmtTime,
 } from './model';
-import { BAND_AT, formatScore, painColor, painLabel, themeBrand } from './painScale';
-import { EndOfRecord, ReportData, buildReportData, fmtReportDate, reportHtml } from './report';
+import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
+import { EndOfRecord, ReportData, buildReportData, fmtReportDate } from './report';
 import { color, font, radius, size } from './theme';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -51,6 +49,9 @@ export interface TrendsScreenProps {
   func: FuncEntry[];
   goalText: string | null;
   todayIso: string;
+  /** how many days the chart is currently showing, reported upward so the
+   *  PDF the title bar exports covers what is actually on screen */
+  onSpanChange?: (days: number) => void;
 }
 
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -295,7 +296,7 @@ function FoldedList({
           label={it.left}
           right={it.right}
           frac={it.frac || 0}
-          tint={it.tint || themeBrand()}
+          tint={it.tint || color.textSecondary}
         />
       ) : (
         <Row key={it.key} left={it.left} right={it.right} />
@@ -509,7 +510,7 @@ function outcomeOf(ev: PainEvent): string {
 }
 
 export default function TrendsScreen({
-  entries, events, func, goalText, todayIso,
+  entries, events, func, goalText, todayIso, onSpanChange,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
      day — a fixed window that happens to miss the days someone logged
@@ -548,28 +549,7 @@ export default function TrendsScreen({
     [entries, events, func, goalText, todayIso, spanDays]
   );
 
-  const [sharing, setSharing] = useState(false);
-
-  const sharePdf = async () => {
-    if (!data || sharing) return;
-    setSharing(true);
-    try {
-      const { uri } = await Print.printToFileAsync({ html: reportHtml(data) });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          UTI: 'com.adobe.pdf',
-          dialogTitle: 'Pattern — summary for your doctor',
-        });
-      } else {
-        Alert.alert('Sharing isn’t available on this device.');
-      }
-    } catch {
-      Alert.alert('Couldn’t create the PDF', 'Please try again.');
-    } finally {
-      setSharing(false);
-    }
-  };
+  useEffect(() => { if (onSpanChange) onSpanChange(spanDays); }, [spanDays, onSpanChange]);
 
   if (!data) {
     return (
@@ -616,8 +596,8 @@ export default function TrendsScreen({
   const outcomes = useMemo(() => {
     const order: Response[] = ['better', 'same', 'worse', 'unsure'];
     const tints: Record<Response, string> = {
-      better: painColor(2), same: color.textTertiary,
-      worse: painColor(8), unsure: color.bgSegmentActive,
+      better: '#E5E5EA', same: color.textTertiary,
+      worse: color.bgSegmentActive, unsure: color.borderControl,
     };
     return order
       .map((r) => ({
@@ -793,7 +773,7 @@ export default function TrendsScreen({
               left: l.name,
               right: l.days + (l.days === 1 ? ' day' : ' days'),
               frac: l.days / Math.max(1, data.locations[0].days),
-              tint: themeBrand(),
+              tint: color.textSecondary,
             }))}
           />
         </Card>
@@ -810,7 +790,7 @@ export default function TrendsScreen({
               left: q.name,
               right: '×' + q.count,
               frac: q.count / Math.max(1, data.qualities[0].count),
-              tint: themeBrand(),
+              tint: color.textSecondary,
             }))}
           />
         </Card>
@@ -833,7 +813,7 @@ export default function TrendsScreen({
                   left: f.name,
                   right: f.days + (f.days === 1 ? ' day' : ' days'),
                   frac: f.days / Math.max(1, data.flagged.worse[0].days),
-                  tint: painColor(7),
+                  tint: color.textSecondary,
                 }))}
               />
             </>
@@ -849,7 +829,7 @@ export default function TrendsScreen({
                   left: f.name,
                   right: f.days + (f.days === 1 ? ' day' : ' days'),
                   frac: f.days / Math.max(1, data.flagged.better[0].days),
-                  tint: painColor(2),
+                  tint: color.textSecondary,
                 }))}
               />
             </>
@@ -942,25 +922,12 @@ export default function TrendsScreen({
         </Card>
       )}
 
-      {/* ── share ───────────────────────────────────────────── */}
-      <Press
-        onPress={sharePdf}
-        disabled={sharing}
-        pressScale={0.985}
-        style={[styles.primary, sharing && styles.primaryOff]}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: sharing }}
-        accessibilityLabel="Share this record as a PDF"
-        accessibilityHint="Creates the PDF and opens the share sheet"
-      >
-        <Text style={[styles.primaryText, sharing && styles.primaryTextOff]}>
-          {sharing ? 'Preparing…' : 'Share'}
-        </Text>
-      </Press>
-      <Text style={styles.noteLine}>
-        The PDF is made on this iPhone and goes only where you send it. It
-        carries the same numbers you see here, and states that it is
-        self-recorded and not a diagnosis.
+      {/* the claim the share button used to sit under, kept where it can
+          still be read before anything is sent */}
+      <Text style={styles.footNote}>
+        Share, at the top of this screen, makes a PDF on this iPhone and sends
+        it only where you send it. It carries the same numbers you see here,
+        and says on its face that it is self-recorded and not a diagnosis.
       </Text>
     </View>
   );
@@ -1131,11 +1098,7 @@ const styles = StyleSheet.create({
     color: color.textSecondary, fontSize: font.footnote, fontVariant: ['tabular-nums'],
   },
   endLine: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
-  primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 28, paddingHorizontal: 16,
+  footNote: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 24,
   },
-  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
-  primaryOff: { backgroundColor: color.bgSegmentActive },
-  primaryTextOff: { color: color.textTertiary },
 });
