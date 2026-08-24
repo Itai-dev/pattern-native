@@ -221,15 +221,28 @@ export default function TrendsScreen({
 
   /* "All" measures from the first day ever logged, so the chart spans the
      record rather than a guess at how long it might be */
-  const spanDays = useMemo(() => {
-    const chosen = RANGES.filter((r) => r.key === rangeKey)[0] || RANGES[1];
-    if (chosen.days > 0) return chosen.days;
+  /* The chosen range is a CEILING, not the width. Draw thirty columns at
+     a fortnight-old record and the bars huddle against the right edge
+     with sixteen empty slots to their left — which is the exact
+     off-to-the-side misreading this chart had before ranges existed,
+     reintroduced for every range except All. So the span is clamped to
+     the record: Month on two weeks of data draws two weeks, full width.
+     The floor of 7 keeps a three-day record from becoming three enormous
+     bars. */
+  /* how long the record actually is, in days since the first entry */
+  const spanRecord = useMemo(() => {
     const keys = Object.keys(entries).sort();
-    if (!keys.length) return 30;
+    if (!keys.length) return 7;
     const first = dateFromISO(keys[0]).getTime();
     const last = dateFromISO(todayIso).getTime();
     return Math.max(7, Math.round((last - first) / 86400000) + 1);
-  }, [rangeKey, entries, todayIso]);
+  }, [entries, todayIso]);
+
+  const spanDays = useMemo(() => {
+    const chosen = RANGES.filter((r) => r.key === rangeKey)[0] || RANGES[1];
+    const ceiling = chosen.days > 0 ? chosen.days : spanRecord;
+    return Math.max(7, Math.min(ceiling, spanRecord));
+  }, [rangeKey, spanRecord]);
 
   const data = useMemo(
     () => buildReportData({ entries, events, func, goalText, todayIso, windowDays: spanDays }),
@@ -313,7 +326,9 @@ export default function TrendsScreen({
         {data.limited ? 'Pain recorded so far' : 'Pain over time'}
       </Text>
       <View style={styles.segment}>
-        {RANGES.map((r) => {
+        {/* a fixed range longer than the record shows exactly what All
+            shows — a control that changes nothing is not offered */}
+        {RANGES.filter((r) => r.days === 0 || r.days < spanRecord).map((r) => {
           const on = r.key === rangeKey;
           return (
             <Press
