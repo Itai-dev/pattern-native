@@ -230,6 +230,41 @@ function FoldedList({
   );
 }
 
+/**
+ * One section, in a card — the grammar Apple Health's Summary uses.
+ *
+ * A flat run of headings on a black ground made every section the same
+ * weight as every other, so the eye had to read the type scale to find
+ * the boundaries. A card draws the boundary instead: the title belongs
+ * to what is inside it, and a section can be skipped by looking rather
+ * than by reading.
+ *
+ * The note goes in the card too. Every one of these screens carries a
+ * sentence saying what the numbers above it do not mean, and that
+ * sentence is worthless anywhere but touching the thing it qualifies.
+ */
+function Card({
+  title, note, children,
+}: {
+  title: string;
+  note?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+        {title}
+      </Text>
+      {children}
+      {!!note && (
+        <Text style={styles.noteLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {note}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 function Row({ left, right }: { left: string; right?: string }) {
   return (
     <View style={styles.row}>
@@ -247,7 +282,7 @@ function End({ title, when, e }: { title: string; when: string; e: EndOfRecord }
     <View style={styles.endCard}>
       <Text style={styles.endTitle}>{title}</Text>
       <Text style={styles.endWhen}>
-        {e.days} {e.days === 1 ? 'day' : 'days'} · {when} · averaging {formatScore(e.avg)}/10
+        {e.days} {e.days === 1 ? 'day' : 'days'} · {when} · averaging {formatScore(e.avg)}
       </Text>
       {!!locs && <Text style={styles.endLine}>Where: {locs}</Text>}
       {!!qs && <Text style={styles.endLine}>Described as: {qs}</Text>}
@@ -359,27 +394,28 @@ export default function TrendsScreen({
       )}
 
       {/* ── the numbers ─────────────────────────────────────── */}
-      <Text style={styles.section}>Your record</Text>
-      <Text style={styles.rangeLine}>Scale 0–10, 0 = no pain</Text>
-      <View style={styles.metrics}>
-        <Metric label="Average pain" value={formatScore(data.avg) + '/10'} sub={painLabel(data.avg)} />
-        <Metric label="Lowest day" value={formatScore(data.lowestDay) + '/10'} />
-        <Metric label="Highest day" value={formatScore(data.highestDay) + '/10'} />
-        <Metric label="Logged days" value={String(data.loggedDays)} />
-        <Metric label="Check-ins" value={String(data.totalCheckins)} />
-        {data.goalText != null && data.latestAbility != null && (
-          <Metric
-            label="Weekly ability"
-            value={data.latestAbility.ability + '/10'}
-            sub={data.goalText}
-          />
-        )}
-      </View>
+      <Card title="Your record">
+        {/* the scale, said once, so no figure on this screen has to
+            carry "/10" on its back to be understood */}
+        <Text style={styles.rangeLine}>Pain is 0–10, where 0 is no pain</Text>
+        <View style={styles.metrics}>
+          <Metric label="Average pain" value={formatScore(data.avg)} sub={painLabel(data.avg)} />
+          <Metric label="Lowest day" value={formatScore(data.lowestDay)} />
+          <Metric label="Highest day" value={formatScore(data.highestDay)} />
+          <Metric label="Logged days" value={String(data.loggedDays)} />
+          <Metric label="Check-ins" value={String(data.totalCheckins)} />
+          {data.goalText != null && data.latestAbility != null && (
+            <Metric
+              label="Weekly ability"
+              value={String(data.latestAbility.ability)}
+              sub={data.goalText}
+            />
+          )}
+        </View>
+      </Card>
 
       {/* ── pain over time ──────────────────────────────────── */}
-      <Text style={styles.section}>
-        {data.limited ? 'Pain recorded so far' : 'Pain over time'}
-      </Text>
+      <Card title={data.limited ? 'Pain recorded so far' : 'Pain over time'}>
       <View style={styles.segment}>
         {/* a fixed range longer than the record shows exactly what All
             shows — a control that changes nothing is not offered */}
@@ -411,39 +447,41 @@ export default function TrendsScreen({
       </Text>
       {!!data.halves && (
         <Text style={styles.noteLine}>
-          First half of this period averaged {formatScore(data.halves.first)}/10,
-          second half {formatScore(data.halves.second)}/10.
+          First half of this period averaged {formatScore(data.halves.first)},
+          second half {formatScore(data.halves.second)}.
         </Text>
       )}
+      </Card>
 
       {/* ── the two ends ────────────────────────────────────── */}
       {!!data.harderEasier && (
-        <>
-          <Text style={styles.section}>Hardest and easiest days</Text>
+        <Card
+          title="Hardest and easiest days"
+          note={'The highest and lowest third of your logged days, with the middle third ('
+            + data.harderEasier.middleDays
+            + (data.harderEasier.middleDays === 1 ? ' day' : ' days')
+            + ') set aside. This describes where the pain was and how you '
+            + 'described it — not what caused it.'}
+        >
           <End
             title="Hardest days"
-            when={formatScore(data.harderEasier.boundaryHigh) + '/10 and above'}
+            when={formatScore(data.harderEasier.boundaryHigh) + ' and above'}
             e={data.harderEasier.harder}
           />
           <End
             title="Easiest days"
-            when={formatScore(data.harderEasier.boundaryLow) + '/10 and below'}
+            when={formatScore(data.harderEasier.boundaryLow) + ' and below'}
             e={data.harderEasier.easier}
           />
-          <Text style={styles.noteLine}>
-            The highest and lowest third of your logged days, with the middle
-            third ({data.harderEasier.middleDays}{' '}
-            {data.harderEasier.middleDays === 1 ? 'day' : 'days'}) set aside.
-            This describes where the pain was and how you described it — not
-            what caused it.
-          </Text>
-        </>
+        </Card>
       )}
 
       {/* ── time of day ─────────────────────────────────────── */}
       {data.timeOfDay.length > 0 && (
-        <>
-          <Text style={styles.section}>Time of day</Text>
+        <Card
+          title="Time of day"
+          note="The average of the check-ins you recorded in each part of the day, with how many are behind it. It reflects when you checked in — not a claim about when your pain is worst."
+        >
           {data.timeOfDay.map((b) => (
             <View key={b.key} style={styles.row}>
               <View style={styles.bandMain}>
@@ -451,22 +489,16 @@ export default function TrendsScreen({
                 <Text style={styles.bandRange}>{b.range}</Text>
               </View>
               <Text style={styles.rowRight}>
-                {formatScore(b.avg)}/10 · {b.checkins}
+                {formatScore(b.avg)} · {b.checkins}
               </Text>
             </View>
           ))}
-          <Text style={styles.noteLine}>
-            The average of the check-ins you recorded in each part of the day,
-            with how many are behind it. It reflects when you checked in — not
-            a claim about when your pain is worst.
-          </Text>
-        </>
+        </Card>
       )}
 
       {/* ── where ───────────────────────────────────────────── */}
       {data.locations.length > 0 && (
-        <>
-          <Text style={styles.section}>Where</Text>
+        <Card title="Where">
           <FoldedList
             label="body areas"
             items={data.locations.map((l) => ({
@@ -475,13 +507,12 @@ export default function TrendsScreen({
               right: l.days + (l.days === 1 ? ' day' : ' days'),
             }))}
           />
-        </>
+        </Card>
       )}
 
       {/* ── described as ────────────────────────────────────── */}
       {data.qualities.length > 0 && (
-        <>
-          <Text style={styles.section}>Described as</Text>
+        <Card title="Described as">
           <FoldedList
             label="words"
             items={data.qualities.map((q) => ({
@@ -490,13 +521,15 @@ export default function TrendsScreen({
               right: '×' + q.count,
             }))}
           />
-        </>
+        </Card>
       )}
 
       {/* ── what you pointed at ─────────────────────────────── */}
       {(data.flagged.worse.length > 0 || data.flagged.better.length > 0) && (
-        <>
-          <Text style={styles.section}>What you pointed at</Text>
+        <Card
+          title="What you pointed at"
+          note="This is your read on those days, counted — not a comparison. A thing only lands here on days you already suspected it, so there are no days without it to weigh against. Pattern will offer to ask about something properly once you’ve pointed at it enough times."
+        >
           {data.flagged.worse.length > 0 && (
             <>
               <Text style={styles.subhead}>Made it harder</Text>
@@ -523,40 +556,34 @@ export default function TrendsScreen({
               />
             </>
           )}
-          <Text style={styles.noteLine}>
-            This is your read on those days, counted — not a comparison. A thing
-            only lands here on days you already suspected it, so there are no
-            days without it to weigh against. Pattern will offer to ask about
-            something properly once you’ve pointed at it enough times.
-          </Text>
-        </>
+        </Card>
       )}
 
       {/* ── function ────────────────────────────────────────── */}
       {!!data.goalText && (
-        <>
-          <Text style={styles.section}>Function</Text>
+        <Card
+          title="Function"
+          note="Ability is a separate scale from pain, and a higher number is better. The two are never averaged together."
+        >
           <Text style={styles.bodyText}>
             {data.goalText}
             {data.latestAbility
-              ? ' — latest weekly ability ' + data.latestAbility.ability + '/10'
+              ? ' — latest weekly ability ' + data.latestAbility.ability
               : ' — no weekly ratings yet'}
             {data.abilityChange && !data.limited
               ? '. Since the first rating: ' + data.abilityChange.first.ability
-                + '/10 → ' + data.abilityChange.last.ability + '/10.'
+                + ' → ' + data.abilityChange.last.ability + '.'
               : '.'}
           </Text>
-          <Text style={styles.noteLine}>
-            Ability is a separate scale from pain, and a higher number is
-            better. The two are never averaged together.
-          </Text>
-        </>
+        </Card>
       )}
 
       {/* ── what you tried ──────────────────────────────────── */}
       {tried.length > 0 && (
-        <>
-          <Text style={styles.section}>What you tried</Text>
+        <Card
+          title="What you tried"
+          note="Your own impression afterwards, recorded as you gave it. Pattern doesn’t assess whether something worked."
+        >
           <FoldedList
             label="things you tried"
             items={tried.slice().reverse().map((ev, i) => ({
@@ -567,17 +594,15 @@ export default function TrendsScreen({
               right: outcomeOf(ev),
             }))}
           />
-          <Text style={styles.noteLine}>
-            Your own impression afterwards, recorded as you gave it. Pattern
-            doesn’t assess whether something worked.
-          </Text>
-        </>
+        </Card>
       )}
 
       {/* ── events ──────────────────────────────────────────── */}
       {data.events.length > 0 && (
-        <>
-          <Text style={styles.section}>Events</Text>
+        <Card
+          title="Events"
+          note="Events sit alongside your check-ins. Their timing doesn’t prove they caused a change."
+        >
           <FoldedList
             label="events"
             items={data.events.slice().reverse().map((ev, i) => ({
@@ -587,11 +612,7 @@ export default function TrendsScreen({
               right: '',
             }))}
           />
-          <Text style={styles.noteLine}>
-            Events sit alongside your check-ins. Their timing doesn’t prove they
-            caused a change.
-          </Text>
-        </>
+        </Card>
       )}
 
       {/* ── share ───────────────────────────────────────────── */}
@@ -633,15 +654,26 @@ const styles = StyleSheet.create({
   },
   limitedTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
   limitedSub: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
-  section: {
+  /* Health's Summary grammar: a surface per section, the title inside
+     it, the qualifying sentence inside it too. Sections are told apart by
+     their edges rather than by reading the type scale. */
+  card: {
+    backgroundColor: color.bgSurface,
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.borderDivider,
+    padding: 16,
+    marginTop: 14,
+  },
+  cardTitle: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    marginTop: 26, marginBottom: 8, letterSpacing: -0.2,
+    letterSpacing: -0.2, marginBottom: 10,
   },
   rangeLine: { color: color.textSecondary, fontSize: font.footnote, marginBottom: 10, marginTop: -4 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   metric: {
     flexGrow: 1, flexBasis: '30%', borderRadius: 12, padding: 10,
-    backgroundColor: color.bgSurface, gap: 1,
+    backgroundColor: color.bgRoot, gap: 1,
   },
   metricV: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
@@ -668,7 +700,7 @@ const styles = StyleSheet.create({
   readoutHint: { color: color.textTertiary, fontSize: font.footnote },
   segment: {
     flexDirection: 'row', gap: 3, padding: 3, borderRadius: 12,
-    backgroundColor: color.bgSurface, marginBottom: 12,
+    backgroundColor: color.bgRoot, marginBottom: 12,
   },
   segItem: {
     flex: 1, minHeight: 34, borderRadius: 9,
@@ -702,7 +734,7 @@ const styles = StyleSheet.create({
   },
   endCard: {
     borderRadius: radius.card, padding: 12, marginBottom: 8,
-    backgroundColor: color.bgSurface, gap: 3,
+    backgroundColor: color.bgRoot, gap: 3,
   },
   endTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
   endWhen: {
