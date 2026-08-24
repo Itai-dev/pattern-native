@@ -26,7 +26,7 @@ import { cancelAll, configureHandler } from './src/reminders';
 import { PainEvent, ValidBackup, todayISO } from './src/model';
 import { refreshWidget } from './src/widgetPush';
 import { activeFactors } from './src/protocol';
-import { getPainTheme, setPainTheme } from './src/painScale';
+import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
 } from './src/theme';
@@ -194,6 +194,10 @@ export default function App() {
     setPainTheme(id);
     db.setPref('theme.pain', id);
     setThemeTick((v) => v + 1);
+    /* the widget's colours are computed HERE, by painScale, and pushed as
+       hex — a theme change has to push a fresh snapshot or the home
+       screen keeps wearing the old palette until the next check-in */
+    refreshWidget(db.getAll());
   }, []);
 
   /* Restore: the file is fully validated BEFORE anything is touched, then
@@ -306,7 +310,6 @@ export default function App() {
     );
   }, [refresh]);
 
-  const dayCount = Object.keys(entries).length;
   const themeName = (PAIN_THEMES.find((t) => t.id === getPainTheme()) || PAIN_THEMES[0]).name;
 
   return (
@@ -461,26 +464,10 @@ export default function App() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
-              <View style={styles.group}>
-                <Pressable
-                  onPress={() => { setProfile(false); setTab('trends'); }}
-                  style={styles.row}
-                  accessibilityRole="button"
-                  accessibilityLabel={'Your record and doctor summary, based on ' + dayCount + ' logged days'}
-                  accessibilityHint="Opens the Trends tab"
-                >
-                  <RowIcon name="document-text-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Your record and summary</Text>
-                    <Text style={styles.rowValue}>
-                      {dayCount} {dayCount === 1 ? 'day' : 'days'}
-                    </Text>
-                    <Text style={styles.rowChevron}>›</Text>
-                  </View>
-                </Pressable>
-
-              </View>
-
+              {/* the record used to have a row here too — a door to a tab
+                  that is one swipe away, kept from when the summary was a
+                  buried sheet. The tab and its Share button are the
+                  feature now; a second entrance was furniture. */}
               <Text style={styles.groupTitle}>Observation</Text>
               <View style={styles.group}>
                 <Pressable
@@ -515,7 +502,11 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel={'Colour theme, ' + themeName}
                 >
-                  <RowIcon name="color-palette-outline" />
+                  {/* the one row whose subject IS a colour shows it: the
+                      glyph and its frame in the palette you chose */}
+                  <View style={[styles.rowIcon, styles.themeIcon, { borderColor: themeBrand() }]}>
+                    <Ionicons name="color-palette-outline" size={19} color={themeBrand()} />
+                  </View>
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Colour theme</Text>
                     <Text style={styles.rowValue}>{themeName}</Text>
@@ -613,6 +604,10 @@ const styles = StyleSheet.create({
   },
   pillHit: { minHeight: 38, paddingHorizontal: 16, justifyContent: 'center' },
   backToTodayText: { color: color.textPrimary, fontSize: font.footnote, fontWeight: '600' },
+  themeIcon: {
+    borderWidth: 1.5, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+  },
   profileBtn: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
@@ -638,7 +633,7 @@ const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
   navSpacer: { width: 64 },
