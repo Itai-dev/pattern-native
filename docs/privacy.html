@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Pattern</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --surface: #f6f6f7;
+    --text: #16161a;
+    --muted: #5b5b66;
+    --rule: #e3e3e7;
+    --accent: #6b3fa0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0d0f;
+      --surface: #17171a;
+      --text: #f2f2f4;
+      --muted: #a0a0aa;
+      --rule: #2a2a2f;
+      --accent: #bf8bf5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  main { max-width: 40rem; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+  h1 { font-size: 2rem; line-height: 1.15; letter-spacing: -0.022em; margin: 0 0 .35rem; }
+  h2 {
+    font-size: 1.2rem; letter-spacing: -0.012em; margin: 2.75rem 0 .6rem;
+    padding-top: 1.5rem; border-top: 1px solid var(--rule);
+  }
+  p, li { color: var(--text); }
+  .sub { color: var(--muted); margin: 0 0 2rem; }
+  .lede {
+    background: var(--surface); border-radius: 14px; padding: 1.1rem 1.25rem;
+    margin: 0 0 1rem; font-weight: 500;
+  }
+  ul { padding-left: 1.15rem; }
+  li { margin: .4rem 0; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .9em; background: var(--surface); padding: .1em .35em; border-radius: 5px;
+  }
+  a { color: var(--accent); }
+  footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .92rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Privacy Policy</h1>
+<p class="sub">Pattern — chronic pain tracking. Last updated 24 August 2026.</p>
+
+<p class="lede">Nothing you record about your body ever leaves your phone. Your pain scores,
+body areas, descriptions, notes, answers and hypotheses are stored only on your device, and
+Pattern has no server that could receive them.</p>
+
+<p>Pattern has no accounts, no login, and no cloud sync. There is nowhere for us to store
+your health record even if we wanted to, and no way for us to read it.</p>
+
+<h2>What stays on your device</h2>
+<ul>
+  <li>Every check-in: pain score, time, body areas, quality words.</li>
+  <li>Everything you write: notes, what you tried, what you want to understand.</li>
+  <li>Your answers to the daily questions, and which questions were asked or skipped.</li>
+  <li>Events, reminders, and your app preferences.</li>
+</ul>
+<p>This lives in a database inside the app's own storage, protected by your device's
+encryption and passcode. Deleting Pattern deletes all of it. There is no copy anywhere else.</p>
+
+<h2>The one thing that is sent</h2>
+<p>Pattern counts anonymous usage events so we can tell whether the app is actually being
+used — for example that a check-in was completed, roughly how many seconds it took, and
+whether the Trends screen was opened.</p>
+<p><strong>These counts never contain anything you told us about your body.</strong> No pain
+score, no body area, no answer, no note, no free text of any kind. This is enforced in the
+code: event names come from a fixed list, and any accompanying value is a number, a boolean,
+or a string capped at 24 characters — long enough for <code>evening</code>, far too short for
+anything a person wrote about themselves.</p>
+<p>Events are sent to <a href="https://aptabase.com" rel="noopener">Aptabase</a>, an open
+source analytics service, on servers in the European Union. They are tied to a random
+identifier generated on your device that is linked to nothing and to no one. Alongside each
+event, Aptabase records the standard technical context: your operating system version, the
+app version, and your device's general locale.</p>
+<p><strong>You can turn this off.</strong> Open Profile and switch off usage analytics. Nothing
+is sent after that.</p>
+
+<h2>What we never do</h2>
+<ul>
+  <li>No advertising, and no advertising identifiers.</li>
+  <li>No selling or sharing of data with anyone, for any purpose.</li>
+  <li>No third-party trackers or SDKs beyond the analytics named above.</li>
+  <li>No location tracking.</li>
+  <li>No contact list, photo, or microphone access.</li>
+</ul>
+
+<h2>When you share something yourself</h2>
+<p>Pattern can produce a PDF summary of your record for a clinician. It is generated on your
+device and handed to the iOS share sheet — it goes only where you send it, and never to us.
+The same is true of the backup file you can export: it is written locally, and what happens
+to it afterwards is entirely your choice.</p>
+
+<h2>Reminders</h2>
+<p>Reminders are scheduled locally by iOS. No push server is involved and no notification
+content leaves your phone.</p>
+
+<h2>Children</h2>
+<p>Pattern is not directed at children under 13, and we do not knowingly collect information
+from them.</p>
+
+<h2>Your rights</h2>
+<p>Because your health record never reaches us, there is nothing for us to hand over, correct,
+or delete on your behalf — you already hold all of it, and deleting the app erases it. For the
+anonymous usage counts, switching analytics off in Profile stops collection; because those
+counts are not linked to your identity, we cannot single out or retrieve past events for an
+individual person.</p>
+
+<h2>Medical disclaimer</h2>
+<p>Pattern is a record-keeping tool, not a medical device. It does not diagnose, treat, or give
+medical advice, and nothing it shows you is a clinical finding. Always speak to a qualified
+healthcare professional about your symptoms.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes in a way that affects what is collected, the date at the top will
+change and the app will say so before the change takes effect.</p>
+
+<h2>Contact</h2>
+<p>Questions about privacy, or anything else: <a href="mailto:itaiagami@gmail.com">itaiagami@gmail.com</a></p>
+
+<footer>Pattern is made by Itai Agami.</footer>
+
+</main>
+</body>
+</html>
