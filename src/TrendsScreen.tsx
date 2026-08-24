@@ -67,14 +67,32 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
   );
 }
 
-/** the last 30 days as slim bars — logged days coloured by their average,
- *  unlogged days left as visible gaps. The gap is the honest part. */
-function MiniChart({ data }: { data: ReportData }) {
+/**
+ * The chart, and the one thing on this screen you can touch.
+ *
+ * It used to draw a fixed thirty columns regardless of the range, so a
+ * record of eight days sat as a huddle of bars against the right edge
+ * with two-thirds of the width empty — which reads as "most of your days
+ * are missing" rather than "you have eight days". It now draws exactly
+ * the span being looked at, so the bars always fill the width.
+ *
+ * Tapping a bar names the day. A column of colour is a shape; a date and
+ * a number is a fact, and getting from one to the other should not
+ * require going to another screen to look it up.
+ */
+function MiniChart({
+  data, span, selected, onSelect,
+}: {
+  data: ReportData;
+  span: number;
+  selected: string | null;
+  onSelect: (dateIso: string | null) => void;
+}) {
   const byDate: Record<string, number> = {};
   data.days.forEach((d) => { byDate[d.date] = d.avg; });
   const end = dateFromISO(data.rangeEnd);
   const cols: { date: string; avg: number | null }[] = [];
-  for (let i = 29; i >= 0; i--) {
+  for (let i = span - 1; i >= 0; i--) {
     const d = new Date(end);
     d.setDate(d.getDate() - i);
     const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
@@ -82,28 +100,67 @@ function MiniChart({ data }: { data: ReportData }) {
     cols.push({ date: k, avg: byDate[k] != null ? byDate[k] : null });
   }
   const logged = cols.filter((c) => c.avg != null).length;
+  const pick = cols.filter((c) => c.date === selected)[0];
+
   return (
-    <View
-      accessible
-      accessibilityLabel={
-        'Daily average pain over the last 30 days. ' + logged +
-        ' days logged, the rest are gaps with nothing recorded.'
-      }
-    >
-      <View style={styles.chartRow}>
-        {cols.map((c) => (
-          <View key={c.date} style={styles.chartSlot}>
-            {c.avg != null && (
-              <View
-                style={{
-                  height: Math.max(3, (c.avg / 10) * 64),
-                  backgroundColor: painColor(c.avg),
-                  borderRadius: 2,
-                }}
-              />
-            )}
-          </View>
-        ))}
+    <View>
+      {/* the readout sits ABOVE the bars and holds its height whether or
+          not anything is selected, so tapping never shifts the layout */}
+      <View style={styles.readout}>
+        {pick && pick.avg != null ? (
+          <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
+            <Text style={styles.readoutStrong}>{formatScore(pick.avg)}/10</Text>
+            {'  ' + painLabel(pick.avg) + '  ·  ' + shortDate(pick.date)}
+          </Text>
+        ) : pick ? (
+          <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Nothing logged on {shortDate(pick.date)}
+          </Text>
+        ) : (
+          <Text style={styles.readoutHint} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Tap a day to see it
+          </Text>
+        )}
+      </View>
+
+      <View
+        style={styles.chartRow}
+        accessible={false}
+        accessibilityLabel={
+          'Daily average pain. ' + logged + ' days logged, the rest are gaps.'
+        }
+      >
+        {cols.map((c) => {
+          const on = c.date === selected;
+          return (
+            <Press
+              key={c.date}
+              onPress={() => onSelect(on ? null : c.date)}
+              pressOpacity={0.7}
+              style={styles.chartSlot}
+              accessibilityRole="button"
+              accessibilityLabel={
+                shortDate(c.date) + (c.avg == null ? ', nothing logged'
+                  : ', average ' + formatScore(c.avg) + ' out of 10')
+              }
+            >
+              {c.avg != null ? (
+                <View
+                  style={{
+                    height: Math.max(3, (c.avg / 10) * 76),
+                    backgroundColor: painColor(c.avg),
+                    borderRadius: 2,
+                    opacity: selected && !on ? 0.4 : 1,
+                  }}
+                />
+              ) : (
+                /* an unlogged day still needs something to aim at, or the
+                   gaps are the one thing you cannot ask about */
+                <View style={[styles.emptyCol, on && styles.emptyColOn]} />
+              )}
+            </Press>
+          );
+        })}
       </View>
       <View style={styles.chartAxis}>
         <Text style={styles.axisText}>{shortDate(cols[0].date)}</Text>
@@ -112,6 +169,15 @@ function MiniChart({ data }: { data: ReportData }) {
     </View>
   );
 }
+
+/** how much of the record to look at. "All" is the whole thing rather
+ *  than a fixed number, so a long record is never silently cropped. */
+const RANGES: { key: string; label: string; days: number }[] = [
+  { key: 'w', label: 'Week', days: 7 },
+  { key: 'm', label: 'Month', days: 30 },
+  { key: 'q', label: '3 months', days: 90 },
+  { key: 'a', label: 'All', days: 0 },
+];
 
 function Row({ left, right }: { left: string; right?: string }) {
   return (
@@ -150,9 +216,24 @@ function outcomeOf(ev: PainEvent): string {
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso,
 }: TrendsScreenProps) {
+  const [rangeKey, setRangeKey] = useState('m');
+  const [picked, setPicked] = useState<string | null>(null);
+
+  /* "All" measures from the first day ever logged, so the chart spans the
+     record rather than a guess at how long it might be */
+  const spanDays = useMemo(() => {
+    const chosen = RANGES.filter((r) => r.key === rangeKey)[0] || RANGES[1];
+    if (chosen.days > 0) return chosen.days;
+    const keys = Object.keys(entries).sort();
+    if (!keys.length) return 30;
+    const first = dateFromISO(keys[0]).getTime();
+    const last = dateFromISO(todayIso).getTime();
+    return Math.max(7, Math.round((last - first) / 86400000) + 1);
+  }, [rangeKey, entries, todayIso]);
+
   const data = useMemo(
-    () => buildReportData({ entries, events, func, goalText, todayIso, windowDays: 90 }),
-    [entries, events, func, goalText, todayIso]
+    () => buildReportData({ entries, events, func, goalText, todayIso, windowDays: spanDays }),
+    [entries, events, func, goalText, todayIso, spanDays]
   );
 
   const [sharing, setSharing] = useState(false);
@@ -231,9 +312,30 @@ export default function TrendsScreen({
       <Text style={styles.section}>
         {data.limited ? 'Pain recorded so far' : 'Pain over time'}
       </Text>
-      <MiniChart data={data} />
+      <View style={styles.segment}>
+        {RANGES.map((r) => {
+          const on = r.key === rangeKey;
+          return (
+            <Press
+              key={r.key}
+              onPress={() => { setRangeKey(r.key); setPicked(null); }}
+              pressOpacity={0.85}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={r.label}
+              style={[styles.segItem, on && styles.segItemOn]}
+            >
+              <Text style={[styles.segText, on && styles.segTextOn]}
+                allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                {r.label}
+              </Text>
+            </Press>
+          );
+        })}
+      </View>
+      <MiniChart data={data} span={spanDays} selected={picked} onSelect={setPicked} />
       <Text style={styles.noteLine}>
-        Days without check-ins stay blank — the line never bridges a day you
+        Days without check-ins stay blank — nothing is filled in for a day you
         didn’t log.
       </Text>
       {!!data.halves && (
@@ -432,7 +534,7 @@ const styles = StyleSheet.create({
   /* the same gutter Today and the Map sit in. This screen used to run
      full-bleed, which made it the one page whose text started somewhere
      different from every other page's. */
-  page: { paddingHorizontal: size.pageX },
+  page: { paddingHorizontal: size.pageX, paddingTop: 2 },
   emptyWrap: { paddingTop: 8 },
   empty: { color: color.textSecondary, fontSize: font.body, lineHeight: 24 },
   sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },
@@ -459,8 +561,34 @@ const styles = StyleSheet.create({
   },
   metricL: { color: color.textSecondary, fontSize: font.footnote },
   metricS: { color: color.textTertiary, fontSize: font.footnote },
-  chartRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 68, paddingTop: 4 },
-  chartSlot: { flex: 1, justifyContent: 'flex-end' },
+  chartRow: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 80, paddingTop: 4,
+  },
+  chartSlot: { flex: 1, justifyContent: 'flex-end', minHeight: 44 },
+  /* a gap is still a target: without one, the days you did not log are the
+     only ones you cannot ask about */
+  emptyCol: {
+    height: 3, borderRadius: 2, backgroundColor: color.borderDivider,
+  },
+  emptyColOn: { backgroundColor: color.textTertiary, height: 5 },
+  readout: { height: 26, justifyContent: 'center' },
+  readoutText: { color: color.textSecondary, fontSize: font.subheadline },
+  readoutStrong: {
+    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  readoutHint: { color: color.textTertiary, fontSize: font.footnote },
+  segment: {
+    flexDirection: 'row', gap: 3, padding: 3, borderRadius: 12,
+    backgroundColor: color.bgSurface, marginBottom: 12,
+  },
+  segItem: {
+    flex: 1, minHeight: 34, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+  },
+  segItemOn: { backgroundColor: color.bgSegmentActive },
+  segText: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '600' },
+  segTextOn: { color: color.textPrimary },
   chartAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   axisText: { color: color.textTertiary, fontSize: font.footnote },
   noteLine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 8 },

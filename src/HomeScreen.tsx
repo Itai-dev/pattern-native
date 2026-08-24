@@ -192,7 +192,7 @@ export default function HomeScreen({
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: 'center', marginTop: 22 },
+  hero: { alignItems: 'center', marginTop: 10 },
   /* the value, then its word, then its provenance — each step down in
      size is a step down in importance, and the gaps say the same thing */
   score: {

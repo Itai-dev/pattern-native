@@ -291,9 +291,7 @@ export default function App() {
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? 'Today'
-                : tab === 'trends' ? 'Trends'
-                  : MONTHS[new Date().getMonth()]}
+              {tab === 'today' ? 'Today' : tab === 'trends' ? 'Trends' : 'Pattern'}
             </Text>
             <Pressable
               onPress={() => setProfile(true)}
@@ -545,11 +543,18 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bgRoot },
   safe: { flex: 1 },
+  /* The title had 4pt above it and nothing below, so the first thing on
+     every page started level with the headline and competed with it. A
+     large title needs air under it more than over it — that gap is what
+     makes it read as a heading rather than as the first row of content. */
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: size.pageX, paddingTop: 4,
+    paddingHorizontal: size.pageX, paddingTop: 6, paddingBottom: 14,
   },
-  /* the person, drawn in the same two strokes the tab bar used to carry */
+  /* The person is drawn at the tab bar's glyph size and stroke weight —
+     21pt across, 1.9pt lines — because it sits in the same family of
+     controls and was previously a lighter, smaller drawing that read as a
+     different set of marks. */
   profileBtn: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
@@ -557,20 +562,21 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
   },
   personHead: {
-    width: 8, height: 8, borderRadius: 4, borderWidth: 1.4,
-    borderColor: color.textSecondary, marginBottom: 1,
+    width: 9, height: 9, borderRadius: 4.5, borderWidth: 1.9,
+    borderColor: color.textSecondary, marginBottom: 1.5,
   },
   personBody: {
-    width: 16, height: 8, borderTopLeftRadius: 8, borderTopRightRadius: 8,
-    borderWidth: 1.4, borderBottomWidth: 0, borderColor: color.textSecondary,
+    width: 19, height: 9, borderTopLeftRadius: 9.5, borderTopRightRadius: 9.5,
+    borderWidth: 1.9, borderBottomWidth: 0, borderColor: color.textSecondary,
   },
   /* the main screen's title — iOS large-title weight and size */
   wordmark: {
     color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
     letterSpacing: -0.5, flex: 1,
   },
-  /* room at the bottom so the last content clears the floating bar */
-  page: { paddingBottom: 132 },
+  /* room at the bottom so the last content clears the floating bar, and
+     a little at the top so a page never begins hard against its heading */
+  page: { paddingTop: 4, paddingBottom: 132 },
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
