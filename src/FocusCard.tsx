@@ -146,18 +146,23 @@ export default function FocusCard({
   if (!due) {
     return (
       <View
-        style={styles.statusRow}
+        style={[styles.card, styles.statusCard]}
         accessible
-        accessibilityLabel={'Your focus: day ' + day + ' of ' + PROTOCOL_REVIEW_DAYS
-          + '. Watching ' + factorNames(protocol)}
+        accessibilityLabel={'Your focus. Watching ' + factorNames(protocol)
+          + ' alongside your pain. Day ' + day + ' of ' + PROTOCOL_REVIEW_DAYS
+          + '. Nothing to do — keep checking in as usual.'}
       >
-        <Text style={styles.statusDay} allowFontScaling maxFontSizeMultiplier={1.3}>
-          Day {day} of {PROTOCOL_REVIEW_DAYS}
+        <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+          YOUR FOCUS
         </Text>
-        <Text style={styles.statusDot}>·</Text>
-        <Text style={styles.statusFactors} numberOfLines={1}
-          allowFontScaling maxFontSizeMultiplier={1.3}>
-          {factorNames(protocol)}
+        <Text style={styles.statusWhat} allowFontScaling maxFontSizeMultiplier={1.4}>
+          Watching {factorNames(protocol).replace(' · ', ' and ')} alongside your pain
+        </Text>
+        {/* the day number as orientation, and a sentence saying there is
+            nothing being asked of you — the absence of a task is the part
+            people otherwise read a progress line as demanding */}
+        <Text style={styles.statusWhen} allowFontScaling maxFontSizeMultiplier={1.3}>
+          Day {day} of {PROTOCOL_REVIEW_DAYS} · nothing to do, just keep checking in
         </Text>
       </View>
     );
@@ -226,6 +231,17 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2, marginTop: 34, marginBottom: 10,
     paddingHorizontal: size.pageX,
   },
+  statusCard: { marginTop: 26 },
+  eyebrow: {
+    color: color.textTertiary, fontSize: font.footnote, fontWeight: '600',
+    letterSpacing: 0.6, marginBottom: 8,
+  },
+  statusWhat: {
+    color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22,
+  },
+  statusWhen: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 6,
+  },
   card: {
     marginHorizontal: size.pageX,
     borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
@@ -242,16 +258,6 @@ const styles = StyleSheet.create({
 
   /* while it runs: a line, not a card. It is a fact about today, not
      something asking to be tapped. */
-  statusRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    marginTop: 26, paddingHorizontal: size.pageX,
-  },
-  statusDay: {
-    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  statusDot: { color: color.textTertiary, fontSize: font.footnote },
-  statusFactors: { color: color.textTertiary, fontSize: font.footnote, flexShrink: 1 },
 
   progressLine: { marginTop: 14, gap: 2 },
   progressName: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },

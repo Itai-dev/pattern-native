@@ -45,7 +45,7 @@ import {
 } from './model';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
 import {
-  formatCheckins, formatScore, inkOn, painColor, painLabel, speakScore,
+  formatCheckins, formatScore, painColor, painLabel, speakScore,
 } from './painScale';
 import { color, font, radius, size } from './theme';
 
@@ -156,21 +156,13 @@ function DayCard({
             {/* only today breathes. A past day is finished, and a record
                 that stirs is a record that looks like it is still moving */}
             <Animated.View style={breathStyle}>
+              {/* plus only where there is nothing yet — with the number
+                  gone the square has no children to suppress it, and it
+                  would otherwise sit over a logged day */}
               <DaySquare
                 entry={entry} value={avg} size={SQUARE} radius={SQ_RADIUS}
-                plus={isToday} today={isToday}
-              >
-                {avg != null && (
-                  /* inkOn is the contrast-tested ink for this colour — the
-                     number never depends on the square being mid-ramp */
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.inSquare, { color: inkOn(avg) }]}
-                  >
-                    {formatScore(avg)}
-                  </Text>
-                )}
-              </DaySquare>
+                plus={isToday && avg == null} today={isToday}
+              />
             </Animated.View>
           </Press>
 
@@ -179,13 +171,16 @@ function DayCard({
               {isToday ? 'No check-ins yet today' : 'Nothing logged'}
             </Text>
           ) : (
-            /* the word and the provenance in one quiet line — the number
-               already said the value from inside the square, and the small
-               log squares below set this precedent long ago */
-            <Text style={styles.underLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              <Text style={styles.underWord}>{painLabel(avg)}</Text>
-              {'  ·  ' + formatCheckins(count)}{count > 1 ? ' · average' : ''}
-            </Text>
+            <>
+              <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {formatScore(avg)}
+              </Text>
+              {/* what the number means, and where it came from */}
+              <Text style={styles.underLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Text style={styles.underWord}>{painLabel(avg)}</Text>
+                {'  ·  ' + formatCheckins(count)}{count > 1 ? ' · average' : ''}
+              </Text>
+            </>
           )}
         </View>
 
@@ -211,17 +206,11 @@ function DayCard({
                   accessibilityHint="Opens the day’s detail"
                   style={[styles.logRow, i > 0 && styles.logRowDivider]}
                 >
-                  <View style={[styles.logSquare, { backgroundColor: painColor(l.pain) }]}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.logScore, { color: inkOn(l.pain) }]}
-                    >
-                      {formatScore(l.pain)}
-                    </Text>
-                  </View>
+                  <View style={[styles.logSquare, { backgroundColor: painColor(l.pain) }]} />
                   <View style={styles.logMain}>
                     <Text style={styles.logLabel} allowFontScaling maxFontSizeMultiplier={1.4}>
-                      {painLabel(l.pain)}
+                      <Text style={styles.logScore}>{formatScore(l.pain)}</Text>
+                      {'  ·  ' + painLabel(l.pain)}
                     </Text>
                     {!!q && (
                       <Text
@@ -406,7 +395,7 @@ export default function HomeScreen({
    silently clipping its own last line. */
 const PAGE_H = 8            // card's top margin
   + 20 + 18                 // padding, the date line
-  + SQUARE + 12 + 20        // the square, the line under it
+  + SQUARE + 50 + 22        // the square, the score, the line under it
   + 20 + 14 + 18            // the rule and CHECK-INS
   + ROWS * 60               // the rows
   + 46                      // Show all
@@ -435,15 +424,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6, marginTop: 14, marginBottom: 2,
   },
   hero: { alignItems: 'center' },
-  /* the value lives inside the square, at the same weight the small log
-     squares carry theirs — the hero is the row magnified. No "/10": the
-     slider's ends and the report define the scale; a person reading
-     their own day does not need reminding what it is out of. */
-  inSquare: {
-    fontSize: 46, fontWeight: '700', letterSpacing: -1,
-    fontVariant: ['tabular-nums'],
+  /* the day's value, under the shape rather than on it. No "/10": the
+     slider's ends and the report define the scale; a person reading their
+     own day does not need reminding what it is out of. */
+  score: {
+    color: color.textPrimary, fontSize: 34, fontWeight: '700', letterSpacing: -0.8,
+    lineHeight: 40, marginTop: 10, fontVariant: ['tabular-nums'],
   },
-  underLine: { color: color.textTertiary, fontSize: font.subheadline, marginTop: 12 },
+  underLine: { color: color.textTertiary, fontSize: font.subheadline, marginTop: 2 },
   underWord: { color: color.textSecondary, fontWeight: '600' },
   empty: { color: color.textSecondary, fontSize: font.body, marginTop: 20 },
   backRow: {
@@ -458,12 +446,13 @@ const styles = StyleSheet.create({
   },
   moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
   logRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
+  /* a swatch now, not a badge — the value it used to hold sits in the
+     row's own text, in one ink on every score */
   logSquare: {
-    width: 38, height: 38, borderRadius: 10, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center',
+    width: 34, height: 34, borderRadius: 10, borderCurve: 'continuous',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
   },
-  logScore: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  logScore: { color: color.textPrimary, fontVariant: ['tabular-nums'] },
   logMain: { flex: 1, gap: 2 },
   logLabel: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   logQuality: { color: color.textSecondary, fontSize: font.footnote },
