@@ -1071,5 +1071,28 @@ ok('every level of every asked metric fits a stacked row', (() => {
     !m.levels || m.levels.every((l) => l.label.length <= 22));
 })());
 
+/* ── the bands anything groups days by ──────────────────────
+   Trends counts logged days into bands by asking painLabel for each
+   representative score and matching that word. The failure that buys is
+   silent: a band whose word no longer matches matches NOTHING, its days
+   leave the chart, and the total is quietly short with no error anywhere.
+   These assertions are what make that a broken build instead. */
+group('the bands the charts group by');
+ok('five representatives, one per band', scale.BAND_AT.length === 5);
+ok('every score 0-10 falls in exactly one band', (() => {
+  const words = scale.BAND_AT.map((at) => scale.painLabel(at));
+  if (new Set(words).size !== words.length) return false;    // no two the same
+  for (let v = 0; v <= 10; v++) {
+    if (words.indexOf(scale.painLabel(v)) < 0) return false;  // none orphaned
+  }
+  return true;
+})());
+ok('the representatives are ordered easiest to hardest',
+  scale.BAND_AT.every((v, i) => i === 0 || v > scale.BAND_AT[i - 1]));
+ok('a fractional daily average still lands in a band', (() => {
+  const words = scale.BAND_AT.map((at) => scale.painLabel(at));
+  return [0.4, 3.4, 4.5, 6.6, 9.5].every((v) => words.indexOf(scale.painLabel(v)) >= 0);
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

@@ -35,7 +35,7 @@ import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, RESPONSE_LABELS,
   Response, dateFromISO, fmtTime,
 } from './model';
-import { formatScore, painColor, painLabel } from './painScale';
+import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
 import { EndOfRecord, ReportData, buildReportData, fmtReportDate, reportHtml } from './report';
 import { color, font, radius, size } from './theme';
 
@@ -80,6 +80,10 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
  * a number is a fact, and getting from one to the other should not
  * require going to another screen to look it up.
  */
+/** the drawing height of the plot, shared by the bars and the band so
+ *  the shading lines up with the columns rather than nearly lining up */
+const PLOT_H = 76;
+
 function MiniChart({
   data, span, selected, onSelect,
 }: {
@@ -101,6 +105,9 @@ function MiniChart({
   }
   const logged = cols.filter((c) => c.avg != null).length;
   const pick = cols.filter((c) => c.date === selected)[0];
+  /* the top of the user's own easier third, or null when the record is
+     too short for the split to mean anything */
+  const easier = data.harderEasier ? data.harderEasier.boundaryLow : null;
 
   /* a window with nothing in it says so in words — a row of 3pt gap
      marks is indistinguishable from a chart that failed to render */
@@ -135,6 +142,28 @@ function MiniChart({
         )}
       </View>
 
+      {/* WHICH WAY IS GOOD, drawn rather than remembered.
+          A falling line reads as decline to anyone who has ever seen a
+          chart, and on this one it is the opposite. So the easier end is
+          shaded and the scale is written down the side: the reader does
+          not have to hold "lower is better" in their head while looking.
+
+          The band is the user's OWN easier third, not a threshold Pattern
+          invented for what counts as a good day. Below seven days there
+          is no third to speak of and nothing is shaded — an easier range
+          drawn from four days would be a guess wearing a fact's clothes. */}
+      <View style={styles.chartBody}>
+        <View style={styles.gutter}>
+          <Text style={styles.gutterText} allowFontScaling={false}>10</Text>
+          <Text style={styles.gutterText} allowFontScaling={false}>0</Text>
+        </View>
+        <View style={styles.plot}>
+          {easier != null && (
+            <View
+              pointerEvents="none"
+              style={[styles.easierBand, { height: Math.max(4, (easier / 10) * PLOT_H) }]}
+            />
+          )}
       <View
         style={styles.chartRow}
         accessible={false}
@@ -158,7 +187,7 @@ function MiniChart({
               {c.avg != null ? (
                 <View
                   style={{
-                    height: Math.max(3, (c.avg / 10) * 76),
+                    height: Math.max(3, (c.avg / 10) * PLOT_H),
                     backgroundColor: painColor(c.avg),
                     borderRadius: 2,
                     opacity: selected && !on ? 0.4 : 1,
@@ -173,10 +202,57 @@ function MiniChart({
           );
         })}
       </View>
+        </View>
+      </View>
       <View style={styles.chartAxis}>
         <Text style={styles.axisText}>{shortDate(cols[0].date)}</Text>
         <Text style={styles.axisText}>{shortDate(cols[cols.length - 1].date)}</Text>
       </View>
+      {easier != null && (
+        <Text style={styles.noteLine}>
+          The shaded band is your own easier third — {formatScore(easier)} and
+          below. Lower is better, so a bar that stops inside it is a better day.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * The change across the window, in words, with the direction named.
+ *
+ * "First half 4.8, second half 3.6" makes the reader do the subtraction
+ * AND remember which way is good. It says it: 1.2 lower, easier. The two
+ * numbers stay, because the sentence is a reading of them and a reading
+ * should never replace the thing it read.
+ *
+ * The colour comes from the pain ramp itself rather than a green/red
+ * palette invented for this one line — the app already has a scale whose
+ * hues mean better and worse, and a second one would only be a chance for
+ * the two to disagree.
+ *
+ * No arrow, no percentage, no comparison to last week. This screen holds
+ * to being somewhere you go rather than something that reports at you,
+ * and the halves comparison is a fact about a window that does not move
+ * between two opens on the same day.
+ */
+function Direction({ first, second }: { first: number; second: number }) {
+  const delta = first - second;
+  const size = Math.abs(delta);
+  const same = size < 0.25;
+  const better = delta > 0;
+  const tint = same ? color.textSecondary : painColor(better ? 2 : 8);
+  return (
+    <View style={styles.direction}>
+      <Text style={[styles.directionText, { color: tint }]}
+        allowFontScaling maxFontSizeMultiplier={1.4}>
+        {same
+          ? 'About the same across this period'
+          : formatScore(size) + (better ? ' lower — easier' : ' higher — harder')}
+      </Text>
+      <Text style={styles.directionSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+        First half {formatScore(first)} · second half {formatScore(second)}
+      </Text>
     </View>
   );
 }
@@ -199,17 +275,31 @@ const RANGES: { key: string; label: string; days: number }[] = [
  * frequency count that quietly lies about its own tail.
  */
 function FoldedList({
-  items, limit = 4, label,
+  items, limit = 4, label, bars,
 }: {
-  items: { key: string; left: string; right: string }[];
+  /* frac and tint are what turn a row into a bar. A list without them
+     stays a list — the dated ones (events, what you tried) have no
+     magnitude to draw, and a bar there would be decoration. */
+  items: { key: string; left: string; right: string; frac?: number; tint?: string }[];
   limit?: number;
   label: string;
+  bars?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const shown = open ? items : items.slice(0, limit);
   return (
     <>
-      {shown.map((it) => <Row key={it.key} left={it.left} right={it.right} />)}
+      {shown.map((it) => (bars ? (
+        <BarRow
+          key={it.key}
+          label={it.left}
+          right={it.right}
+          frac={it.frac || 0}
+          tint={it.tint || color.tint}
+        />
+      ) : (
+        <Row key={it.key} left={it.left} right={it.right} />
+      )))}
       {items.length > limit && (
         <Press
           onPress={() => setOpen(!open)}
@@ -265,11 +355,130 @@ function Card({
   );
 }
 
+/* ── the drawing primitives ───────────────────────────────────
+   Four shapes cover every section on this screen, and all four are plain
+   Views. No SVG, no charting library: a bar is a box with a width, and a
+   dependency that needs a native build would have been unshippable over
+   the air anyway.
+
+   Proportions come out as flex weights rather than percentage strings,
+   because a bar built from two flex children divides the width it is
+   actually given — no measurement, no rounding drift at the right edge,
+   and correct at any Dynamic Type size. */
+
+/** the smallest useful fraction: a real but tiny count must still draw */
+const FLOOR = 0.035;
+
+/** one horizontal bar — the shape behind almost every list here */
+function Bar({ frac, tint }: { frac: number; tint: string }) {
+  const f = Math.max(FLOOR, Math.min(1, frac || 0));
+  return (
+    <View style={styles.barTrack}>
+      <View style={[styles.barFill, { flexGrow: f, backgroundColor: tint }]} />
+      <View style={{ flexGrow: Math.max(0.0001, 1 - f), flexBasis: 0 }} />
+    </View>
+  );
+}
+
+/** a labelled bar row: what it is, how big, and the figure behind it */
+function BarRow({
+  label, sub, right, frac, tint,
+}: {
+  label: string; sub?: string; right: string; frac: number; tint: string;
+}) {
+  return (
+    <View style={styles.barRow} accessible accessibilityLabel={label + ', ' + right}>
+      <View style={styles.barHead}>
+        <Text style={styles.barLabel} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>
+          {label}
+        </Text>
+        <Text style={styles.barRight} allowFontScaling maxFontSizeMultiplier={1.3}>{right}</Text>
+      </View>
+      <Bar frac={frac} tint={tint} />
+      {!!sub && <Text style={styles.barSub}>{sub}</Text>}
+    </View>
+  );
+}
+
+/** several proportions in ONE track — a whole of something, divided */
+function Stack({ segments }: { segments: { key: string; n: number; tint: string }[] }) {
+  const total = segments.reduce((t, x) => t + x.n, 0) || 1;
+  return (
+    <View style={styles.stackTrack}>
+      {segments.filter((x) => x.n > 0).map((x) => (
+        <View key={x.key} style={{ flexGrow: x.n / total, flexBasis: 0, backgroundColor: x.tint }} />
+      ))}
+    </View>
+  );
+}
+
+/** a swatch and a name — what a stack's colours mean, said in words,
+ *  because colour on its own is not information anyone can rely on */
+function Key({ items }: { items: { key: string; label: string; tint: string; n: number }[] }) {
+  return (
+    <View style={styles.keyWrap}>
+      {items.map((i) => (
+        <View key={i.key} style={styles.keyItem} accessible
+          accessibilityLabel={i.label + ', ' + i.n + (i.n === 1 ? ' day' : ' days')}>
+          <View style={[styles.keyDot, { backgroundColor: i.tint }]} />
+          <Text style={styles.keyText} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {i.label} {i.n}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** small columns — used only for ability, which is not pain and so never
+ *  borrows the pain ramp's colours */
+function Columns({ values, tint }: { values: { key: string; v: number }[]; tint: string }) {
+  return (
+    <View style={styles.colRow}>
+      {values.map((x) => (
+        <View key={x.key} style={styles.colSlot}>
+          <View style={{
+            height: Math.max(3, (x.v / 10) * 54), backgroundColor: tint, borderRadius: 2,
+          }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function Row({ left, right }: { left: string; right?: string }) {
   return (
     <View style={styles.row}>
       <Text style={styles.bodyText} numberOfLines={2}>{left}</Text>
       {!!right && <Text style={styles.rowRight}>{right}</Text>}
+    </View>
+  );
+}
+
+/**
+ * Where the record was cut, drawn on the 0–10 scale it was cut from.
+ *
+ * "The highest and lowest third, middle third set aside" is four lines of
+ * prose describing a shape. The shape is two marked regions on a ruler
+ * with a gap between them, which is one glance — and it also makes plain
+ * that the boundaries are the user's own spread rather than fixed grades.
+ */
+function Split({ low, high }: { low: number; high: number }) {
+  return (
+    <View style={styles.splitWrap}>
+      <View style={styles.splitTrack}>
+        <View style={[styles.splitSeg, {
+          flexGrow: Math.max(0.02, low / 10), backgroundColor: painColor(low),
+        }]} />
+        <View style={{ flexGrow: Math.max(0.02, (high - low) / 10), flexBasis: 0 }} />
+        <View style={[styles.splitSeg, {
+          flexGrow: Math.max(0.02, (10 - high) / 10), backgroundColor: painColor(high),
+        }]} />
+      </View>
+      <View style={styles.splitAxis}>
+        <Text style={styles.axisText}>easiest · {formatScore(low)} and below</Text>
+        <Text style={styles.axisText}>{formatScore(high)} and above · hardest</Text>
+      </View>
     </View>
   );
 }
@@ -375,6 +584,46 @@ export default function TrendsScreen({
 
   const tried = data.events.filter((ev) => ev.intervention || ev.resp || ev.helped != null);
 
+  /* Days grouped by the SAME five words the slider, the day detail and
+     the report use. A sixth vocabulary invented for one chart is how two
+     screens end up disagreeing about what a 4 is called. */
+  const feltBands = useMemo(() => {
+    /* the label is ASKED FOR, never copied. A hardcoded 'Moderate' beside
+       a painLabel() that had been reworded would match nothing, and those
+       days would leave the chart without leaving an error — the total
+       would just quietly be short. */
+    return BAND_AT
+      .map((at) => {
+        const label = painLabel(at);
+        return {
+          key: 'b' + at,
+          label,
+          tint: painColor(at),
+          n: data.days.filter((d) => painLabel(d.avg) === label).length,
+        };
+      })
+      .filter((b) => b.n > 0);
+  }, [data.days]);
+
+  /* the four responses, counted. The legacy 0–10 impression is NOT folded
+     in: a number and a four-level answer are different questions, and no
+     cutpoint between them would be anything but invented. */
+  const outcomes = useMemo(() => {
+    const order: Response[] = ['better', 'same', 'worse', 'unsure'];
+    const tints: Record<Response, string> = {
+      better: painColor(2), same: color.textTertiary,
+      worse: painColor(8), unsure: color.bgSegmentActive,
+    };
+    return order
+      .map((r) => ({
+        key: r,
+        label: RESPONSE_LABELS[r],
+        tint: tints[r],
+        n: tried.filter((ev) => ev.resp === r).length,
+      }))
+      .filter((o) => o.n > 0);
+  }, [tried]);
+
   return (
     <View style={styles.page}>
       <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.5}>
@@ -446,12 +695,36 @@ export default function TrendsScreen({
         didn’t log.
       </Text>
       {!!data.halves && (
-        <Text style={styles.noteLine}>
-          First half of this period averaged {formatScore(data.halves.first)},
-          second half {formatScore(data.halves.second)}.
-        </Text>
+        <Direction first={data.halves.first} second={data.halves.second} />
       )}
       </Card>
+
+      {/* ── how the days felt ───────────────────────────────────
+          The count that goes UP as things get better.
+
+          Every other number here falls when the record improves, which is
+          the right shape for pain and the wrong shape to look at every
+          day. This one does not: it is how many of your logged days
+          landed in each band, and the mild end grows as the record does.
+
+          It is a COUNT, not a second scale. Pain stays the number you
+          entered — the same 0–10 on Today, in the day detail and in the
+          summary a clinician reads — and this counts those days rather
+          than restating them upside down. The bands are the five the app
+          already speaks in everywhere; nothing new was invented to make
+          the line point the other way. */}
+      {feltBands.length > 0 && (
+        <Card
+          title="How your days felt"
+          note={'Your ' + data.days.length + ' logged '
+            + (data.days.length === 1 ? 'day' : 'days') + ' by band. This is the '
+            + 'one figure here that rises as things get easier — it counts days, '
+            + 'it is not a second pain score.'}
+        >
+          <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
+          <Key items={feltBands} />
+        </Card>
+      )}
 
       {/* ── the two ends ────────────────────────────────────── */}
       {!!data.harderEasier && (
@@ -463,6 +736,10 @@ export default function TrendsScreen({
             + ') set aside. This describes where the pain was and how you '
             + 'described it — not what caused it.'}
         >
+          <Split
+            low={data.harderEasier.boundaryLow}
+            high={data.harderEasier.boundaryHigh}
+          />
           <End
             title="Hardest days"
             when={formatScore(data.harderEasier.boundaryHigh) + ' and above'}
@@ -482,16 +759,20 @@ export default function TrendsScreen({
           title="Time of day"
           note="The average of the check-ins you recorded in each part of the day, with how many are behind it. It reflects when you checked in — not a claim about when your pain is worst."
         >
+          {/* bars run against the full 0–10 scale rather than against
+              the highest band, so a day whose parts sit at 4, 5 and 6
+              does not draw as if the evening were three times the
+              morning. The comparison being invited is real. */}
           {data.timeOfDay.map((b) => (
-            <View key={b.key} style={styles.row}>
-              <View style={styles.bandMain}>
-                <Text style={styles.bodyText}>{b.label}</Text>
-                <Text style={styles.bandRange}>{b.range}</Text>
-              </View>
-              <Text style={styles.rowRight}>
-                {formatScore(b.avg)} · {b.checkins}
-              </Text>
-            </View>
+            <BarRow
+              key={b.key}
+              label={b.label}
+              sub={b.range + ' · ' + b.checkins
+                + (b.checkins === 1 ? ' check-in' : ' check-ins')}
+              right={formatScore(b.avg)}
+              frac={b.avg / 10}
+              tint={painColor(b.avg)}
+            />
           ))}
         </Card>
       )}
@@ -499,12 +780,18 @@ export default function TrendsScreen({
       {/* ── where ───────────────────────────────────────────── */}
       {data.locations.length > 0 && (
         <Card title="Where">
+          {/* against the most-recorded area, because the question a
+              reader has here is "which of my places comes up most", not
+              "how close is my shoulder to every day of the record" */}
           <FoldedList
+            bars
             label="body areas"
             items={data.locations.map((l) => ({
               key: l.id,
               left: l.name,
               right: l.days + (l.days === 1 ? ' day' : ' days'),
+              frac: l.days / Math.max(1, data.locations[0].days),
+              tint: color.tint,
             }))}
           />
         </Card>
@@ -514,11 +801,14 @@ export default function TrendsScreen({
       {data.qualities.length > 0 && (
         <Card title="Described as">
           <FoldedList
+            bars
             label="words"
             items={data.qualities.map((q) => ({
               key: q.id,
               left: q.name,
               right: '×' + q.count,
+              frac: q.count / Math.max(1, data.qualities[0].count),
+              tint: color.tint,
             }))}
           />
         </Card>
@@ -534,11 +824,14 @@ export default function TrendsScreen({
             <>
               <Text style={styles.subhead}>Made it harder</Text>
               <FoldedList
+                bars
                 label="things"
                 items={data.flagged.worse.map((f) => ({
                   key: 'w' + f.id,
                   left: f.name,
                   right: f.days + (f.days === 1 ? ' day' : ' days'),
+                  frac: f.days / Math.max(1, data.flagged.worse[0].days),
+                  tint: painColor(7),
                 }))}
               />
             </>
@@ -547,11 +840,14 @@ export default function TrendsScreen({
             <>
               <Text style={styles.subhead}>Helped</Text>
               <FoldedList
+                bars
                 label="things"
                 items={data.flagged.better.map((f) => ({
                   key: 'b' + f.id,
                   left: f.name,
                   right: f.days + (f.days === 1 ? ' day' : ' days'),
+                  frac: f.days / Math.max(1, data.flagged.better[0].days),
+                  tint: painColor(2),
                 }))}
               />
             </>
@@ -575,6 +871,24 @@ export default function TrendsScreen({
                 + ' → ' + data.abilityChange.last.ability + '.'
               : '.'}
           </Text>
+          {/* the one chart on this screen where a rising column is
+              straightforwardly good news — and the reason it is drawn in
+              the interface tint rather than the pain ramp. Borrowing those
+              hues would say a high ability was a bad day. */}
+          {data.func.length > 1 && (
+            <>
+              <Columns
+                tint={color.tint}
+                values={data.func.map((f) => ({ key: f.week, v: f.ability }))}
+              />
+              <View style={styles.chartAxis}>
+                <Text style={styles.axisText}>{shortDate(data.func[0].week)}</Text>
+                <Text style={styles.axisText}>
+                  {shortDate(data.func[data.func.length - 1].week)} · higher is better
+                </Text>
+              </View>
+            </>
+          )}
         </Card>
       )}
 
@@ -584,6 +898,17 @@ export default function TrendsScreen({
           title="What you tried"
           note="Your own impression afterwards, recorded as you gave it. Pattern doesn’t assess whether something worked."
         >
+          {/* what came back, counted. The list underneath is dated and
+              specific; this is the only place the whole run of them can
+              be seen at once, and a lot of "About the same" is worth
+              being able to notice. Recorded impressions only — Pattern
+              does not assess whether anything worked. */}
+          {outcomes.length > 0 && (
+            <>
+              <Stack segments={outcomes.map((o) => ({ key: o.key, n: o.n, tint: o.tint }))} />
+              <Key items={outcomes} />
+            </>
+          )}
           <FoldedList
             label="things you tried"
             items={tried.slice().reverse().map((ev, i) => ({
@@ -681,6 +1006,66 @@ const styles = StyleSheet.create({
   },
   metricL: { color: color.textSecondary, fontSize: font.footnote },
   metricS: { color: color.textTertiary, fontSize: font.footnote },
+  /* ── the drawn shapes ──────────────────────────────────── */
+  barRow: { gap: 5, paddingVertical: 7 },
+  barHead: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  barLabel: {
+    flex: 1, color: color.textPrimary, fontSize: font.subheadline, lineHeight: 20,
+  },
+  barRight: {
+    color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  barSub: { color: color.textTertiary, fontSize: font.footnote },
+  barTrack: {
+    flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden',
+    backgroundColor: color.bgRoot,
+  },
+  barFill: { flexBasis: 0, borderRadius: 4 },
+  stackTrack: {
+    flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden',
+    backgroundColor: color.bgRoot, marginTop: 2,
+  },
+  keyWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
+  keyItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  keyDot: { width: 9, height: 9, borderRadius: 5 },
+  keyText: {
+    color: color.textSecondary, fontSize: font.footnote, fontVariant: ['tabular-nums'],
+  },
+  colRow: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 58,
+    marginTop: 14,
+  },
+  colSlot: { flex: 1, justifyContent: 'flex-end' },
+  splitWrap: { marginBottom: 14 },
+  splitTrack: {
+    flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden',
+    backgroundColor: color.bgRoot,
+  },
+  splitSeg: { flexBasis: 0 },
+  splitAxis: {
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, gap: 8,
+  },
+  direction: { marginTop: 12, gap: 2 },
+  directionText: { fontSize: font.title3, fontWeight: '700', letterSpacing: -0.2 },
+  directionSub: {
+    color: color.textTertiary, fontSize: font.footnote, fontVariant: ['tabular-nums'],
+  },
+  /* the plot and the scale beside it */
+  chartBody: { flexDirection: 'row', gap: 7 },
+  gutter: { height: 80, paddingTop: 4, justifyContent: 'space-between', width: 18 },
+  gutterText: {
+    color: color.textTertiary, fontSize: 10, textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  plot: { flex: 1, justifyContent: 'flex-end' },
+  /* the easier end of the scale, marked so the direction is seen rather
+     than remembered */
+  easierBand: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    backgroundColor: '#232325', borderRadius: 3,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#48484A',
+  },
   chartRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 80, paddingTop: 4,
   },
