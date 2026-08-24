@@ -72,7 +72,7 @@ function TrendsGlyph({ active }: { active: boolean }) {
   const c = active ? color.textPrimary : color.textTertiary;
   return (
     <View style={styles.barsGlyph}>
-      {[8, 16, 12].map((h, i) => (
+      {[9, 18, 13].map((h, i) => (
         <View key={i} style={[styles.bar, { height: h, backgroundColor: c }]} />
       ))}
     </View>
@@ -150,31 +150,33 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.16)',
   },
-  /* iOS proportions: a 49pt bar, a 25pt glyph box, a 10pt label. The pill
-     adds its own padding, so 52 lands the content where a real tab bar
-     puts it. */
+  /* A real iOS tab bar is 49pt of content sitting on the safe area, so it
+     reads as roughly 83pt tall. A pill that floats has to carry that
+     presence in its own height instead of borrowing it from the screen
+     edge — 60 puts the glyphs and labels at the size they sit at in a
+     docked bar rather than a shrunken copy of one. */
   pill: {
     flexDirection: 'row', alignItems: 'center',
-    borderRadius: 26, height: 52, paddingHorizontal: 4, gap: 0,
+    borderRadius: 30, height: 60, paddingHorizontal: 5, gap: 2,
   },
   item: {
-    minHeight: 44, minWidth: 78, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center', gap: 2,
-    paddingHorizontal: 10, paddingVertical: 4,
+    minHeight: 50, minWidth: 84, borderRadius: 25,
+    alignItems: 'center', justifyContent: 'center', gap: 3,
+    paddingHorizontal: 10, paddingVertical: 5,
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  dayGlyph: { width: 19, height: 19, borderRadius: 5.5, borderWidth: 1.8 },
+  dayGlyph: { width: 21, height: 21, borderRadius: 6, borderWidth: 1.9 },
   gridGlyph: {
-    width: 19, height: 19,
+    width: 21, height: 21,
     flexDirection: 'row', flexWrap: 'wrap',
     justifyContent: 'space-between', alignContent: 'space-between',
   },
-  gridCell: { width: 8, height: 8, borderRadius: 2.5 },
+  gridCell: { width: 9, height: 9, borderRadius: 2.5 },
   barsGlyph: {
-    width: 19, height: 19,
+    width: 21, height: 21,
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
   },
-  bar: { width: 5, borderRadius: 2 },
-  label: { fontSize: 10, fontWeight: '600', color: color.textTertiary, letterSpacing: 0.1 },
+  bar: { width: 5.5, borderRadius: 2 },
+  label: { fontSize: 11, fontWeight: '600', color: color.textTertiary, letterSpacing: 0.1 },
   labelActive: { color: color.textPrimary },
 });
