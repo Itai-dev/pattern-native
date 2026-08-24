@@ -40,7 +40,15 @@ export interface TabBarProps {
   onChange: (tab: Tab) => void;
 }
 
-const LIQUID = isLiquidGlassAvailable();
+/* Guarded, and the guard is load-bearing. On iOS this calls
+   requireNativeModule, which THROWS when the binary predates the native
+   module — and OTA updates share a runtime with builds 15 and 18, which
+   do. Unguarded, this line crashes every phone still on those builds at
+   launch. Caught, they fall back to the blur bar they already have, and
+   the glass simply arrives with the next install. */
+const LIQUID = (() => {
+  try { return isLiquidGlassAvailable(); } catch { return false; }
+})();
 
 /** one rounded square — the day. Filled when you are here. */
 function TodayGlyph({ active }: { active: boolean }) {
