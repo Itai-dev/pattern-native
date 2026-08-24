@@ -133,9 +133,8 @@ export default function App() {
   const { width } = useWindowDimensions();
   const pager = useRef<ScrollView>(null);
 
-  /** tapping a tab drives the pager; the pager drives the tab back when
-   *  the finger does the moving. Guarded so the two never fight. */
-  const swiping = useRef(false);
+  /** tapping a tab drives the pager, and nothing else does any more —
+   *  the finger belongs to the day pager inside Today. */
   const goToTab = useCallback((t: Tab) => {
     if (t === 'trends') track('trends_opened');
     if (t === 'map') track('history_opened');
@@ -152,7 +151,6 @@ export default function App() {
       if (next === 'map') track('history_opened');
       setTab(next);
     }
-    swiping.current = false;
   }, [tab, width]);
   const [sheet, setSheet] = useState<Sheet>(null);
   /* History stacks months newest-first, so back-to-today is simply the
@@ -512,16 +510,21 @@ export default function App() {
               which the old key-per-tab remount threw away every time you
               looked at something else. Everything scrolls on under the
               floating glass. */}
+          {/* The tabs no longer swipe. Two horizontal gestures on one
+              screen cannot both win, and the day pager inside Today is
+              the one with something to say — the tab bar was always the
+              real way between tabs, and the swipe was a second answer to
+              a question already answered. Programmatic paging stays, so
+              tapping a tab still slides. */}
           <ScrollView
             ref={pager}
             horizontal
             pagingEnabled
+            scrollEnabled={false}
             bounces={false}
             scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
-            onScrollBeginDrag={() => { swiping.current = true; }}
             onMomentumScrollEnd={onPageSettled}
-            onScrollEndDrag={onPageSettled}
           >
             <ScrollView style={{ width }} contentContainerStyle={styles.page}
               showsVerticalScrollIndicator={false}>
