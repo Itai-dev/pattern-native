@@ -168,7 +168,10 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 
                     <View
                       style={[
-                        { width: cell, height: cell, borderRadius: radius },
+                        {
+                          width: cell, height: cell, borderRadius: radius,
+                          borderCurve: 'continuous',
+                        },
                         avg == null
                           ? {
                               borderWidth: 1,

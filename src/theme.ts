@@ -113,10 +113,24 @@ export const font = {
 
 export type SlotKey = 'm' | 'd' | 'e';
 
+/**
+ * Corner radii, on Health's scale.
+ *
+ * A card at 16 is the radius of a LIST ROW's container, not of a card
+ * you look at — beside Health's own the old value read tight and boxy.
+ * Cards go to 20 and sheets to 24, which keeps the step between a
+ * container and the controls inside it that Apple's own nesting has: a
+ * child is always rounder-per-size than its parent is, never equal.
+ *
+ * Every one of these is drawn with borderCurve: 'continuous'. The number
+ * was never the thing that made a corner look un-Apple — the curvature
+ * was. iOS eases the corner into the straight edge; a plain circular arc
+ * meets it at a tangent and reads pinched next to the real thing.
+ */
 export const radius = {
   button: 14,
-  card: 16,
-  sheet: 20,
+  card: 20,
+  sheet: 24,
   segment: 10,
   segmentTrack: 11,
 } as const;

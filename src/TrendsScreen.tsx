@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
      their edges rather than by reading the type scale. */
   card: {
     backgroundColor: color.bgSurface,
-    borderRadius: radius.card,
+    borderRadius: radius.card, borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: color.borderDivider,
     padding: 16,
@@ -969,7 +969,7 @@ const styles = StyleSheet.create({
   rangeLine: { color: color.textSecondary, fontSize: font.footnote, marginBottom: 10, marginTop: -4 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   metric: {
-    flexGrow: 1, flexBasis: '30%', borderRadius: 12, padding: 10,
+    flexGrow: 1, flexBasis: '30%', borderRadius: 12, borderCurve: 'continuous', padding: 10,
     backgroundColor: color.bgSheet, gap: 1,
   },
   metricV: {
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
   },
   readoutHint: { color: color.textTertiary, fontSize: font.footnote },
   segment: {
-    flexDirection: 'row', gap: 3, padding: 3, borderRadius: 12,
+    flexDirection: 'row', gap: 3, padding: 3, borderRadius: 12, borderCurve: 'continuous',
     backgroundColor: color.bgSheet, marginBottom: 12,
   },
   segItem: {
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     color: color.textTertiary, fontSize: font.footnote, fontVariant: ['tabular-nums'],
   },
   endCard: {
-    borderRadius: radius.card, padding: 12, marginBottom: 8,
+    borderRadius: radius.card, borderCurve: 'continuous', padding: 12, marginBottom: 8,
     backgroundColor: color.bgSheet, gap: 3,
   },
   endTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },

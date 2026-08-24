@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
   kinds: { marginTop: 12, gap: 8 },
   kind: {
-    minHeight: 48, borderRadius: 12, borderWidth: 1,
+    minHeight: 48, borderRadius: 12, borderCurve: 'continuous', borderWidth: 1,
     justifyContent: 'center', paddingHorizontal: 14,
   },
   kindOn: { backgroundColor: color.bgSegmentActive, borderColor: color.textSecondary },
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     minHeight: 48, marginTop: 10, paddingHorizontal: 14,
-    borderRadius: 12, backgroundColor: color.bgSurface,
+    borderRadius: 12, borderCurve: 'continuous', backgroundColor: color.bgSurface,
   },
   timeText: { color: color.textPrimary, fontSize: font.body, fontVariant: ['tabular-nums'] },
   timeHint: { color: color.tint, fontSize: font.subheadline },
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
      scale — a short list of the things people actually say. */
   pickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   pick: {
-    minHeight: 44, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center',
+    minHeight: 44, borderRadius: 12, borderCurve: 'continuous', paddingHorizontal: 14, justifyContent: 'center',
     backgroundColor: color.bgSurface,
     borderWidth: 1, borderColor: color.borderDivider,
   },
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   pickText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
   pickTextOn: { color: color.textPrimary, fontWeight: '600' },
   input: {
-    marginTop: 10, minHeight: 60, borderRadius: 12, padding: 12,
+    marginTop: 10, minHeight: 60, borderRadius: 12, borderCurve: 'continuous', padding: 12,
     backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
     textAlignVertical: 'top',
   },

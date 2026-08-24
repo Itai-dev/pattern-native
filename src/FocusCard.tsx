@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   card: {
     marginHorizontal: size.pageX,
-    borderRadius: radius.card, backgroundColor: color.bgSurface,
+    borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
     padding: 16,
   },
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
 
   actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   ghost: {
-    flex: 1, minHeight: 46, borderRadius: radius.button,
+    flex: 1, minHeight: 46, borderRadius: radius.button, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
   },

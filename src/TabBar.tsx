@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
      edge. */
   pill: {
     flexDirection: 'row', alignItems: 'center', overflow: 'hidden',
-    borderRadius: 30, height: 60, paddingHorizontal: 5, gap: 2,
+    borderRadius: 30, borderCurve: 'continuous', height: 60, paddingHorizontal: 5, gap: 2,
   },
   /* the system material carries itself — the only paint on top is the
      hairline that catches light along the edge */
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.16)',
   },
   item: {
-    minHeight: 50, minWidth: 84, borderRadius: 25,
+    minHeight: 50, minWidth: 84, borderRadius: 25, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', gap: 3,
     paddingHorizontal: 10, paddingVertical: 5,
   },

@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
   body: { padding: 20, paddingBottom: 40 },
   lede: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 14 },
-  group: { borderRadius: radius.card, backgroundColor: color.bgSegmentTrack, overflow: 'hidden' },
+  group: { borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack, overflow: 'hidden' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     minHeight: 64, paddingHorizontal: 16, paddingVertical: 10,

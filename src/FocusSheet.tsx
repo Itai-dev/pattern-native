@@ -42,7 +42,6 @@ import {
   PROTOCOL_CONFIRM_BODY, PROTOCOL_CONFIRM_TITLE, PROTOCOL_CHOSEN_NOTE,
   PROTOCOL_SECOND_NOTE, pickSecondFactor, reviewDateFor,
 } from './protocol';
-import { inkForBg, themeBrand } from './painScale';
 import { color, font, radius, size } from './theme';
 
 type Step = 'ask' | 'pick' | 'confirm';
@@ -301,12 +300,12 @@ export default function FocusSheet({ seedFactor, onDone, onClose }: FocusSheetPr
           accessibilityState={{ disabled: !canAdvance }}
           style={[
             styles.primary,
-            canAdvance ? { backgroundColor: themeBrand() } : styles.primaryOff,
+            canAdvance ? styles.primaryOn : styles.primaryOff,
           ]}
         >
           <Text style={[
             styles.primaryText,
-            canAdvance ? { color: inkForBg(themeBrand()) } : styles.primaryTextOff,
+            canAdvance ? styles.primaryTextOn : styles.primaryTextOff,
           ]}>
             {step === 'confirm' ? 'Start the 14 days' : 'Continue'}
           </Text>
@@ -347,14 +346,14 @@ const styles = StyleSheet.create({
   qBlock: { marginTop: 22 },
   q: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22 },
   input: {
-    marginTop: 10, minHeight: 60, borderRadius: 12, padding: 12,
+    marginTop: 10, minHeight: 60, borderRadius: 12, borderCurve: 'continuous', padding: 12,
     backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
     textAlignVertical: 'top',
   },
 
   option: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginTop: 10, padding: 14, borderRadius: radius.card,
+    marginTop: 10, padding: 14, borderRadius: radius.card, borderCurve: 'continuous',
     backgroundColor: color.bgSurface,
     borderWidth: 1, borderColor: color.borderDivider,
   },
@@ -363,7 +362,7 @@ const styles = StyleSheet.create({
   optionName: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   optionQ: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
   tick: {
-    width: 24, height: 24, borderRadius: 12,
+    width: 24, height: 24, borderRadius: 12, borderCurve: 'continuous',
     borderWidth: 1.5, borderColor: color.borderControl,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -373,7 +372,7 @@ const styles = StyleSheet.create({
   moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
 
   cantCard: {
-    marginTop: 14, padding: 13, borderRadius: radius.card,
+    marginTop: 14, padding: 13, borderRadius: radius.card, borderCurve: 'continuous',
     backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl, gap: 4,
   },
@@ -381,7 +380,7 @@ const styles = StyleSheet.create({
   cantBody: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
 
   pickCard: {
-    marginTop: 12, padding: 15, borderRadius: radius.card,
+    marginTop: 12, padding: 15, borderRadius: radius.card, borderCurve: 'continuous',
     backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider, gap: 3,
   },
@@ -394,9 +393,11 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
   },
   primary: {
-    minHeight: size.buttonH, borderRadius: size.buttonH / 2,
+    minHeight: size.buttonH, borderRadius: size.buttonH / 2, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
   },
+  primaryOn: { backgroundColor: color.textPrimary },
+  primaryTextOn: { color: '#000000' },
   primaryOff: { backgroundColor: color.bgSegmentActive },
   primaryText: { fontSize: font.title3, fontWeight: '600' },
   primaryTextOff: { color: color.textTertiary },

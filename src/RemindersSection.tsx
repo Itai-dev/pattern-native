@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   tick: { color: '#000000', fontSize: 13, fontWeight: '700', lineHeight: 16 },
   label: { color: color.textPrimary, fontSize: 15 },
   time: {
-    backgroundColor: '#323234', borderRadius: radius.segment,
+    backgroundColor: '#323234', borderRadius: radius.segment, borderCurve: 'continuous',
     paddingVertical: 7, paddingHorizontal: 12,
   },
   timeText: { color: color.textPrimary, fontSize: 15 },
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   },
   pickerTitle: { color: color.textSecondary, fontSize: font.footnote, textAlign: 'center', marginBottom: 4 },
   doneBtn: {
-    height: 50, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    height: 50, borderRadius: radius.button, borderCurve: 'continuous', backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
   doneText: { color: '#000000', fontSize: font.body, fontWeight: '600' },

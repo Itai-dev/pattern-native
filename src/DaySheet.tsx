@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   },
   deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
   addEvent: {
-    marginTop: 20, minHeight: 48, borderRadius: radius.button,
+    marginTop: 20, minHeight: 48, borderRadius: radius.button, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
   },
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   },
   /* the same primary-button spec as everywhere else — one button, one size */
   primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    minHeight: size.buttonH, borderRadius: radius.button, borderCurve: 'continuous', backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', marginTop: 24, paddingHorizontal: 16,
   },
   primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },

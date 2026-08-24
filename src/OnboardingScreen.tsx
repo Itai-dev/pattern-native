@@ -37,7 +37,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
-import { inkForBg, themeBrand } from './painScale';
+import { themeBrand } from './painScale';
 import { color, font, radius, size } from './theme';
 
 export interface OnboardingScreenProps {
@@ -177,7 +177,7 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
         <Press
           onPress={advance}
           pressScale={0.985}
-          style={[styles.primary, { backgroundColor: brand }]}
+          style={styles.primary}
           accessibilityRole="button"
           accessibilityLabel={
             step < lastStep ? 'Continue'
@@ -185,7 +185,7 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
                 : understand.trim() ? 'Start my first check-in' : 'Skip and start my first check-in'
           }
         >
-          <Text style={[styles.primaryText, { color: inkForBg(brand) }]}>
+          <Text style={styles.primaryText}>
             {step < lastStep ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
           </Text>
         </Press>
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     color: color.textTertiary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4,
   },
   card: {
-    marginTop: 16, padding: 16, borderRadius: radius.card,
+    marginTop: 16, padding: 16, borderRadius: radius.card, borderCurve: 'continuous',
     backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider, gap: 6,
   },
@@ -235,10 +235,11 @@ const styles = StyleSheet.create({
   cardBody: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },
   bottom: { flexShrink: 0, paddingTop: 10 },
   primary: {
-    minHeight: size.buttonH, borderRadius: size.buttonH / 2,
+    minHeight: size.buttonH, borderRadius: size.buttonH / 2, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
+    backgroundColor: color.textPrimary,
   },
-  primaryText: { fontSize: font.title3, fontWeight: '600' },
+  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
   dots: {
     flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 18,
   },
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
     width: 6, height: 6, borderRadius: 3, backgroundColor: color.borderControl,
   },
   input: {
-    marginTop: 6, minHeight: 92, borderRadius: 14, padding: 14,
+    marginTop: 6, minHeight: 92, borderRadius: 14, borderCurve: 'continuous', padding: 14,
     backgroundColor: color.bgSurface, color: color.textPrimary,
     fontSize: font.body, lineHeight: 22, textAlignVertical: 'top',
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,

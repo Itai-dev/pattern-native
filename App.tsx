@@ -36,7 +36,7 @@ import {
 } from './src/analytics';
 import { activeFactors } from './src/protocol';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
-import { getPainTheme, inkForBg, setPainTheme, themeBrand } from './src/painScale';
+import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
 } from './src/theme';
@@ -459,9 +459,7 @@ export default function App() {
                 <Pressable
                   onPress={() => setSheet('checkin')}
                   style={({ pressed }) => [
-                    styles.logPill,
-                    { backgroundColor: themeBrand() },
-                    pressed && { opacity: 0.85 },
+                    styles.logPill, pressed && { opacity: 0.85 },
                   ]}
                   hitSlop={8}
                   accessibilityRole="button"
@@ -469,7 +467,7 @@ export default function App() {
                   accessibilityHint="Records how your pain is right now"
                 >
                   <Text
-                    style={[styles.logPillText, { color: inkForBg(themeBrand()) }]}
+                    style={styles.logPillText}
                     allowFontScaling maxFontSizeMultiplier={1.2}
                     numberOfLines={1}
                   >
@@ -834,7 +832,7 @@ const styles = StyleSheet.create({
      you have left — glass, so it sits over the grids without occluding */
   backToToday: {
     position: 'absolute', top: 78, right: size.pageX,
-    borderRadius: 19, overflow: 'hidden',
+    borderRadius: 19, borderCurve: 'continuous', overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
   },
   pillHit: { minHeight: 38, paddingHorizontal: 16, justifyContent: 'center' },
@@ -845,13 +843,16 @@ const styles = StyleSheet.create({
   },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logPill: {
-    minHeight: 38, borderRadius: 19, paddingHorizontal: 18,
+    minHeight: 38, borderRadius: 19, borderCurve: 'continuous', paddingHorizontal: 18,
     alignItems: 'center', justifyContent: 'center',
+    backgroundColor: color.textPrimary,
   },
-  logPillText: { fontSize: font.body, fontWeight: '700', letterSpacing: -0.2 },
+  logPillText: {
+    color: '#000000', fontSize: font.body, fontWeight: '700', letterSpacing: -0.2,
+  },
   profileBtnBusy: { opacity: 0.5 },
   profileBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 22, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
@@ -886,7 +887,7 @@ const styles = StyleSheet.create({
 
   /* ── iOS Settings grammar: inset groups, uniform rows, coloured icons ── */
   group: {
-    borderRadius: 12, backgroundColor: color.bgSegmentTrack,
+    borderRadius: 12, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack,
     overflow: 'hidden', marginBottom: 22,
   },
   groupPad: { paddingHorizontal: 16, paddingVertical: 12 },

@@ -77,8 +77,8 @@ import { questionsNow } from './protocol';
 import { track, trackCheckin } from './analytics';
 import { color, font, size } from './theme';
 import {
-  PAIN_END_HIGH, PAIN_END_LOW, formatScore, inkForBg, inkOn, painColor,
-  painLabel, speakScore, themeBrand, SCALE_VERSION,
+  PAIN_END_HIGH, PAIN_END_LOW, formatScore, inkOn, painColor,
+  painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
   LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
@@ -368,7 +368,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       <View style={styles.options}>
         {(m.levels || []).map((l) => {
           const on = answers[m.id] === l.id;
-          const ink = inkForBg(themeBrand());
+
           return (
             <Pressable
               key={l.id}
@@ -385,18 +385,18 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
               accessibilityLabel={l.label}
               accessibilityHint={on ? 'Tap again to unselect' : undefined}
               style={({ pressed }) => [
-                styles.optRow, on && { backgroundColor: themeBrand(), borderColor: themeBrand() },
+                styles.optRow, on && styles.optRowOn,
                 pressed && { opacity: 0.8 },
               ]}
             >
               <Text
                 allowFontScaling maxFontSizeMultiplier={1.4}
-                style={[styles.optText, on && { color: ink }]}
+                style={[styles.optText, on && styles.optTextOn]}
               >
                 {l.label}
               </Text>
               {on && (
-                <Text style={[styles.optCheck, { color: ink }]} allowFontScaling={false}>
+                <Text style={styles.optCheck} allowFontScaling={false}>
                   ✓
                 </Text>
               )}
@@ -689,12 +689,12 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
                 styles.primary,
                 /* the reference fills its Next button with its accent; ours is
                    the theme's own hue, ink chosen by real luminance */
-                canAdvance ? { backgroundColor: themeBrand() } : styles.primaryOff,
+                canAdvance ? styles.primaryOn : styles.primaryOff,
               ]}
             >
               <Text style={[
                 styles.primaryText,
-                canAdvance ? { color: inkForBg(themeBrand()) } : styles.primaryTextOff,
+                canAdvance ? styles.primaryTextOn : styles.primaryTextOff,
               ]}>
                 {step === 'where' ? 'Save today'
                   : step === 'questions' && !anyAnswered ? 'Skip'
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   close: {
-    width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: color.borderDivider,
+    width: 40, height: 40, borderRadius: 20, borderCurve: 'continuous', borderWidth: 1, borderColor: color.borderDivider,
     alignItems: 'center', justifyContent: 'center',
   },
   close2: { width: 40, height: 40 },
@@ -755,6 +755,8 @@ const styles = StyleSheet.create({
     color: color.textPrimary, fontSize: 44, fontWeight: '700',
     letterSpacing: -0.8, marginTop: 26, fontVariant: ['tabular-nums'],
   },
+  primaryOn: { backgroundColor: color.textPrimary },
+  primaryTextOn: { color: '#000000' },
   primaryOff: { backgroundColor: color.bgSegmentActive },
   primaryTextOff: { color: color.textTertiary },
   /* the category beneath the score — the same five words everywhere */
@@ -789,7 +791,7 @@ const styles = StyleSheet.create({
   /* stacked, so a level is never abbreviated into ambiguity */
   options: { gap: 8 },
   optRow: {
-    minHeight: 52, borderRadius: 14, paddingHorizontal: 15, paddingVertical: 13,
+    minHeight: 52, borderRadius: 14, borderCurve: 'continuous', paddingHorizontal: 15, paddingVertical: 13,
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: color.bgSurface,
     borderWidth: 1, borderColor: color.borderDivider,
@@ -797,11 +799,13 @@ const styles = StyleSheet.create({
   optText: {
     flex: 1, color: '#D0D0D6', fontSize: font.body, fontWeight: '600', lineHeight: 21,
   },
-  optCheck: { fontSize: 15, fontWeight: '700' },
+  optRowOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
+  optTextOn: { color: '#000000' },
+  optCheck: { color: '#000000', fontSize: 15, fontWeight: '700' },
   noteAdd: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },
   noteAddText: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },
   noteInput: {
-    minHeight: 58, borderRadius: 12, padding: 12,
+    minHeight: 58, borderRadius: 12, borderCurve: 'continuous', padding: 12,
     backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
     borderWidth: 1, borderColor: color.borderDivider,
     textAlignVertical: 'top',
@@ -819,17 +823,17 @@ const styles = StyleSheet.create({
   /* one grid, two meanings — a segmented control says which, rather than
      two grids of sixteen chips or a tap-cycle nobody would guess */
   sideSwitch: {
-    flexDirection: 'row', gap: 4, padding: 4, borderRadius: 14,
+    flexDirection: 'row', gap: 4, padding: 4, borderRadius: 14, borderCurve: 'continuous',
     backgroundColor: color.bgSurface,
   },
   sideItem: {
-    flex: 1, minHeight: 40, borderRadius: 11,
+    flex: 1, minHeight: 40, borderRadius: 11, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8,
   },
   sideItemOn: { backgroundColor: color.bgSegmentActive },
   sideText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   sideTextOn: { color: color.textPrimary },
-  chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderWidth: 1 },
+  chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderCurve: 'continuous', borderWidth: 1 },
   chipText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
   bottom: { flexShrink: 0 },
   ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 2 },
@@ -839,7 +843,7 @@ const styles = StyleSheet.create({
   },
   /* a full pill, the reference's button shape */
   primary: {
-    minHeight: size.buttonH, borderRadius: size.buttonH / 2,
+    minHeight: size.buttonH, borderRadius: size.buttonH / 2, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,
   },
   primaryText: { fontSize: font.title3, fontWeight: '600' },

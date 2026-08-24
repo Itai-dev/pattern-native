@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
      says what belongs together. */
   dayCard: {
     marginHorizontal: size.pageX, marginTop: 8,
-    borderRadius: radius.card, backgroundColor: color.bgSurface,
+    borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
     paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16,
   },
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
   logRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
   logSquare: {
-    width: 38, height: 38, borderRadius: 10,
+    width: 38, height: 38, borderRadius: 10, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
   },
