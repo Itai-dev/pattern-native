@@ -13,7 +13,7 @@
  * So: group sizes, the target, and two ways forward. Nothing about pain.
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Press } from './motion';
 import { getMetric } from './metrics';
 import { Entries, Protocol } from './model';
@@ -84,24 +84,22 @@ export default function FocusCard({
             what makes it checkable.
           </Text>
           <View style={styles.actions}>
-            <Press
+            <Pressable
               onPress={() => onTest(promo.metricId)}
-              pressOpacity={0.8}
-              style={styles.ghost}
+              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.8 }]}
               accessibilityRole="button"
               accessibilityLabel={'Start asking about ' + promo.chipName + ' every day'}
             >
               <Text style={styles.ghostText}>Ask me daily</Text>
-            </Press>
-            <Press
+            </Pressable>
+            <Pressable
               onPress={onKeepGoing}
-              pressOpacity={0.8}
-              style={styles.ghost}
+              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.8 }]}
               accessibilityRole="button"
               accessibilityLabel="Not now"
             >
               <Text style={styles.ghostText}>Not now</Text>
-            </Press>
+            </Pressable>
           </View>
         </View>
       </>
@@ -200,24 +198,22 @@ export default function FocusCard({
         </Text>
 
         <View style={styles.actions}>
-          <Press
+          <Pressable
             onPress={onKeepGoing}
-            pressOpacity={0.8}
-            style={styles.ghost}
+            style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.8 }]}
             accessibilityRole="button"
             accessibilityLabel={REVIEW_KEEP}
           >
             <Text style={styles.ghostText}>{REVIEW_KEEP}</Text>
-          </Press>
-          <Press
+          </Pressable>
+          <Pressable
             onPress={onStart}
-            pressOpacity={0.8}
-            style={styles.ghost}
+            style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.8 }]}
             accessibilityRole="button"
             accessibilityLabel={REVIEW_CHANGE}
           >
             <Text style={styles.ghostText}>{REVIEW_CHANGE}</Text>
-          </Press>
+          </Pressable>
         </View>
       </View>
     </>

@@ -26,7 +26,7 @@
  * something that asks.
  */
 import React, { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as db from './db';
@@ -145,10 +145,9 @@ function MiniChart({
         {cols.map((c) => {
           const on = c.date === selected;
           return (
-            <Press
+            <Pressable
               key={c.date}
               onPress={() => onSelect(on ? null : c.date)}
-              pressOpacity={0.7}
               style={styles.chartSlot}
               accessibilityRole="button"
               accessibilityLabel={
@@ -170,7 +169,7 @@ function MiniChart({
                    gaps are the one thing you cannot ask about */
                 <View style={[styles.emptyCol, on && styles.emptyColOn]} />
               )}
-            </Press>
+            </Pressable>
           );
         })}
       </View>
@@ -347,20 +346,21 @@ export default function TrendsScreen({
         {RANGES.filter((r) => r.days === 0 || r.days < spanRecord).map((r) => {
           const on = r.key === rangeKey;
           return (
-            <Press
+            <Pressable
               key={r.key}
               onPress={() => { setRangeKey(r.key); setPicked(null); }}
-              pressOpacity={0.85}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
               accessibilityLabel={r.label}
-              style={[styles.segItem, on && styles.segItemOn]}
+              style={({ pressed }) => [
+                styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
+              ]}
             >
               <Text style={[styles.segText, on && styles.segTextOn]}
                 allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
                 {r.label}
               </Text>
-            </Press>
+            </Pressable>
           );
         })}
       </View>

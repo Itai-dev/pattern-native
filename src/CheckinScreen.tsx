@@ -342,7 +342,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         {(m.levels || []).map((l) => {
           const on = answers[m.id] === l.id;
           return (
-            <Press
+            <Pressable
               key={l.id}
               onPress={() => {
                 Haptics.selectionAsync().catch(() => {});
@@ -352,11 +352,13 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
                   return next;
                 });
               }}
-              pressOpacity={0.8}
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
               accessibilityLabel={l.label}
-              style={[styles.segItem, on && { backgroundColor: themeBrand() }]}
+              style={({ pressed }) => [
+                styles.segItem, on && { backgroundColor: themeBrand() },
+                pressed && { opacity: 0.8 },
+              ]}
             >
               <Text
                 allowFontScaling maxFontSizeMultiplier={1.3}
@@ -365,7 +367,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
               >
                 {l.label}
               </Text>
-            </Press>
+            </Pressable>
           );
         })}
       </View>
@@ -521,20 +523,21 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
               const on = side === sd;
               const n = (sd === 'worse' ? worse : better).length;
               return (
-                <Press
+                <Pressable
                   key={sd}
                   onPress={() => { Haptics.selectionAsync().catch(() => {}); setSide(sd); }}
-                  pressOpacity={0.85}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: on }}
                   accessibilityLabel={sd === 'worse' ? 'Made it harder' : 'Helped'}
-                  style={[styles.sideItem, on && styles.sideItemOn]}
+                  style={({ pressed }) => [
+                    styles.sideItem, on && styles.sideItemOn, pressed && { opacity: 0.85 },
+                  ]}
                 >
                   <Text style={[styles.sideText, on && styles.sideTextOn]}
                     allowFontScaling maxFontSizeMultiplier={1.3}>
                     {sd === 'worse' ? 'Made it harder' : 'Helped'}{n ? ' · ' + n : ''}
                   </Text>
-                </Press>
+                </Pressable>
               );
             })}
           </View>
