@@ -358,6 +358,125 @@ export function timeOfDayBands(entries: Entries, days: ReportDay[]): TimeBand[] 
     }));
 }
 
+/* ── colour, on paper ────────────────────────────────────────
+   The app's ramp runs dark at 0 to icy near-white at 10, which is right
+   on a black screen and exactly backwards on white paper: the worst days
+   would print as the faintest marks and a pain-free day as the heaviest.
+   So print gets its own ramp, running light to dark in the same hue.
+
+   It is built to survive a grayscale photocopier, which is what actually
+   happens to a page handed across a desk. Luminance falls monotonically
+   from 0 to 10, so the ordering reads even with the colour gone. */
+
+const PRINT_RAMP: [number, string][] = [
+  [0, '#F4F8FD'],
+  [2, '#CFE1F5'],
+  [5, '#7FADDF'],
+  [8, '#2F6BB0'],
+  [10, '#123863'],
+];
+
+function printColor(v: number): string {
+  const x = Math.max(0, Math.min(10, v));
+  let lo = PRINT_RAMP[0], hi = PRINT_RAMP[PRINT_RAMP.length - 1];
+  for (let i = 0; i < PRINT_RAMP.length - 1; i++) {
+    if (x >= PRINT_RAMP[i][0] && x <= PRINT_RAMP[i + 1][0]) {
+      lo = PRINT_RAMP[i]; hi = PRINT_RAMP[i + 1]; break;
+    }
+  }
+  const span = hi[0] - lo[0];
+  const t = span === 0 ? 0 : (x - lo[0]) / span;
+  const mix = (a: string, b: string, i: number) => {
+    const av = parseInt(a.slice(1 + i * 2, 3 + i * 2), 16);
+    const bv = parseInt(b.slice(1 + i * 2, 3 + i * 2), 16);
+    return Math.round(av + (bv - av) * t).toString(16).padStart(2, '0');
+  };
+  return '#' + mix(lo[1], hi[1], 0) + mix(lo[1], hi[1], 1) + mix(lo[1], hi[1], 2);
+}
+
+/* ── the calendar ────────────────────────────────────────────
+   The single densest honest view of a record, and the app's own visual
+   language: one square per day, the shape the Map tab is built from.
+
+   A clinician reads three things from it at once and needs no key to do
+   it — how consistently the person logged, how severe the days were, and
+   where the gaps fall. The line chart answers the second of those well
+   and the other two badly, because a gap in a line is a thing you have to
+   be told to look for, while a hole in a grid is just a hole. */
+
+function calendarSvg(data: ReportData): string {
+  const CELL = 15, GAP = 3, STEP = CELL + GAP;
+  const LEFT = 26, TOP = 16;
+
+  const byDate: Record<string, number> = {};
+  data.days.forEach((d) => { byDate[d.date] = d.avg; });
+
+  /* start on the Monday on or before the first logged day, so the rows
+     are weekdays and a week is a column */
+  const first = dateFromISO(data.days[0].date);
+  const back = (first.getDay() + 6) % 7;
+  first.setDate(first.getDate() - back);
+  const last = dateFromISO(data.rangeEnd);
+  const weeks = Math.floor((last.getTime() - first.getTime()) / 86400000 / 7) + 1;
+
+  /* The key is often wider than the grid — a short record is only a few
+     columns — so the canvas fits whichever is longer. Sized to the grid
+     alone, the last words of the scale fall off the edge of the page. */
+  const KEY_W = LEFT + 48 + 11 * 12 + 78;
+  const W = Math.max(LEFT + weeks * STEP + 8, KEY_W);
+  const H = TOP + 7 * STEP + 20;
+  const parts: string[] = [];
+  parts.push('<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+    '" xmlns="http://www.w3.org/2000/svg" role="img" ' +
+    'aria-label="One square per day, coloured by that day\'s average pain. ' +
+    'Empty squares are days with no check-in.">');
+
+  ['M', 'W', 'F'].forEach((lab, i) => {
+    const row = i * 2;
+    parts.push('<text x="' + (LEFT - 6) + '" y="' + (TOP + row * STEP + CELL - 3) +
+      '" text-anchor="end" font-size="8" fill="#8A9099">' + lab + '</text>');
+  });
+
+  let lastMonth = -1;
+  for (let w = 0; w < weeks; w++) {
+    for (let r = 0; r < 7; r++) {
+      const d = new Date(first);
+      d.setDate(d.getDate() + w * 7 + r);
+      if (d > last) continue;
+      const key = iso(d);
+      const avg = byDate[key];
+      const x = LEFT + w * STEP, y = TOP + r * STEP;
+      if (avg == null) {
+        parts.push('<rect x="' + x + '" y="' + y + '" width="' + CELL + '" height="' + CELL +
+          '" rx="3" fill="#FFFFFF" stroke="#E3E6EB" stroke-width="1"/>');
+      } else {
+        parts.push('<rect x="' + x + '" y="' + y + '" width="' + CELL + '" height="' + CELL +
+          '" rx="3" fill="' + printColor(avg) + '" stroke="rgba(0,0,0,0.10)" stroke-width="0.5"/>');
+      }
+      if (r === 0 && d.getMonth() !== lastMonth) {
+        lastMonth = d.getMonth();
+        parts.push('<text x="' + x + '" y="' + (TOP - 5) +
+          '" font-size="8.5" fill="#4B5563">' + M3[d.getMonth()] + '</text>');
+      }
+    }
+  }
+
+  /* the key, inline and in words — a colour scale with no anchor is a
+     decoration */
+  const keyY = TOP + 7 * STEP + 9;
+  parts.push('<text x="' + LEFT + '" y="' + (keyY + 8) +
+    '" font-size="8.5" fill="#6B7280">No pain</text>');
+  for (let v = 0; v <= 10; v++) {
+    parts.push('<rect x="' + (LEFT + 48 + v * 12) + '" y="' + keyY + '" width="10" height="10" ' +
+      'rx="2.5" fill="' + printColor(v) + '" stroke="rgba(0,0,0,0.10)" stroke-width="0.5"/>');
+  }
+  parts.push('<text x="' + (LEFT + 48 + 11 * 12 + 4) + '" y="' + (keyY + 8.5) +
+    '" font-size="8.5" fill="#6B7280">Most intense</text>');
+
+  parts.push('</svg>');
+  return parts.join('');
+}
+
 /* ── the chart ───────────────────────────────────────────────
    Days without data are GAPS: the line breaks rather than bridging a day
    that was never logged, so the chart never invents data. */
@@ -436,6 +555,24 @@ function chartSvg(data: ReportData): string {
         '" r="2.8" fill="#0A84FF"/>');
     });
   });
+
+  /* Label the two ends on the marks themselves rather than leaving them
+     to be found against an axis. The highest and lowest day are the two
+     points anyone reads a pain chart to find. */
+  const hi = data.days.reduce((a, b) => (b.avg > a.avg ? b : a));
+  const lo = data.days.reduce((a, b) => (b.avg < a.avg ? b : a));
+  const mark = (d: ReportDay, above: boolean) => {
+    const x = xOf(d.date), y = yOf(d.avg);
+    const anchor = x > W - 90 ? 'end' : 'start';
+    const dx = anchor === 'end' ? -7 : 7;
+    parts.push('<text x="' + (x + dx).toFixed(1) + '" y="' + (y + (above ? -8 : 14)).toFixed(1) +
+      '" text-anchor="' + anchor + '" font-size="9.5" font-weight="600" fill="#1A1D21">' +
+      formatScore(d.avg) + '</text>');
+    parts.push('<text x="' + (x + dx).toFixed(1) + '" y="' + (y + (above ? 2 : 24)).toFixed(1) +
+      '" text-anchor="' + anchor + '" font-size="8" fill="#6B7280">' +
+      esc(fmtShortDate(d.date)) + '</text>');
+  };
+  if (hi.date !== lo.date) { mark(hi, true); mark(lo, false); }
 
   parts.push('</svg>');
   return parts.join('');
@@ -536,6 +673,18 @@ export function reportHtml(data: ReportData): string {
     }
   }
   s.push('</div></section>');
+
+  // ── the record, as days ──
+  s.push('<section><h2>Every day in the period</h2>');
+  /* the reading first, then the picture. A clinician has about thirty
+     seconds for this page; a sentence that says what the graphic shows is
+     worth more than an axis label they have to decode. */
+  s.push('<div class="note num"><b>' + data.loggedDays + ' of ' +
+    (dayIndex(data.rangeEnd, data.rangeStart) + 1) + ' days logged.</b> ' +
+    'One square per day, coloured by that day\'s average. Empty squares are days ' +
+    'with no check-in — they are gaps in the record, not days without pain.</div>');
+  s.push('<div style="margin-top:6px">' + calendarSvg(data) + '</div>');
+  s.push('</section>');
 
   // ── pain over time ──
   s.push('<section><h2>' + (data.limited ? 'Pain recorded so far' : 'Pain over time') + '</h2>');
