@@ -45,6 +45,12 @@ setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
 type Sheet = null | 'checkin' | 'event' | 'focus';
 
+/* Where feedback goes — and the address the privacy policy still needs.
+   A placeholder that bounces is worse than no row at all, so this ships
+   pointing at the account already tied to the developer profile; swap it
+   the moment a dedicated address exists. */
+const FEEDBACK_EMAIL = 'itaiagami@gmail.com';
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -212,6 +218,20 @@ export default function App() {
     setEditEvent(ev);
     setSheet('event');
   }, [daySheet]);
+
+  /* A plain mail draft. The app never learns whether it was sent and
+     wants no inbox of its own to moderate; the version and update id go
+     in the signature so "which build are you on" is never a question
+     anyone has to ask a tester. */
+  const openFeedback = useCallback(() => {
+    const sig = '\n\n---\nPattern v' + (Constants.expoConfig?.version || '?')
+      + (Updates.updateId ? ' | update ' + Updates.updateId.slice(0, 8) : ' | embedded');
+    Linking.openURL(
+      'mailto:' + FEEDBACK_EMAIL
+      + '?subject=' + encodeURIComponent('Pattern feedback')
+      + '&body=' + encodeURIComponent(sig)
+    ).catch(() => {});
+  }, []);
 
   const pickTheme = useCallback((id: PainThemeId) => {
     setPainTheme(id);
@@ -584,8 +604,20 @@ export default function App() {
                   accessibilityLabel="What Pattern is, and when not to log"
                 >
                   <RowIcon name="information-circle-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                  <View style={[styles.rowMain, styles.rowLine]}>
                     <Text style={styles.rowLabel}>What Pattern is — and isn’t</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  onPress={openFeedback}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send feedback by email"
+                >
+                  <RowIcon name="chatbubble-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Send feedback</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
