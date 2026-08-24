@@ -109,7 +109,7 @@ function MiniChart({
       <View style={styles.readout}>
         {pick && pick.avg != null ? (
           <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
-            <Text style={styles.readoutStrong}>{formatScore(pick.avg)}/10</Text>
+            <Text style={styles.readoutStrong}>{formatScore(pick.avg)}</Text>
             {'  ' + painLabel(pick.avg) + '  ·  ' + shortDate(pick.date)}
           </Text>
         ) : pick ? (

@@ -73,12 +73,12 @@ import {
 import { questionsNow } from './protocol';
 import { color, font, size } from './theme';
 import {
-  PAIN_END_HIGH, PAIN_END_LOW, formatOutOf, inkForBg, inkOn, painColor,
+  PAIN_END_HIGH, PAIN_END_LOW, formatScore, inkForBg, inkOn, painColor,
   painLabel, speakScore, themeBrand, SCALE_VERSION,
 } from './painScale';
 import {
   LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
-  answerOf, defaultLocs, fmtTime, logsOf, minutesNow, nowMeta, todayISO,
+  answerOf, dailyAverage, defaultLocs, fmtTime, logsOf, minutesNow, nowMeta, todayISO,
 } from './model';
 
 const IMPACT_LABELS: Record<string, string> = {};
@@ -408,7 +408,17 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       >
         <View style={styles.middle}>
           <Animated.View style={squareStyle}>
-            <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS} />
+            <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS}>
+              {(() => {
+                const avg = e ? dailyAverage(e) : null;
+                return avg != null ? (
+                  <Text allowFontScaling={false}
+                    style={[styles.doneScore, { color: inkOn(avg) }]}>
+                    {formatScore(avg)}
+                  </Text>
+                ) : null;
+              })()}
+            </DaySquare>
           </Animated.View>
           <Animated.View style={[styles.doneWords, wordsStyle]}>
             <Text style={styles.doneTitle}>Logged</Text>
@@ -488,7 +498,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           ) : (
             <>
               <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>
-                {formatOutOf(pain)}
+                {formatScore(pain)}
               </Text>
               <Text style={styles.word} allowFontScaling maxFontSizeMultiplier={1.6}>
                 {painLabel(pain)}
@@ -651,6 +661,10 @@ const styles = StyleSheet.create({
   word: {
     color: color.textSecondary, fontSize: font.title3, fontWeight: '600',
     letterSpacing: -0.3, marginTop: 2, textAlign: 'center',
+  },
+  doneScore: {
+    fontSize: 50, fontWeight: '700', letterSpacing: -1.1,
+    fontVariant: ['tabular-nums'],
   },
   doneWords: { alignItems: 'center' },
   doneTitle: {

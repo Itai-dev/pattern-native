@@ -71,7 +71,18 @@ export default function HomeScreen({
             : 'Today, average pain ' + speakScore(avg) + ', ' + formatCheckins(count)}
           accessibilityHint={e ? 'Opens today’s detail' : 'Starts a check-in'}
         >
-          <DaySquare entry={e} value={avg} size={SQUARE} radius={SQ_RADIUS} plus today />
+          <DaySquare entry={e} value={avg} size={SQUARE} radius={SQ_RADIUS} plus today>
+            {avg != null && (
+              /* inkOn is the contrast-tested ink for this colour — the
+                 number never depends on the square being mid-ramp */
+              <Text
+                allowFontScaling={false}
+                style={[styles.inSquare, { color: inkOn(avg) }]}
+              >
+                {formatScore(avg)}
+              </Text>
+            )}
+          </DaySquare>
         </Press>
 
         {avg == null ? (
@@ -79,18 +90,13 @@ export default function HomeScreen({
             No check-ins yet today
           </Text>
         ) : (
-          <>
-            <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {formatScore(avg)}
-              <Text style={styles.scoreOf}>/10</Text>
-            </Text>
-            <Text style={styles.label} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {painLabel(avg)}
-            </Text>
-            <Text style={styles.count} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {formatCheckins(count)}{count > 1 ? ' · average' : ''}
-            </Text>
-          </>
+          /* the word and the provenance in one quiet line — the number
+             already said the value from inside the square, and the small
+             log squares below set this precedent long ago */
+          <Text style={styles.underLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+            <Text style={styles.underWord}>{painLabel(avg)}</Text>
+            {'  ·  ' + formatCheckins(count)}{count > 1 ? ' · average' : ''}
+          </Text>
         )}
       </View>
 
@@ -193,21 +199,16 @@ export default function HomeScreen({
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', marginTop: 10 },
-  /* the value, then its word, then its provenance — each step down in
-     size is a step down in importance, and the gaps say the same thing */
-  score: {
-    color: color.textPrimary, fontSize: 52, fontWeight: '700',
-    letterSpacing: -1.2, marginTop: 20, fontVariant: ['tabular-nums'],
-    lineHeight: 56,
+  /* the value lives inside the square, at the same weight the small log
+     squares carry theirs — the hero is the row magnified. No "/10": the
+     slider's ends and the report define the scale; a person reading
+     their own day does not need reminding what it is out of. */
+  inSquare: {
+    fontSize: 46, fontWeight: '700', letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
   },
-  scoreOf: {
-    color: color.textTertiary, fontSize: 24, fontWeight: '600', letterSpacing: -0.4,
-  },
-  label: {
-    color: color.textSecondary, fontSize: font.title3, fontWeight: '600',
-    letterSpacing: -0.2, marginTop: 2,
-  },
-  count: { color: color.textTertiary, fontSize: font.footnote, marginTop: 8 },
+  underLine: { color: color.textTertiary, fontSize: font.subheadline, marginTop: 12 },
+  underWord: { color: color.textSecondary, fontWeight: '600' },
   empty: { color: color.textSecondary, fontSize: font.body, marginTop: 20 },
 
   actions: { paddingHorizontal: size.pageX, marginTop: 30 },
