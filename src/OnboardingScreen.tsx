@@ -9,7 +9,19 @@
  * tool they have not used. The focus question waits a week for exactly
  * this reason; the reminder question waits until after the first log.
  *
- * So: what it is for, what it is not, and then out of the way.
+ * So: what it is for, what it is not, one question, and out of the way.
+ *
+ * THE ONE QUESTION IS THE EXCEPTION, and it earns it by asking for
+ * nothing. "What are you trying to understand about your pain?" is
+ * answerable on day zero — arguably answered best then, because the
+ * reason someone just downloaded a pain app is the freshest thing in
+ * their head. It commits to no schedule, changes no behaviour, and goes
+ * into the doctor summary in their own words whatever else happens.
+ *
+ * What it does NOT do is choose what to track. That decision waits a
+ * week, because picking two questions to answer daily before answering
+ * anything once is committing to a tool you have not used. When the week
+ * comes, this answer is what makes the offer specific instead of cold.
  *
  * THE SAFETY SCREEN IS SHORT ON PURPOSE. A page of medical disclaimer is
  * read by nobody and protects no one — it is the interface equivalent of
@@ -19,7 +31,9 @@
  * with a symptom that needed a doctor tonight.
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
@@ -27,8 +41,9 @@ import { inkForBg, themeBrand } from './painScale';
 import { color, font, radius, size } from './theme';
 
 export interface OnboardingScreenProps {
-  /** finished — record it and open the first check-in */
-  onDone: () => void;
+  /** finished — record it and open the first check-in. `understand` is
+   *  whatever they typed, trimmed; empty when skipped. */
+  onDone: (understand: string) => void;
   /** Reading it again from Profile, not arriving for the first time. The
      spec requires the urgent-care guidance to stay reachable, and a
      safety card shown once and never again is not reachable — it is
@@ -38,17 +53,24 @@ export interface OnboardingScreenProps {
 
 export default function OnboardingScreen({ onDone, review }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<0 | 1>(0);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [understand, setUnderstand] = useState('');
   const brand = themeBrand();
+
+  /* reading it again from Profile stops at the boundaries — the row says
+     "what Pattern is and isn't", and re-asking the question of someone
+     who answered it weeks ago is not what they tapped */
+  const lastStep = review ? 1 : 2;
 
   const advance = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    if (step === 0) setStep(1);
-    else onDone();
+    if (step < lastStep) setStep((step + 1) as 0 | 1 | 2);
+    else onDone(understand.trim());
   };
 
   return (
-    <View
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[
         styles.root,
         { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
@@ -90,7 +112,7 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               always.
             </Text>
           </>
-        ) : (
+        ) : step === 1 ? (
           <>
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
               What Pattern{'\n'}is and isn’t.
@@ -123,6 +145,31 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               </Text>
             </View>
           </>
+        ) : (
+          <>
+            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+              What do you want{'\n'}to understand?
+            </Text>
+            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
+              In your own words — whatever made you open this app. It stays on
+              this phone, and it goes into your doctor summary exactly as you
+              write it.
+            </Text>
+            <TextInput
+              value={understand}
+              onChangeText={setUnderstand}
+              placeholder="e.g. why some mornings are so much worse"
+              placeholderTextColor={color.textTertiary}
+              style={styles.input}
+              multiline
+              autoFocus={false}
+              accessibilityLabel="What are you trying to understand about your pain?"
+            />
+            <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Optional, and you can change it later. In about a week Pattern
+              will use it to suggest something worth watching day to day.
+            </Text>
+          </>
         )}
       </ScrollView>
 
@@ -132,16 +179,27 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
           pressScale={0.985}
           style={[styles.primary, { backgroundColor: brand }]}
           accessibilityRole="button"
-          accessibilityLabel={step === 0 ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
+          accessibilityLabel={
+            step < lastStep ? 'Continue'
+              : review ? 'Done'
+                : understand.trim() ? 'Start my first check-in' : 'Skip and start my first check-in'
+          }
         >
           <Text style={[styles.primaryText, { color: inkForBg(brand) }]}>
-            {step === 0 ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
+            {step < lastStep ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
           </Text>
         </Press>
 
-        {/* two dots, no skip: two screens is not a queue to escape */}
+        {/* the question is genuinely skippable, and says so — a blank
+            answer walks through the same button */}
+        {step === 2 && !understand.trim() && (
+          <Text style={styles.skipHint} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Leave it blank if you’d rather just start.
+          </Text>
+        )}
+
         <View style={styles.dots}>
-          {[0, 1].map((i) => (
+          {(review ? [0, 1] : [0, 1, 2]).map((i) => (
             <View
               key={i}
               style={[styles.dot, i === step && { backgroundColor: color.textSecondary }]}
@@ -149,7 +207,7 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
           ))}
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -186,5 +244,15 @@ const styles = StyleSheet.create({
   },
   dot: {
     width: 6, height: 6, borderRadius: 3, backgroundColor: color.borderControl,
+  },
+  input: {
+    marginTop: 6, minHeight: 92, borderRadius: 14, padding: 14,
+    backgroundColor: color.bgSurface, color: color.textPrimary,
+    fontSize: font.body, lineHeight: 22, textAlignVertical: 'top',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
+  },
+  skipHint: {
+    color: color.textTertiary, fontSize: font.footnote,
+    textAlign: 'center', marginTop: 12,
   },
 });

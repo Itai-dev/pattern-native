@@ -334,9 +334,17 @@ export default function App() {
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaProvider>
           <OnboardingScreen
-            onDone={() => {
+            onDone={(understand) => {
               db.setPref('onboarded', true);
               setOnboarded(true);
+              /* their words, verbatim, from the moment they had the
+                 clearest reason to open this. The focus flow finds it a
+                 week later and builds its offer on it. */
+              if (understand) {
+                db.addHypothesis({
+                  createdOn: todayISO(), understand, harder: '', helps: '',
+                });
+              }
               /* straight into the first check-in — the button said so, and
                  an introduction that ends on an empty screen has taught
                  nothing about what the app is for */

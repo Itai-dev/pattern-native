@@ -76,7 +76,16 @@ const QUESTIONS: { key: 'understand' | 'harder' | 'helps'; q: string; ph: string
 
 export default function FocusSheet({ seedFactor, onDone, onClose }: FocusSheetProps) {
   const [step, setStep] = useState<Step>(seedFactor ? 'pick' : 'ask');
-  const [answers, setAnswers] = useState({ understand: '', harder: '', helps: '' });
+  /* Onboarding asked the first question on day zero and stored the
+     answer. Finding it here is the whole point of having asked then:
+     the picker's suggestions are already built from their own words, and
+     nobody is asked twice what they have already said. */
+  const [existing] = useState(() => db.latestHypothesis());
+  const [answers, setAnswers] = useState({
+    understand: existing?.understand || '',
+    harder: existing?.harder || '',
+    helps: existing?.helps || '',
+  });
   const [chosen, setChosen] = useState<string | null>(seedFactor || null);
   const [showAll, setShowAll] = useState(false);
 
@@ -107,9 +116,14 @@ export default function FocusSheet({ seedFactor, onDone, onClose }: FocusSheetPr
     if (!chosen || !second) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     const today = todayISO();
-    const hid = hasWords
-      ? db.addHypothesis({ createdOn: today, ...answers })
-      : 0;
+    /* update the row onboarding started rather than opening a second one
+       — two hypotheses for one person is a record that contradicts
+       itself in the doctor summary */
+    let hid = existing?.id || 0;
+    if (hasWords) {
+      if (hid) db.updateHypothesis(hid, { createdOn: existing!.createdOn, ...answers });
+      else hid = db.addHypothesis({ createdOn: today, ...answers });
+    }
     db.startProtocol({
       version: PROTOCOL_VERSION,
       startDate: today,
