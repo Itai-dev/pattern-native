@@ -35,7 +35,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:domain": "tsc src/model.ts src/painScale.ts src/report.ts src/metrics.ts src/protocol.ts src/thresholds.ts src/widget.ts --ignoreConfig --outDir .testbuild --module commonjs --target es2019 --skipLibCheck",
-    "test": "npm run build:domain && node tools/test-model.js && node tools/test-step1.js",
+    "test": "npm run build:domain && node tools/test-model.js && node tools/test-step1.js && node tools/test-widget.js",
     "verify": "tsc --noEmit && npm test && expo export --platform all"
   },
   "private": true
