@@ -73,18 +73,17 @@ export interface HomeScreenProps {
   entries: Entries;
   protocol: Protocol | null;
   onLog: () => void;
-  /** the day detail — where editing, deleting and events live */
+  /** The day — the whole of it. Both cards on this screen name today, so
+   *  both go here. They used to go to two different screens, which is
+   *  how you ended up with a day inside a day. */
   onOpenDay: (dateIso: string) => void;
-  /** Pain through the day, opened on today */
-  onOpenToday: () => void;
   onFocus: () => void;
   onKeepFocus: () => void;
   onTestFactor: (metricId: string) => void;
 }
 
 export default function HomeScreen({
-  entries, protocol, onLog, onOpenDay, onOpenToday, onFocus, onKeepFocus,
-  onTestFactor,
+  entries, protocol, onLog, onOpenDay, onFocus, onKeepFocus, onTestFactor,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -139,7 +138,7 @@ export default function HomeScreen({
           accessibilityLabel={(latest ? 'Last check-in, ' + fmtTime(latest.h) + ', ' : 'Today, ')
             + speakScore(value)
             + (latest && tagsOf(latest).length ? ', ' + tagsOf(latest).join(', ') : '')}
-          accessibilityHint="Opens the day’s detail, where you can edit or remove it"
+          accessibilityHint="Opens the day"
         >
           <View style={styles.head}>
             <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -247,14 +246,14 @@ export default function HomeScreen({
       {/* ── the day so far ────────────────────────────────── */}
       {logs.length > 0 && (
         <Press
-          onPress={onOpenToday}
+          onPress={() => onOpenDay(t)}
           pressScale={0.985}
           pressOpacity={0.92}
           style={[styles.card, styles.cardGap]}
           accessibilityRole="button"
           accessibilityLabel={'Today so far, ' + formatCheckins(count, true)
             + (shape ? '. ' + shape : '')}
-          accessibilityHint="Opens pain through the day"
+          accessibilityHint="Opens the day"
         >
           <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
             Today so far

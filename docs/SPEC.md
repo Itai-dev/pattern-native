@@ -173,14 +173,41 @@ Three tabs.
 - Meaningful activity card, after ~7 logged days
 - Hypothesis setup card, after ~7 logged days, once
 
-### Pain through the day — one day, against the clock
+### The Day — one date, all of it
 
-Reached from Today so far. The chart on a fixed midnight-to-midnight axis,
-the day's average, range and check-in count, and the check-ins themselves.
+Reached from either card on Today and from any cell in the calendar. There
+is exactly one of these: the chart on a fixed midnight-to-midnight axis, the
+day's average, range and check-in count, every check-in, the day's questions,
+its events, and its note.
 
 *The only screen in the app that swipes between days*, one day per page.
 Today deliberately does not: it is where you act, and Log always means now.
-Editing is not here — a row, or "View all", opens the day detail that owns it.
+
+**Presented as a push, not a sheet** — see *Navigation grammar* below.
+
+Removal is armed per list with **Edit**, not by swiping a row: a horizontal
+swipe on a row inside a horizontal pager is one gesture asking two
+questions, and the row would win every drag that started on it.
+
+A check-in row is **not** a button. There is nothing to open: a check-in is
+stamped when it happened and that stamp is not editable, so the row states
+what it is and the only thing that can be done to it is to remove it. An
+event row *is* a button, because an event genuinely can be edited.
+
+### Navigation grammar
+
+One rule, applied everywhere:
+
+| | presented as | back out with |
+|---|---|---|
+| a **place** — the Day, Colour theme, About | push (`PushLayer`) | back chevron / Done |
+| a **task** — Event, Focus, Profile | page sheet | Done |
+| a **flow** — the check-in | full screen | ✕ |
+
+`PushLayer` is one hand-rolled implementation used by all of them. A real
+navigator is a native dependency, and a native dependency is a TestFlight
+build — which cannot be done from a phone, which is the constraint this app
+is built around.
 
 ### Trends — see
 Everything Pattern knows because you told it. No inference anywhere on this screen.
@@ -918,8 +945,8 @@ Trends on a phone before this is called done.
 - `Moment.locSkipped` — the third state for body areas. "No areas today" and "I'd rather not
   say" were collapsing into one another, which principle 7 forbids.
 
-`DaySheet.tsx` lists the day's questions with their answers, shows a skip as *Skipped* rather
-than hiding it, and lets one be swiped away — which returns it to never-asked rather than
+`DayScreen.tsx` lists the day's questions with their answers, shows a skip as *Skipped* rather
+than hiding it, and lets one be removed — which returns it to never-asked rather than
 recording a decline.
 
 **Worth reconsidering before beta:** interference is a second 0–10 slider immediately after the
