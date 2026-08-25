@@ -46,11 +46,27 @@ export interface MapScreenProps {
   onDayPress: (dateIso: string) => void;
 }
 
+/**
+ * Seven columns that actually fit inside the card.
+ *
+ * THE HAIRLINE IS PART OF THIS SUM. The card's border is drawn inside its
+ * own width, so the space a grid gets is two hairlines narrower than the
+ * arithmetic above it suggests — and the cell width was a fraction, so
+ * seven cells and six gaps came to exactly the card's outer width and
+ * overflowed its inner one by a third of a point. Flex wrapped the
+ * seventh column onto its own line, and the record showed six-day weeks
+ * with every date under the wrong letter.
+ *
+ * So: subtract the border, then floor. Flooring leaves a few points over
+ * on the widest phones, and the grid is given its own exact width and
+ * centred, which splits that remainder evenly instead of letting the
+ * whole calendar lean left inside its card.
+ */
 function cellMetrics() {
-  const w = Math.min(Dimensions.get('window').width, 520)
-    - size.pageX * 2 - CARD_PAD * 2;
-  const cell = (w - GAP * 6) / 7;
-  return { cell, radius: cell * 0.24 };
+  const inner = Math.min(Dimensions.get('window').width, 520)
+    - size.pageX * 2 - CARD_PAD * 2 - StyleSheet.hairlineWidth * 2;
+  const cell = Math.floor((inner - GAP * 6) / 7);
+  return { cell, radius: cell * 0.24, gridW: cell * 7 + GAP * 6 };
 }
 
 interface MonthBlock {
@@ -62,7 +78,7 @@ interface MonthBlock {
 export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
   const t = todayISO();
   const brand = themeBrand();
-  const { cell, radius } = useMemo(cellMetrics, []);
+  const { cell, radius, gridW } = useMemo(cellMetrics, []);
   const cellH = cell + 30;
 
   /* every month from this one back to the one holding the oldest entry,
@@ -103,10 +119,6 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.legend} allowFontScaling maxFontSizeMultiplier={1.4}>
-        Colour = average pain, 0–10 · dots = check-ins · scroll back for earlier months
-      </Text>
-
       {months.map((month, mi) => {
         const shown = month.days.filter((d): d is string => !!d && d <= t);
         const logged = shown.filter((d) => dailyAverage(entries[d]) != null).length;
@@ -122,7 +134,19 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
               </Text>
             </View>
 
-            <View style={[styles.grid, { columnGap: GAP, rowGap: 4 }]}>
+            {/* The key to the grid it precedes, and only on the first one:
+                the notation is identical in every month, and saying it
+                twenty-four times down a scroll is noise. It used to float
+                above the whole stack, which left it belonging to no card
+                and scrolling away from the thing it explains. */}
+            {mi === 0 && (
+              <Text style={styles.legend} allowFontScaling maxFontSizeMultiplier={1.4}>
+                Colour is the day’s average pain, 0–10. The dots under a day
+                count its check-ins. Scroll for earlier months.
+              </Text>
+            )}
+
+            <View style={[styles.grid, { width: gridW, columnGap: GAP, rowGap: 4 }]}>
               {WD.map((w, i) => (
                 <Text
                   key={w + i}
@@ -215,7 +239,10 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 
 const styles = StyleSheet.create({
   root: { paddingHorizontal: size.pageX, paddingTop: 2 },
-  legend: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 14 },
+  legend: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
+    marginBottom: 14,
+  },
   /* A month is a card, on the same surface and at the same radius as
      every other card in the app. The stack used to be separated by
      hairline rules, which is a weaker version of the same idea and the
@@ -239,7 +266,7 @@ const styles = StyleSheet.create({
   monthCount: {
     color: color.textTertiary, fontSize: font.footnote, fontVariant: ['tabular-nums'],
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', alignSelf: 'center' },
   wd: {
     textAlign: 'center', color: color.textTertiary,
     fontSize: 11, fontWeight: '600', paddingBottom: 2,
