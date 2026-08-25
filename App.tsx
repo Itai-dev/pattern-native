@@ -20,6 +20,7 @@ import MapScreen from './src/MapScreen';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
+import DayScreen, { fmtDay } from './src/DayScreen';
 import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
 import TrendsScreen from './src/TrendsScreen';
@@ -28,7 +29,7 @@ import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
-import { PainEvent, ValidBackup, dateFromISO, todayISO } from './src/model';
+import { PainEvent, ValidBackup, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { refreshWidget } from './src/widgetPush';
 import {
@@ -48,15 +49,9 @@ setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
 type Sheet = null | 'checkin' | 'event' | 'focus';
 
-const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "Thu, 21 Aug" — short enough that the large title does not have to
- *  shrink to fit it on the narrowest phone */
-function fmtDayTitle(dateIso: string): string {
-  const d = dateFromISO(dateIso);
-  return WD[d.getDay()] + ', ' + d.getDate() + ' ' + MON[d.getMonth()];
-}
+/* "Thu, 21 Aug" comes from DayScreen, which is the other place a date is
+   a heading. Two copies of the same format is how two screens end up
+   naming the same day differently. */
 
 /* Where feedback goes — and the address the privacy policy still needs.
    A placeholder that bounces is worse than no row at all, so this ships
@@ -143,11 +138,20 @@ export default function App() {
   const { width } = useWindowDimensions();
   const pager = useRef<ScrollView>(null);
 
-  /** tapping a tab drives the pager, and nothing else does any more —
-   *  the finger belongs to the day pager inside Today. */
+  /* Pain through the day, open on this date. A layer inside the Today
+     tab rather than a sheet, so the tab bar stays live — and null the
+     rest of the time, which is what keeps its pager unmounted and its
+     sideways gesture off every other screen. */
+  const [dayScreen, setDayScreen] = useState<string | null>(null);
+
+  /** tapping a tab drives the pager. It also leaves the day screen, which
+   *  belongs to Today: a tab change is the one navigation in this app
+   *  that is instant, and animating out of a layer nobody is looking at
+   *  any more would only delay it. */
   const goToTab = useCallback((t: Tab) => {
     if (t === 'trends') track('trends_opened');
     if (t === 'map') track('history_opened');
+    setDayScreen(null);
     setTab(t);
     pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
   }, [width]);
@@ -162,12 +166,6 @@ export default function App() {
       setTab(next);
     }
   }, [tab, width]);
-  /* the day the Today pager is showing. Held as a label rather than a
-     date so the screen that knows the format owns it. */
-  const [dayTitle, setDayTitle] = useState('Today');
-  const onDayChange = useCallback((d: string) => {
-    setDayTitle(d === todayISO() ? 'Today' : fmtDayTitle(d));
-  }, []);
 
   const [sheet, setSheet] = useState<Sheet>(null);
   /* History stacks months newest-first, so back-to-today is simply the
@@ -467,7 +465,11 @@ export default function App() {
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? dayTitle : tab === 'trends' ? 'Trends' : 'History'}
+              {/* the date, not the word "Today": the screen below it is
+                  now fixed on today, and a heading that names the day is
+                  the one thing on it that a person reads back weeks later
+                  in a screenshot and can still place */}
+              {tab === 'today' ? fmtDay(todayISO()) : tab === 'trends' ? 'Trends' : 'History'}
             </Text>
             <View style={styles.topActions}>
               {tab === 'today' && (
@@ -551,10 +553,10 @@ export default function App() {
                 protocol={protocol}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={setDaySheet}
+                onOpenToday={() => { track('day_opened'); setDayScreen(todayISO()); }}
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
-                onDayChange={onDayChange}
               />
             </ScrollView>
 
@@ -587,6 +589,19 @@ export default function App() {
               />
             </ScrollView>
           </ScrollView>
+
+          {/* Pain through the day — over the pages, under the tab bar.
+              Absolutely filling the safe area, so it covers the large
+              title too and brings its own; the tab bar is a sibling
+              rendered after it and stays reachable. */}
+          {dayScreen && (
+            <DayScreen
+              entries={entries}
+              dateIso={dayScreen}
+              onOpenDay={setDaySheet}
+              onClose={() => setDayScreen(null)}
+            />
+          )}
 
           {tab === 'map' && historyAway && (
             <GlassPill

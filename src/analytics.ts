@@ -47,6 +47,9 @@ export type EventName =
   | 'reminder_disabled'
   | 'trends_opened'
   | 'history_opened'
+  /* the day chart was opened from Today. That it was opened, never which
+     day and never what was on it. */
+  | 'day_opened'
   | 'pdf_shared'
   | 'backup_exported'
   | 'backup_restored'

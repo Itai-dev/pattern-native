@@ -163,11 +163,24 @@ Three tabs.
 
 ### Today — act
 - Primary action: Log pain
-- Today's recorded moments
+- **Last check-in** — the latest moment: its value, its word, its time, its
+  quality and body-area tags. Opens the day detail, where editing lives.
+- **Today so far** — today's check-ins drawn against the clock, and one
+  sentence reading the latest against the first of the same day (never
+  against another day, and never below `DAY_SHAPE_MIN_DELTA`). Opens
+  *Pain through the day*.
 - Active protocol status: one quiet line, *Day 9 of 14 · stress, physical load*
 - Meaningful activity card, after ~7 logged days
 - Hypothesis setup card, after ~7 logged days, once
-- Secondary action: Something changed
+
+### Pain through the day — one day, against the clock
+
+Reached from Today so far. The chart on a fixed midnight-to-midnight axis,
+the day's average, range and check-in count, and the check-ins themselves.
+
+*The only screen in the app that swipes between days*, one day per page.
+Today deliberately does not: it is where you act, and Log always means now.
+Editing is not here — a row, or "View all", opens the day detail that owns it.
 
 ### Trends — see
 Everything Pattern knows because you told it. No inference anywhere on this screen.

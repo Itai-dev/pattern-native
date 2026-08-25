@@ -76,6 +76,21 @@ export const BAND_MIN_CHECKINS = 5;
  *  from one sleepless night cannot look like a pattern */
 export const BAND_MIN_DAYS = 3;
 
+/** Points between the first and the latest check-in of a single day
+ *  before Today is willing to call the day higher or lower rather than
+ *  about the same.
+ *
+ *  Two, not one, and the reason is the same arithmetic as above: the
+ *  within-person pain SD is 1.5–2.0 points, so the gap between two single
+ *  self-reports taken hours apart is inside the noise until it reaches
+ *  about that size. A one-point move is a person rounding differently at
+ *  lunchtime, and a screen that calls it a rise teaches them to read
+ *  rounding as a change.
+ *
+ *  This decides a WORD on Today, never a stored value: the sentence is
+ *  computed from the two numbers on screen and thrown away. */
+export const DAY_SHAPE_MIN_DELTA = 2;
+
 /* ── from a flag to a question ───────────────────────────────
    A chip says "sleep made it worse today". That is an attribution — your
    reading of your own day — and it can never be checked against anything,
