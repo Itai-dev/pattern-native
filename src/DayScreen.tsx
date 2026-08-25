@@ -343,15 +343,40 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
   const list = useRef<FlatList<string>>(null);
   const [at, setAt] = useState(start);
 
+  /* A jump to today is animated, and an animated scroll reports every
+     index it flies over. Each one landed in `at`, so the heading counted
+     backwards through the week and the Today button — which is drawn only
+     when `at` is not today — blinked out, back in, and out again on the
+     way. The destination of a jump is known the moment it starts, so the
+     heading is set once, up front, and the indices in between are ignored
+     until the scroll actually stops.
+
+     Cleared on any real touch too: a finger landing mid-flight means the
+     user has taken over, and their drag must be allowed to move the
+     heading again. */
+  const jumping = useRef(false);
+
   /* Declared ABOVE the scroll worklet, and it has to be: Reanimated builds
      a worklet's closure the moment the worklet is created, so a const
      referenced inside one but declared after it is read in its temporal
      dead zone — a ReferenceError on the first frame that TypeScript is
      happy to compile, because the reference sits inside a function body. */
   const land = useCallback((i: number) => {
+    if (jumping.current) return;
     setAt(Math.max(0, Math.min(last, i)));
   }, [last]);
-  const settle = (x: number) => land(Math.round(x / itemW));
+  /* the end of any scroll, however it started — so a jump that overshoots
+     or a drag that never flicks both finish on a real index */
+  const settle = (x: number) => {
+    jumping.current = false;
+    setAt(Math.max(0, Math.min(last, Math.round(x / itemW))));
+  };
+
+  const jumpToToday = useCallback(() => {
+    jumping.current = true;
+    setAt(last);
+    list.current?.scrollToOffset({ offset: last * itemW, animated: true });
+  }, [last, itemW]);
 
   const scrollX = useSharedValue(start * itemW);
   const page = useSharedValue(start);
@@ -435,7 +460,7 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
             control History carries, and only once you have gone somewhere */}
         {onDate !== t && (
           <Press
-            onPress={() => { list.current?.scrollToOffset({ offset: last * itemW, animated: true }); land(last); }}
+            onPress={jumpToToday}
             pressOpacity={0.7}
             style={styles.todayBtn}
             hitSlop={8}
@@ -470,6 +495,7 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
            — and once it has, the hint has done its job for good */
         onScrollBeginDrag={() => {
           touched.current = true;
+          jumping.current = false;
           if (!taught) db.setPref(PREF_SWIPED, true);
         }}
         onMomentumScrollEnd={(ev: NativeSyntheticEvent<NativeScrollEvent>) =>

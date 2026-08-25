@@ -20,7 +20,7 @@
  */
 import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import { color, font, size } from './theme';
+import { color, font, radius as radii, size } from './theme';
 import { Entries, checkinCount, dailyAverage, iso, todayISO } from './model';
 import { formatCheckins, painColor, speakScore, themeBrand } from './painScale';
 import { Press } from './motion';
@@ -35,13 +35,20 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
 /** a long record still has an end — two years of grids is enough scroll */
 const MAX_MONTHS = 24;
 
+/** the card's own padding, the same 16 Trends and Today use. It is a
+ *  constant rather than a style-sheet lookup because the cell width is
+ *  arithmetic off it: a grid that measured itself against the page while
+ *  sitting inside a card would run out through both edges. */
+const CARD_PAD = 16;
+
 export interface MapScreenProps {
   entries: Entries;
   onDayPress: (dateIso: string) => void;
 }
 
 function cellMetrics() {
-  const w = Math.min(Dimensions.get('window').width, 520) - size.pageX * 2;
+  const w = Math.min(Dimensions.get('window').width, 520)
+    - size.pageX * 2 - CARD_PAD * 2;
   const cell = (w - GAP * 6) / 7;
   return { cell, radius: cell * 0.24 };
 }
@@ -104,7 +111,7 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
         const shown = month.days.filter((d): d is string => !!d && d <= t);
         const logged = shown.filter((d) => dailyAverage(entries[d]) != null).length;
         return (
-          <View key={month.key} style={mi > 0 && styles.laterMonth}>
+          <View key={month.key} style={[styles.card, mi > 0 && styles.cardGap]}>
             <View style={styles.monthHead}>
               <Text style={styles.monthName} allowFontScaling maxFontSizeMultiplier={1.3}>
                 {month.label}
@@ -208,14 +215,23 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 
 const styles = StyleSheet.create({
   root: { paddingHorizontal: size.pageX, paddingTop: 2 },
-  legend: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 16 },
-  laterMonth: {
-    marginTop: 26, paddingTop: 20,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
+  legend: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 14 },
+  /* A month is a card, on the same surface and at the same radius as
+     every other card in the app. The stack used to be separated by
+     hairline rules, which is a weaker version of the same idea and the
+     one place the record did not use the app's own grammar for "these
+     things belong together". The card's edge does what the rule did, and
+     says which month a grid belongs to without being read. */
+  card: {
+    backgroundColor: color.bgSurface,
+    borderRadius: radii.card, borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
+    padding: CARD_PAD,
   },
+  cardGap: { marginTop: 14 },
   monthHead: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-    gap: 10, marginBottom: 10,
+    gap: 10, marginBottom: 12,
   },
   monthName: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700', letterSpacing: -0.2,
