@@ -59,4 +59,11 @@ pacing *instruction*, anything touching medication decisions.
 - App Store display name "Pattern" is taken; a distinct store name is needed
   before public launch (Home Screen name is unaffected).
 - PROMIS / BPI require licensing — avoided. PEG is freely usable.
-- The privacy answer is "no data collected" and must stay literally true.
+- The privacy answer changed on 24 Aug 2026, deliberately. It was "no data
+  collected, literally true"; flying blind on retention made every growth
+  decision unfalsifiable, so the line moved by one centimetre: **"nothing
+  you told us about your body ever leaves the phone."** Anonymous usage
+  counts — that a check-in happened, how long it took, never what it said —
+  go to a named, EU-hosted processor, with an opt-out in Profile. The health
+  record itself stays local, and any further move requires rewriting this
+  paragraph first.

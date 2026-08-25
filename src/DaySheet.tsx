@@ -8,15 +8,16 @@
  */
 import React, { useCallback, useState } from 'react';
 import {
-  Alert, LayoutAnimation, ScrollView, StyleSheet, Text, View,
+  LayoutAnimation, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import DaySquare from './DaySquare';
 import * as db from './db';
-import { Press, reduceMotion } from './motion';
+import { Press, useReduceMotion } from './motion';
+import { getMetric, levelLabel } from './metrics';
 import {
-  Entry, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES, checkinCount,
+  Answer, Entry, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES, checkinCount,
   dailyAverage, dateFromISO, fmtTime, logsOf, todayISO,
 } from './model';
 import {
@@ -39,13 +40,15 @@ export interface DaySheetProps {
   onAddLog: () => void;
   onEditLog: (h: number) => void;
   onEditEvent: (ev: PainEvent) => void;
+  onAddEvent: () => void;
   onClose: () => void;
 }
 
 export default function DaySheet({
-  dateIso, entry, onChanged, onAddLog, onEditLog, onEditEvent, onClose,
+  dateIso, entry, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, onClose,
 }: DaySheetProps) {
   const [, force] = useState(0);
+  const rm = useReduceMotion();
   const d = dateFromISO(dateIso);
   const isToday = dateIso === todayISO();
   const live = db.getDay(dateIso) || entry;   // always the current truth
@@ -60,53 +63,30 @@ export default function DaySheet({
   }));
 
   /* deleting an event asks first and says what it removes */
-  const confirmDeleteEvent = useCallback((ev: PainEvent) => {
-    Alert.alert(
-      'Delete this event?',
-      'The ' + fmtTime(ev.h) + ' ' + EVENT_LABELS[ev.kind].toLowerCase() +
-        ' event will be removed. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-            if (!reduceMotion) {
-              LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
-            }
-            if (ev.id != null) db.dropEvent(ev.id);
-            force((n) => n + 1);
-            onChanged();
-          },
-        },
-      ]
-    );
-  }, [onChanged]);
+  /* Swipe, then Delete — the iOS list gesture, and the whole confirmation.
+     The dialog that used to follow it made the deliberate act of swiping a
+     row open and tapping a red button feel like a slip the app had caught.
+     Nothing here is reachable by accident, and the record is exported and
+     restorable, so the gesture stands on its own. */
+  const deleteEvent = useCallback((ev: PainEvent) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (!rm) {
+      LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    }
+    if (ev.id != null) db.dropEvent(ev.id);
+    force((n) => n + 1);
+    onChanged();
+  }, [onChanged, rm]);
 
-  /* deleting is destructive, so it asks first and says what it removes */
-  const confirmDelete = useCallback((h: number) => {
-    Alert.alert(
-      'Delete this check-in?',
-      'The ' + fmtTime(h) + ' check-in will be removed and the day’s average recalculated. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-            if (!reduceMotion) {
-              LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
-            }
-            db.dropMoment(dateIso, h);
-            force((n) => n + 1);   // the header's average updates in place
-            onChanged();
-          },
-        },
-      ]
-    );
-  }, [dateIso, onChanged]);
+  const deleteMoment = useCallback((h: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (!rm) {
+      LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    }
+    db.dropMoment(dateIso, h);
+    force((n) => n + 1);   // the header's average updates in place
+    onChanged();
+  }, [dateIso, onChanged, rm]);
 
   return (
     <View style={styles.root}>
@@ -163,7 +143,7 @@ export default function DaySheet({
                 overshootRight={false}
                 renderRightActions={() => (
                   <Press
-                    onPress={() => confirmDelete(l.h)}
+                    onPress={() => deleteMoment(l.h)}
                     style={styles.deleteAction}
                     accessibilityRole="button"
                     accessibilityLabel={'Delete the ' + fmtTime(l.h) + ' check-in'}
@@ -204,6 +184,102 @@ export default function DaySheet({
           </View>
         )}
 
+        {/* A flare, a treatment, anything that happened. This used to be
+            a button on Today; it lives here now, next to the day it would
+            be about, which is also where it is read back. Without it
+            nothing could create an event at all. */}
+        <Press
+          onPress={onAddEvent}
+          pressOpacity={0.85}
+          style={styles.addEvent}
+          accessibilityRole="button"
+          accessibilityLabel="Note something that happened"
+          accessibilityHint="Opens a short set of questions about a flare or a treatment"
+        >
+          <Text style={styles.addEventText}>Note something that happened</Text>
+        </Press>
+
+        {/* what was asked that day, and what came back. A question that
+            was PUT and declined says so; a question never put is simply
+            absent from the list. The two are not the same fact and the
+            screen does not pretend otherwise. */}
+        {(() => {
+          const ctx = live && live.ctx ? live.ctx.a : null;
+          const ids = ctx ? Object.keys(ctx) : [];
+          if (!ids.length) return null;
+          const shown = ids
+            .map((id) => ({ id, m: getMetric(id), a: ctx![id] as Answer }))
+            .filter((r) => r.m != null);
+          if (!shown.length) return null;
+          return (
+            <View style={styles.list}>
+              <Text style={styles.listTitle}>Today’s questions</Text>
+              {shown.map(({ id, m, a }) => {
+                const skipped = a.skipped === 1;
+                const value = skipped
+                  ? 'Skipped'
+                  : m!.type === 'numeric'
+                    ? a.value + '/10'
+                    : levelLabel(id, String(a.value));
+                return (
+                  <Swipeable
+                    key={id}
+                    overshootRight={false}
+                    renderRightActions={() => (
+                      <Press
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          db.clearAnswer(dateIso, id);
+                          force((n) => n + 1);
+                          onChanged();
+                        }}
+                        style={styles.deleteAction}
+                        accessibilityRole="button"
+                        accessibilityLabel={'Remove the answer to: ' + m!.name}
+                      >
+                        <Text style={styles.deleteText}>Remove</Text>
+                      </Press>
+                    )}
+                  >
+                    <View
+                      style={styles.qRow}
+                      accessible
+                      accessibilityLabel={m!.name + ', ' + value + (a.note ? '. Note: ' + a.note : '')}
+                    >
+                      <View style={styles.rowMid}>
+                        <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
+                          {m!.name}
+                        </Text>
+                        <Text style={styles.rowSub}>{m!.question}</Text>
+                        {/* the user's own words, if they left any — shown
+                            under the question they qualify, and shown on a
+                            skipped answer too, because "I'd rather not
+                            grade it, but here is what happened" is a
+                            perfectly good thing to have said */}
+                        {!!a.note && (
+                          <Text style={styles.rowNote} allowFontScaling maxFontSizeMultiplier={1.4}>
+                            {a.note}
+                          </Text>
+                        )}
+                      </View>
+                      <Text
+                        style={[styles.qValue, skipped && styles.qSkipped]}
+                        allowFontScaling maxFontSizeMultiplier={1.3}
+                      >
+                        {value}
+                      </Text>
+                    </View>
+                  </Swipeable>
+                );
+              })}
+              <Text style={styles.swipeHint}>
+                Swipe left to remove an answer · a removed answer goes back to
+                never having been asked
+              </Text>
+            </View>
+          );
+        })()}
+
         {/* events recorded that day — each one opens to edit, swipes to
             delete, and none of them claims to explain the pain */}
         {(() => {
@@ -218,7 +294,7 @@ export default function DaySheet({
                   overshootRight={false}
                   renderRightActions={() => (
                     <Press
-                      onPress={() => confirmDeleteEvent(ev)}
+                      onPress={() => deleteEvent(ev)}
                       style={styles.deleteAction}
                       accessibilityRole="button"
                       accessibilityLabel={'Delete the ' + fmtTime(ev.h) + ' event'}
@@ -313,12 +389,32 @@ const styles = StyleSheet.create({
   rowMid: { flex: 1 },
   rowScore: { color: color.textPrimary, fontSize: font.subheadline },
   rowSub: { color: color.textSecondary, fontSize: font.footnote, marginTop: 1 },
+  rowNote: {
+    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20,
+    marginTop: 4,
+  },
   chev: { color: color.textTertiary, fontSize: 20 },
   deleteAction: {
-    width: 96, minHeight: 56, backgroundColor: color.danger,
+    width: 88, minHeight: 56, backgroundColor: color.destructive,
     alignItems: 'center', justifyContent: 'center',
   },
   deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
+  addEvent: {
+    marginTop: 20, minHeight: 48, borderRadius: radius.button, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  },
+  addEventText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  qRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: color.bgSurface,
+  },
+  qValue: {
+    color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  qSkipped: { color: color.textTertiary, fontWeight: '500' },
   swipeHint: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: 10 },
   eventRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44, paddingVertical: 6 },
   note: {
@@ -328,7 +424,7 @@ const styles = StyleSheet.create({
   },
   /* the same primary-button spec as everywhere else — one button, one size */
   primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, backgroundColor: color.textPrimary,
+    minHeight: size.buttonH, borderRadius: radius.button, borderCurve: 'continuous', backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', marginTop: 24, paddingHorizontal: 16,
   },
   primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },

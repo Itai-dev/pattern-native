@@ -15,7 +15,13 @@ export const color = {
   textPrimary: '#FFFFFF',
   textSecondary: '#A0A0A8',
   textTertiary: '#8E8E93',
+  /** the soft terracotta this app uses for destructive TEXT — a warning
+   *  that does not shout on a screen about pain */
   danger: '#E0795A',
+  /** iOS systemRed, for the one place the platform's own colour is the
+   *  clearer signal: the swipe-to-delete action, which people read by
+   *  colour before they read the word */
+  destructive: '#FF3B30',
   shieldOk: '#7CC9A6',
   /** the app's interactive tint — nav actions, links, selection */
   tint: '#5BA8FF',
@@ -107,10 +113,24 @@ export const font = {
 
 export type SlotKey = 'm' | 'd' | 'e';
 
+/**
+ * Corner radii, on Health's scale.
+ *
+ * A card at 16 is the radius of a LIST ROW's container, not of a card
+ * you look at — beside Health's own the old value read tight and boxy.
+ * Cards go to 20 and sheets to 24, which keeps the step between a
+ * container and the controls inside it that Apple's own nesting has: a
+ * child is always rounder-per-size than its parent is, never equal.
+ *
+ * Every one of these is drawn with borderCurve: 'continuous'. The number
+ * was never the thing that made a corner look un-Apple — the curvature
+ * was. iOS eases the corner into the straight edge; a plain circular arc
+ * meets it at a tangent and reads pinched next to the real thing.
+ */
 export const radius = {
   button: 14,
-  card: 16,
-  sheet: 20,
+  card: 26,
+  sheet: 26,
   segment: 10,
   segmentTrack: 11,
 } as const;

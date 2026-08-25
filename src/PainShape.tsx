@@ -13,11 +13,11 @@
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  SharedValue, interpolate, interpolateColor, useAnimatedStyle,
-  useSharedValue, withRepeat, withTiming,
+  SharedValue, cancelAnimation, interpolate, interpolateColor,
+  useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import { painRamp } from './painScale';
-import { reduceMotion } from './motion';
+import { useReduceMotion } from './motion';
 
 const STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -31,18 +31,23 @@ export default function PainShape({ progress, size }: PainShapeProps) {
   const ramp = painRamp();
   const breath = useSharedValue(0);
 
+  const rm = useReduceMotion();
   useEffect(() => {
-    if (reduceMotion) return;
+    if (rm) { cancelAnimation(breath); breath.value = 0; return; }
     // a slow, shallow breath — presence, not decoration
     breath.value = withRepeat(withTiming(1, { duration: 2600 }), -1, true);
-  }, []);
+  }, [rm]);
 
   const radius = size * 0.24;
 
   const surface = useAnimatedStyle(() => {
     const fill = interpolateColor(progress.value, STEPS, ramp);
-    const scale = interpolate(progress.value, [0, 10], [0.94, 1.04]) +
-      (reduceMotion ? 0 : breath.value * 0.008);
+    /* no flag to consult here: the breath is parked at zero when the
+       setting is on, so the term is already nothing. A worklet reading a
+       module-level binding would have captured its value at creation and
+       kept it forever anyway. */
+    const scale = interpolate(progress.value, [0, 10], [0.94, 1.04])
+      + breath.value * 0.008;
     return {
       backgroundColor: fill,
       transform: [{ scale }],

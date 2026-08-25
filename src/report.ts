@@ -13,11 +13,19 @@
  * handing to a physician.
  */
 import {
+  BANDS, IMPACT_BETTER, IMPACT_WORSE, TimeBandKey, bandOf, impactName,
+} from './metrics';
+import {
   Entries, EVENT_LABELS, EventKind, FuncEntry, LOC_NAMES, PainEvent,
-  QUALITY_NAMES, checkinCount, dailyAverage, dateFromISO, fmtTime,
-  funcTrend, iso, logsOf,
+  DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, QUALITY_NAMES, RESPONSE_LABELS,
+  Response, checkinCount, dailyAverage,
+  dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
 } from './model';
 import { formatScore, painLabel } from './painScale';
+import {
+  BAND_MIN_CHECKINS, BAND_MIN_DAYS, HALVES_MIN_DAYS, LIMITED_RECORD_DAYS,
+  TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
+} from './thresholds';
 
 export interface ReportInput {
   entries: Entries;
@@ -57,6 +65,68 @@ export interface ReportData {
   locations: { id: string; name: string; days: number }[];
   qualities: { id: string; name: string; count: number }[];
   events: PainEvent[]; // chronological
+  /** the two ends of the record, described. null until there is enough
+   *  of a record for the ends to be different from the middle. */
+  harderEasier: HarderEasier | null;
+  /** what the user pointed at, counted. ATTRIBUTIONS, not findings. */
+  flagged: { worse: FlagCount[]; better: FlagCount[] };
+}
+
+/* ── what you flagged ────────────────────────────────────────
+   A tally of the chips, and nothing more.
+
+   This is the one section of the record that is explicitly SUBJECTIVE,
+   and it has to be labelled that way everywhere it appears. "You pointed
+   at sleep on 9 days" is a fact about what the user thought. It is not a
+   fact about sleep, and it cannot become one, because a day is only in
+   the tally if they already believed sleep was the problem — there is no
+   set of days they thought sleep was fine sitting next to it.
+
+   Worth printing anyway. A clinician asking "what do you think sets it
+   off" gets a considered answer recorded across weeks instead of an
+   answer improvised in the room, and that is a genuinely better input to
+   the conversation than nothing. It just is not evidence. */
+
+export interface FlagCount {
+  id: string;
+  name: string;
+  days: number;
+}
+
+/* ── the two ends of the record ──────────────────────────────
+   The days that were hardest and the days that were easiest, with the
+   middle third thrown away, and what was RECORDED on each side.
+
+   Two limits on this, and both matter.
+
+   It needs TERCILE_MIN_DAYS days, and the two boundaries have to sit
+   TERCILE_MIN_SPREAD apart. Someone whose days run 5, 5, 6, 5, 6 has a
+   "hardest third" that is not meaningfully harder than the rest, and
+   ranking it would manufacture a difference out of rounding.
+
+   And it describes the PAIN — where it was, what words were used for it —
+   never the factors. Sleep, stress and load are what the engine tests,
+   under a rule that needs eight observations at each end and a point and
+   a half between them. Printing "stress was high on 8 of your 11 hardest
+   days" would be that comparison, run at whatever sample size happened to
+   exist, with the arithmetic left to the reader. Same claim, no gate. So
+   this section stops at the pain itself, and the factors wait. */
+
+export interface EndOfRecord {
+  days: number;
+  avg: number;
+  locations: { id: string; name: string; days: number }[];
+  qualities: { id: string; name: string; count: number }[];
+}
+
+export interface HarderEasier {
+  harder: EndOfRecord;
+  easier: EndOfRecord;
+  /** the daily averages the two groups are divided at */
+  boundaryLow: number;
+  boundaryHigh: number;
+  /** days in the discarded middle — shown, so the split is not a mystery */
+  middleDays: number;
 }
 
 /** how many logged days the window covers — surfaced in the UI so a short
@@ -104,7 +174,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
   const avgOf = (a: number[]) => round1(a.reduce((s, v) => s + v, 0) / a.length);
 
   let halves: { first: number; second: number } | null = null;
-  if (days.length >= 14) {
+  if (days.length >= HALVES_MIN_DAYS) {
     const half = Math.floor(days.length / 2);
     halves = { first: avgOf(avgs.slice(0, half)), second: avgOf(avgs.slice(half)) };
   }
@@ -122,7 +192,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
 
   const sortedFunc = func.slice().sort((a, b) => (a.week < b.week ? -1 : 1));
   const trend = funcTrend(func);
-  const limited = days.length < 7;
+  const limited = days.length < LIMITED_RECORD_DAYS;
 
   return {
     rangeStart: days[0].date,
@@ -151,6 +221,71 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       .filter((ev) => ev.date >= startIso && ev.date <= todayIso)
       .slice()
       .sort((a, b) => (a.date === b.date ? a.h - b.h : a.date < b.date ? -1 : 1)),
+    harderEasier: harderEasierOf(entries, days),
+    flagged: {
+      worse: countFlags(entries, days, IMPACT_WORSE),
+      better: countFlags(entries, days, IMPACT_BETTER),
+    },
+  };
+}
+
+/** how many days each chip was ticked on one side */
+function countFlags(entries: Entries, days: ReportDay[], metricId: string): FlagCount[] {
+  const n: Record<string, number> = {};
+  days.forEach((d) => {
+    const ids = valuesOf(entries[d.date], metricId);
+    if (!ids) return;
+    ids.forEach((id) => { n[id] = (n[id] || 0) + 1; });
+  });
+  return Object.keys(n)
+    .sort((a, b) => n[b] - n[a])
+    .map((id) => ({ id, name: impactName(id), days: n[id] }));
+}
+
+/** what was recorded across one set of days */
+function describeDays(entries: Entries, days: ReportDay[]): EndOfRecord {
+  const locDays: Record<string, number> = {};
+  const qual: Record<string, number> = {};
+  days.forEach((d) => {
+    const seen: Record<string, boolean> = {};
+    logsOf(entries[d.date]).forEach((l) => {
+      (l.loc || []).forEach((id) => { seen[id] = true; });
+      (l.q || []).forEach((q) => { qual[q] = (qual[q] || 0) + 1; });
+    });
+    Object.keys(seen).forEach((id) => { locDays[id] = (locDays[id] || 0) + 1; });
+  });
+  return {
+    days: days.length,
+    avg: round1(days.reduce((s, d) => s + d.avg, 0) / days.length),
+    locations: Object.keys(locDays)
+      .sort((a, b) => locDays[b] - locDays[a])
+      .map((id) => ({ id, name: LOC_NAMES[id] || id, days: locDays[id] })),
+    qualities: Object.keys(qual)
+      .sort((a, b) => qual[b] - qual[a])
+      .map((id) => ({ id, name: QUALITY_NAMES[id] || id, count: qual[id] })),
+  };
+}
+
+/** the outer terciles, middle discarded. null when the record is too
+ *  short, or when its two ends are not far enough apart to be different
+ *  from each other in any way worth printing. */
+export function harderEasierOf(entries: Entries, days: ReportDay[]): HarderEasier | null {
+  if (days.length < TERCILE_MIN_DAYS) return null;
+  const byAvg = days.slice().sort((a, b) => a.avg - b.avg);
+  const third = Math.floor(byAvg.length / 3);
+  if (third < 1) return null;
+
+  const easierDays = byAvg.slice(0, third);
+  const harderDays = byAvg.slice(byAvg.length - third);
+  const boundaryLow = easierDays[easierDays.length - 1].avg;
+  const boundaryHigh = harderDays[0].avg;
+  if (boundaryHigh - boundaryLow < TERCILE_MIN_SPREAD) return null;
+
+  return {
+    harder: describeDays(entries, harderDays),
+    easier: describeDays(entries, easierDays),
+    boundaryLow, boundaryHigh,
+    middleDays: byAvg.length - easierDays.length - harderDays.length,
   };
 }
 
@@ -169,7 +304,11 @@ export function buildReportData(inp: ReportInput): ReportData | null {
    Days with no timestamped moments (legacy and backfilled records) carry
    no time at all and are left out rather than guessed at. */
 
-export type TimeBandKey = 'morning' | 'afternoon' | 'evening' | 'night';
+/* The bands themselves live in metrics.ts, because the question windows
+   and the report headings have to mean the same thing by the same
+   numbers. Re-exported here so existing callers keep working. */
+export { bandOf, BANDS } from './metrics';
+export type { TimeBandKey } from './metrics';
 
 export interface TimeBand {
   key: TimeBandKey;
@@ -182,24 +321,16 @@ export interface TimeBand {
   days: number;
 }
 
-const BANDS: { key: TimeBandKey; label: string; range: string }[] = [
-  { key: 'morning', label: 'Morning', range: '05:00–11:59' },
-  { key: 'afternoon', label: 'Afternoon', range: '12:00–16:59' },
-  { key: 'evening', label: 'Evening', range: '17:00–21:59' },
-  { key: 'night', label: 'Night', range: '22:00–04:59' },
-];
-
-/** which part of the day a minute-of-day belongs to. Night wraps midnight:
- *  pain that wakes you belongs with pain at 23:00, not with the morning. */
-export function bandOf(h: number): TimeBandKey {
-  if (h >= 5 * 60 && h < 12 * 60) return 'morning';
-  if (h >= 12 * 60 && h < 17 * 60) return 'afternoon';
-  if (h >= 17 * 60 && h < 22 * 60) return 'evening';
-  return 'night';
-}
-
-/** the bands that actually hold check-ins, in day order. Bands with
- *  nothing recorded are omitted rather than shown as a zero. */
+/** Bands with enough behind them to sit beside each other.
+ *
+ *  A band needs BAND_MIN_CHECKINS check-ins across BAND_MIN_DAYS distinct
+ *  days before it appears. Two reasons, and the second is the real one:
+ *  a band resting on a single reading rendered an "average" that looked
+ *  exactly like one resting on forty; and forty readings from one
+ *  sleepless night are one night, not a pattern about nights.
+ *
+ *  Bands that fall short are omitted rather than shown greyed out. A
+ *  number the reader is told to discount is still a number they saw. */
 export function timeOfDayBands(entries: Entries, days: ReportDay[]): TimeBand[] {
   const acc: Record<string, { sum: number; n: number; days: Record<string, true> }> = {};
   days.forEach((d) => {
@@ -212,7 +343,11 @@ export function timeOfDayBands(entries: Entries, days: ReportDay[]): TimeBand[] 
     });
   });
   return BANDS
-    .filter((b) => acc[b.key] && acc[b.key].n > 0)
+    .filter((b) => {
+      const a = acc[b.key];
+      return !!a && a.n >= BAND_MIN_CHECKINS
+        && Object.keys(a.days).length >= BAND_MIN_DAYS;
+    })
     .map((b) => ({
       key: b.key,
       label: b.label,
@@ -475,6 +610,55 @@ export function reportHtml(data: ReportData): string {
     s.push('</table></section>');
   }
 
+  // ── the two ends of the record ──
+  if (data.harderEasier) {
+    const he = data.harderEasier;
+    const side = (title: string, e: typeof he.harder, cmp: string) => {
+      const locs = e.locations.slice(0, 5)
+        .map((l) => esc(l.name) + ' (' + l.days + ')').join(' · ') || '—';
+      const qs = e.qualities.slice(0, 5)
+        .map((q) => esc(q.name) + ' ×' + q.count).join(' · ') || '—';
+      return '<tr><td><b>' + esc(title) + '</b><br><span class="note num">' + e.days +
+        ' days, ' + cmp + ', averaging ' + formatScore(e.avg) + '/10</span></td>' +
+        '<td>' + locs + '</td><td>' + qs + '</td></tr>';
+    };
+    s.push('<section><h2>Hardest and easiest days</h2>');
+    s.push('<div class="note">The highest and lowest third of logged days by daily average, ' +
+      'with the middle third set aside. This describes where the pain was and how it was ' +
+      'described on each group of days. It is not a comparison of anything else that was ' +
+      'recorded, and it does not identify a cause.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>Group</th><th>Locations (days)</th>' +
+      '<th>Described as</th></tr>');
+    s.push(side('Hardest days', he.harder, formatScore(he.boundaryHigh) + '/10 and above'));
+    s.push(side('Easiest days', he.easier, formatScore(he.boundaryLow) + '/10 and below'));
+    s.push('</table>');
+    s.push('<div class="note num" style="margin-top:6px">' + he.middleDays +
+      ' day' + (he.middleDays === 1 ? '' : 's') + ' in the middle third were set aside.</div>');
+    s.push('</section>');
+  }
+
+  // ── what the patient points at ──
+  if (data.flagged.worse.length || data.flagged.better.length) {
+    const list = (f: typeof data.flagged.worse) =>
+      f.slice(0, 8).map((x) => esc(x.name) + ' (' + x.days + ')').join(' · ') || '—';
+    s.push('<section><h2>What the patient points to</h2>');
+    s.push('<div class="note"><b>Self-attributed.</b> These are the things the patient ' +
+      'identified on the day, with the number of days each was selected. They record what ' +
+      'the patient believes affects their pain. They are not a comparison and carry no ' +
+      'evidence about whether the association holds — a factor appears here only on days ' +
+      'it was already suspected, so there is no unaffected group to weigh it against.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>Direction</th><th>Selected on (days)</th></tr>');
+    if (data.flagged.worse.length) {
+      s.push('<tr><td><b>Reported as making it worse</b></td><td>' +
+        list(data.flagged.worse) + '</td></tr>');
+    }
+    if (data.flagged.better.length) {
+      s.push('<tr><td><b>Reported as helping</b></td><td>' +
+        list(data.flagged.better) + '</td></tr>');
+    }
+    s.push('</table></section>');
+  }
+
   // ── described as ──
   if (data.qualities.length) {
     s.push('<section><h2>Described as</h2>');
@@ -490,8 +674,32 @@ export function reportHtml(data: ReportData): string {
       'No causal relationship with pain is implied.</div>');
     s.push('<table style="margin-top:8px"><tr><th>Date</th><th>Time</th><th>Type</th><th>Note</th></tr>');
     data.events.forEach((ev) => {
-      const note = (ev.text ? esc(ev.text) : '—') +
-        (ev.helped != null ? ' <span class="note num">(patient-reported effect ' + ev.helped + '/10)</span>' : '');
+      /* Two response formats coexist on purpose. Older records carry a
+         0–10 impression; newer ones carry Better / About the same /
+         Worse / Not sure. Mapping one onto the other would mean choosing
+         cutpoints nobody chose, so the report shows whichever was
+         actually recorded and names the scale it belongs to. */
+      const tried = ev.intervention
+        ? ' <span class="note">tried: ' + esc(INTERVENTIONS[ev.intervention] || ev.intervention) + '</span>'
+        : '';
+      const outcome = ev.resp
+        ? ' <span class="note">(patient-reported: ' + esc(RESPONSE_LABELS[ev.resp as Response]) + ')</span>'
+        : (ev.helped != null
+          ? ' <span class="note num">(patient-reported effect ' + ev.helped + '/10)</span>'
+          : '');
+      /* SOCRATES onset and radiation, where they were answered. These
+         are the two questions asked first in a consultation and the two
+         nobody can reconstruct weeks later, which is the whole reason
+         they are collected at the time. */
+      const guided: string[] = [];
+      if (ev.onset) guided.push(esc(ONSET_LABELS[ev.onset]));
+      if (ev.doing) guided.push('doing: ' + esc(ev.doing));
+      if (ev.spread) guided.push('spread: ' + esc(ev.spread));
+      if (ev.duration) guided.push('lasted: ' + esc(DURATION_LABELS[ev.duration]));
+      const detail = guided.length
+        ? '<br><span class="note">' + guided.join(' · ') + '</span>'
+        : '';
+      const note = (ev.text ? esc(ev.text) : '—') + tried + outcome + detail;
       s.push('<tr><td class="num">' + esc(fmtShortDate(ev.date)) + '</td>' +
         '<td class="num">' + esc(fmtTime(ev.h)) + '</td>' +
         '<td>' + esc(EVENT_LABELS[ev.kind as EventKind] || ev.kind) + '</td>' +

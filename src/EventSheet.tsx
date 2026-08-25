@@ -20,7 +20,8 @@ import Slider from './Slider';
 import * as db from './db';
 import { Press } from './motion';
 import {
-  EVENT_KINDS, EVENT_LABELS, EventKind, PainEvent, checkinCount, fmtTime,
+  DURATIONS, DURATION_LABELS, Duration, EVENT_KINDS_OFFERED, EVENT_LABELS,
+  EventKind, ONSETS, ONSET_LABELS, Onset, PainEvent, checkinCount, fmtTime,
   minutesNow, todayISO,
 } from './model';
 import { color, font, size } from './theme';
@@ -39,6 +40,13 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
   const [kind, setKind] = useState<EventKind>(event ? event.kind : 'flare');
   const [minutes, setMinutes] = useState(event ? event.h : minutesNow());
   const [showPicker, setShowPicker] = useState(false);
+  /* the guided answers. All optional — a flare logged with nothing but a
+     time is still a flare, and someone in the middle of one should not
+     have to fill in a form to say so. */
+  const [onset, setOnset] = useState<Onset | null>(event?.onset || null);
+  const [duration, setDuration] = useState<Duration | null>(event?.duration || null);
+  const [spread, setSpread] = useState(event?.spread || '');
+  const [doing, setDoing] = useState(event?.doing || '');
   const [helped, setHelped] = useState<number | null>(event && event.helped != null ? event.helped : null);
   const [text, setText] = useState(event ? event.text : '');
   const [link, setLink] = useState(event ? event.linked === 1 : true);
@@ -63,6 +71,14 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
       helped: kind === 'treatment' ? helped : null,
       linked: link && dayCheckins > 0 ? 1 : 0,
     };
+    /* only what was actually answered. An unanswered question stays out
+       of the row entirely rather than going in as an empty string, so a
+       flare nobody described is distinguishable from one described as
+       nothing. */
+    if (onset) row.onset = onset;
+    if (duration) row.duration = duration;
+    if (spread.trim()) row.spread = spread.trim();
+    if (doing.trim()) row.doing = doing.trim();
     if (editing) db.updateEvent(event!.id!, row);
     else db.addEvent(row);
     onDone();
@@ -132,7 +148,7 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
       >
         <Text style={styles.q}>What happened?</Text>
         <View style={styles.kinds}>
-          {EVENT_KINDS.map((k) => {
+          {EVENT_KINDS_OFFERED.map((k) => {
             const on = kind === k;
             return (
               <Press
@@ -203,8 +219,90 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
           </>
         )}
 
+        {/* ── the guided part ─────────────────────────────────
+            Fixed questions, asked in order, all skippable. Onset and
+            radiation are the two SOCRATES answers this record could not
+            hold, and they are the two nobody can reconstruct later. */}
+        {(kind === 'flare' || kind === 'illness') && (
+          <>
+            <Text style={[styles.q, styles.qLater]}>How did it come on?</Text>
+            <View style={styles.pickRow}>
+              {ONSETS.map((o) => {
+                const on = onset === o;
+                return (
+                  <Press
+                    key={o}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setOnset(on ? null : o);
+                    }}
+                    pressOpacity={0.85}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={ONSET_LABELS[o]}
+                    style={[styles.pick, on && styles.pickOn]}
+                  >
+                    <Text style={[styles.pickText, on && styles.pickTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>
+                      {ONSET_LABELS[o]}
+                    </Text>
+                  </Press>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.q, styles.qLater]}>What were you doing?</Text>
+            <TextInput
+              value={doing}
+              onChangeText={setDoing}
+              placeholder="e.g. carrying shopping up the stairs"
+              placeholderTextColor={color.textTertiary}
+              style={styles.input}
+              multiline
+              accessibilityLabel="What you were doing when it started"
+            />
+
+            <Text style={[styles.q, styles.qLater]}>Does it spread anywhere?</Text>
+            <TextInput
+              value={spread}
+              onChangeText={setSpread}
+              placeholder="e.g. down the back of my left leg"
+              placeholderTextColor={color.textTertiary}
+              style={styles.input}
+              multiline
+              accessibilityLabel="Where the pain spreads to"
+            />
+
+            <Text style={[styles.q, styles.qLater]}>How long did it last?</Text>
+            <View style={styles.pickRow}>
+              {DURATIONS.map((d) => {
+                const on = duration === d;
+                return (
+                  <Press
+                    key={d}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setDuration(on ? null : d);
+                    }}
+                    pressOpacity={0.85}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={DURATION_LABELS[d]}
+                    style={[styles.pick, on && styles.pickOn]}
+                  >
+                    <Text style={[styles.pickText, on && styles.pickTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>
+                      {DURATION_LABELS[d]}
+                    </Text>
+                  </Press>
+                );
+              })}
+            </View>
+          </>
+        )}
+
         <Text style={[styles.q, styles.qLater]}>
-          {kind === 'treatment' ? 'What did you try?' : 'A short note'}
+          {kind === 'treatment' ? 'What did you try?' : 'Anything else?'}
         </Text>
         <TextInput
           value={text}
@@ -269,7 +367,7 @@ const styles = StyleSheet.create({
   sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
   kinds: { marginTop: 12, gap: 8 },
   kind: {
-    minHeight: 48, borderRadius: 12, borderWidth: 1,
+    minHeight: 48, borderRadius: 12, borderCurve: 'continuous', borderWidth: 1,
     justifyContent: 'center', paddingHorizontal: 14,
   },
   kindOn: { backgroundColor: color.bgSegmentActive, borderColor: color.textSecondary },
@@ -279,7 +377,7 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     minHeight: 48, marginTop: 10, paddingHorizontal: 14,
-    borderRadius: 12, backgroundColor: color.bgSurface,
+    borderRadius: 12, borderCurve: 'continuous', backgroundColor: color.bgSurface,
   },
   timeText: { color: color.textPrimary, fontSize: font.body, fontVariant: ['tabular-nums'] },
   timeHint: { color: color.tint, fontSize: font.subheadline },
@@ -289,8 +387,19 @@ const styles = StyleSheet.create({
   },
   ends: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 8 },
   endText: { color: color.textTertiary, fontSize: font.footnote },
+  /* the fixed answers, as a wrapping row of pills. Not a chat, not a
+     scale — a short list of the things people actually say. */
+  pickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  pick: {
+    minHeight: 44, borderRadius: 12, borderCurve: 'continuous', paddingHorizontal: 14, justifyContent: 'center',
+    backgroundColor: color.bgSurface,
+    borderWidth: 1, borderColor: color.borderDivider,
+  },
+  pickOn: { borderColor: color.textPrimary, backgroundColor: color.bgSegmentActive },
+  pickText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
+  pickTextOn: { color: color.textPrimary, fontWeight: '600' },
   input: {
-    marginTop: 10, minHeight: 60, borderRadius: 12, padding: 12,
+    marginTop: 10, minHeight: 60, borderRadius: 12, borderCurve: 'continuous', padding: 12,
     backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
     textAlignVertical: 'top',
   },

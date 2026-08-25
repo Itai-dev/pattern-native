@@ -35,6 +35,18 @@ export function painLabel(v: number): string {
   return 'Most intense';
 }
 
+/**
+ * One score inside each band, low to high — the handle anything that
+ * groups days by band should reach for.
+ *
+ * It lives here, beside painLabel, so a grouping is never a second list
+ * of band names kept in step by hand. Callers ask painLabel(at) for the
+ * word; a test holds these five to covering every score 0–10, so adding
+ * a sixth band to the scale breaks a build rather than quietly dropping
+ * a band's days off whatever chart was counting them.
+ */
+export const BAND_AT = [0, 2, 5, 8, 10];
+
 /** the ends of the slider, which stay short */
 export const PAIN_END_LOW = 'No pain';
 export const PAIN_END_HIGH = 'Most intense';

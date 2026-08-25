@@ -3,12 +3,14 @@
   "version": "1.2.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo/ui": "~57.0.13",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.12",
     "expo-blur": "~57.0.2",
     "expo-document-picker": "~57.0.1",
     "expo-file-system": "~57.0.4",
+    "expo-glass-effect": "~57.0.1",
     "expo-haptics": "~57.0.1",
     "expo-notifications": "~57.0.10",
     "expo-print": "~57.0.1",
@@ -16,7 +18,9 @@
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "expo-updates": "~57.0.15",
+    "expo-widgets": "~57.0.12",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.2",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-reanimated": "4.5.1",
@@ -31,9 +35,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:domain": "tsc src/model.ts src/painScale.ts src/report.ts --ignoreConfig --outDir .testbuild --module commonjs --target es2019 --skipLibCheck",
-    "test": "npm run build:domain && node tools/test-model.js",
-    "verify": "tsc --noEmit && npm test && expo export --platform ios"
+    "build:domain": "tsc src/model.ts src/painScale.ts src/report.ts src/metrics.ts src/protocol.ts src/thresholds.ts src/widget.ts --ignoreConfig --outDir .testbuild --module commonjs --target es2019 --skipLibCheck",
+    "test": "npm run build:domain && node tools/test-model.js && node tools/test-step1.js && node tools/test-widget.js",
+    "verify": "tsc --noEmit && npm test && expo export --platform all"
   },
   "private": true
 }

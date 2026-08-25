@@ -34,7 +34,10 @@ export default function DaySquare({
     return (
       <View
         style={[
-          { width: size, height: size, borderRadius: radius, borderWidth: 1 },
+          {
+            width: size, height: size, borderRadius: radius,
+            borderCurve: 'continuous', borderWidth: 1,
+          },
           styles.centre,
           { borderColor: today ? color.textTertiary : color.borderControl },
         ]}
@@ -48,7 +51,10 @@ export default function DaySquare({
   }
   return (
     <View style={[
-      { width: size, height: size, borderRadius: radius, backgroundColor: painColor(score) },
+      {
+        width: size, height: size, borderRadius: radius,
+        borderCurve: 'continuous', backgroundColor: painColor(score),
+      },
       /* low scores are nearly black — the hairline keeps a logged day
          visible against the black ground without reading as a band */
       styles.defined,

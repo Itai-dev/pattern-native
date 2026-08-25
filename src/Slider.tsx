@@ -60,7 +60,13 @@ export default function Slider({
   useDerivedValue(() => {
     if (!dragging.value && width.value > 0) {
       const usable = Math.max(1, width.value - THUMB);
-      const at = value == null ? 0 : value;   // unset parks at the low end
+      /* An untouched thumb parks in the MIDDLE, not at zero. Parked left
+         it read as a choice — the lowest one — on a scale where zero is a
+         real and meaningful answer, and it made every drag start from an
+         opinion the app had formed on your behalf. The middle is the one
+         position that is not an answer. The VALUE is still null until a
+         finger lands: nothing is recorded from where the thumb sits. */
+      const at = value == null ? max / 2 : value;
       x.value = withSpring((usable * at) / max, { damping: 40, stiffness: 400, mass: 1 });
     }
   }, [value, max]);
@@ -84,12 +90,24 @@ export default function Slider({
       const step = Math.round((x.value / usable) * max);
       if (step !== lastStep.value) { lastStep.value = step; runOnJS(emit)(step); }
     })
-    .onFinalize(() => {
+    .onFinalize((e) => {
       'worklet';
       dragging.value = false;
-      // settle onto the chosen stop, carrying the gesture's own momentum
+      /* Settle onto the chosen stop CARRYING THE FINGER'S VELOCITY.
+         This line claimed to do that for a long time and did not: the
+         spring started from rest, so at the instant of release the thumb
+         stopped dead and then re-accelerated toward the stop. It is a few
+         milliseconds and it is the difference between the thumb feeling
+         attached to your finger and feeling like a thing being animated
+         near it — on the one control this app is mostly made of.
+
+         Reanimated wants velocity in the animated value's own units per
+         second, and x is in points, so the gesture's px/s goes straight
+         in. Both are zero on a tap, which is the correct handoff too. */
       const usable = Math.max(1, width.value - THUMB);
-      x.value = withSpring((usable * lastStep.value) / max, { damping: 40, stiffness: 400, mass: 1 });
+      x.value = withSpring((usable * lastStep.value) / max, {
+        damping: 40, stiffness: 400, mass: 1, velocity: e.velocityX,
+      });
       if (progress) progress.value = withTiming(lastStep.value, { duration: 160 });
     });
 
@@ -139,11 +157,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  /* an untouched thumb is hollow: visibly "not yet chosen" without a
-     sentence of instruction */
+  /* An untouched thumb is a solid white dot, like every other iOS slider.
+     "Not yet chosen" is said by the words under the shape and by the
+     shape's own dimming — it does not also need the control to look
+     broken. */
   thumbUnset: {
-    backgroundColor: 'transparent',
-    borderWidth: 2, borderColor: color.textSecondary,
-    shadowOpacity: 0,
+    backgroundColor: color.textPrimary,
   },
 });

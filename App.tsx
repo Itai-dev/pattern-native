@@ -1,28 +1,42 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useState } from 'react';
+import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View,
+  Alert, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable,
+  ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './src/HomeScreen';
 import MapScreen from './src/MapScreen';
-import TabBar, { Tab } from './src/TabBar';
+import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
-import FunctionSheet from './src/FunctionSheet';
 import EventSheet from './src/EventSheet';
-import GoalSheet from './src/GoalSheet';
-import ReportSheet from './src/ReportSheet';
+import FocusSheet from './src/FocusSheet';
+import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
+import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
-import { PainEvent, ValidBackup, todayISO } from './src/model';
-import { getPainTheme, setPainTheme } from './src/painScale';
+import { PainEvent, ValidBackup, dateFromISO, todayISO } from './src/model';
+import { buildReportData, reportHtml } from './src/report';
+import { refreshWidget } from './src/widgetPush';
+import {
+  analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
+} from './src/analytics';
+import { activeFactors } from './src/protocol';
+import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
+import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
 } from './src/theme';
@@ -32,7 +46,23 @@ configureHandler(); // set once, before anything can be delivered
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'func' | 'funcBaseline' | 'event' | 'report' | 'goal';
+type Sheet = null | 'checkin' | 'event' | 'focus';
+
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Thu, 21 Aug" — short enough that the large title does not have to
+ *  shrink to fit it on the narrowest phone */
+function fmtDayTitle(dateIso: string): string {
+  const d = dateFromISO(dateIso);
+  return WD[d.getDay()] + ', ' + d.getDate() + ' ' + MON[d.getMonth()];
+}
+
+/* Where feedback goes — and the address the privacy policy still needs.
+   A placeholder that bounces is worse than no row at all, so this ships
+   pointing at the account already tied to the developer profile; swap it
+   the moment a dedicated address exists. */
+const FEEDBACK_EMAIL = 'itaiagami@gmail.com';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
@@ -45,11 +75,41 @@ function todayTitle(): string {
   return WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
 }
 
-/** an iOS-Settings icon: a white glyph in a coloured rounded square */
-function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: string }) {
+/** The floating return pill — the tab bar's glass, one word of it.
+ *  Top right, under the headline, where the eye goes for "take me back";
+ *  the availability check is guarded for the same reason the tab bar's
+ *  is: it throws on binaries that predate the native module. */
+const PILL_LIQUID = (() => {
+  try { return isLiquidGlassAvailable(); } catch { return false; }
+})();
+
+function GlassPill({ onPress, label, accessibilityLabel }: {
+  onPress: () => void; label: string; accessibilityLabel: string;
+}) {
+  const inner = (
+    <Pressable onPress={onPress} style={styles.pillHit}
+      accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
+      <Text style={styles.backToTodayText}>{label}</Text>
+    </Pressable>
+  );
+  return PILL_LIQUID ? (
+    <GlassView glassEffectStyle="regular" colorScheme="dark" style={styles.backToToday}>
+      {inner}
+    </GlassView>
+  ) : (
+    <BlurView intensity={80} tint="systemChromeMaterialDark" style={styles.backToToday}>
+      {inner}
+    </BlurView>
+  );
+}
+
+/** a settings row's glyph: the outline form, in line weight, the way
+ *  this app draws everything else. The coloured chips were the one place
+ *  the interface used colour as decoration rather than meaning. */
+function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
   return (
-    <View style={[styles.rowIcon, { backgroundColor: bg }]}>
-      <Ionicons name={name} size={17} color="#FFFFFF" />
+    <View style={styles.rowIcon}>
+      <Ionicons name={name} size={21} color={color.textSecondary} />
     </View>
   );
 }
@@ -64,13 +124,61 @@ function RowIcon({ name, bg }: { name: keyof typeof Ionicons.glyphMap; bg: strin
  */
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
-  const [func, setFunc] = useState(() => db.getFunc());
-  const [goalText, setGoalText] = useState(() => db.getGoal());
-  const [tab, setTab] = useState<Tab>('today'); // act first, reflect one tab away
+  /* Anyone with a record has already been onboarded, whatever the pref
+     says — the flag arrived after the app did, and showing a returning
+     user an introduction to something they have been using for a week is
+     worse than never having had one. */
+  const [onboarded, setOnboarded] = useState(
+    () => db.getPref<boolean>('onboarded', db.countDays() > 0)
+  );
+  const [events, setEvents] = useState(() => db.getEvents());
+  const [protocol, setProtocol] = useState(() => db.activeProtocol());
+  /* a factor the chips pointed at, carried into the focus flow so the
+     picker opens on it instead of making the user find it again */
+  const [seedFactor, setSeedFactor] = useState<string | null>(null);
+  /* act on Today, see the month on Pattern, see what it adds up to on
+     Trends — and the three sit side by side, so a swipe moves between
+     them and the tab bar is a shortcut rather than the only way */
+  const [tab, setTab] = useState<Tab>('today');
+  const { width } = useWindowDimensions();
+  const pager = useRef<ScrollView>(null);
+
+  /** tapping a tab drives the pager, and nothing else does any more —
+   *  the finger belongs to the day pager inside Today. */
+  const goToTab = useCallback((t: Tab) => {
+    if (t === 'trends') track('trends_opened');
+    if (t === 'map') track('history_opened');
+    setTab(t);
+    pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
+  }, [width]);
+
+  const onPageSettled = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!width) return;
+    const i = Math.round(e.nativeEvent.contentOffset.x / width);
+    const next = TAB_ORDER[Math.max(0, Math.min(TAB_ORDER.length - 1, i))];
+    if (next && next !== tab) {
+      if (next === 'trends') track('trends_opened');
+      if (next === 'map') track('history_opened');
+      setTab(next);
+    }
+  }, [tab, width]);
+  /* the day the Today pager is showing. Held as a label rather than a
+     date so the screen that knows the format owns it. */
+  const [dayTitle, setDayTitle] = useState('Today');
+  const onDayChange = useCallback((d: string) => {
+    setDayTitle(d === todayISO() ? 'Today' : fmtDayTitle(d));
+  }, []);
+
   const [sheet, setSheet] = useState<Sheet>(null);
+  /* History stacks months newest-first, so back-to-today is simply the
+     top. The pill appears only once you have actually gone somewhere. */
+  const historyScroll = useRef<ScrollView>(null);
+  const [historyAway, setHistoryAway] = useState(false);
   const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
   const [appearance, setAppearance] = useState(false);
+  const [about, setAbout] = useState(false);
+  const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
   /* an event being edited, and the day sheet to return to afterwards */
@@ -78,9 +186,12 @@ export default function App() {
   const [returnDay, setReturnDay] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
-    setEntries(db.getAll());
-    setFunc(db.getFunc());
-    setGoalText(db.getGoal());
+    const next = db.getAll();
+    setEntries(next);
+    setEvents(db.getEvents());
+    setProtocol(db.activeProtocol());
+    /* one place to feed the widget, so no screen has to remember to */
+    refreshWidget(next);
   }, []);
 
   const closeSheet = useCallback(() => {
@@ -92,10 +203,32 @@ export default function App() {
   }, [refresh, returnDay]);
   const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
 
-  const editGoal = useCallback(() => {
-    setProfile(false);
-    setSheet('goal');
+  /* the widget's whole surface is one link, and it lands here. Cold start
+     and warm resume both go through the same handler, so the tap behaves
+     the same whether the app was already running or not. */
+  useEffect(() => {
+    const open = (url: string | null) => {
+      if (url && url.indexOf('checkin') >= 0) { track('widget_tap'); setSheet('checkin'); }
+    };
+    Linking.getInitialURL().then(open).catch(() => {});
+    const sub = Linking.addEventListener('url', (ev) => open(ev.url));
+    return () => sub.remove();
   }, []);
+
+  /* and once on launch, so a widget added before today's first check-in
+     still shows the right caption */
+  useEffect(() => { refreshWidget(db.getAll()); trackLaunch(todayISO()); }, []);
+
+  /* "Keep observing" at the review: the same two questions carry on, and
+     the next review is another fourteen days out. The period is not
+     restarted — restarting it would orphan the answers already given from
+     the run they belong to. */
+  const keepFocus = useCallback(() => {
+    track('focus_extended');
+    const p = db.activeProtocol();
+    if (p && p.id != null) db.extendProtocol(p.id, todayISO());
+    refresh();
+  }, [refresh]);
 
   const startEditEvent = useCallback((ev: PainEvent) => {
     setReturnDay(daySheet);
@@ -104,10 +237,68 @@ export default function App() {
     setSheet('event');
   }, [daySheet]);
 
+  /* A plain mail draft. The app never learns whether it was sent and
+     wants no inbox of its own to moderate; the version and update id go
+     in the signature so "which build are you on" is never a question
+     anyone has to ask a tester. */
+  const openFeedback = useCallback(() => {
+    const sig = '\n\n---\nPattern v' + (Constants.expoConfig?.version || '?')
+      + (Updates.updateId ? ' | update ' + Updates.updateId.slice(0, 8) : ' | embedded');
+    Linking.openURL(
+      'mailto:' + FEEDBACK_EMAIL
+      + '?subject=' + encodeURIComponent('Pattern feedback')
+      + '&body=' + encodeURIComponent(sig)
+    ).catch(() => {});
+  }, []);
+
+  /* how many days Trends is currently charting. Null until it has said
+     — and the fallback is the WHOLE record rather than a month, because a
+     summary that silently cropped a clinician's view would be the worst
+     possible thing for this button to do. */
+  const [trendsSpan, setTrendsSpan] = useState<number | null>(null);
+  const [sharing, setSharing] = useState(false);
+
+  const shareTrends = useCallback(async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const data = buildReportData({
+        entries, events, func: [], goalText: null,
+        todayIso: todayISO(), windowDays: trendsSpan || 36500,
+      });
+      if (!data) {
+        Alert.alert('Nothing to share yet', 'Check in once and there will be a record to send.');
+        return;
+      }
+      const { uri } = await Print.printToFileAsync({ html: reportHtml(data) });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+          dialogTitle: 'Pattern — summary for your doctor',
+        });
+        /* declared in the analytics union since it was written and never
+           once fired — the count of "someone took their record to an
+           appointment" is the single most useful number this app has */
+        track('pdf_shared');
+      } else {
+        Alert.alert('Sharing isn’t available on this device.');
+      }
+    } catch {
+      Alert.alert('Couldn’t create the PDF', 'Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  }, [entries, events, trendsSpan, sharing]);
+
   const pickTheme = useCallback((id: PainThemeId) => {
     setPainTheme(id);
     db.setPref('theme.pain', id);
     setThemeTick((v) => v + 1);
+    /* the widget's colours are computed HERE, by painScale, and pushed as
+       hex — a theme change has to push a fresh snapshot or the home
+       screen keeps wearing the old palette until the next check-in */
+    refreshWidget(db.getAll());
   }, []);
 
   /* Restore: the file is fully validated BEFORE anything is touched, then
@@ -115,6 +306,7 @@ export default function App() {
   const applyRestore = useCallback((backup: ValidBackup, mode: db.RestoreMode) => {
     try {
       const r = db.applyBackup(backup, mode);
+      track('backup_restored', { mode });
       refresh();
       Alert.alert(
         mode === 'replace' ? 'Backup restored' : 'Backup merged',
@@ -174,6 +366,7 @@ export default function App() {
   }, [applyRestore]);
 
   const exportBackup = useCallback(async () => {
+    track('backup_exported');
     const json = db.exportBackup(todayISO());
     const path = FileSystem.cacheDirectory + 'pattern-backup-' + todayISO() + '.json';
     try {
@@ -220,8 +413,41 @@ export default function App() {
     );
   }, [refresh]);
 
-  const dayCount = Object.keys(entries).length;
+  /* The focus question is worth asking only once there is a record to
+     form a hypothesis about — Today's card has always waited a week for
+     that reason, and this row was letting a day-one user walk in the side
+     door and commit to a fortnight of questions about nothing. */
+  const focusReady = Object.keys(entries).length >= HYPOTHESIS_OFFER_AFTER_DAYS;
   const themeName = (PAIN_THEMES.find((t) => t.id === getPainTheme()) || PAIN_THEMES[0]).name;
+
+  if (!onboarded) {
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <SafeAreaProvider>
+          <OnboardingScreen
+            onDone={(understand) => {
+              track('onboarding_completed', { wroteHypothesis: !!understand });
+              db.setPref('onboarded', true);
+              setOnboarded(true);
+              /* their words, verbatim, from the moment they had the
+                 clearest reason to open this. The focus flow finds it a
+                 week later and builds its offer on it. */
+              if (understand) {
+                db.addHypothesis({
+                  createdOn: todayISO(), understand, harder: '', helps: '',
+                });
+              }
+              /* straight into the first check-in — the button said so, and
+                 an introduction that ends on an empty screen has taught
+                 nothing about what the app is for */
+              setSheet('checkin');
+            }}
+          />
+          <StatusBar style="light" />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -229,39 +455,148 @@ export default function App() {
         <SafeAreaView style={styles.safe} edges={['top']}>
           {/* one large title per screen, always in the same place — the
               date on Today, the month on the Map */}
+          {/* one large title per screen, and the person in the corner iOS
+              keeps them in — off the tab bar, out of thumb reach, and out
+              of the way of the three things the app is actually for */}
           <View style={styles.topBar}>
             <Text
               style={styles.wordmark}
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.72}
+              minimumFontScale={0.8}
               allowFontScaling
               maxFontSizeMultiplier={1.2}
             >
-              {tab === 'today' ? todayTitle() : MONTHS[new Date().getMonth()]}
+              {tab === 'today' ? dayTitle : tab === 'trends' ? 'Trends' : 'History'}
             </Text>
+            <View style={styles.topActions}>
+              {tab === 'today' && (
+                <Pressable
+                  onPress={() => setSheet('checkin')}
+                  style={({ pressed }) => [
+                    styles.logPill, pressed && { opacity: 0.85 },
+                  ]}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Check in"
+                  accessibilityHint="Records how your pain is right now"
+                >
+                  <Text
+                    style={styles.logPillText}
+                    allowFontScaling maxFontSizeMultiplier={1.2}
+                    numberOfLines={1}
+                  >
+                    Log
+                  </Text>
+                </Pressable>
+              )}
+              {tab === 'trends' && (
+                <Pressable
+                  onPress={shareTrends}
+                  disabled={sharing}
+                  style={[styles.profileBtn, sharing && styles.profileBtnBusy]}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: sharing }}
+                  accessibilityLabel={sharing
+                    ? 'Preparing the PDF'
+                    : 'Share this record as a PDF'}
+                  accessibilityHint="Creates the PDF and opens the share sheet"
+                >
+                  <Ionicons
+                    name={sharing ? 'ellipsis-horizontal' : 'share-outline'}
+                    size={21}
+                    color={sharing ? color.textTertiary : color.textSecondary}
+                  />
+                </Pressable>
+              )}
+              <Pressable
+                onPress={() => setProfile(true)}
+                style={styles.profileBtn}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Profile and settings"
+              >
+                <View style={styles.personHead} />
+                <View style={styles.personBody} />
+              </Pressable>
+            </View>
           </View>
 
-          {/* keyed per tab so each place starts at its own top; the page
-              scrolls on under the floating glass bar */}
-          <ScrollView key={tab} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-            {tab === 'today' ? (
+          {/* three pages side by side. Each keeps its own scroll position,
+              which the old key-per-tab remount threw away every time you
+              looked at something else. Everything scrolls on under the
+              floating glass. */}
+          {/* Sideways moves between tabs everywhere — including Today,
+              where the day card keeps the gesture that starts ON it.
+
+              iOS gives an inner scroll view the gesture that begins
+              inside its bounds and does not hand it back at the ends, so
+              the two never chain, but they also never fight: the card is
+              a bounded object with a visible edge, and everything outside
+              it is page. On the card, days. Off it, tabs. */}
+          <ScrollView
+            ref={pager}
+            horizontal
+            pagingEnabled
+            bounces={false}
+            scrollEventThrottle={16}
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={onPageSettled}
+          >
+            <ScrollView style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}>
               <HomeScreen
                 entries={entries}
-                func={func}
-                goalText={goalText}
+                protocol={protocol}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={setDaySheet}
-                onEvent={() => setSheet('event')}
-                onFunc={(baseline) => setSheet(baseline ? 'funcBaseline' : 'func')}
-                onSetGoal={editGoal}
+                onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
+                onKeepFocus={keepFocus}
+                onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
+                onDayChange={onDayChange}
               />
-            ) : (
+            </ScrollView>
+
+            <ScrollView
+              ref={historyScroll}
+              style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={64}
+              onScroll={(e) => setHistoryAway(e.nativeEvent.contentOffset.y > 420)}
+            >
               <MapScreen entries={entries} onDayPress={setDaySheet} />
-            )}
+            </ScrollView>
+
+            {/* The activity goal and its weekly rating are out of the app
+                for now — they asked for a second commitment before the
+                first had proved itself. The TABLE and the backup are
+                untouched, and any rating already recorded still exports
+                and restores; passing nothing here is what keeps it off the
+                screen and out of the PDF, and putting the two values back
+                is what brings it all back. */}
+            <ScrollView style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}>
+              <TrendsScreen
+                entries={entries}
+                events={events}
+                func={[]}
+                goalText={null}
+                todayIso={todayISO()}
+                onSpanChange={setTrendsSpan}
+              />
+            </ScrollView>
           </ScrollView>
 
-          <TabBar tab={tab} onChange={setTab} onProfile={() => setProfile(true)} />
+          {tab === 'map' && historyAway && (
+            <GlassPill
+              onPress={() => historyScroll.current?.scrollTo({ y: 0, animated: true })}
+              label="Today ↑"
+              accessibilityLabel="Back to today"
+            />
+          )}
+
+          <TabBar tab={tab} onChange={goToTab} />
         </SafeAreaView>
 
         {/* a full-screen flow keeps its own ✕ */}
@@ -269,30 +604,12 @@ export default function App() {
           <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
-        <Modal
-          visible={sheet === 'func' || sheet === 'funcBaseline'}
-          animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}
-        >
-          {goalText && (
-            <FunctionSheet
-              goalText={goalText}
-              baseline={sheet === 'funcBaseline'}
-              onDone={closeSheet}
-              onClose={closeSheet}
-            />
-          )}
-        </Modal>
-
-        <Modal visible={sheet === 'goal'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <GoalSheet initialText={goalText} onDone={closeSheet} onClose={closeSheet} />
+        <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+          <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
           <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
-        </Modal>
-
-        <Modal visible={sheet === 'report'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <ReportSheet onDone={closeSheet} />
         </Modal>
 
         <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
@@ -304,6 +621,12 @@ export default function App() {
               onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
               onEditLog={() => { setDaySheet(null); setSheet('checkin'); }}
               onEditEvent={startEditEvent}
+              onAddEvent={() => {
+                setReturnDay(daySheet);
+                setDaySheet(null);
+                setEditEvent(null);
+                setSheet('event');
+              }}
               onClose={closeDay}
             />
           )}
@@ -328,34 +651,26 @@ export default function App() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              {/* the record used to have a row here too — a door to a tab
+                  that is one swipe away, kept from when the summary was a
+                  buried sheet. The tab and its Share button are the
+                  feature now; a second entrance was furniture. */}
+              <Text style={styles.groupTitle}>Observation</Text>
               <View style={styles.group}>
                 <Pressable
-                  onPress={() => { setProfile(false); setSheet('report'); }}
+                  onPress={() => { setProfile(false); setSeedFactor(null); setSheet('focus'); }}
+                  disabled={!protocol && !focusReady}
                   style={styles.row}
                   accessibilityRole="button"
-                  accessibilityLabel={'Summary for your doctor, based on ' + dayCount + ' logged days'}
+                  accessibilityLabel={protocol ? 'Change your focus' : 'Choose a focus'}
                 >
-                  <RowIcon name="document-text" bg="#0A84FF" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Summary for your doctor</Text>
-                    <Text style={styles.rowValue}>
-                      {dayCount} {dayCount === 1 ? 'day' : 'days'}
-                    </Text>
-                    <Text style={styles.rowChevron}>›</Text>
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  onPress={editGoal}
-                  style={styles.row}
-                  accessibilityRole="button"
-                  accessibilityLabel={'Activity I want back' + (goalText ? ': ' + goalText : ', not set')}
-                >
-                  <RowIcon name="walk" bg="#30D158" />
+                  <RowIcon name="search-outline" />
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Activity I want back</Text>
+                    <Text style={styles.rowLabel}>Your focus</Text>
                     <Text style={styles.rowValue} numberOfLines={1}>
-                      {goalText || 'Not set'}
+                      {protocol
+                        ? activeFactors(protocol).map((m) => m.name).join(' · ')
+                        : focusReady ? 'Not set' : 'After a week of logging'}
                     </Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
@@ -375,7 +690,11 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel={'Colour theme, ' + themeName}
                 >
-                  <RowIcon name="color-palette" bg="#BF5AF2" />
+                  {/* the one row whose subject IS a colour shows it: the
+                      glyph and its frame in the palette you chose */}
+                  <View style={[styles.rowIcon, styles.themeIcon, { borderColor: themeBrand() }]}>
+                    <Ionicons name="color-palette-outline" size={19} color={themeBrand()} />
+                  </View>
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Colour theme</Text>
                     <Text style={styles.rowValue}>{themeName}</Text>
@@ -384,7 +703,60 @@ export default function App() {
                 </Pressable>
               </View>
 
+              <Text style={styles.groupTitle}>About</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => setAbout(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="What Pattern is, and when not to log"
+                >
+                  <RowIcon name="information-circle-outline" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>What Pattern is — and isn’t</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  onPress={openFeedback}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send feedback by email"
+                >
+                  <RowIcon name="chatbubble-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Send feedback</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+
               <Text style={styles.groupTitle}>Your data</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => {
+                    setAnalyticsEnabled(!analyticsOn);
+                    setAnalyticsOn(!analyticsOn);
+                  }}
+                  style={styles.row}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: analyticsOn }}
+                  accessibilityLabel="Share anonymous usage counts"
+                >
+                  <RowIcon name="stats-chart-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Share anonymous usage counts</Text>
+                    <Text style={styles.rowValue}>{analyticsOn ? 'On' : 'Off'}</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+              <Text style={styles.groupFooter}>
+                Counts that a thing happened — a check-in was completed, the app
+                was opened — never what you recorded. No pain scores, notes or
+                answers ever leave this phone.
+              </Text>
+
               <View style={styles.group}>
                 <Pressable
                   onPress={exportBackup}
@@ -392,7 +764,7 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel="Export backup"
                 >
-                  <RowIcon name="arrow-up" bg="#64D2FF" />
+                  <RowIcon name="share-outline" />
                   <View style={[styles.rowMain, styles.rowLine]}>
                     <Text style={styles.rowLabel}>Export backup</Text>
                     <Text style={styles.rowChevron}>›</Text>
@@ -405,7 +777,7 @@ export default function App() {
                   accessibilityRole="button"
                   accessibilityLabel="Restore backup"
                 >
-                  <RowIcon name="arrow-down" bg="#FF9F0A" />
+                  <RowIcon name="download-outline" />
                   <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                     <Text style={styles.rowLabel}>Restore backup</Text>
                     <Text style={styles.rowChevron}>›</Text>
@@ -417,6 +789,13 @@ export default function App() {
                 Stored only on this iPhone. Your health data stays here unless
                 you choose to export or restore a backup. Restoring lets you
                 replace or merge — you decide before anything changes.
+              </Text>
+              {/* which code is actually running — the end of guessing
+                  whether an update has landed. updateId is null when the
+                  app runs its embedded bundle. */}
+              <Text style={styles.groupFooter} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {'Pattern v' + (Constants.expoConfig?.version || '?')
+                  + ' · ' + (Updates.updateId ? 'update ' + Updates.updateId.slice(0, 8) : 'embedded bundle')}
               </Text>
 
               <View style={styles.group}>
@@ -437,6 +816,13 @@ export default function App() {
 
             {/* the theme picker, pushed on top the way Settings pushes a
                 detail page — Done falls back here */}
+            {/* nested inside the profile sheet, like Appearance — iOS
+                will not present a sibling sheet while this one is up,
+                which is why the first placement never opened */}
+            <Modal visible={about} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAbout(false)}>
+              <OnboardingScreen review onDone={() => setAbout(false)} />
+            </Modal>
+
             <Modal visible={appearance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAppearance(false)}>
               <AppearanceSheet onPick={pickTheme} onDone={() => setAppearance(false)} />
             </Modal>
@@ -452,21 +838,67 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bgRoot },
   safe: { flex: 1 },
+  /* The title had 4pt above it and nothing below, so the first thing on
+     every page started level with the headline and competed with it. A
+     large title needs air under it more than over it — that gap is what
+     makes it read as a heading rather than as the first row of content. */
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: size.pageX, paddingTop: 4,
+    paddingHorizontal: size.pageX, paddingTop: 6, paddingBottom: 14,
+  },
+  /* The person is drawn at the tab bar's glyph size and stroke weight —
+     21pt across, 1.9pt lines — because it sits in the same family of
+     controls and was previously a lighter, smaller drawing that read as a
+     different set of marks. */
+  /* hovers top right, under the headline, only on History and only once
+     you have left — glass, so it sits over the grids without occluding */
+  backToToday: {
+    position: 'absolute', top: 78, right: size.pageX,
+    borderRadius: 19, borderCurve: 'continuous', overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
+  },
+  pillHit: { minHeight: 38, paddingHorizontal: 16, justifyContent: 'center' },
+  backToTodayText: { color: color.textPrimary, fontSize: font.footnote, fontWeight: '600' },
+  themeIcon: {
+    borderWidth: 1.5, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logPill: {
+    minHeight: 38, borderRadius: 19, borderCurve: 'continuous', paddingHorizontal: 18,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: color.textPrimary,
+  },
+  logPillText: {
+    color: '#000000', fontSize: font.body, fontWeight: '700', letterSpacing: -0.2,
+  },
+  profileBtnBusy: { opacity: 0.5 },
+  profileBtn: {
+    width: 44, height: 44, borderRadius: 22, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: color.bgSurface,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  },
+  personHead: {
+    width: 9, height: 9, borderRadius: 4.5, borderWidth: 1.9,
+    borderColor: color.textSecondary, marginBottom: 1.5,
+  },
+  personBody: {
+    width: 19, height: 9, borderTopLeftRadius: 9.5, borderTopRightRadius: 9.5,
+    borderWidth: 1.9, borderBottomWidth: 0, borderColor: color.textSecondary,
   },
   /* the main screen's title — iOS large-title weight and size */
   wordmark: {
-    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    color: color.textPrimary, fontSize: font.title1, fontWeight: '700',
     letterSpacing: -0.5, flex: 1,
   },
-  /* room at the bottom so the last content clears the floating bar */
-  page: { paddingBottom: 132 },
+  /* room at the bottom so the last content clears the floating bar, and
+     a little at the top so a page never begins hard against its heading */
+  page: { paddingTop: 4, paddingBottom: 132 },
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
   },
   navSpacer: { width: 64 },
@@ -477,7 +909,7 @@ const styles = StyleSheet.create({
 
   /* ── iOS Settings grammar: inset groups, uniform rows, coloured icons ── */
   group: {
-    borderRadius: 12, backgroundColor: color.bgSegmentTrack,
+    borderRadius: 12, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack,
     overflow: 'hidden', marginBottom: 22,
   },
   groupPad: { paddingHorizontal: 16, paddingVertical: 12 },
