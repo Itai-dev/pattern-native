@@ -42,12 +42,15 @@ import {
 import { color, font, radius, size } from './theme';
 
 /** the square on the last-check-in card. Big enough to be the first thing
- *  the eye lands on, small enough that the number beside it still wins. */
-const SQUARE = 76, SQ_RADIUS = 20;
+ *  the eye lands on, small enough that the number beside it still wins —
+ *  and sized against the type around it, which is Trends' type. */
+const SQUARE = 58, SQ_RADIUS = 15;
 
-/** the sparkline's drawing height — a shape, not a chart. The chart with
- *  the scale down its side is one tap away and says so. */
-const SPARK_H = 72;
+/** the chart's drawing height on Today. Shorter than the day screen's,
+ *  because this one is a look rather than a read — but the same chart,
+ *  with the same scale beside it, because a shape with no scale is what
+ *  made the first version unreadable. */
+const SPARK_H = 96;
 
 /** tags shown beside a check-in before the card gives up. Three fits the
  *  narrowest phone; the rest are in the day detail, one tap away. */
@@ -257,18 +260,25 @@ export default function HomeScreen({
             Today so far
           </Text>
 
-          <View style={styles.sparkRow}>
-            <View style={styles.spark}>
-              <DayLine logs={logs} height={SPARK_H} dot={12} />
-            </View>
-            {!!shape && (
-              <Text
-                style={styles.reading} numberOfLines={4}
-                allowFontScaling maxFontSizeMultiplier={1.3}
-              >
-                {shape}
-              </Text>
-            )}
+          {/* The reading sits ABOVE the drawing on its own line rather than
+              beside it. Sharing the row cost the chart nearly half the card
+              — three check-ins in an afternoon became four dots in a thumb's
+              width, which is a decoration, not a drawing. It is the same
+              spec as the sentence Trends puts over its own chart. */}
+          {!!shape && (
+            <Text
+              style={styles.reading} numberOfLines={2}
+              allowFontScaling maxFontSizeMultiplier={1.3}
+            >
+              {shape}
+            </Text>
+          )}
+
+          {/* the scale and the times, on the small chart too. Without them
+              a cluster of dots in the middle of the card cannot be read at
+              all — which is the whole complaint a bare sparkline earns. */}
+          <View style={styles.spark}>
+            <DayLine logs={logs} height={SPARK_H} grid axis />
           </View>
 
           {/* what the drawing is NOT, inside the card it qualifies */}
@@ -305,68 +315,81 @@ export default function HomeScreen({
   );
 }
 
+/**
+ * The card grammar is Trends', to the pixel: the same surface, the same
+ * 16pt padding, the same type sizes doing the same jobs. A figure is
+ * title3, a label is footnote, a sentence is subheadline, fine print is
+ * footnote — and nothing on this screen is allowed a size that no other
+ * card in the app uses. The first draft of this screen was drawn from a
+ * mockup rather than from the app, and it arrived a step and a half
+ * larger than everything it sits next to; a design system that only one
+ * screen obeys is not one.
+ *
+ * The single exception is the hero number, at title2. It is one step
+ * above a Trends figure and one step below the screen's own title, which
+ * is exactly the room a focal value needs and no more.
+ */
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: size.pageX, marginTop: 8,
+    marginHorizontal: size.pageX, marginTop: 14,
     borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14,
+    padding: 16,
   },
-  cardGap: { marginTop: 16 },
+  cardGap: { marginTop: 14 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   headTime: {
-    color: color.textSecondary, fontSize: font.body, fontWeight: '500',
+    color: color.textSecondary, fontSize: font.subheadline,
     fontVariant: ['tabular-nums'],
   },
-  chev: { color: color.textSecondary, fontSize: 22, marginTop: -3 },
-  eyebrow: { color: color.textSecondary, fontSize: font.body, fontWeight: '500' },
+  chev: { color: color.textTertiary, fontSize: 18, marginTop: -2 },
+  eyebrow: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
 
-  hero: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 16 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   /* iOS shadow: no offset, so the colour sits evenly around the shape
      rather than pooling under it. Android is not a target yet. */
   glow: {
     borderCurve: 'continuous',
-    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.55, shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 14,
   },
-  heroText: { flex: 1, gap: 10 },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  heroText: { flex: 1, gap: 8 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   score: {
-    color: color.textPrimary, fontSize: 44, fontWeight: '700', letterSpacing: -1.2,
-    lineHeight: 48, fontVariant: ['tabular-nums'],
+    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
+    letterSpacing: -0.4, fontVariant: ['tabular-nums'],
   },
-  scoreDot: { width: 9, height: 9, borderRadius: 4.5 },
+  scoreDot: { width: 7, height: 7, borderRadius: 3.5 },
   scoreWord: {
-    flex: 1, color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
-    letterSpacing: -0.3,
+    flex: 1, color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
+    letterSpacing: -0.2,
   },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: {
-    borderRadius: 10, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack,
-    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 8, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack,
+    paddingHorizontal: 8, paddingVertical: 4,
   },
-  tagText: { color: color.textSecondary, fontSize: font.subheadline },
+  tagText: { color: color.textSecondary, fontSize: font.footnote },
 
-  emptyTitle: { color: color.textPrimary, fontSize: font.title3, fontWeight: '700' },
-  emptySub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20 },
+  emptyTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  emptySub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },
 
-  sparkRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18 },
-  spark: { flex: 1 },
+  spark: { marginTop: 14 },
   /* the reading, in the app's own words rather than an arrow or a
-     percentage — and it is white, because it is a sentence about pain and
-     not a pain value */
+     percentage — white, because it is a sentence about pain and not a
+     pain value, and at the size Trends gives the same job */
   reading: {
-    width: '40%', color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    letterSpacing: -0.3, lineHeight: 25, textAlign: 'right',
+    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
+    letterSpacing: -0.2, marginTop: 8,
   },
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 18 },
+  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 16 },
   rule: {
     height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider, marginTop: 14,
   },
   foot: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    minHeight: 40,
+    minHeight: 38,
   },
-  footCount: { color: color.textPrimary, fontSize: font.body, fontWeight: '500' },
-  footLink: { color: color.tint, fontSize: font.body, fontWeight: '600' },
+  footCount: { color: color.textSecondary, fontSize: font.subheadline },
+  footLink: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 });

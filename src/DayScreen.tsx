@@ -43,12 +43,16 @@ import {
 import {
   formatRange, formatScore, painColor, speakScore,
 } from './painScale';
-import { color, font, radius } from './theme';
+import { color, font, radius, size } from './theme';
 
-/* the pager's proportions — see the comment at the top of the file. SIDE
+/* The pager's proportions — see the comment at the top of the file. SIDE
    is the content padding at both ends, so an offset of i × itemW puts
-   card i dead centre; GAP is the black between one card and the next. */
-const SIDE = 16;
+   card i dead centre; GAP is the black between one card and the next.
+
+   They add up to size.pageX on purpose: the card's left edge lands on the
+   same gutter every other card in the app sits in, so walking from Today
+   into this screen does not shift the page under you. */
+const SIDE = size.pageX - 6;
 const GAP = 6;
 /** how small a neighbour draws; the card is translated back out by
  *  whatever the scale pulls in, so the peek costs nothing */
@@ -204,7 +208,7 @@ function DayPage({
               <>
                 {logs.length > 0 ? (
                   <View style={styles.plotWrap}>
-                    <DayLine logs={logs} height={PLOT_H} dot={13} grid axis />
+                    <DayLine logs={logs} height={PLOT_H} grid axis />
                   </View>
                 ) : (
                   /* a day carrying an answer with no moment behind it —
@@ -438,9 +442,11 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: color.bgRoot,
   },
+  /* the same gutter and the same rhythm as the app's own top bar, so the
+     title does not jump sideways on the way in */
   topBar: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: SIDE, paddingTop: 6, paddingBottom: 14,
+    paddingHorizontal: size.pageX, paddingTop: 6, paddingBottom: 14,
   },
   back: {
     width: 38, height: 38, borderRadius: 19, borderCurve: 'continuous',
@@ -454,71 +460,79 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   todayBtn: { minHeight: 38, justifyContent: 'center', paddingLeft: 6 },
-  todayText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
+  todayText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   pager: { flex: 1 },
   /* room for the last line to clear the floating tab bar, which this
      screen keeps rather than covering */
   page: { paddingBottom: 132 },
 
+  /* Trends' card, to the pixel — same surface, same 16pt padding, and
+     below it the same type doing the same jobs: a figure is title3, a
+     label is footnote, a sentence is subheadline. Nothing here gets a
+     size no other card in the app uses. */
   card: {
     marginHorizontal: GAP,
     borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-    paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8,
+    padding: 16,
   },
   cardTitle: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
     letterSpacing: -0.2,
   },
-  plotWrap: { marginTop: 20 },
-  empty: { color: color.textSecondary, fontSize: font.body, marginTop: 16, marginBottom: 10 },
+  plotWrap: { marginTop: 16 },
+  empty: {
+    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
+    marginTop: 12,
+  },
 
-  stats: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
-  stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statRule: { width: StyleSheet.hairlineWidth, height: 34, backgroundColor: color.borderDivider },
+  stats: { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
+  stat: { flex: 1, alignItems: 'center', gap: 1 },
+  statRule: { width: StyleSheet.hairlineWidth, height: 30, backgroundColor: color.borderDivider },
+  /* the same spec as a Trends metric tile's value */
   statV: {
-    color: color.textPrimary, fontSize: 28, fontWeight: '700', letterSpacing: -0.6,
-    fontVariant: ['tabular-nums'],
-  },
-  statUnit: { fontSize: font.body, fontWeight: '600', color: color.textSecondary },
-  statL: { color: color.textSecondary, fontSize: font.footnote },
-
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 18 },
-  rule: {
-    height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider, marginTop: 16,
-  },
-  listTitle: {
-    color: color.textPrimary, fontSize: font.body, fontWeight: '700',
-    marginTop: 14, marginBottom: 2,
-  },
-
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
-  swatch: {
-    width: 12, height: 12, borderRadius: 6,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-  },
-  rowScore: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
-  rowOutOf: { fontSize: font.footnote, fontWeight: '600', color: color.textSecondary },
+  statUnit: { fontSize: font.footnote, fontWeight: '600', color: color.textSecondary },
+  statL: { color: color.textSecondary, fontSize: font.footnote },
+
+  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 16 },
+  rule: {
+    height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider, marginTop: 14,
+  },
+  listTitle: {
+    color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
+    marginTop: 12, marginBottom: 2,
+  },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
+  swatch: {
+    width: 11, height: 11, borderRadius: 5.5,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  rowScore: {
+    color: color.textPrimary, fontSize: font.body, fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  rowOutOf: { fontSize: font.footnote, fontWeight: '500', color: color.textSecondary },
   chips: { flex: 1, flexDirection: 'row', gap: 6, flexShrink: 1 },
   chip: {
-    flexShrink: 1, borderRadius: 9, borderCurve: 'continuous',
-    backgroundColor: color.bgSegmentTrack, paddingHorizontal: 9, paddingVertical: 4,
+    flexShrink: 1, borderRadius: 8, borderCurve: 'continuous',
+    backgroundColor: color.bgSegmentTrack, paddingHorizontal: 8, paddingVertical: 4,
   },
   chipText: { color: color.textSecondary, fontSize: font.footnote },
   rowTime: {
     color: color.textSecondary, fontSize: font.subheadline,
     fontVariant: ['tabular-nums'],
   },
-  chev: { color: color.textTertiary, fontSize: 20, marginTop: -2 },
+  chev: { color: color.textTertiary, fontSize: 18, marginTop: -2 },
   moreRow: {
-    minHeight: 46, alignItems: 'center', justifyContent: 'center',
+    minHeight: 44, alignItems: 'center', justifyContent: 'center',
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
   },
-  moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
+  moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 
   swipeHint: {
     color: color.textTertiary, fontSize: font.footnote,

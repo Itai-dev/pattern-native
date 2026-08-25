@@ -36,9 +36,14 @@ import { color, font } from './theme';
 /** minutes in a day — the x axis, in full, always */
 const DAY_MINUTES = 1440;
 
-/** the thread between two check-ins */
-const LINE_W = 2;
-const LINE_COLOR = 'rgba(255,255,255,0.30)';
+/** The thread between two check-ins.
+ *
+ *  Thicker and brighter than the first version, which was 2pt at 30%
+ *  white and disappeared into the card — legible on a desk, invisible on
+ *  a phone at arm's length. It stays neutral for the reason above, so the
+ *  only way to make it readable is weight and value, not colour. */
+const LINE_W = 3;
+const LINE_COLOR = 'rgba(255,255,255,0.5)';
 
 /** the three levels the eye needs to read a height off this chart. More
  *  would be a grid; fewer and 5 stops being a landmark. */
@@ -203,7 +208,7 @@ const styles = StyleSheet.create({
   dotted: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dottedMark: {
     width: 2, height: 2, borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   /* the same hairline every other painted square in this app carries —
      it is what keeps a 0 visible on a near-black card */
