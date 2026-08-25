@@ -1,0 +1,48 @@
+# Publish an over-the-air update when master moves.
+#
+# THE POINT OF THIS FILE is that it removes the computer from the loop. A
+# session running in the cloud can edit and push; it cannot run `eas
+# update`, because there is nobody logged in there to authorise it. Expo
+# runs this workflow with the project's own credentials instead, so the
+# phone only ever has to produce a commit.
+#
+# WHAT IT WILL DO THE FIRST TIME YOU FORGET: publish straight to the
+# people testing the app. There is no staging step and there is no
+# approval — a push to master IS a release. That is the trade being made
+# deliberately, because the alternative needs a desk. Treat master as the
+# thing testers are running, and keep anything half-finished on a branch.
+#
+# If a bad one lands: `eas update:rollback`, or the Updates tab on
+# expo.dev, both of which work from a phone.
+#
+# THE TESTS RUN FIRST AND THE PUBLISH IS GATED ON THEM. The runtime guard
+# is the one that matters here — it fails if app.json's version has moved
+# away from the binary testers are carrying, which is the single change
+# this workflow cannot recover from. Publishing under a runtime nobody is
+# on succeeds silently and reaches nobody, and fixing it needs a native
+# build, which needs the computer this file exists to do without.
+
+name: Publish update
+
+on:
+  push:
+    branches: ['master']
+
+jobs:
+  verify:
+    name: Tests and typecheck
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Tests, runtime guard first
+        run: npm test
+
+  publish:
+    name: Over-the-air update
+    needs: [verify]
+    type: update
+    params:
+      # the same update branch every manual publish in this project uses
+      branch: production
