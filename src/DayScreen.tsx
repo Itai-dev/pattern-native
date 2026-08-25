@@ -34,7 +34,9 @@ import Animated, {
   Easing, Extrapolation, SharedValue, interpolate, runOnJS,
   useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DayLine from './DayLine';
+import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
   Entries, Entry, Moment, QUALITY_NAMES, checkinCount, dailyAverage,
@@ -78,6 +80,26 @@ const PLOT_H = 150;
 /** quality words shown beside a check-in before the row gives up. Two
  *  fits the narrowest phone without the time being pushed off. */
 const CHIPS = 2;
+
+/* ── the nudge ──────────────────────────────────────────────
+   How far the pager leans on arrival, and when.
+
+   It replaces a line of text that said the same thing. A sentence
+   explaining a gesture is a sentence admitting the gesture is not
+   visible; showing the movement teaches it in less time than reading
+   about it takes, and leaves the card its full width.
+
+   It runs after the screen has finished arriving — a nudge under a
+   slide-in is just a wobble — and it does not repeat once the gesture
+   has actually been used. A hint that keeps arriving after it has been
+   taken is nagging, and this app does not nag. */
+const NUDGE = 32;
+const NUDGE_OUT_MS = 520;
+const NUDGE_BACK_MS = 900;
+
+/** set the first time a real finger drags the pager. The programmatic
+ *  nudge cannot set it — only onScrollBeginDrag fires for a touch. */
+const PREF_SWIPED = 'daypager.swiped';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -194,7 +216,14 @@ function DayPage({
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.page}>
         <Animated.View style={contentStyle}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
+            <Text
+              style={styles.cardTitle}
+              allowFontScaling maxFontSizeMultiplier={1.3}
+              /* the nudge teaches the gesture by doing it, which VoiceOver
+                 cannot see. The hint is the same fact, said the one way a
+                 screen reader can receive it. */
+              accessibilityHint="Swipe left or right for another day"
+            >
               Pain through the day
             </Text>
 
@@ -270,14 +299,6 @@ function DayPage({
               </>
             )}
           </View>
-
-          {/* said in words under the card, because the peeking neighbour is
-              the real affordance and some people never see it. No arrow:
-              an arrow on a screen about pain is a control, and this is a
-              sentence. */}
-          <Text style={styles.swipeHint} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Swipe sideways for another day
-          </Text>
         </Animated.View>
       </ScrollView>
     </Animated.View>
@@ -288,6 +309,14 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
   const t = todayISO();
   const { width } = useWindowDimensions();
   const rm = useReduceMotion();
+  /* This layer is absolutely positioned inside the app's SafeAreaView,
+     and Yoga measures an absolute child's offsets from its parent's
+     BORDER box — the safe-area padding is not in that box. So top: 0 is
+     the top of the phone, not the top of the safe area, and the heading
+     landed across the clock and the battery. The inset is read again
+     here and applied as padding, which is the only way an absolute layer
+     can honour it. */
+  const insets = useSafeAreaInsets();
 
   /* Oldest first, today last — so the pager's resting place is the
      right-hand end and swiping right goes back in time, the direction a
@@ -353,10 +382,34 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
     });
   }, [rm, onClose]);
 
+  /* ── the nudge ────────────────────────────────────────────
+     Read once, at mount, so the pref cannot change under the effect.
+     It leans toward whichever side actually has a day on it — leaning at
+     an edge would bounce off nothing and teach the opposite lesson. The
+     scroll's own curve is the platform's, deliberately: this is a scroll
+     pretending to be a finger, and it should move like one. */
+  const [taught] = useState(() => db.getPref<boolean>(PREF_SWIPED, false));
+  /* someone who swipes inside the first half-second has answered the
+     question the nudge was going to ask, and a programmatic scroll
+     landing on top of their finger would drag them back off the day they
+     just chose */
+  const touched = useRef(false);
+  useEffect(() => {
+    if (rm || taught || days.length < 2) return;
+    const home = start * itemW;
+    const dir = start > 0 ? -1 : 1;
+    const lean = (offset: number) => {
+      if (!touched.current) list.current?.scrollToOffset({ offset, animated: true });
+    };
+    const out = setTimeout(() => lean(home + dir * NUDGE), NUDGE_OUT_MS);
+    const back = setTimeout(() => lean(home), NUDGE_BACK_MS);
+    return () => { clearTimeout(out); clearTimeout(back); };
+  }, []);
+
   const onDate = days[at] || dateIso;
 
   return (
-    <Animated.View style={[styles.layer, layerStyle]}>
+    <Animated.View style={[styles.layer, { paddingTop: insets.top }, layerStyle]}>
       <View style={styles.topBar}>
         <Press
           onPress={dismiss}
@@ -412,6 +465,13 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
         getItemLayout={(_: unknown, i: number) => ({ length: itemW, offset: itemW * i, index: i })}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        /* a finger, not the nudge: a programmatic scroll never begins a
+           drag, so this fires only when the gesture has really been used
+           — and once it has, the hint has done its job for good */
+        onScrollBeginDrag={() => {
+          touched.current = true;
+          if (!taught) db.setPref(PREF_SWIPED, true);
+        }}
         onMomentumScrollEnd={(ev: NativeSyntheticEvent<NativeScrollEvent>) =>
           settle(ev.nativeEvent.contentOffset.x)}
         /* a slow drag released without a flick never fires momentum end,
@@ -534,8 +594,4 @@ const styles = StyleSheet.create({
   },
   moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 
-  swipeHint: {
-    color: color.textTertiary, fontSize: font.footnote,
-    textAlign: 'center', marginTop: 14, paddingHorizontal: 24,
-  },
 });
