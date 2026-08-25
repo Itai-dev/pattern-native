@@ -33,6 +33,30 @@ committing work that cannot ship.
 A change to documentation alone — this file, `docs/` — is not in the bundle
 and does not need publishing. Everything else does.
 
+## Check that YOUR update is the newest one
+
+```bash
+npx eas-cli@latest update:list --branch production --limit 3
+```
+
+The top row should be the commit you just published. A phone takes
+whatever is newest on the branch, so anything that publishes after you
+replaces your work on every tester's device — and if it was built from an
+older commit, the app appears to revert to a version nobody shipped.
+
+This has happened. `.eas/workflows/publish.yml` published on every push;
+it was deleted, but runs already queued from earlier pushes kept draining
+for another hour, each checking out its own old commit and landing it at
+the head of `production`. The publishes interleaved with a session's own,
+so testers moved back and forth between the redesign and the version
+before it, with nothing wrong in the app and nothing wrong in the update.
+
+Read the list, not the dashboard's green tick. The row names its author —
+`itai26` is a token, a GitHub App robot is a workflow — and the message is
+the commit it was built from. `npx eas-cli@latest workflow:runs` shows
+whether anything is still queued; `workflow:cancel` stops it. If an old
+commit is sitting at the head, publishing again from master is the repair.
+
 If a bad update lands: `npx eas-cli@latest update:rollback`, or the Updates
 tab on expo.dev. Both work from a phone.
 
