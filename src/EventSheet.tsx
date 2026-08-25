@@ -31,20 +31,11 @@ const LINK_NOTE = 'Events are shown alongside your check-ins without assuming th
 export interface EventSheetProps {
   /** present = edit this event instead of creating a new one */
   event?: PainEvent | null;
-  /** The day a NEW event belongs to; absent means today.
-   *
-   *  It used to always be today, so noting a flare from the page for last
-   *  Monday filed it under this afternoon — the day you were reading was
-   *  never passed down. Unlike a check-in, an event is not a measurement
-   *  taken at a moment: it is a note about something that happened, and
-   *  recording it a day late is the normal case rather than the dishonest
-   *  one. */
-  dateIso?: string;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function EventSheet({ event, dateIso, onDone, onClose }: EventSheetProps) {
+export default function EventSheet({ event, onDone, onClose }: EventSheetProps) {
   const editing = !!(event && event.id != null);
   const [kind, setKind] = useState<EventKind>(event ? event.kind : 'flare');
   const [minutes, setMinutes] = useState(event ? event.h : minutesNow());
@@ -62,7 +53,7 @@ export default function EventSheet({ event, dateIso, onDone, onClose }: EventShe
   const [saving, setSaving] = useState(false);
   const savedRef = useRef(false);
 
-  const date = event ? event.date : (dateIso || todayISO());
+  const date = event ? event.date : todayISO();
   const dayCheckins = checkinCount(db.getDay(date));
 
   /* one tap, one event: the ref blocks the double-fire a fast second tap

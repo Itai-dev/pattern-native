@@ -19,8 +19,8 @@ import HomeScreen from './src/HomeScreen';
 import MapScreen from './src/MapScreen';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
+import DaySheet from './src/DaySheet';
 import DayScreen, { fmtDay } from './src/DayScreen';
-import PushLayer from './src/PushLayer';
 import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
 import TrendsScreen from './src/TrendsScreen';
@@ -172,24 +172,16 @@ export default function App() {
      top. The pill appears only once you have actually gone somewhere. */
   const historyScroll = useRef<ScrollView>(null);
   const [historyAway, setHistoryAway] = useState(false);
+  const [daySheet, setDaySheet] = useState<string | null>(null);
   const [profile, setProfile] = useState(false);
-  /* The profile's own sub-pages, PUSHED inside its sheet rather than
-     presented on top of it. They used to be nested Modals, with a comment
-     here explaining that a sibling sheet would not open at all while the
-     profile was up — which was the code saying it wanted a stack and had
-     been given a modal tree. Now they are places, and they arrive like
-     places. */
-  const [subPage, setSubPage] = useState<null | 'appearance' | 'about'>(null);
+  const [appearance, setAppearance] = useState(false);
+  const [about, setAbout] = useState(false);
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
-  /* an event being edited. There is no "which day do we go back to" any
-     more: the day is a LAYER and the event is a SHEET over it, so the day
-     is still there underneath when the sheet closes. That pairing of
-     return-state was the cost of presenting a place as a modal. */
+  /* an event being edited, and the day sheet to return to afterwards */
   const [editEvent, setEditEvent] = useState<PainEvent | null>(null);
-  /* the day a new event belongs to, which is not always today */
-  const [eventDay, setEventDay] = useState<string | null>(null);
+  const [returnDay, setReturnDay] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     const next = db.getAll();
@@ -203,9 +195,11 @@ export default function App() {
   const closeSheet = useCallback(() => {
     setSheet(null);
     setEditEvent(null);
-    setEventDay(null);
     refresh();
-  }, [refresh]);
+    /* editing was reached from a day's detail — go back there */
+    if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
+  }, [refresh, returnDay]);
+  const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
 
   /* the widget's whole surface is one link, and it lands here. Cold start
      and warm resume both go through the same handler, so the tap behaves
@@ -234,19 +228,12 @@ export default function App() {
     refresh();
   }, [refresh]);
 
-  /* Both open the same sheet over the day layer, which stays where it is
-     — so closing the sheet returns you to the day you were reading with
-     no state carried across to put you back there. */
   const startEditEvent = useCallback((ev: PainEvent) => {
+    setReturnDay(daySheet);
+    setDaySheet(null);
     setEditEvent(ev);
-    setEventDay(null);
     setSheet('event');
-  }, []);
-  const startAddEvent = useCallback((d: string) => {
-    setEditEvent(null);
-    setEventDay(d);
-    setSheet('event');
-  }, []);
+  }, [daySheet]);
 
   /* A plain mail draft. The app never learns whether it was sent and
      wants no inbox of its own to moderate; the version and update id go
@@ -565,9 +552,8 @@ export default function App() {
                 entries={entries}
                 protocol={protocol}
                 onLog={() => setSheet('checkin')}
-                /* both cards name a day, so both open the day. There is
-                   one of those now. */
-                onOpenDay={(d) => { track('day_opened'); setDayScreen(d); }}
+                onOpenDay={setDaySheet}
+                onOpenToday={() => { track('day_opened'); setDayScreen(todayISO()); }}
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
@@ -581,10 +567,7 @@ export default function App() {
               scrollEventThrottle={64}
               onScroll={(e) => setHistoryAway(e.nativeEvent.contentOffset.y > 420)}
             >
-              <MapScreen
-                entries={entries}
-                onDayPress={(d) => { track('day_opened'); setDayScreen(d); }}
-              />
+              <MapScreen entries={entries} onDayPress={setDaySheet} />
             </ScrollView>
 
             {/* The activity goal and its weekly rating are out of the app
@@ -615,11 +598,8 @@ export default function App() {
             <DayScreen
               entries={entries}
               dateIso={dayScreen}
-              onChanged={refresh}
-              onAddLog={() => setSheet('checkin')}
-              onAddEvent={startAddEvent}
-              onEditEvent={startEditEvent}
-              onClosed={() => setDayScreen(null)}
+              onOpenDay={setDaySheet}
+              onClose={() => setDayScreen(null)}
             />
           )}
 
@@ -643,16 +623,28 @@ export default function App() {
           <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
-        {/* Over the day layer, which stays mounted behind it — so Done
-            puts you back on the day you were reading, with nothing
-            remembered to get you there. */}
         <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <EventSheet
-            event={editEvent}
-            dateIso={eventDay || undefined}
-            onDone={closeSheet}
-            onClose={closeSheet}
-          />
+          <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
+        </Modal>
+
+        <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
+          {daySheet && (
+            <DaySheet
+              dateIso={daySheet}
+              entry={db.getDay(daySheet)}
+              onChanged={refresh}
+              onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
+              onEditLog={() => { setDaySheet(null); setSheet('checkin'); }}
+              onEditEvent={startEditEvent}
+              onAddEvent={() => {
+                setReturnDay(daySheet);
+                setDaySheet(null);
+                setEditEvent(null);
+                setSheet('event');
+              }}
+              onClose={closeDay}
+            />
+          )}
         </Modal>
 
         {/* the profile — grouped like the iOS Settings app: inset cards,
@@ -708,7 +700,7 @@ export default function App() {
               <Text style={styles.groupTitle}>Appearance</Text>
               <View style={styles.group}>
                 <Pressable
-                  onPress={() => setSubPage('appearance')}
+                  onPress={() => setAppearance(true)}
                   style={styles.row}
                   accessibilityRole="button"
                   accessibilityLabel={'Colour theme, ' + themeName}
@@ -729,7 +721,7 @@ export default function App() {
               <Text style={styles.groupTitle}>About</Text>
               <View style={styles.group}>
                 <Pressable
-                  onPress={() => setSubPage('about')}
+                  onPress={() => setAbout(true)}
                   style={styles.row}
                   accessibilityRole="button"
                   accessibilityLabel="What Pattern is, and when not to log"
@@ -837,23 +829,18 @@ export default function App() {
               </Text>
             </ScrollView>
 
-            {/* PUSHED, not presented. Both of these were sheets on top of
-                this sheet, nested here rather than beside it because iOS
-                will not present a sibling sheet while one is already up.
-                They are places inside the profile, so they arrive as
-                places: sliding in over it on the house curve, leaving on
-                the same, with the profile still underneath. Their own
-                Done is the way back, which is what it always did. */}
-            {subPage === 'appearance' && (
-              <PushLayer sheet onClosed={() => setSubPage(null)}>
-                {(back) => <AppearanceSheet onPick={pickTheme} onDone={back} />}
-              </PushLayer>
-            )}
-            {subPage === 'about' && (
-              <PushLayer sheet onClosed={() => setSubPage(null)}>
-                {(back) => <OnboardingScreen review onDone={back} />}
-              </PushLayer>
-            )}
+            {/* the theme picker, pushed on top the way Settings pushes a
+                detail page — Done falls back here */}
+            {/* nested inside the profile sheet, like Appearance — iOS
+                will not present a sibling sheet while this one is up,
+                which is why the first placement never opened */}
+            <Modal visible={about} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAbout(false)}>
+              <OnboardingScreen review onDone={() => setAbout(false)} />
+            </Modal>
+
+            <Modal visible={appearance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAppearance(false)}>
+              <AppearanceSheet onPick={pickTheme} onDone={() => setAppearance(false)} />
+            </Modal>
           </View>
         </Modal>
 
