@@ -2,19 +2,33 @@
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
-# Pushing to master releases the app
+# How to ship a change
 
-`master` is what testers are running. A push to it triggers
-`.eas/workflows/publish.yml`, which runs the tests and then publishes an
-over-the-air update to real people's phones. There is no staging step and no
-approval — **the push is the release.**
+`master` is what testers are running. Real people have this app installed, so
+finishing a change means getting it onto their phones — a commit that never
+publishes has changed nothing.
 
-This is deliberate: it is what lets the app be changed from a phone, with no
-computer in the loop. It means anything unfinished belongs on a branch, and a
-commit to master is a decision to ship.
+Unless told otherwise, do all four of these and do not stop after the third:
 
-If a bad update lands: `eas update:rollback`, or the Updates tab on
-expo.dev. Both work from a phone.
+```bash
+npm run verify
+git add -A && git commit -m "<message>"
+git push origin master
+npx eas-cli@latest update --branch production --environment production --message "<short summary>"
+```
+
+`npm run verify` is typecheck, the full suite, and an export of both bundles.
+If it fails, fix it — do not publish around it.
+
+The update command needs `EXPO_TOKEN` in the environment. Check with
+`npx eas-cli@latest whoami`; if that fails, say so and stop rather than
+committing work that cannot ship.
+
+If a bad update lands: `npx eas-cli@latest update:rollback`, or the Updates
+tab on expo.dev. Both work from a phone.
+
+Tell the user to force-quit the app twice. An update downloads on one launch
+and applies on the next; one force-quit looks like nothing happened.
 
 ## The one change that cannot be undone over the air
 
