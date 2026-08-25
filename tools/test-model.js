@@ -580,5 +580,62 @@ ok('ink stays legible on every theme at every value', (() => {
   return true;
 })());
 
+/* ── the day summary sentence ─────────────────────────────────
+   Deterministic prose: same data, same sentence, forever. These pin the
+   exact strings, because the sentence goes in front of a clinician and a
+   quiet rewording is a change to a medical document. */
+console.log('\nthe day summary sentence');
+
+ok('nothing logged, nothing said', model.daySummary([]) === null);
+ok('one check-in names itself in full',
+  model.daySummary([{ h: 515, pain: 7 }]) === 'One check-in at 8:35 — 7, Severe.');
+ok('count, span, range, majority word, direction',
+  model.daySummary([
+    { h: 424, pain: 5 }, { h: 666, pain: 5 }, { h: 822, pain: 5 },
+    { h: 1000, pain: 4 }, { h: 1434, pain: 8 },
+  ]) === '5 check-ins between 7:04 and 23:54, from 4 to 8 — mostly Moderate, ending higher than it began.');
+ok('a flat day is not described twice',
+  model.daySummary([{ h: 60, pain: 5 }, { h: 600, pain: 5 }])
+    === '2 check-ins between 1:00 and 10:00, all at 5.');
+ok('a small move earns no direction clause — the same gate as Today',
+  model.daySummary([{ h: 60, pain: 5 }, { h: 600, pain: 6 }])
+    === '2 check-ins between 1:00 and 10:00, from 5 to 6 — all Moderate.');
+ok('no majority, no word claimed', (() => {
+  const s = model.daySummary([{ h: 60, pain: 2 }, { h: 600, pain: 8 }]);
+  return s === '2 check-ins between 1:00 and 10:00, from 2 to 8 — ending higher than it began.'
+    && s.indexOf('mostly') < 0;
+})());
+ok('order of entry does not change the sentence',
+  model.daySummary([{ h: 600, pain: 6 }, { h: 60, pain: 5 }])
+    === model.daySummary([{ h: 60, pain: 5 }, { h: 600, pain: 6 }]));
+
+/* ── day notes in the report ──────────────────────────────────
+   In only when asked, verbatim when in, and absent means absent. */
+console.log('\nday notes in the report');
+
+const noteDays = {
+  '2026-08-20': { pain: 5, cap: null, note: 'Moved apartments, slept on the floor.', logs: [{ h: 600, pain: 5 }] },
+  '2026-08-21': { pain: 3, cap: null, note: '   ', logs: [{ h: 600, pain: 3 }] },
+  '2026-08-22': { pain: 4, cap: null, note: 'Better after the physio.', logs: [{ h: 600, pain: 4 }] },
+};
+const noteInp = {
+  entries: noteDays, events: [], func: [], goalText: null,
+  todayIso: '2026-08-25', windowDays: 30,
+};
+ok('notes stay out unless the share asked', (() => {
+  const d = report.buildReportData(noteInp);
+  return d && d.notes.length === 0
+    && report.reportHtml(d).indexOf('own words') < 0;
+})());
+ok('asked for, they arrive verbatim, dated, in order — and blank is not a note', (() => {
+  const d = report.buildReportData(Object.assign({}, noteInp, { includeNotes: true }));
+  if (!d || d.notes.length !== 2) return false;
+  const html = report.reportHtml(d);
+  return d.notes[0].date === '2026-08-20'
+    && d.notes[1].text === 'Better after the physio.'
+    && html.indexOf('In the patient’s own words') >= 0
+    && html.indexOf('Moved apartments, slept on the floor.') >= 0;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

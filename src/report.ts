@@ -34,6 +34,12 @@ export interface ReportInput {
   goalText: string | null;
   todayIso: string;
   windowDays: number; // typically 90
+  /** Day notes go into the PDF only when this is true, and the user is
+   *  asked at share time — never a buried setting. Notes are the one part
+   *  of the record written with no audience in mind, and a month of
+   *  private paragraphs must not ride along because a toggle was
+   *  forgotten. Absent = out. */
+  includeNotes?: boolean;
 }
 
 export interface ReportDay { date: string; avg: number; count: number }
@@ -70,6 +76,12 @@ export interface ReportData {
   harderEasier: HarderEasier | null;
   /** what the user pointed at, counted. ATTRIBUTIONS, not findings. */
   flagged: { worse: FlagCount[]; better: FlagCount[] };
+  /** Day notes, verbatim, chronological — EMPTY unless the share asked
+   *  for them. They render as their own section at the end and are never
+   *  woven into the charts: the report's body is numbers and computed
+   *  sentences, and these are the patient's words, kept apart so neither
+   *  can be mistaken for the other. */
+  notes: { date: string; text: string }[];
 }
 
 /* ── what you flagged ────────────────────────────────────────
@@ -154,7 +166,7 @@ const round1 = (v: number) => Math.round(v * 10) / 10;
 
 /** everything the report shows, computed once. null = nothing logged. */
 export function buildReportData(inp: ReportInput): ReportData | null {
-  const { entries, events, func, goalText, todayIso, windowDays } = inp;
+  const { entries, events, func, goalText, todayIso, windowDays, includeNotes } = inp;
   const start = dateFromISO(todayIso);
   start.setDate(start.getDate() - (windowDays - 1));
   const startIso = iso(start);
@@ -226,6 +238,12 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       worse: countFlags(entries, days, IMPACT_WORSE),
       better: countFlags(entries, days, IMPACT_BETTER),
     },
+    /* from every day in the window, logged or not — a note can sit on a
+       day whose check-ins were all removed, and it is still theirs */
+    notes: !includeNotes ? [] : Object.keys(entries)
+      .filter((k) => k >= startIso && k <= todayIso && !!(entries[k].note || '').trim())
+      .sort()
+      .map((k) => ({ date: k, text: entries[k].note.trim() })),
   };
 }
 
@@ -704,6 +722,26 @@ export function reportHtml(data: ReportData): string {
         '<td class="num">' + esc(fmtTime(ev.h)) + '</td>' +
         '<td>' + esc(EVENT_LABELS[ev.kind as EventKind] || ev.kind) + '</td>' +
         '<td>' + note + '</td></tr>');
+    });
+    s.push('</table></section>');
+  }
+
+  /* ── the patient's own words ─────────────────────────────
+     Last, in their own section, verbatim. Never woven into the charts:
+     the body of this report is numbers and computed sentences, and these
+     are neither — they are what the patient chose to write down, present
+     only because they chose again, at share time, to include them. No
+     truncation and no paraphrase; an edited quotation in a medical
+     document is the reader's problem wearing the writer's name. */
+  if (data.notes.length) {
+    s.push('<section><h2>In the patient’s own words</h2>');
+    s.push('<div class="note">Day notes, included by the patient’s choice, ' +
+      'reproduced exactly as written. These are personal context, not ' +
+      'clinical observations.</div>');
+    s.push('<table><tr><th>Date</th><th>Note</th></tr>');
+    data.notes.forEach((n) => {
+      s.push('<tr><td class="num">' + esc(fmtShortDate(n.date)) + '</td>' +
+        '<td>' + esc(n.text) + '</td></tr>');
     });
     s.push('</table></section>');
   }

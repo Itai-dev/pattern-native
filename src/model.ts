@@ -25,7 +25,8 @@
 import {
   isKnownMetric, isSetMetric, validAnswerValue, validSetMember, MODIFIERIDS,
 } from './metrics';
-import { normalizePain } from './painScale';
+import { formatScore, normalizePain, painLabel } from './painScale';
+import { DAY_SHAPE_MIN_DELTA } from './thresholds';
 
 export interface Moment {
   /** minutes since LOCAL midnight, 0–1439 — the identity of a moment and
@@ -606,6 +607,67 @@ export function dailyAverage(e: Entry | null | undefined): number | null {
   if (!logs.length) return typeof e.pain === 'number' ? e.pain : null;
   const sum = logs.reduce((s, l) => s + l.pain, 0);
   return Math.round((sum / logs.length) * 10) / 10;
+}
+
+/**
+ * The day in one sentence, computed from what was entered and nothing
+ * else. "11 check-ins between 7:04 and 23:54, from 2 to 7 — mostly
+ * Moderate, ending higher than it began."
+ *
+ * Every clause is deterministic: same data, same sentence, on this
+ * screen, in a test, and years from now. That is the property that makes
+ * a generated sentence safe in a health record — it is a READING of the
+ * numbers beside it, reproducible by hand, never a paraphrase and never
+ * stored. Nothing here rewards a re-open, because nothing here changes
+ * unless a check-in does.
+ *
+ * What each clause is allowed to say:
+ *  - the count and the times: facts, verbatim.
+ *  - the range: the two ends the user actually entered. Not a variance,
+ *    not a spread score — those would be numbers nobody typed.
+ *  - "mostly X": the scale word that covers a strict majority of the
+ *    day's check-ins, painLabel's own vocabulary. No majority, no claim.
+ *  - "ending higher/lower than it began": last against first, and only
+ *    past DAY_SHAPE_MIN_DELTA — the same gate the Today card uses, for
+ *    the same reason. Below it the day just ends, undescribed.
+ */
+export function daySummary(logs: Moment[]): string | null {
+  if (!logs.length) return null;
+  const sorted = logs.slice().sort((a, b) => a.h - b.h);
+  const n = sorted.length;
+  const first = sorted[0], last = sorted[n - 1];
+  const low = sorted.reduce((m, l) => (l.pain < m ? l.pain : m), 10);
+  const high = sorted.reduce((m, l) => (l.pain > m ? l.pain : m), 0);
+
+  if (n === 1) {
+    return 'One check-in at ' + fmtTime(first.h) + ' — '
+      + formatScore(first.pain) + ', ' + painLabel(first.pain) + '.';
+  }
+
+  let s = n + ' check-ins between ' + fmtTime(first.h) + ' and ' + fmtTime(last.h);
+  s += low === high
+    ? ', all at ' + formatScore(low)
+    : ', from ' + formatScore(low) + ' to ' + formatScore(high);
+
+  const tail: string[] = [];
+  /* a day pinned to one value already names its own word — "all at 5 —
+     all Moderate" would say the same thing twice */
+  if (low !== high) {
+    const byWord: Record<string, number> = {};
+    sorted.forEach((l) => {
+      const w = painLabel(l.pain);
+      byWord[w] = (byWord[w] || 0) + 1;
+    });
+    const words = Object.keys(byWord).sort((a, b) => byWord[b] - byWord[a]);
+    if (byWord[words[0]] > n / 2) {
+      tail.push(byWord[words[0]] === n ? 'all ' + words[0] : 'mostly ' + words[0]);
+    }
+  }
+  const d = last.pain - first.pain;
+  if (Math.abs(d) >= DAY_SHAPE_MIN_DELTA) {
+    tail.push(d > 0 ? 'ending higher than it began' : 'ending lower than it began');
+  }
+  return s + (tail.length ? ' — ' + tail.join(', ') : '') + '.';
 }
 
 /* ── function: ability at the activity you want back ─────────

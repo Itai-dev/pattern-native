@@ -8,7 +8,7 @@
  */
 import React, { useCallback, useState } from 'react';
 import {
-  LayoutAnimation, ScrollView, StyleSheet, Text, View,
+  LayoutAnimation, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -18,7 +18,7 @@ import { Press, useReduceMotion } from './motion';
 import { getMetric, levelLabel } from './metrics';
 import {
   Answer, Entry, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES, checkinCount,
-  dailyAverage, dateFromISO, fmtTime, logsOf, todayISO,
+  dailyAverage, dateFromISO, daySummary, fmtTime, logsOf, todayISO,
 } from './model';
 import {
   formatCheckins, formatOutOf, formatScoreAndLabel, painColor, speakScore,
@@ -55,6 +55,21 @@ export default function DaySheet({
   const logs = logsOf(live);
   const avg = dailyAverage(live);
   const count = live ? checkinCount(live) : 0;
+
+  /* the note is drafted apart from the stored value, so Cancel is a real
+     cancel — nothing touches the record until Save */
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+  const startNote = useCallback(() => {
+    setNoteDraft((db.getDay(dateIso)?.note) || '');
+    setNoteEditing(true);
+  }, [dateIso]);
+  const saveNote = useCallback(() => {
+    db.setNote(dateIso, noteDraft.trim());
+    setNoteEditing(false);
+    force((n) => n + 1);
+    onChanged();
+  }, [dateIso, noteDraft, onChanged]);
 
   const places: string[] = [];
   const seen: Record<string, true> = {};
@@ -133,6 +148,19 @@ export default function DaySheet({
             )}
           </View>
         </View>
+
+        {/* The day, read back in one computed sentence — every clause
+            derived from the numbers below it, the same sentence for the
+            same data on every open. See daySummary for what each clause
+            is and is not allowed to claim. */}
+        {(() => {
+          const s = daySummary(logs);
+          return s ? (
+            <Text style={styles.summary} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {s}
+            </Text>
+          ) : null;
+        })()}
 
         {logs.length > 0 && (
           <View style={styles.list}>
@@ -331,7 +359,83 @@ export default function DaySheet({
           );
         })()}
 
-        {live?.note ? <Text style={styles.note}>“{live.note}”</Text> : null}
+        {/* ── the day, in their words ───────────────────────
+            One note per day, editable after the fact — unlike a check-in's
+            timestamp, a note about Monday written on Tuesday is the normal
+            case, not the dishonest one. The field has existed in storage,
+            backup and the PWA all along; this is the first place the
+            native app lets it be written.
+
+            Read by nothing. It has no levels and nothing to compare
+            against, so the engine never sees it; it reaches the PDF only
+            when the share asks, and the share asks every time. */}
+        {/* only on a day that exists in the record. db.setNote refuses a
+            day with no entry, and manufacturing one would mean writing a
+            pain value nobody entered just to hang a sentence on. */}
+        {!!live && (
+        <View style={styles.list}>
+          <Text style={styles.listTitle}>In your own words</Text>
+          {noteEditing ? (
+            <>
+              <TextInput
+                value={noteDraft}
+                onChangeText={setNoteDraft}
+                multiline
+                autoFocus
+                placeholder="Anything about this day worth remembering"
+                placeholderTextColor={color.textTertiary}
+                style={styles.noteInput}
+                accessibilityLabel="Note about this day"
+              />
+              <View style={styles.noteActions}>
+                <Press
+                  onPress={() => setNoteEditing(false)}
+                  pressOpacity={0.7}
+                  style={styles.noteBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel editing the note"
+                >
+                  <Text style={styles.noteCancel}>Cancel</Text>
+                </Press>
+                <Press
+                  onPress={saveNote}
+                  pressOpacity={0.7}
+                  style={styles.noteBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save the note"
+                >
+                  <Text style={styles.noteSave}>Save</Text>
+                </Press>
+              </View>
+            </>
+          ) : live?.note ? (
+            <Press
+              onPress={startNote}
+              pressOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={'Your note: ' + live.note}
+              accessibilityHint="Opens the note to edit"
+            >
+              <Text style={styles.note}>“{live.note}”</Text>
+              <Text style={styles.noteEditHint}>Edit</Text>
+            </Press>
+          ) : (
+            <Press
+              onPress={startNote}
+              pressOpacity={0.85}
+              style={styles.addEvent}
+              accessibilityRole="button"
+              accessibilityLabel="Add a note about this day"
+            >
+              <Text style={styles.addEventText}>Add a note about this day</Text>
+            </Press>
+          )}
+          <Text style={styles.swipeHint}>
+            Kept on this iPhone with the rest of your record. Never analysed —
+            it goes into the PDF only if you say so when you share.
+          </Text>
+        </View>
+        )}
 
         {isToday && (
           <Press
@@ -416,6 +520,25 @@ const styles = StyleSheet.create({
   },
   qSkipped: { color: color.textTertiary, fontWeight: '500' },
   swipeHint: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: 10 },
+  /* the computed reading of the day — under the header, over the lists it
+     is a reading OF */
+  summary: {
+    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
+    marginTop: 14,
+  },
+  noteInput: {
+    color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21,
+    minHeight: 88, textAlignVertical: 'top',
+    borderRadius: radius.button, borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+    backgroundColor: color.bgSurface,
+    paddingHorizontal: 12, paddingVertical: 10, marginTop: 6,
+  },
+  noteActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 22, marginTop: 4 },
+  noteBtn: { minHeight: 44, justifyContent: 'center' },
+  noteCancel: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '500' },
+  noteSave: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  noteEditHint: { color: color.tint, fontSize: font.footnote, fontWeight: '500', marginTop: 6 },
   eventRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44, paddingVertical: 6 },
   note: {
     marginTop: 18, paddingTop: 14, color: color.textSecondary, fontSize: 15,

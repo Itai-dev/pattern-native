@@ -29,7 +29,7 @@ import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
-import { PainEvent, ValidBackup, todayISO } from './src/model';
+import { PainEvent, ValidBackup, iso, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { refreshWidget } from './src/widgetPush';
 import {
@@ -256,13 +256,13 @@ export default function App() {
   const [trendsSpan, setTrendsSpan] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
 
-  const shareTrends = useCallback(async () => {
-    if (sharing) return;
+  const makePdf = useCallback(async (includeNotes: boolean) => {
     setSharing(true);
     try {
       const data = buildReportData({
         entries, events, func: [], goalText: null,
         todayIso: todayISO(), windowDays: trendsSpan || 36500,
+        includeNotes,
       });
       if (!data) {
         Alert.alert('Nothing to share yet', 'Check in once and there will be a record to send.');
@@ -277,8 +277,10 @@ export default function App() {
         });
         /* declared in the analytics union since it was written and never
            once fired — the count of "someone took their record to an
-           appointment" is the single most useful number this app has */
-        track('pdf_shared');
+           appointment" is the single most useful number this app has.
+           Whether notes rode along is a fact about the share, not about
+           what any note said. */
+        track('pdf_shared', { notes: includeNotes });
       } else {
         Alert.alert('Sharing isn’t available on this device.');
       }
@@ -287,7 +289,32 @@ export default function App() {
     } finally {
       setSharing(false);
     }
-  }, [entries, events, trendsSpan, sharing]);
+  }, [entries, events, trendsSpan]);
+
+  const shareTrends = useCallback(() => {
+    if (sharing) return;
+    /* Day notes ride along only on an explicit yes, asked at every share
+       rather than remembered from the last one. They are written with no
+       audience in mind, and which audience gets them is a decision about
+       THIS copy — a doctor's PDF and one for a work absence claim are not
+       the same share. No notes in the window, no question. */
+    const start = new Date();
+    start.setDate(start.getDate() - ((trendsSpan || 36500) - 1));
+    const startIso = iso(start);
+    const hasNotes = Object.keys(entries)
+      .some((k) => k >= startIso && !!(entries[k].note || '').trim());
+    if (!hasNotes) { makePdf(false); return; }
+    Alert.alert(
+      'Include your day notes?',
+      'Notes you wrote on your days can go into the PDF, word for word, ' +
+      'in their own section. The numbers and charts are included either way.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Without notes', onPress: () => makePdf(false) },
+        { text: 'Include notes', onPress: () => makePdf(true) },
+      ]
+    );
+  }, [entries, trendsSpan, sharing, makePdf]);
 
   const pickTheme = useCallback((id: PainThemeId) => {
     setPainTheme(id);
