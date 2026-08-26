@@ -241,10 +241,28 @@ export default function App() {
     setSheet(null);
     setEditEvent(null);
     refresh();
-    /* editing was reached from a day's detail — go back there */
-    if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
-  }, [refresh, returnDay]);
+    /* editing was reached from a day's detail — go back there. NOT here
+       and not now: the reopen happens in the event modal's onDismiss,
+       after iOS has actually finished dismissing. Presenting one sheet
+       in the same tick as dismissing another is a race UIKit sometimes
+       answers with "tried to present while a presentation is in
+       progress" — an uncatchable native exception, i.e. a crash on
+       Save. See `swapSheet` for the forward direction of the same bug. */
+  }, [refresh]);
   const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
+
+  /* ── one modal at a time, SEQUENCED ───────────────────────
+     Everywhere the app closes one sheet and opens another — day detail
+     to event, day detail to check-in, profile to focus — the second
+     presentation must wait for the first dismissal to complete. The
+     next action is parked here and fired from the closing modal's
+     onDismiss (iOS-only callback, and this is an iOS-only app). */
+  const afterDismiss = useRef<null | (() => void)>(null);
+  const runAfterDismiss = useCallback(() => {
+    const f = afterDismiss.current;
+    afterDismiss.current = null;
+    if (f) f();
+  }, []);
 
   /* the widget's whole surface is one link, and it lands here. Cold start
      and warm resume both go through the same handler, so the tap behaves
@@ -275,9 +293,8 @@ export default function App() {
 
   const startEditEvent = useCallback((ev: PainEvent) => {
     setReturnDay(daySheet);
+    afterDismiss.current = () => { setEditEvent(ev); setSheet('event'); };
     setDaySheet(null);
-    setEditEvent(ev);
-    setSheet('event');
   }, [daySheet]);
 
   /* A plain mail draft. The app never learns whether it was sent and
@@ -697,24 +714,47 @@ export default function App() {
           <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
-        <Modal visible={sheet === 'event'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
+        {/* onDismiss, not the Save tap, reopens the day sheet the event
+            was entered from — see afterDismiss for the crash this
+            sequencing exists to prevent */}
+        <Modal
+          visible={sheet === 'event'}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={closeSheet}
+          onDismiss={() => {
+            if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
+            runAfterDismiss();
+          }}
+        >
           <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
-        <Modal visible={!!daySheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDay}>
+        <Modal
+          visible={!!daySheet}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={closeDay}
+          onDismiss={runAfterDismiss}
+        >
           {daySheet && (
             <DaySheet
               dateIso={daySheet}
               entry={db.getDay(daySheet)}
               onChanged={refresh}
-              onAddLog={() => { setDaySheet(null); setSheet('checkin'); }}
-              onEditLog={() => { setDaySheet(null); setSheet('checkin'); }}
+              onAddLog={() => {
+                afterDismiss.current = () => setSheet('checkin');
+                setDaySheet(null);
+              }}
+              onEditLog={() => {
+                afterDismiss.current = () => setSheet('checkin');
+                setDaySheet(null);
+              }}
               onEditEvent={startEditEvent}
               onAddEvent={() => {
                 setReturnDay(daySheet);
+                afterDismiss.current = () => { setEditEvent(null); setSheet('event'); };
                 setDaySheet(null);
-                setEditEvent(null);
-                setSheet('event');
               }}
               onClose={closeDay}
             />
@@ -723,7 +763,7 @@ export default function App() {
 
         {/* the profile — grouped like the iOS Settings app: inset cards,
             uniform rows, a coloured icon leading each one */}
-        <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProfile(false)}>
+        <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProfile(false)} onDismiss={runAfterDismiss}>
           <View style={styles.sheet}>
             <View style={styles.navBar}>
               <View style={styles.navSpacer} />
@@ -747,7 +787,10 @@ export default function App() {
               <Text style={styles.groupTitle}>Observation</Text>
               <View style={styles.group}>
                 <Pressable
-                  onPress={() => { setProfile(false); setSeedFactor(null); setSheet('focus'); }}
+                  onPress={() => {
+                    afterDismiss.current = () => { setSeedFactor(null); setSheet('focus'); };
+                    setProfile(false);
+                  }}
                   disabled={!protocol && !focusReady}
                   style={styles.row}
                   accessibilityRole="button"

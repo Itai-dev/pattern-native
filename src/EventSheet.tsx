@@ -79,8 +79,17 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
     if (duration) row.duration = duration;
     if (spread.trim()) row.spread = spread.trim();
     if (doing.trim()) row.doing = doing.trim();
-    if (editing) db.updateEvent(event!.id!, row);
-    else db.addEvent(row);
+    /* a failed write must be a message, not a crash — and it must
+       re-arm Save, or the sheet is stuck holding words it cannot keep */
+    try {
+      if (editing) db.updateEvent(event!.id!, row);
+      else db.addEvent(row);
+    } catch {
+      savedRef.current = false;
+      setSaving(false);
+      Alert.alert('Couldn’t save this event', 'Nothing was recorded. Please try again.');
+      return;
+    }
     onDone();
   };
 
