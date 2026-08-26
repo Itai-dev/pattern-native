@@ -659,6 +659,7 @@ export default function App() {
                 todayIso={todayISO()}
                 onSpanChange={setTrendsSpan}
                 healthNoticed={healthNoticed}
+                protocol={protocol}
               />
             </ScrollView>
           </ScrollView>

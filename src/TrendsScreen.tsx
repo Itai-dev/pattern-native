@@ -30,14 +30,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
 import { Press } from './motion';
 import {
-  EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, RESPONSE_LABELS,
-  Response, dateFromISO, fmtTime,
+  EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, Protocol,
+  RESPONSE_LABELS, Response, dateFromISO, fmtTime,
 } from './model';
 import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
 import { EndOfRecord, ReportData, buildReportData, fmtReportDate } from './report';
 import {
   Association as HealthAssociation, associationCopy, fadedCopy,
 } from './health/engine';
+import { DigestCard, checkinBuys, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -62,6 +63,9 @@ export interface TrendsScreenProps {
     best: HealthAssociation | null;
     fading: HealthAssociation[];
   };
+  /** the active observation period, for the progress cards — what a
+   *  check-in is currently buying */
+  protocol?: Protocol | null;
 }
 
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -519,8 +523,50 @@ function outcomeOf(ev: PainEvent): string {
   return '';
 }
 
+/** one digest sentence: the claim, the numbers, the caveat. Sentence
+ *  first and biggest — the Health pattern — with no glyph, no arrow and
+ *  no colour: colour means pain, and none of these is a pain value. */
+function DigestRow({ card, first }: { card: DigestCard; first: boolean }) {
+  return (
+    <View
+      style={[digestStyles.row, !first && digestStyles.rowDivider]}
+      accessible
+      accessibilityLabel={card.title + ' ' + card.evidence
+        + (card.caveat ? ' ' + card.caveat : '')}
+    >
+      <Text style={digestStyles.title} allowFontScaling maxFontSizeMultiplier={1.4}>
+        {card.title}
+      </Text>
+      <Text style={digestStyles.evidence} allowFontScaling maxFontSizeMultiplier={1.4}>
+        {card.evidence}
+      </Text>
+      {!!card.caveat && (
+        <Text style={digestStyles.caveat} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {card.caveat}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+const digestStyles = StyleSheet.create({
+  row: { paddingVertical: 12, gap: 5 },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
+  },
+  title: {
+    color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 23,
+  },
+  evidence: {
+    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18,
+    fontVariant: ['tabular-nums'],
+  },
+  caveat: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18 },
+});
+
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso, onSpanChange, healthNoticed,
+  protocol,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
      day — a fixed window that happens to miss the days someone logged
@@ -576,6 +622,12 @@ export default function TrendsScreen({
      a range that changes nothing is not offered, and when that leaves one
      the control itself is not drawn either */
   const ranges = RANGES.filter((r) => r.days === 0 || r.days < spanRecord);
+
+  /* the digest: the record as sentences, and what a check-in is buying.
+     Both come back empty until their gates clear, and empty sections are
+     not drawn — silence is a valid digest. */
+  const says = recordSays(data);
+  const buys = checkinBuys(protocol || null, entries, todayIso);
 
   const tried = data.events.filter((ev) => ev.intervention || ev.resp || ev.helped != null);
 
@@ -677,6 +729,33 @@ export default function TrendsScreen({
           </Card>
         );
       })()}
+
+      {/* ── the record, as sentences ─────────────────────────
+          Apple Health's card grammar, held to this app's rules: the
+          sentence IS the card and the numbers only back it up — but no
+          sentence rates today, nothing compares this open with the
+          last, and there is no flame. Every sentence reads a statistic
+          that already cleared its named gate; when none has, the
+          section is simply absent. */}
+      {says.length > 0 && (
+        <Card title="What your record says">
+          {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+        </Card>
+      )}
+
+      {/* what a check-in is currently buying — progress toward the
+          comparisons the user set up themselves. Answers, never scores:
+          this is the honest version of a reward, and it moves only when
+          data does. */}
+      {buys.length > 0 && (
+        <Card title="What a check-in is buying">
+          {buys.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+          <Text style={styles.noteLine}>
+            Counts move only when you add a check-in — nothing here changes on
+            its own.
+          </Text>
+        </Card>
+      )}
 
       {/* ── the numbers ─────────────────────────────────────── */}
       <Card title="Your record">

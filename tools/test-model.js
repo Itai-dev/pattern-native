@@ -637,5 +637,67 @@ ok('asked for, they arrive verbatim, dated, in order — and blank is not a note
     && html.indexOf('Moved apartments, slept on the floor.') >= 0;
 })());
 
+/* ── the digest ───────────────────────────────────────────────
+   Sentence-first cards over already-gated statistics. Wording pinned:
+   these sentences describe someone's pain record. */
+console.log('\nthe digest');
+
+const digest = require(path.join(OUT, 'digest.js'));
+
+/** a record with clearly split mornings and evenings across many days */
+function digestEntries(days, morningPain, eveningPain) {
+  const out = {};
+  for (let i = 1; i <= days; i++) {
+    const d = '2026-07-' + String(i).padStart(2, '0');
+    out[d] = {
+      pain: morningPain, cap: null, note: '',
+      logs: [{ h: 8 * 60, pain: morningPain }, { h: 20 * 60, pain: eveningPain }],
+    };
+  }
+  return out;
+}
+const digestData = (entries) => report.buildReportData({
+  entries, events: [], func: [], goalText: null,
+  todayIso: '2026-07-28', windowDays: 60,
+});
+
+ok('a real morning–evening split earns the sentence, exactly worded', (() => {
+  const cards = digest.recordSays(digestData(digestEntries(25, 7, 4)));
+  const band = cards.filter((c) => c.key === 'bands')[0];
+  return band
+    && band.title === 'Your mornings run higher than your evenings.'
+    && band.evidence.indexOf('Morning average 7') >= 0
+    && band.caveat.indexOf('not why') >= 0;
+})());
+ok('a one-point split says nothing — below the same delta as everywhere', (() => {
+  const cards = digest.recordSays(digestData(digestEntries(25, 5, 4)));
+  return cards.filter((c) => c.key === 'bands').length === 0;
+})());
+ok('no sentence ever rates today or claims cause', (() => {
+  const cards = digest.recordSays(digestData(digestEntries(25, 7, 4)));
+  const all = cards.map((c) => c.title + ' ' + c.evidence + ' ' + (c.caveat || ''))
+    .join(' ').toLowerCase();
+  return ['today', 'caused', 'because', 'trigger', 'streak'].every(
+    (w) => all.indexOf(w) < 0);
+})());
+ok('a factor still collecting says how far it is, in answers', (() => {
+  const card = digest.progressCard({
+    metricId: 'sleep.quality.v1', name: 'Sleep', answered: 6, skipped: 1,
+    lowId: 'poor', lowLabel: 'Poor', lowCount: 3,
+    highId: 'good', highLabel: 'Good', highCount: 5,
+    needed: 8, comparable: false,
+  });
+  return card
+    && card.title === 'Sleep is about 5 answers from a comparison.'
+    && card.evidence.indexOf('you have 3 and 5') >= 0;
+})());
+ok('a comparable factor produces no card — the engine speaks from there', (() => {
+  return digest.progressCard({
+    metricId: 'x', name: 'X', answered: 20, skipped: 0,
+    lowId: 'l', lowLabel: 'L', lowCount: 9, highId: 'h', highLabel: 'H',
+    highCount: 8, needed: 8, comparable: true,
+  }) === null;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);
