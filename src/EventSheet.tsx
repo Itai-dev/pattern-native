@@ -79,15 +79,25 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
     if (duration) row.duration = duration;
     if (spread.trim()) row.spread = spread.trim();
     if (doing.trim()) row.doing = doing.trim();
-    /* a failed write must be a message, not a crash — and it must
-       re-arm Save, or the sheet is stuck holding words it cannot keep */
+    /* A failed write must be a message, not a crash — and it must
+       re-arm Save, or the sheet is stuck holding words it cannot keep.
+
+       The alert CARRIES THE ENGINE'S OWN ERROR. The first version
+       swallowed it, which turned a diagnosable fault into "please try
+       again" — on a write that was failing every time. The string is
+       SQLite's, not the user's: a table or column name, never health
+       data, and it is the difference between guessing and knowing. */
     try {
       if (editing) db.updateEvent(event!.id!, row);
       else db.addEvent(row);
-    } catch {
+    } catch (e) {
       savedRef.current = false;
       setSaving(false);
-      Alert.alert('Couldn’t save this event', 'Nothing was recorded. Please try again.');
+      const detail = e instanceof Error ? e.message : String(e);
+      Alert.alert(
+        'Couldn’t save this event',
+        'Nothing was recorded. The storage engine said:\n\n' + detail.slice(0, 300)
+      );
       return;
     }
     onDone();
