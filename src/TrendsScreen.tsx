@@ -35,6 +35,9 @@ import {
 } from './model';
 import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
 import { EndOfRecord, ReportData, buildReportData, fmtReportDate } from './report';
+import {
+  Association as HealthAssociation, associationCopy, fadedCopy,
+} from './health/engine';
 import { color, font, radius, size } from './theme';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -52,6 +55,13 @@ export interface TrendsScreenProps {
   /** how many days the chart is currently showing, reported upward so the
    *  PDF the title bar exports covers what is actually on screen */
   onSpanChange?: (days: number) => void;
+  /** What Pattern noticed in Apple Health context — computed upstream
+   *  by the health engine, already gated. null/empty = the section is
+   *  simply not drawn; this screen never manufactures an insight. */
+  healthNoticed?: {
+    best: HealthAssociation | null;
+    fading: HealthAssociation[];
+  };
 }
 
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -510,7 +520,7 @@ function outcomeOf(ev: PainEvent): string {
 }
 
 export default function TrendsScreen({
-  entries, events, func, goalText, todayIso, onSpanChange,
+  entries, events, func, goalText, todayIso, onSpanChange, healthNoticed,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
      day — a fixed window that happens to miss the days someone logged
@@ -622,6 +632,51 @@ export default function TrendsScreen({
         )}
       </Text>
 
+      {/* ── what Pattern noticed ─────────────────────────────
+          Drawn only when the health engine has something that cleared
+          every gate — never manufactured, never a list (one card,
+          the strongest), and never without its sample sizes and its
+          non-causation line. A previously shown association that
+          stopped holding gets a quiet sentence rather than silence:
+          watching a pattern fade is as informative as watching one
+          appear, and hiding it would quietly overstate what was said
+          before. No raw Health charts anywhere — Apple Health already
+          draws those. */}
+      {(() => {
+        if (!healthNoticed) return null;
+        const c = healthNoticed.best ? associationCopy(healthNoticed.best) : null;
+        if (!c && !healthNoticed.fading.length) return null;
+        return (
+          <Card title="What Pattern noticed">
+            {c && healthNoticed.best ? (
+              <>
+                <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {c.title}
+                </Text>
+                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {c.body}
+                </Text>
+                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {c.sample}
+                  {healthNoticed.best.from && healthNoticed.best.to
+                    ? ' ' + fmtReportDate(healthNoticed.best.from) + ' – '
+                      + fmtReportDate(healthNoticed.best.to) + '.'
+                    : ''}
+                </Text>
+                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {c.timing} Days without Health data are left out, never counted
+                  as anything.
+                </Text>
+                <Text style={styles.noteLine}>{c.disclaimer}</Text>
+              </>
+            ) : (
+              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {fadedCopy(healthNoticed.fading[0])}
+              </Text>
+            )}
+          </Card>
+        );
+      })()}
 
       {/* ── the numbers ─────────────────────────────────────── */}
       <Card title="Your record">
@@ -1069,6 +1124,16 @@ const styles = StyleSheet.create({
   chartAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   axisText: { color: color.textTertiary, fontSize: font.footnote },
   noteLine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 8 },
+  /* the noticed card — the same type scale as everything else on this
+     screen; a finding earns no bigger font than a fact */
+  noticeTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  noticeBody: {
+    color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21, marginTop: 6,
+  },
+  noticeMeta: {
+    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: 8,
+    fontVariant: ['tabular-nums'],
+  },
   foldRow: {
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },

@@ -828,6 +828,46 @@ say it until it can show that it is not inventing it.
 
 ---
 
+## 25b. Apple Health integration
+
+Read-only HealthKit context beside the pain record, behind one interface
+(`src/health/types.ts` — `HealthService`), with the store touched in exactly
+one file (`src/health/healthkit.ts`, `@kingstinct/react-native-healthkit`,
+required lazily inside try/catch so binaries without the module get
+`UnavailableHealthService` and the same runtime keeps serving every phone).
+
+**Layers.** Raw samples (provenance intact) → `normalize.ts` (one honest day:
+sleep intervals merged to their asleep-union and filed under the morning they
+end on; steps credited to the single source that saw the most, never summed
+across a phone and a watch; workouts deduplicated by HealthKit UUID; missing
+stays missing — no zeros, ever) → `windows.ts` (the temporal law: mornings
+pair only with the previous night and previous day; evenings with hours
+before the check-in; one pair per day per question, first-morning /
+last-evening fixed outcomes so repeated check-ins never inflate a group) →
+`engine.ts` (outer terciles of the person's own distribution, gates named in
+`thresholds.ts`: 14 paired days, 5 per group, real factor spread, 1.5-point
+delta; verdicts `insufficient | observation | possible | fading` and nothing
+else). `noticed.ts` licenses associations ONLY from factors the user
+confirmed through the focus flow — health data being present is never a
+reason to go looking. One card at most, Trends' "What Pattern noticed",
+sample sizes and the non-causation line on the card itself.
+
+**Setup** lives in Profile (`HealthSheet.tsx`): pick categories → Apple's own
+sheet → done. The screen speaks only states it can know — HealthKit hides
+read denials, so "no data yet" is never rendered as "denied". Stored context
+is derived data: local SQLite (`health_day`), excluded from backups (another
+phone must not inherit sensor readings it didn't take), wiped by delete-all
+and by disconnecting.
+
+**Decisions.** Foreground-only sync (open + return from background,
+`HEALTH_RESYNC_DAYS` re-derived for late-arriving watch data,
+`HEALTH_BACKFILL_DAYS` on first connect) — background delivery deferred
+until a tester's data proves too late too often. Heart and State of Mind are
+imported and normalized but generate no claims. Medication: never. The
+future one-question selector consumes `coverage.ts` (`factorCoverage`) —
+interfaces only, no UI, by design. Onboarding untouched: Profile is the one
+door until the connection has earned a second.
+
 ## 26. Implementation status
 
 ### Step 1 — shipped

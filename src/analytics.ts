@@ -50,6 +50,13 @@ export type EventName =
   /* the day chart was opened from Today. That it was opened, never which
      day and never what was on it. */
   | 'day_opened'
+  /* Apple Health: the setup was opened, completed, or undone. A category
+     COUNT may travel; which categories, what was granted inside Apple's
+     sheet, and any sample ever read may not — a HealthKit value is
+     health data and the closed-list rule covers it like everything else. */
+  | 'health_setup_opened'
+  | 'health_connected'
+  | 'health_disconnected'
   | 'pdf_shared'
   | 'backup_exported'
   | 'backup_restored'

@@ -122,3 +122,52 @@ export const PROTOCOL_REVIEW_DAYS = 14;
 /** logged days before the hypothesis setup is offered — a person with no
  *  record has nothing to form a hypothesis about */
 export const HYPOTHESIS_OFFER_AFTER_DAYS = 7;
+
+/* ── Apple Health context ────────────────────────────────────
+   The same person, the same 0–10 pain scale, and the same question — do
+   two groups of days differ — so the same arithmetic applies. What
+   changes is the exposure: measured by a sensor rather than self-rated,
+   split at the person's own distribution rather than at named levels.
+
+   Groups are the OUTER TERCILES of the person's own factor values with
+   the middle third discarded, the same construction harder/easier days
+   already use: a median split puts near-identical days on opposite
+   sides of the line, and the middle third is exactly the days that are
+   not evidence either way. */
+
+/** distinct paired days (factor value AND the right pain window on the
+ *  same person-day) before any comparison is attempted */
+export const HEALTH_MIN_PAIRED_DAYS = 14;
+
+/** Days required in EACH tercile group. Five, not the protocol's eight:
+ *  with a within-person daily-pain SD of 1.5–2.0, two groups of five have
+ *  a difference SE of 0.95–1.26, so the 1.5-point delta below sits at
+ *  z ≈ 1.2–1.6 — a noise-only difference clears it roughly 6–12% of the
+ *  time per comparison, and there are at most four health comparisons,
+ *  each user-confirmed, never a scan. Eight per group would need ~24
+ *  paired mornings under a tercile split — most of a month of joint
+ *  coverage before Pattern could say anything, which fails the person
+ *  the feature exists for. The looser gate is priced, not overlooked. */
+export const HEALTH_MIN_GROUP_DAYS = 5;
+
+/** points of mean pain between the groups — the same bar as the
+ *  protocol rule, for the same reason */
+export const HEALTH_MIN_DELTA = PATTERN_MIN_DELTA;
+
+/** The factor itself must differ meaningfully between the groups, or the
+ *  comparison is noise sorted into piles. Group MEANS must sit at least
+ *  this far apart, per factor kind. */
+export const HEALTH_SLEEP_MIN_SPREAD_MINUTES = 60;
+export const HEALTH_STEPS_MIN_SPREAD = 2000;
+export const HEALTH_ENERGY_MIN_SPREAD_KCAL = 150;
+
+/** days of the recent record the foreground sync re-derives on each
+ *  open — Health data arrives late (a watch syncs when it syncs), so
+ *  recent days are recomputed rather than trusted */
+export const HEALTH_RESYNC_DAYS = 10;
+
+/** how far back the first sync reaches. Ninety days is the span the
+ *  report and pager already treat as the working record; anything older
+ *  is History, and a full-history HealthKit query is cost without a
+ *  question to answer. */
+export const HEALTH_BACKFILL_DAYS = 90;

@@ -1,10 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable,
-  ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
+  Alert, AppState, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent,
+  Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -21,6 +21,11 @@ import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DaySheet from './src/DaySheet';
 import DayScreen, { fmtDay } from './src/DayScreen';
+import HealthSheet from './src/HealthSheet';
+import { HealthKitService, deviceClock } from './src/health/healthkit';
+import { healthRequestedOn, storedHealthDays, syncHealth } from './src/health/sync';
+import { noticedAssociations, strongestPossible } from './src/health/noticed';
+import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
 import TrendsScreen from './src/TrendsScreen';
@@ -35,7 +40,7 @@ import { refreshWidget } from './src/widgetPush';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
-import { activeFactors } from './src/protocol';
+import { activeFactorIds, activeFactors } from './src/protocol';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
 import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
 import {
@@ -179,6 +184,46 @@ export default function App() {
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
+
+  /* ── Apple Health ─────────────────────────────────────────
+     One service for the whole app. On binaries without the native
+     module it reports unavailable and every path below is a no-op —
+     the same guard discipline as the glass. */
+  const health = useMemo(() => new HealthKitService(), []);
+  const [healthSheet, setHealthSheet] = useState(false);
+  const [healthDays, setHealthDays] = useState(() => storedHealthDays());
+
+  /* Foreground sync: on launch and on every return from background,
+     because Health data arrives late — a watch syncs when it syncs.
+     Deliberately NOT background delivery; the decision and its reasons
+     live in health/sync.ts. */
+  const resyncHealth = useCallback(() => {
+    syncHealth(health, deviceClock)
+      .then(() => setHealthDays(storedHealthDays()))
+      .catch(() => {});
+  }, [health]);
+  useEffect(() => {
+    resyncHealth();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') resyncHealth();
+    });
+    return () => sub.remove();
+  }, [resyncHealth]);
+
+  /* What Pattern noticed — evaluated only for the factors the user
+     confirmed through the focus flow, remembered so a shown finding
+     that stops holding fades out loud instead of vanishing. */
+  const healthNoticed = useMemo(() => {
+    const shown = db.getPref<PairKind[]>('health.shownKinds', []);
+    const all = noticedAssociations(
+      entries, healthDays, activeFactorIds(protocol), shown);
+    const best = strongestPossible(all);
+    if (best && shown.indexOf(best.kind) < 0) {
+      db.setPref('health.shownKinds', shown.concat(best.kind));
+    }
+    const fading = all.filter((a) => a.verdict === 'fading');
+    return { best, fading };
+  }, [entries, healthDays, protocol]);
   /* an event being edited, and the day sheet to return to afterwards */
   const [editEvent, setEditEvent] = useState<PainEvent | null>(null);
   const [returnDay, setReturnDay] = useState<string | null>(null);
@@ -613,6 +658,7 @@ export default function App() {
                 goalText={null}
                 todayIso={todayISO()}
                 onSpanChange={setTrendsSpan}
+                healthNoticed={healthNoticed}
               />
             </ScrollView>
           </ScrollView>
@@ -718,6 +764,38 @@ export default function App() {
                   </View>
                 </Pressable>
               </View>
+
+              {/* Only offered where the binary can actually do it — a
+                  row promising a connection an old build cannot make is
+                  a broken promise on a settings screen. The sheet
+                  itself explains the TestFlight path if opened on the
+                  boundary. */}
+              {health.available() && (
+                <>
+                  <Text style={styles.groupTitle}>Apple Health</Text>
+                  <View style={styles.group}>
+                    <Pressable
+                      onPress={() => { track('health_setup_opened'); setHealthSheet(true); }}
+                      style={styles.row}
+                      accessibilityRole="button"
+                      accessibilityLabel="Apple Health. Use sleep and activity to add context automatically."
+                    >
+                      <RowIcon name="heart-outline" />
+                      <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                        <Text style={styles.rowLabel}>Apple Health</Text>
+                        <Text style={styles.rowValue}>
+                          {healthRequestedOn() ? 'On' : 'Off'}
+                        </Text>
+                        <Text style={styles.rowChevron}>›</Text>
+                      </View>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.groupFooter}>
+                    Use sleep and activity to add context automatically. Optional,
+                    read-only, and everything imported stays on this iPhone.
+                  </Text>
+                </>
+              )}
 
               <Text style={styles.groupTitle}>Reminders</Text>
               <View style={[styles.group, styles.groupPad]}>
@@ -828,9 +906,11 @@ export default function App() {
               </View>
               {/* a fact, not a row — iOS puts it under the group */}
               <Text style={styles.groupFooter}>
-                Stored only on this iPhone. Your health data stays here unless
-                you choose to export or restore a backup. Restoring lets you
-                replace or merge — you decide before anything changes.
+                Stored only on this iPhone. Your Pattern record and any imported
+                Apple Health context stay here unless you choose to export or
+                restore a backup — and Health context never travels in a backup,
+                because it can always be re-read from Health itself. Restoring
+                lets you replace or merge; you decide before anything changes.
               </Text>
               {/* which code is actually running — the end of guessing
                   whether an update has landed. updateId is null when the
@@ -867,6 +947,14 @@ export default function App() {
 
             <Modal visible={appearance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAppearance(false)}>
               <AppearanceSheet onPick={pickTheme} onDone={() => setAppearance(false)} />
+            </Modal>
+
+            <Modal visible={healthSheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setHealthSheet(false)}>
+              <HealthSheet
+                service={health}
+                onChanged={resyncHealth}
+                onDone={() => setHealthSheet(false)}
+              />
             </Modal>
           </View>
         </Modal>

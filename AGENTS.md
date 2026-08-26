@@ -88,6 +88,15 @@ a new package with native code, a permission, an icon, the native sections of
 `app.json` — needs `eas build` and a TestFlight submission, and cannot be done
 from a phone.
 
+An ADDITIVE native module does not bump the runtime. The precedent is
+expo-glass-effect and the pattern is HealthKit's too: the JS requires the
+module inside try/catch, old binaries take the catch and live without the
+feature, new binaries have it — and every phone keeps receiving the same
+OTA updates because the runtime never changed. The guard is load-bearing:
+an unguarded import of a native module crashes every binary that predates
+it, at launch, via OTA. Bump the runtime only for a native change the JS
+cannot guard around.
+
 # What this app refuses to do
 
 These were argued out and paid for. They are not preferences, and a change

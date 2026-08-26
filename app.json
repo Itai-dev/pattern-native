@@ -25,6 +25,14 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Pattern reads only the Health data you choose — sleep, activity, workouts, heart, State of Mind — to add context beside your pain record. It never writes to Health, and everything it reads stays on this iPhone.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
       "expo-sqlite",
       [
         "expo-notifications",

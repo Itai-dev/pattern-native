@@ -109,6 +109,17 @@ function conn(): SQLiteDatabase {
        availability rule. Existing rows keep NULL and fall back to their
        week Monday. ALTER fails harmlessly once the column exists. */
     try { db.execSync('ALTER TABLE func ADD COLUMN savedOn TEXT'); } catch {}
+    /* M11 — normalized Apple Health context, one row per local date.
+       DERIVED data: everything here can be rebuilt from the Health store,
+       so it is deliberately NOT in the backup — a backup restored onto a
+       phone without Health access must not carry another phone's sensor
+       readings as if this one had measured them. JSON column for the
+       same reason days.logs is one: the shape is the domain's business,
+       and the schema should not need a migration every time a field
+       lands. */
+    db.execSync(
+      'CREATE TABLE IF NOT EXISTS health_day (date TEXT PRIMARY KEY, json TEXT NOT NULL)'
+    );
     migrateWeeklyToFunc(db);
     migratePainScale(db);
   }
@@ -589,6 +600,32 @@ export function clearShadowEvals(): void {
   conn().runSync('DELETE FROM shadow_eval');
 }
 
+/* ── Apple Health context ────────────────────────────────────
+   Normalized days from health/normalize.ts, keyed by local date.
+   Derived and rebuildable, so: not in backups, wiped with everything
+   else on delete-all, and safe to re-derive whenever Health data
+   arrives late. */
+
+export function putHealthDay(date: string, day: unknown): void {
+  conn().runSync(
+    'INSERT OR REPLACE INTO health_day (date, json) VALUES (?, ?)',
+    date, JSON.stringify(day)
+  );
+}
+
+export function getHealthDays<T>(): Record<string, T> {
+  const rows = conn().getAllSync<{ date: string; json: string }>(
+    'SELECT date, json FROM health_day'
+  );
+  const out: Record<string, T> = {};
+  rows.forEach((r) => { try { out[r.date] = JSON.parse(r.json) as T; } catch {} });
+  return out;
+}
+
+export function clearHealthDays(): void {
+  conn().runSync('DELETE FROM health_day');
+}
+
 /** off by default. Shadow rows are derived from health answers, so they
  *  travel only when the person carrying them says so. */
 export function getDiagnosticsInExport(): boolean {
@@ -744,6 +781,7 @@ export function deleteAll(): void {
     c.runSync('DELETE FROM hypotheses');
     c.runSync('DELETE FROM protocols');
     c.runSync('DELETE FROM shadow_eval');
+    c.runSync('DELETE FROM health_day');
     c.runSync('DELETE FROM prefs');
   });
 }
