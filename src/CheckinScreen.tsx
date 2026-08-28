@@ -66,7 +66,6 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import PainShape from './PainShape';
-import DaySquare from './DaySquare';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
@@ -82,13 +81,13 @@ import {
 } from './painScale';
 import {
   LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
-  answerOf, dailyAverage, defaultLocs, fmtTime, logsOf, minutesNow, nowMeta, todayISO,
+  answerOf, defaultLocs, logsOf, minutesNow, nowMeta, todayISO,
 } from './model';
 
 const IMPACT_LABELS: Record<string, string> = {};
 IMPACT_CHIPS.forEach((c) => { IMPACT_LABELS[c.id] = c.name; });
 
-const SQUARE = 150, SQ_RADIUS = 36;
+const SQUARE = 150;
 const INTERFERENCE_ID = 'pain.interference.v1';
 
 type Step = 'pain' | 'questions' | 'impact' | 'feel' | 'where' | 'done';
@@ -187,10 +186,11 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     return { loc: rank(LOCIDS, locCount), q: rank(QUALITYIDS, qCount) };
   }, []);
 
-  /* the logged screen acknowledges and leaves — no button tax on every log */
+  /* the logged screen acknowledges and leaves — no button tax on every
+     log, and with nothing to read the acknowledgement is brief */
   useEffect(() => {
     if (step !== 'done') return;
-    const t = setTimeout(onDone, 2200);
+    const t = setTimeout(onDone, 1400);
     return () => clearTimeout(t);
   }, [step, onDone]);
 
@@ -215,13 +215,6 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const squareStyle = useAnimatedStyle(() => ({
     opacity: landed.value,
     transform: [{ scale: (0.86 + landed.value * 0.14) * (1 + breath.value * 0.035) }],
-  }));
-
-  /* the words follow the square rather than arriving with it — a beat of
-     difference is what makes it read as a sequence instead of a jump */
-  const wordsStyle = useAnimatedStyle(() => ({
-    opacity: landed.value,
-    transform: [{ translateY: (1 - landed.value) * 10 }],
   }));
 
   const order: Step[] = ['pain', 'questions', 'impact', 'feel', 'where'];
@@ -483,34 +476,32 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   };
 
   if (step === 'done') {
-    const e = db.getDay(today);
-    const count = e && e.logs ? e.logs.length : 1;
+    /* A check mark, and nothing else.
+
+       This screen used to show the day's new average in its colour, the
+       count, and the times — a report card, delivered after every log,
+       on the one screen every user sees several times a day. That was
+       this app's own rule broken in its own hallway: an acknowledgement
+       is not a place to read your numbers, and anything shown here gets
+       read whether or not it should be. The day is one tap away for
+       whoever wants it; the check-in ends by saying only "received".
+
+       The mark is drawn, not typed — an L of borders rotated into a
+       tick, the way the tab glyphs and the person are drawn — and it is
+       WHITE: a confirmation is not a pain value and never wears the
+       ramp. Same arrival spring, same breath, same tap-to-skip; the
+       auto-dismiss is shorter because there is nothing left to read. */
     return (
       <Pressable
         onPress={onDone}
         style={[styles.root, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Logged"
+        accessibilityHint="Returns to Today"
       >
         <View style={styles.middle}>
-          <Animated.View style={squareStyle}>
-            <DaySquare entry={e} size={SQUARE} radius={SQ_RADIUS}>
-              {(() => {
-                const avg = e ? dailyAverage(e) : null;
-                return avg != null ? (
-                  <Text allowFontScaling={false}
-                    style={[styles.doneScore, { color: inkOn(avg) }]}>
-                    {formatScore(avg)}
-                  </Text>
-                ) : null;
-              })()}
-            </DaySquare>
-          </Animated.View>
-          <Animated.View style={[styles.doneWords, wordsStyle]}>
-            <Text style={styles.doneTitle}>Logged</Text>
-            <Text style={styles.doneSub}>
-              {count > 1
-                ? count + ' moments today · ' + (e!.logs || []).map((l) => fmtTime(l.h)).join(' · ')
-                : 'Today is on the map. You don’t need to solve it right now.'}
-            </Text>
+          <Animated.View style={[styles.check, squareStyle]}>
+            <View style={styles.checkMark} />
           </Animated.View>
         </View>
       </Pressable>
@@ -780,18 +771,17 @@ const styles = StyleSheet.create({
     color: color.textSecondary, fontSize: font.title3, fontWeight: '600',
     letterSpacing: -0.3, marginTop: 2, textAlign: 'center',
   },
-  doneScore: {
-    fontSize: 50, fontWeight: '700', letterSpacing: -1.1,
-    fontVariant: ['tabular-nums'],
+  /* the tick: an L of borders rotated 45° — drawn like every other
+     glyph in this app, at the stroke weight of a hero mark rather than
+     a row icon. The wrapper keeps the mark's visual centre on the
+     screen's centre, which the raw rotation would not. */
+  check: {
+    width: 96, height: 96, alignItems: 'center', justifyContent: 'center',
   },
-  doneWords: { alignItems: 'center' },
-  doneTitle: {
-    color: color.textPrimary, fontSize: 26, fontWeight: '700',
-    letterSpacing: -0.4, marginTop: 30,
-  },
-  doneSub: {
-    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 22,
-    marginTop: 8, textAlign: 'center', maxWidth: 300,
+  checkMark: {
+    width: 84, height: 44,
+    borderLeftWidth: 9, borderBottomWidth: 9, borderColor: color.textPrimary,
+    transform: [{ rotate: '-45deg' }, { translateY: -10 }],
   },
 
   /* ── today's questions ─────────────────────────────────── */
