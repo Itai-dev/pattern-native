@@ -613,6 +613,14 @@ export function putHealthDay(date: string, day: unknown): void {
   );
 }
 
+export function getHealthDay<T>(date: string): T | null {
+  const r = conn().getFirstSync<{ json: string }>(
+    'SELECT json FROM health_day WHERE date = ?', date
+  );
+  if (!r) return null;
+  try { return JSON.parse(r.json) as T; } catch { return null; }
+}
+
 export function getHealthDays<T>(): Record<string, T> {
   const rows = conn().getAllSync<{ date: string; json: string }>(
     'SELECT date, json FROM health_day'

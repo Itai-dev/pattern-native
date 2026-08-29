@@ -23,6 +23,7 @@ import {
 import {
   formatCheckins, formatOutOf, formatScoreAndLabel, painColor, speakScore,
 } from './painScale';
+import { healthDayLines } from './health/context';
 import { color, font, radius, size } from './theme';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -160,6 +161,36 @@ export default function DaySheet({
               {s}
             </Text>
           ) : null;
+        })()}
+
+        {/* ── the day's health context ──────────────────────
+            Apple Health, organized the one way it is not in Apple's own
+            app: by the day it belongs to, beside the pain it is context
+            for. Descriptive only — the day's own facts in white, no
+            claims, and the sentence saying so inside the block it
+            qualifies. Missing categories are missing lines, never
+            zeros. */}
+        {(() => {
+          const lines = healthDayLines(db.getHealthDay(dateIso));
+          if (!lines.length) return null;
+          return (
+            <View style={styles.list}>
+              <Text style={styles.listTitle}>From Apple Health</Text>
+              {lines.map((l) => (
+                <Text
+                  key={l.key}
+                  style={styles.healthLine}
+                  allowFontScaling maxFontSizeMultiplier={1.4}
+                >
+                  {l.text}
+                </Text>
+              ))}
+              <Text style={styles.swipeHint}>
+                Read from Health for context beside what you recorded. Sitting
+                next to each other is not a claim that one caused the other.
+              </Text>
+            </View>
+          );
         })()}
 
         {logs.length > 0 && (
@@ -525,6 +556,12 @@ const styles = StyleSheet.create({
   summary: {
     color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
     marginTop: 14,
+  },
+  /* white, not the ramp: these are counts and durations, and colour
+     means pain or it is not a colour */
+  healthLine: {
+    color: color.textPrimary, fontSize: font.subheadline, lineHeight: 24,
+    fontVariant: ['tabular-nums'],
   },
   noteInput: {
     color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21,

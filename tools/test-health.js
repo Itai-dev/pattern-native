@@ -403,6 +403,38 @@ ok('load is licensed by connecting workouts, not by sleep', (() => {
     && s.indexOf('workoutLoadVsNextMorning') < 0;
 })());
 
+group('the day’s context lines');
+const context = require(path.join(OUT, 'health', 'context.js'));
+ok('a full day reads in order, formatted for humans', (() => {
+  const lines = context.healthDayLines(hday('2026-08-20', {
+    sleepMinutes: 400, steps: 4810, distanceMeters: 3470, activeEnergyKcal: 412.6,
+    workouts: [{ uuid: 'a', h: 540, minutes: 45, activity: '37' }],
+    restingHeartRate: 61.4, hrvSDNN: 38.2,
+  }));
+  const t = lines.map((l) => l.text);
+  return t[0] === '6h 40m asleep the night before'
+    && t[1] === '4,810 steps'
+    && t[2] === '3.5 km on foot'
+    && t[3] === '413 kcal active energy'
+    && t[4] === '45 min workout'
+    && t[5] === 'Resting heart rate 61'
+    && t[6] === 'HRV 38 ms';
+})());
+ok('missing categories are missing lines, never zeros', (() => {
+  const lines = context.healthDayLines(hday('2026-08-20', { steps: 900 }));
+  return lines.length === 1 && lines[0].key === 'steps'
+    && context.healthDayLines(null).length === 0;
+})());
+ok('several workouts summarize as a count and a total', (() => {
+  const lines = context.healthDayLines(hday('2026-08-20', {
+    workouts: [
+      { uuid: 'a', h: 540, minutes: 30, activity: 'run' },
+      { uuid: 'b', h: 1000, minutes: 33, activity: 'walk' },
+    ],
+  }));
+  return lines.length === 1 && lines[0].text === '2 workouts · 1h 3m total';
+})());
+
 group('health context in the clinician report');
 const reportMod = require(path.join(OUT, 'report.js'));
 
