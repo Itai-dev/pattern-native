@@ -60,6 +60,131 @@ function usualOf(
   return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
 
+/* ── tiles: the same facts, shaped for the day's grid ────────
+   One tile per category, value + label + optional "vs your usual" sub,
+   derived from the same helpers as the lines so the two can never
+   disagree about a number. The icon NAME travels as data — the UI picks
+   the glyph, this file stays free of React. */
+
+export interface HealthTile {
+  key: string;
+  /** Ionicons outline name — Pattern's icon grammar, never Apple's */
+  icon: string;
+  value: string;
+  label: string;
+  sub?: string;
+}
+
+/** Pattern's own reading of a State of Mind valence (−1…1), five plain
+ *  bands. Descriptive of what the user logged in Health; never scored,
+ *  never analysed, and the cutoffs are fixed so the same entry reads
+ *  the same forever. */
+export function valenceWord(v: number): string {
+  if (v <= -0.6) return 'Very unpleasant';
+  if (v <= -0.2) return 'Unpleasant';
+  if (v < 0.2) return 'Neutral';
+  if (v < 0.6) return 'Pleasant';
+  return 'Very pleasant';
+}
+
+export function healthDayTiles(
+  day: HealthDay | null | undefined,
+  all?: Record<string, HealthDay>
+): HealthTile[] {
+  if (!day) return [];
+  const out: HealthTile[] = [];
+
+  if (day.sleepMinutes != null) {
+    const usual = usualOf(all, day.date, (d) => d.sleepMinutes);
+    let sub: string | undefined;
+    if (usual != null) {
+      const delta = day.sleepMinutes - usual;
+      if (Math.abs(delta) >= CONTEXT_SLEEP_USUAL_DELTA_MIN) {
+        sub = fmtDuration(Math.abs(Math.round(delta))) + (delta > 0 ? ' more' : ' less')
+          + ' than usual';
+      }
+    }
+    out.push({
+      key: 'sleep', icon: 'moon-outline',
+      value: fmtDuration(day.sleepMinutes), label: 'Asleep, night before', sub,
+    });
+  }
+
+  if (day.steps != null) {
+    const usual = usualOf(all, day.date, (d) => d.steps);
+    let sub: string | undefined;
+    if (usual != null && usual > 0) {
+      const ratio = (day.steps - usual) / usual;
+      if (Math.abs(ratio) >= CONTEXT_STEPS_USUAL_RATIO) {
+        sub = (ratio > 0 ? 'above' : 'below') + ' your usual '
+          + Math.round(usual).toLocaleString('en-US');
+      }
+    }
+    out.push({
+      key: 'steps', icon: 'footsteps-outline',
+      value: day.steps.toLocaleString('en-US'), label: 'Steps', sub,
+    });
+  }
+
+  if (day.standMinutes != null) {
+    const usual = usualOf(all, day.date, (d) => d.standMinutes);
+    let sub: string | undefined;
+    if (usual != null) {
+      const delta = day.standMinutes - usual;
+      if (Math.abs(delta) >= CONTEXT_STAND_USUAL_DELTA_MIN) {
+        sub = fmtDuration(Math.abs(Math.round(delta))) + (delta > 0 ? ' more' : ' less')
+          + ' than usual';
+      }
+    }
+    out.push({
+      key: 'stand', icon: 'body-outline',
+      value: fmtDuration(day.standMinutes), label: 'Upright', sub,
+    });
+  }
+
+  if (day.activeEnergyKcal != null) {
+    out.push({
+      key: 'energy', icon: 'flame-outline',
+      value: String(Math.round(day.activeEnergyKcal)), label: 'kcal active',
+    });
+  }
+
+  const w = day.workouts || [];
+  if (w.length === 1) {
+    out.push({
+      key: 'workouts', icon: 'barbell-outline',
+      value: fmtDuration(w[0].minutes), label: 'Workout',
+    });
+  } else if (w.length > 1) {
+    const total = w.reduce((s, x) => s + x.minutes, 0);
+    out.push({
+      key: 'workouts', icon: 'barbell-outline',
+      value: fmtDuration(total), label: w.length + ' workouts',
+    });
+  }
+
+  if (day.restingHeartRate != null || day.hrvSDNN != null) {
+    out.push({
+      key: 'heart', icon: 'pulse-outline',
+      value: day.restingHeartRate != null ? String(Math.round(day.restingHeartRate)) : '—',
+      label: 'Resting HR',
+      sub: day.hrvSDNN != null ? 'HRV ' + Math.round(day.hrvSDNN) + ' ms' : undefined,
+    });
+  }
+
+  const som = day.stateOfMind || [];
+  if (som.length) {
+    const latest = som[som.length - 1];
+    out.push({
+      key: 'mind', icon: 'happy-outline',
+      value: valenceWord(latest.valence), label: 'State of Mind',
+      sub: som.length > 1 ? 'logged ' + som.length + '×' : undefined,
+    });
+  }
+
+  return out;
+}
+
 /**
  * The lines for one day, in a fixed order, only where data exists — an
  * uncovered category is simply not a line, never a zero.

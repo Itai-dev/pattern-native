@@ -23,7 +23,8 @@ import {
 import {
   formatCheckins, formatOutOf, formatScoreAndLabel, painColor, speakScore,
 } from './painScale';
-import { healthDayLines } from './health/context';
+import { Ionicons } from '@expo/vector-icons';
+import { healthDayTiles } from './health/context';
 import { color, font, radius, size } from './theme';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -166,25 +167,55 @@ export default function DaySheet({
         {/* ── the day's health context ──────────────────────
             Apple Health, organized the one way it is not in Apple's own
             app: by the day it belongs to, beside the pain it is context
-            for. Descriptive only — the day's own facts in white, no
-            claims, and the sentence saying so inside the block it
-            qualifies. Missing categories are missing lines, never
-            zeros. */}
+            for. Tiles in Pattern's own grammar — outline glyphs in line
+            weight, neutral ink, and no borrowed Apple branding: colour
+            here means pain or it is not a colour, and these are not
+            pain values. Missing categories are missing tiles, never
+            zeros; the caveat lives inside the block it qualifies. */}
         {(() => {
-          const lines = healthDayLines(db.getHealthDay(dateIso), db.getHealthDays());
-          if (!lines.length) return null;
+          const tiles = healthDayTiles(db.getHealthDay(dateIso), db.getHealthDays());
+          if (!tiles.length) return null;
           return (
             <View style={styles.list}>
               <Text style={styles.listTitle}>From Apple Health</Text>
-              {lines.map((l) => (
-                <Text
-                  key={l.key}
-                  style={styles.healthLine}
-                  allowFontScaling maxFontSizeMultiplier={1.4}
-                >
-                  {l.text}
-                </Text>
-              ))}
+              <View style={styles.tileGrid}>
+                {tiles.map((t) => (
+                  <View
+                    key={t.key}
+                    style={styles.tile}
+                    accessible
+                    accessibilityLabel={t.label + ', ' + t.value + (t.sub ? ', ' + t.sub : '')}
+                  >
+                    <View style={styles.tileHead}>
+                      <Ionicons
+                        name={t.icon as keyof typeof Ionicons.glyphMap}
+                        size={16}
+                        color={color.textSecondary}
+                      />
+                      <Text
+                        style={styles.tileLabel} numberOfLines={1}
+                        allowFontScaling maxFontSizeMultiplier={1.2}
+                      >
+                        {t.label}
+                      </Text>
+                    </View>
+                    <Text
+                      style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit
+                      allowFontScaling maxFontSizeMultiplier={1.3}
+                    >
+                      {t.value}
+                    </Text>
+                    {!!t.sub && (
+                      <Text
+                        style={styles.tileSub} numberOfLines={2}
+                        allowFontScaling maxFontSizeMultiplier={1.3}
+                      >
+                        {t.sub}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
               <Text style={styles.swipeHint}>
                 Read from Health for context beside what you recorded. Sitting
                 next to each other is not a claim that one caused the other.
@@ -557,12 +588,21 @@ const styles = StyleSheet.create({
     color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
     marginTop: 14,
   },
-  /* white, not the ramp: these are counts and durations, and colour
-     means pain or it is not a colour */
-  healthLine: {
-    color: color.textPrimary, fontSize: font.subheadline, lineHeight: 24,
+  /* the tile grid — the metric-tile grammar Trends already uses, at
+     the sheet's surface level. White values: counts and durations are
+     not pain values and never wear the ramp. */
+  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  tile: {
+    flexGrow: 1, flexBasis: '30%', borderRadius: 12, borderCurve: 'continuous',
+    backgroundColor: color.bgSurface, padding: 10, gap: 3,
+  },
+  tileHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  tileLabel: { flex: 1, color: color.textSecondary, fontSize: font.footnote },
+  tileValue: {
+    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
+  tileSub: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 16 },
   noteInput: {
     color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21,
     minHeight: 88, textAlignVertical: 'top',

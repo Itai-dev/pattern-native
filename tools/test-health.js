@@ -529,6 +529,33 @@ ok('no line, with or without a usual, ever mentions pain', (() => {
   return all.indexOf('pain') < 0 && all.indexOf('better') < 0 && all.indexOf('worse') < 0;
 })());
 
+group('the day’s tiles');
+ok('tiles carry the same numbers as the lines, shaped for the grid', (() => {
+  const day = hday('2026-08-15', {
+    sleepMinutes: 470, steps: 4810, standMinutes: 250, activeEnergyKcal: 412.6,
+    workouts: [{ uuid: 'a', h: 540, minutes: 45, activity: '37' }],
+    restingHeartRate: 61.4, hrvSDNN: 38.2,
+    stateOfMind: [{ h: 600, valence: -0.4, kind: 'momentaryEmotion' },
+      { h: 900, valence: 0.3, kind: 'momentaryEmotion' }],
+  });
+  const t = context.healthDayTiles(day, usualDays);
+  const by = {};
+  t.forEach((x) => { by[x.key] = x; });
+  return by.sleep.value === '7h 50m' && by.sleep.sub === '1h 10m more than usual'
+    && by.steps.sub === 'below your usual 7,000'
+    && by.stand.value === '4h 10m'
+    && by.workouts.value === '45 min'
+    && by.heart.value === '61' && by.heart.sub === 'HRV 38 ms'
+    && by.mind.value === 'Pleasant' && by.mind.sub === 'logged 2×';
+})());
+ok('the valence bands are fixed and read as plain words', (() => {
+  return context.valenceWord(-0.8) === 'Very unpleasant'
+    && context.valenceWord(-0.3) === 'Unpleasant'
+    && context.valenceWord(0) === 'Neutral'
+    && context.valenceWord(0.3) === 'Pleasant'
+    && context.valenceWord(0.9) === 'Very pleasant';
+})());
+
 group('health context in the clinician report');
 const reportMod = require(path.join(OUT, 'report.js'));
 
