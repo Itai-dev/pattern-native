@@ -592,6 +592,16 @@ ok('nothing cleared the gates → the report says so, claims nothing', (() => {
   return html.indexOf('has met Pattern’s reporting bar') >= 0
     && html.indexOf('worth watching') < 0;
 })());
+ok('the PDF leads its charts with the count that grows', (() => {
+  const d = reportMod.buildReportData(repInput({}));
+  const html = reportMod.reportHtml(d);
+  const bandsAt = html.indexOf('Days like this');
+  const lineAt = html.indexOf('Pain over time') >= 0
+    ? html.indexOf('Pain over time') : html.indexOf('Pain recorded so far');
+  return bandsAt >= 0 && lineAt >= 0 && bandsAt < lineAt
+    && html.indexOf('the milder rows grow') >= 0
+    && html.indexOf('Lower is better on this chart') >= 0;
+})());
 ok('a gated association arrives with sizes, timing and the refusal of cause', (() => {
   const assoc = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 7, 4));
   const d = reportMod.buildReportData(repInput({

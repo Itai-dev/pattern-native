@@ -879,6 +879,30 @@ export default function TrendsScreen({
         </Card>
       )}
 
+      {/* THE COUNT THAT GOES UP as things get better — promoted to the
+          top of the charts, above the falling line, so the screen's
+          first data view is the one whose direction cannot be misread.
+
+          Every other figure here falls when the record improves, which
+          is the right shape for pain and a discouraging shape to look
+          at daily. This one counts how many of your logged days landed
+          in each band, and the easier end grows. It is a COUNT, not a
+          second scale: pain stays the number you entered, on every
+          screen and in the clinician's summary, and this counts those
+          days rather than restating them upside down. */}
+      {feltBands.length > 0 && (
+        <Card title="Days like this">
+          <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
+          <Key items={feltBands} />
+          <Text style={styles.noteLine}>
+            Your {data.days.length} logged {data.days.length === 1 ? 'day' : 'days'},
+            grouped by how they averaged. This is the figure here that rises as
+            things get easier — nothing is compared to last week, and it changes
+            only when you log.
+          </Text>
+        </Card>
+      )}
+
       {/* ── the numbers ─────────────────────────────────────── */}
       <Card title="Your record">
         {/* the scale, said once, so no figure on this screen has to
@@ -935,33 +959,6 @@ export default function TrendsScreen({
         <Direction first={data.halves.first} second={data.halves.second} />
       )}
 
-      {/* THE COUNT THAT GOES UP as things get better.
-
-          Every other number on this screen falls when the record
-          improves, which is the right shape for pain and a discouraging
-          shape to look at daily. This one does not: it is how many of
-          your logged days landed in each band, and the easier end grows.
-
-          It is a COUNT, not a second scale. Pain stays the number you
-          entered — the same 0–10 on Today, in the day detail and in the
-          summary a clinician reads — and this counts those days rather
-          than restating them upside down. The bands are the five the app
-          already speaks in; nothing was invented to make a line point the
-          other way. */}
-      {feltBands.length > 0 && (
-        <View style={styles.subBlock}>
-          <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Your days by band
-          </Text>
-          <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
-          <Key items={feltBands} />
-          <Text style={styles.noteLine}>
-            The same {data.days.length} {data.days.length === 1 ? 'day' : 'days'} as
-            the chart, counted instead of laid out in time. This is the one
-            figure here that rises as things get easier.
-          </Text>
-        </View>
-      )}
       </Card>
 
       {/* ── the two ends ────────────────────────────────────── */}

@@ -21,7 +21,7 @@ import {
   Response, checkinCount, dailyAverage,
   dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
 } from './model';
-import { formatScore, painLabel } from './painScale';
+import { BAND_AT, formatScore, painLabel } from './painScale';
 import {
   BAND_MIN_CHECKINS, BAND_MIN_DAYS, HALVES_MIN_DAYS, LIMITED_RECORD_DAYS,
   TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
@@ -459,6 +459,19 @@ function chartSvg(data: ReportData): string {
     'style="max-width:100%;height:auto" ' +
     'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Daily average pain over time">');
 
+  /* The patient's own easier third, shaded FIRST so the gridlines draw
+     over it — the same reading aid the app carries, because "which way
+     is good" must never be left to chart instinct on a plot where down
+     is improvement. Only when the tercile gates passed; a band from a
+     short record is a guess wearing a fact's clothes. */
+  if (data.harderEasier) {
+    const yTop = yOf(data.harderEasier.boundaryLow);
+    parts.push('<rect x="' + L + '" y="' + yTop.toFixed(1) + '" width="' + (W - L - R) +
+      '" height="' + (yOf(0) - yTop).toFixed(1) + '" fill="#F0F6EF"/>');
+    parts.push('<text x="' + (W - R - 4) + '" y="' + (yOf(0) - 5).toFixed(1) +
+      '" text-anchor="end" font-size="9" fill="#4B7C57">patient’s easier third</text>');
+  }
+
   // horizontal gridlines with y-axis labels every 2 points
   for (let v = 0; v <= 10; v += 2) {
     const y = yOf(v);
@@ -596,10 +609,41 @@ export function reportHtml(data: ReportData): string {
   }
   s.push('</div></section>');
 
+  // ── days by band — the count that grows as things improve ──
+  /* The line chart below falls when the patient improves, which is
+     correct and reads as decline. This section is the same record
+     counted instead of plotted: days per severity band, in the app's
+     own five words, where a growing pile of milder days IS the
+     improvement. It comes first so the document's first data view is
+     the one whose direction cannot be misread. */
+  {
+    const bands = BAND_AT
+      .map((atV) => {
+        const label = painLabel(atV);
+        return { label, n: data.days.filter((d) => painLabel(d.avg) === label).length };
+      })
+      .filter((b) => b.n > 0);
+    if (bands.length) {
+      const maxN = Math.max.apply(null, bands.map((b) => b.n));
+      s.push('<section><h2>Days like this</h2>');
+      s.push('<div class="note">Logged days grouped by their daily average, using the same ' +
+        'five bands as every other number here. As a record improves, the milder rows grow.</div>');
+      s.push('<table style="margin-top:8px"><tr><th>Band</th><th>Days</th></tr>');
+      bands.forEach((b) => {
+        s.push('<tr><td style="width:130px">' + esc(b.label) + '</td>' +
+          '<td class="num"><span class="bar" style="width:' +
+          Math.max(6, Math.round((b.n / maxN) * 220)) + 'px"></span>' + b.n +
+          (b.n === 1 ? ' day' : ' days') + '</td></tr>');
+      });
+      s.push('</table></section>');
+    }
+  }
+
   // ── pain over time ──
   s.push('<section><h2>' + (data.limited ? 'Pain recorded so far' : 'Pain over time') + '</h2>');
   s.push('<div class="note">Daily average pain, 0–10. Days without check-ins are shown as gaps' +
-    ' — the line never bridges a day that was not logged.</div>');
+    ' — the line never bridges a day that was not logged. Lower is better on this chart' +
+    (data.harderEasier ? '; the shaded band is the patient’s own easier third.' : '.') + '</div>');
   s.push('<div style="margin-top:8px">' + chartSvg(data) + '</div>');
   s.push('<div class="note num">Overall average ' + formatScore(data.avg) +
     ' · lowest daily average ' + formatScore(data.lowestDay) +
