@@ -165,6 +165,11 @@ export const HEALTH_ENERGY_MIN_SPREAD_KCAL = 150;
  *  "lighter" workout day are one stretching session apart, and the
  *  comparison is rounding sorted into piles. */
 export const HEALTH_WORKOUT_MIN_SPREAD_MINUTES = 20;
+/** upright-time groups must differ by at least this much. An hour:
+ *  Watch stand-time credits a minute for very little, so less than an
+ *  hour between a "less upright" and a "more upright" day is posture
+ *  noise, not a different kind of day. */
+export const HEALTH_STAND_MIN_SPREAD_MINUTES = 60;
 
 /* ── "than your usual" on the day's context lines ────────────
    Descriptive comparison of ONE day's sensor value against the person's
@@ -188,6 +193,10 @@ export const CONTEXT_SLEEP_USUAL_DELTA_MIN = 45;
 /** fraction a day's steps must differ from the baseline before the
  *  deviation earns words */
 export const CONTEXT_STEPS_USUAL_RATIO = 0.25;
+
+/** minutes of upright time a day must differ from the baseline before
+ *  the deviation earns words — same reasoning as sleep's floor */
+export const CONTEXT_STAND_USUAL_DELTA_MIN = 45;
 
 /** days of the recent record the foreground sync re-derives on each
  *  open — Health data arrives late (a watch syncs when it syncs), so

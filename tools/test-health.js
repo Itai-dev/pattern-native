@@ -328,11 +328,12 @@ ok('connecting sleep licenses exactly the sleep pairing', (() => {
   const k = noticed.licensedKinds(['sleep']);
   return k.length === 1 && k[0] === 'sleepVsMorning';
 })());
-ok('workouts license both workout comparisons, movement the step ones', (() => {
+ok('workouts license the workout comparisons, movement the step and upright ones', (() => {
   const w = noticed.licensedKinds(['workouts']);
   const m = noticed.licensedKinds(['movement']);
   return w.length === 2 && w.indexOf('workoutLoadVsNextMorning') >= 0
-    && m.length === 2 && m.indexOf('sleepVsMorning') < 0;
+    && m.length === 3 && m.indexOf('standBeforeVsEvening') >= 0
+    && m.indexOf('sleepVsMorning') < 0;
 })());
 ok('heart and mind license nothing — imported, never examined', (() => {
   return noticed.licensedKinds(['heart', 'mind']).length === 0;
@@ -433,6 +434,60 @@ ok('several workouts summarize as a count and a total', (() => {
     ],
   }));
   return lines.length === 1 && lines[0].text === '2 workouts · 1h 3m total';
+})());
+
+group('upright time — standing measured, sitting never inferred');
+ok('stand samples sum to a day total and hourly buckets', (() => {
+  const day = normalize.normalizeDay(bundle(D, {
+    stand: [qs(at(D, 9 * 60), at(D, 9 * 60 + 5), 4, 'watch'),
+      qs(at(D, 14 * 60), at(D, 14 * 60 + 5), 6, 'watch')],
+  }), clock);
+  return day.standMinutes === 10 && day.standHourly[9] === 4 && day.standHourly[14] === 6
+    && day.coverage.movement === true;
+})());
+ok('an evening pairs only with upright hours before the check-in', (() => {
+  const hourly = Array(24).fill(0);
+  hourly[9] = 30; hourly[14] = 20; hourly[21] = 40; // after the check-in
+  const E = { '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 20 * 60 + 30, pain: 7 }] } };
+  const H = { '2026-08-20': hday('2026-08-20', { standMinutes: 90, standHourly: hourly, coverage: { movement: true } }) };
+  const p = windows.buildPairs('standBeforeVsEvening', E, H);
+  return p.length === 1 && p[0].factor === 50 && p[0].pain === 7;
+})());
+ok('phone-only movement coverage does not fake a still day', (() => {
+  // steps covered the day, but no watch: stand absent → no pair, not zero
+  const E = { '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 20 * 60, pain: 7 }] } };
+  const H = { '2026-08-20': hday('2026-08-20', { steps: 5000, stepsHourly: Array(24).fill(0), coverage: { movement: true } }) };
+  return windows.buildPairs('standBeforeVsEvening', E, H).length === 0;
+})());
+ok('the upright claim needs an hour between the groups', (() => {
+  const near = engine.evaluate('standBeforeVsEvening', fabricate(18, 200, 250, 4, 7));
+  const far = engine.evaluate('standBeforeVsEvening', fabricate(18, 150, 280, 4, 7));
+  return near.verdict === 'observation' && far.verdict === 'possible';
+})());
+ok('the upright sentence names evening pain and refuses to say sitting', (() => {
+  const a = engine.evaluate('standBeforeVsEvening', fabricate(18, 150, 280, 7, 4));
+  const c = engine.associationCopy(a);
+  const claim = (c.title + ' ' + c.body).toLowerCase();
+  return c.title === 'Time upright may be worth watching'
+    && c.body.indexOf('evening pain') >= 0
+    && claim.indexOf('sitting') < 0
+    && c.timing.indexOf('not sitting') >= 0;
+})());
+ok('upright is licensed by movement, and its factor reads as hours', (() => {
+  return noticed.licensedKinds(['movement']).indexOf('standBeforeVsEvening') >= 0
+    && engine.factorLabel('standBeforeVsEvening', 250) === '4h 10m'
+    && engine.factorLabel('standBeforeVsEvening', 50) === '50 min';
+})());
+ok('the day line says upright, with its own vs-usual floor', (() => {
+  const prior = {};
+  for (let i = 1; i <= 8; i++) {
+    const d = '2026-08-0' + i;
+    prior[d] = hday(d, { standMinutes: 240 });
+  }
+  const low = context.healthDayLines(hday('2026-08-15', { standMinutes: 150 }), prior);
+  const near = context.healthDayLines(hday('2026-08-15', { standMinutes: 220 }), prior);
+  return low[0].text === '2h 30m upright through the day — about 1h 30m less than your usual'
+    && near[0].text === '3h 40m upright through the day';
 })());
 
 group('the day against your usual');

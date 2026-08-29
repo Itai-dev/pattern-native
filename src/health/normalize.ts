@@ -104,11 +104,11 @@ function bestSourceSamples(samples: QuantitySample[]): QuantitySample[] {
   return samples.filter((s) => s.source === bestK);
 }
 
-/** steps per local hour from the winning source. A sample is credited to
- *  the hour it started in — hourly resolution is all "since the last
- *  check-in" needs, and pretending finer would be precision the data
- *  does not have. */
-export function hourlySteps(samples: QuantitySample[], clock: LocalClock): number[] {
+/** a quantity per local hour from the winning source. A sample is
+ *  credited to the hour it started in — hourly resolution is all "since
+ *  the last check-in" needs, and pretending finer would be precision
+ *  the data does not have. */
+export function hourlyOf(samples: QuantitySample[], clock: LocalClock): number[] {
   const out = Array(24).fill(0) as number[];
   bestSourceSamples(samples).forEach((s) => {
     const h = Math.floor(clock.minutesOf(s.start) / 60);
@@ -116,6 +116,8 @@ export function hourlySteps(samples: QuantitySample[], clock: LocalClock): numbe
   });
   return out.map((v) => Math.round(v));
 }
+/** kept under its old name for the tests and callers that grew up on it */
+export const hourlySteps = hourlyOf;
 
 /** workouts deduplicated by uuid and filed at their local start time */
 export function normalizeWorkouts(
@@ -168,6 +170,14 @@ export function normalizeDay(raw: DayRawBundle, clock: LocalClock): HealthDay {
   if (dist != null) { day.distanceMeters = Math.round(dist); day.coverage.movement = true; }
   const energy = bestSourceTotal(raw.activeEnergy);
   if (energy != null) { day.activeEnergyKcal = Math.round(energy); day.coverage.movement = true; }
+  /* stand time is Watch-only — absent on phone-only days, and absent
+     means absent, not sedentary */
+  const stand = bestSourceTotal(raw.stand);
+  if (stand != null) {
+    day.standMinutes = Math.round(stand);
+    day.standHourly = hourlyOf(raw.stand, clock);
+    day.coverage.movement = true;
+  }
 
   /* an empty workout list under granted permission is a real "no
      workouts today" ONLY if movement data shows the day was measured at

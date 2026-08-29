@@ -40,7 +40,7 @@
 import {
   HEALTH_MIN_DELTA, HEALTH_MIN_GROUP_DAYS, HEALTH_MIN_PAIRED_DAYS,
   HEALTH_SLEEP_MIN_SPREAD_MINUTES, HEALTH_STEPS_MIN_SPREAD,
-  HEALTH_WORKOUT_MIN_SPREAD_MINUTES,
+  HEALTH_STAND_MIN_SPREAD_MINUTES, HEALTH_WORKOUT_MIN_SPREAD_MINUTES,
 } from '../thresholds';
 import { PairKind, PairedDay } from './windows';
 
@@ -70,6 +70,7 @@ function spreadFloor(kind: PairKind): number {
   if (kind === 'sleepVsMorning') return HEALTH_SLEEP_MIN_SPREAD_MINUTES;
   if (kind === 'workoutVsNextMorning') return 1;   // the groups are categorical
   if (kind === 'workoutLoadVsNextMorning') return HEALTH_WORKOUT_MIN_SPREAD_MINUTES;
+  if (kind === 'standBeforeVsEvening') return HEALTH_STAND_MIN_SPREAD_MINUTES;
   return HEALTH_STEPS_MIN_SPREAD;
 }
 
@@ -171,6 +172,13 @@ const KIND_WORDS: Record<PairKind, {
     timing: 'Each morning is compared with the day before it, never with the same day.',
     join: 'after', lowWord: 'no-workout', highWord: 'workout', groupNoun: 'days',
   },
+  standBeforeVsEvening: {
+    factor: 'Time upright',
+    timing: 'Each evening is compared only with the hours before that check-in. '
+      + 'Upright time comes from an Apple Watch — it measures standing, not sitting, '
+      + 'and an unworn watch is a missing day, never a still one.',
+    join: 'on', lowWord: 'less-upright', highWord: 'more-upright', groupNoun: 'days',
+  },
   workoutLoadVsNextMorning: {
     factor: 'Workout load',
     timing: 'Each morning is compared with the previous day’s workouts. Load is total '
@@ -187,7 +195,7 @@ export function groupLabels(kind: PairKind): {
   const w = KIND_WORDS[kind];
   return {
     factor: w.factor, low: w.lowWord, high: w.highWord, noun: w.groupNoun,
-    outcome: kind === 'stepsBeforeVsEvening' ? 'evening pain' : 'morning pain',
+    outcome: EVENING_KINDS.indexOf(kind) >= 0 ? 'evening pain' : 'morning pain',
     timing: w.timing,
   };
 }
@@ -196,14 +204,18 @@ export function groupLabels(kind: PairKind): {
  *  steps", "48 min". One formatter, shared by every surface that shows
  *  a group mean, so no two screens spell the same quantity differently. */
 export function factorLabel(kind: PairKind, value: number): string {
-  if (kind === 'sleepVsMorning') {
+  if (kind === 'sleepVsMorning' || kind === 'standBeforeVsEvening') {
     const h = Math.floor(value / 60), m = Math.round(value % 60);
+    if (h === 0) return m + ' min';
     return h + 'h' + (m ? ' ' + m + 'm' : '');
   }
   if (kind === 'workoutLoadVsNextMorning') return Math.round(value) + ' min';
   if (kind === 'workoutVsNextMorning') return value > 0 ? 'workout' : 'no workout';
   return Math.round(value).toLocaleString('en-US') + ' steps';
 }
+
+/** the kinds whose outcome is the evening check-in — every other kind reads the morning */
+const EVENING_KINDS: PairKind[] = ['stepsBeforeVsEvening', 'standBeforeVsEvening'];
 
 export interface AssociationCopy {
   title: string;
@@ -223,7 +235,7 @@ export function associationCopy(a: Association): AssociationCopy | null {
   const dir = a.delta < 0 ? 'lower' : 'higher';
   /* which pain this is about, named — morning and evening are different
      outcomes and must not blur */
-  const outcome = a.kind === 'stepsBeforeVsEvening' ? 'evening pain' : 'morning pain';
+  const outcome = EVENING_KINDS.indexOf(a.kind) >= 0 ? 'evening pain' : 'morning pain';
   return {
     title: w.factor + ' may be worth watching',
     body: 'Your ' + outcome + ' averaged ' + size + (size === 1 ? ' point ' : ' points ')

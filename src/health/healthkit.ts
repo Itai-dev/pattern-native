@@ -73,6 +73,12 @@ const TYPES: Record<HealthCategory, string[]> = {
     'HKQuantityTypeIdentifierStepCount',
     'HKQuantityTypeIdentifierDistanceWalkingRunning',
     'HKQuantityTypeIdentifierActiveEnergyBurned',
+    /* upright time, Watch-only. Added after the first TestFlight build:
+       an already-connected user reads nothing for it until they tap
+       "Update what Pattern reads", which re-presents Apple's sheet with
+       just the new row — and until then the type simply returns no
+       samples, which the whole pipeline already treats as "absent". */
+    'HKQuantityTypeIdentifierAppleStandTime',
   ],
   workouts: ['HKWorkoutTypeIdentifier'],
   heart: [
@@ -194,6 +200,7 @@ export class HealthKitService implements HealthService {
       out.steps = await q('HKQuantityTypeIdentifierStepCount', 'count', dayStart, dayEnd);
       out.distance = await q('HKQuantityTypeIdentifierDistanceWalkingRunning', 'm', dayStart, dayEnd);
       out.activeEnergy = await q('HKQuantityTypeIdentifierActiveEnergyBurned', 'kcal', dayStart, dayEnd);
+      out.stand = await q('HKQuantityTypeIdentifierAppleStandTime', 'min', dayStart, dayEnd);
     }
 
     if (categories.indexOf('workouts') >= 0) {

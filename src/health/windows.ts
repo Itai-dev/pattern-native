@@ -37,6 +37,11 @@ export type PairKind =
   | 'prevDayStepsVsMorning'   // yesterday's steps → this morning's pain
   | 'stepsBeforeVsEvening'    // today's steps up to the check-in → evening pain
   | 'workoutVsNextMorning'    // yesterday: workout or none → this morning
+  /* Upright time accumulated before an evening check-in → that evening's
+   * pain. UPRIGHT, not "sitting": the Watch measures standing, and an
+   * hour without it could be a couch, a car, or a charger. The wording
+   * everywhere keeps to what was measured. */
+  | 'standBeforeVsEvening'
   /* Yesterday's workout LOAD → this morning, on workout days only: the
    * harder-than-usual vs lighter-than-usual question, split at the
    * person's own distribution. Load is TOTAL WORKOUT MINUTES, and the
@@ -70,16 +75,26 @@ export function eveningPain(logs: Moment[]): Moment | null {
   return m.length ? m[m.length - 1] : null;
 }
 
-/** steps accumulated before a given minute-of-day, from the hourly
+/** a quantity accumulated before a given minute-of-day, from hourly
  *  buckets. Whole hours only: the hour the check-in falls in is
  *  excluded rather than pro-rated, because pro-rating invents an
  *  even distribution nobody measured. */
-export function stepsBefore(day: HealthDay, h: number): number | null {
-  if (!day.stepsHourly || !day.coverage.movement) return null;
+function sumBefore(hourly: number[] | undefined, covered: boolean, h: number): number | null {
+  if (!hourly || !covered) return null;
   const upto = Math.max(0, Math.min(24, Math.floor(h / 60)));
   let sum = 0;
-  for (let i = 0; i < upto; i++) sum += day.stepsHourly[i];
+  for (let i = 0; i < upto; i++) sum += hourly[i];
   return sum;
+}
+
+export function stepsBefore(day: HealthDay, h: number): number | null {
+  return sumBefore(day.stepsHourly, !!day.coverage.movement, h);
+}
+
+export function standBefore(day: HealthDay, h: number): number | null {
+  /* stand needs its own data present — movement coverage can come from
+     the phone's steps while the wrist that measures standing was bare */
+  return sumBefore(day.standHourly, day.standMinutes != null, h);
 }
 
 /**
@@ -120,6 +135,16 @@ export function buildPairs(
       const h = health[date];
       if (!pain || !h) return;
       const before = stepsBefore(h, pain.h);
+      if (before == null) return;
+      out.push({ date, factor: before, pain: pain.pain });
+      return;
+    }
+
+    if (kind === 'standBeforeVsEvening') {
+      const pain = eveningPain(logs);
+      const h = health[date];
+      if (!pain || !h) return;
+      const before = standBefore(h, pain.h);
       if (before == null) return;
       out.push({ date, factor: before, pain: pain.pain });
       return;

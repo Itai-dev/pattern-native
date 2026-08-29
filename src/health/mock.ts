@@ -16,7 +16,7 @@ export type MockFixture = Record<string, Partial<Omit<DayRawBundle, 'date'>>>;
 
 export function emptyBundle(date: string): DayRawBundle {
   return {
-    date, sleep: [], steps: [], distance: [], activeEnergy: [],
+    date, sleep: [], steps: [], distance: [], activeEnergy: [], stand: [],
     workouts: [], restingHeartRate: [], hrvSDNN: [], stateOfMind: [],
   };
 }
@@ -43,6 +43,7 @@ export class MockHealthService implements HealthService {
       if (f.steps) out.steps = f.steps;
       if (f.distance) out.distance = f.distance;
       if (f.activeEnergy) out.activeEnergy = f.activeEnergy;
+      if (f.stand) out.stand = f.stand;
     }
     if (categories.indexOf('workouts') >= 0 && f.workouts) out.workouts = f.workouts;
     if (categories.indexOf('heart') >= 0) {

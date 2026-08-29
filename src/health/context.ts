@@ -21,8 +21,8 @@
  * same lines.
  */
 import {
-  CONTEXT_SLEEP_USUAL_DELTA_MIN, CONTEXT_STEPS_USUAL_RATIO,
-  CONTEXT_USUAL_MIN_DAYS, CONTEXT_USUAL_WINDOW_DAYS,
+  CONTEXT_SLEEP_USUAL_DELTA_MIN, CONTEXT_STAND_USUAL_DELTA_MIN,
+  CONTEXT_STEPS_USUAL_RATIO, CONTEXT_USUAL_MIN_DAYS, CONTEXT_USUAL_WINDOW_DAYS,
 } from '../thresholds';
 import { addDays } from '../model';
 import { HealthDay } from './types';
@@ -109,6 +109,20 @@ export function healthDayLines(
   }
   if (day.activeEnergyKcal != null) {
     out.push({ key: 'energy', text: Math.round(day.activeEnergyKcal) + ' kcal active energy' });
+  }
+  if (day.standMinutes != null) {
+    /* "upright", said as measured — an unworn watch was a missing day,
+       and this line simply is not there for it */
+    let text = fmtDuration(day.standMinutes) + ' upright through the day';
+    const usual = usualOf(all, day.date, (d) => d.standMinutes);
+    if (usual != null) {
+      const delta = day.standMinutes - usual;
+      if (Math.abs(delta) >= CONTEXT_STAND_USUAL_DELTA_MIN) {
+        text += ' — about ' + fmtDuration(Math.abs(Math.round(delta)))
+          + (delta > 0 ? ' more' : ' less') + ' than your usual';
+      }
+    }
+    out.push({ key: 'stand', text });
   }
   const w = day.workouts || [];
   if (w.length === 1) {

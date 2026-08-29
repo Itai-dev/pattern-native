@@ -27,7 +27,7 @@ import { PairKind, buildPairs } from './windows';
  *  are deliberately absent: imported, normalized, never examined. */
 export const CATEGORY_ASSOCIATIONS: Partial<Record<HealthCategory, PairKind[]>> = {
   sleep: ['sleepVsMorning'],
-  movement: ['prevDayStepsVsMorning', 'stepsBeforeVsEvening'],
+  movement: ['prevDayStepsVsMorning', 'stepsBeforeVsEvening', 'standBeforeVsEvening'],
   workouts: ['workoutVsNextMorning', 'workoutLoadVsNextMorning'],
 };
 

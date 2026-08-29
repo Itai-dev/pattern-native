@@ -39,7 +39,7 @@ export const HEALTH_CATEGORIES: { id: HealthCategory; name: string; blurb: strin
   },
   {
     id: 'movement', name: 'Daily movement',
-    blurb: 'Steps, walking distance and active energy through the day.',
+    blurb: 'Steps, walking distance, active energy — and time upright, from an Apple Watch, for how much of the day was spent sitting still.',
   },
   {
     id: 'workouts', name: 'Workouts',
@@ -135,6 +135,13 @@ export interface HealthDay {
   steps?: number;
   distanceMeters?: number;
   activeEnergyKcal?: number;
+  /** minutes spent upright (Apple Watch stand time). UPRIGHT, not
+   *  "not sitting": an hour without standing could be a couch, a car,
+   *  or a watch on its charger, and the wording downstream keeps to
+   *  what was measured. */
+  standMinutes?: number;
+  /** upright minutes per local hour, for hours-before-a-check-in sums */
+  standHourly?: number[];
   /** steps per local hour, 24 slots, for "since the last check-in"
    *  arithmetic. Present only when steps are. A missing hour is 0 INSIDE
    *  a covered day — the coverage flag is what says "measured at all". */
@@ -156,6 +163,7 @@ export interface DayRawBundle {
   steps: QuantitySample[];
   distance: QuantitySample[];
   activeEnergy: QuantitySample[];
+  stand: QuantitySample[];
   workouts: WorkoutSample[];
   restingHeartRate: QuantitySample[];
   hrvSDNN: QuantitySample[];
