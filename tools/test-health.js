@@ -320,21 +320,22 @@ ok('no sentence anywhere claims cause', (() => {
     || (all.split('cause').length === 2 && all.indexOf('not proof') >= 0);
 })());
 
-group('licensing: only confirmed factors are examined');
-ok('no confirmed factors, no associations at all', (() => {
-  return noticed.licensedKinds([]).length === 0
-    && noticed.licensedKinds(['stress.level.v1']).length === 0;
+group('licensing: connected categories, and only those, are examined');
+ok('nothing connected, nothing examined', (() => {
+  return noticed.licensedKinds([]).length === 0;
 })());
-ok('sleep focus licenses exactly the sleep pairing', (() => {
-  const k = noticed.licensedKinds(['sleep.quality.v1']);
+ok('connecting sleep licenses exactly the sleep pairing', (() => {
+  const k = noticed.licensedKinds(['sleep']);
   return k.length === 1 && k[0] === 'sleepVsMorning';
 })());
-ok('heart and mind data license nothing', (() => {
-  // no factor maps to heart or mind — the taxonomy has no entry
-  const all = Object.keys(noticed.FACTOR_ASSOCIATIONS).map((k) => noticed.FACTOR_ASSOCIATIONS[k]);
-  return all.every((kinds) => kinds.every((x) =>
-    ['sleepVsMorning', 'prevDayStepsVsMorning', 'stepsBeforeVsEvening',
-      'workoutVsNextMorning', 'workoutLoadVsNextMorning'].indexOf(x) >= 0));
+ok('workouts license both workout comparisons, movement the step ones', (() => {
+  const w = noticed.licensedKinds(['workouts']);
+  const m = noticed.licensedKinds(['movement']);
+  return w.length === 2 && w.indexOf('workoutLoadVsNextMorning') >= 0
+    && m.length === 2 && m.indexOf('sleepVsMorning') < 0;
+})());
+ok('heart and mind license nothing — imported, never examined', (() => {
+  return noticed.licensedKinds(['heart', 'mind']).length === 0;
 })());
 ok('one card at most: the strongest possible wins', (() => {
   const a = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 7, 4));
@@ -395,9 +396,9 @@ ok('factor labels read as humans do', (() => {
     && engine.factorLabel('prevDayStepsVsMorning', 4810) === '4,810 steps'
     && engine.factorLabel('workoutVsNextMorning', 1) === 'workout';
 })());
-ok('load is licensed only by the physical-load focus', (() => {
-  const k = noticed.licensedKinds(['load.physical.v1']);
-  const s = noticed.licensedKinds(['sleep.quality.v1']);
+ok('load is licensed by connecting workouts, not by sleep', (() => {
+  const k = noticed.licensedKinds(['workouts']);
+  const s = noticed.licensedKinds(['sleep']);
   return k.indexOf('workoutLoadVsNextMorning') >= 0
     && s.indexOf('workoutLoadVsNextMorning') < 0;
 })());

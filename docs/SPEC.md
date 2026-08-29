@@ -847,10 +847,16 @@ last-evening fixed outcomes so repeated check-ins never inflate a group) →
 `engine.ts` (outer terciles of the person's own distribution, gates named in
 `thresholds.ts`: 14 paired days, 5 per group, real factor spread, 1.5-point
 delta; verdicts `insufficient | observation | possible | fading` and nothing
-else). `noticed.ts` licenses associations ONLY from factors the user
-confirmed through the focus flow — health data being present is never a
-reason to go looking. One card at most, Trends' "What Pattern noticed",
-sample sizes and the non-causation line on the card itself.
+else). `noticed.ts` licenses associations from the Health CATEGORIES the
+user connected — consent lives in the Health setup itself (Pattern's
+category sheet plus Apple's per-type sheet), and demanding a second
+confirmation through Focus was double consent: connect sleep, see nothing,
+because a different switch was off. Heart and mind license nothing; the
+search space is the predefined comparisons, never a scan. Focus remains the
+sole vehicle for factors no sensor can answer (stress, weather, alcohol…)
+and gates the manual daily questions exactly as before. One claim card at
+most, Trends' "What Pattern noticed", sample sizes and the non-causation
+line on the card itself.
 
 **Setup** lives in Profile (`HealthSheet.tsx`): pick categories → Apple's own
 sheet → done. The screen speaks only states it can know — HealthKit hides

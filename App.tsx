@@ -23,7 +23,9 @@ import DaySheet from './src/DaySheet';
 import DayScreen, { fmtDay } from './src/DayScreen';
 import HealthSheet from './src/HealthSheet';
 import { HealthKitService, deviceClock } from './src/health/healthkit';
-import { healthRequestedOn, storedHealthDays, syncHealth } from './src/health/sync';
+import {
+  healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
+} from './src/health/sync';
 import { noticedAssociations, strongestPossible } from './src/health/noticed';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
@@ -40,7 +42,7 @@ import { refreshWidget } from './src/widgetPush';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
-import { activeFactorIds, activeFactors } from './src/protocol';
+import { activeFactors } from './src/protocol';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
 import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
 import {
@@ -210,13 +212,14 @@ export default function App() {
     return () => sub.remove();
   }, [resyncHealth]);
 
-  /* What Pattern noticed — evaluated only for the factors the user
-     confirmed through the focus flow, remembered so a shown finding
-     that stops holding fades out loud instead of vanishing. */
+  /* What Pattern noticed — licensed by the Health categories the user
+     connected (consent lives in the Health setup, not in a second
+     switch), remembered so a shown finding that stops holding fades
+     out loud instead of vanishing. */
   const healthNoticed = useMemo(() => {
     const shown = db.getPref<PairKind[]>('health.shownKinds', []);
     const all = noticedAssociations(
-      entries, healthDays, activeFactorIds(protocol), shown);
+      entries, healthDays, healthCategories(), shown);
     const best = strongestPossible(all);
     if (best && shown.indexOf(best.kind) < 0) {
       db.setPref('health.shownKinds', shown.concat(best.kind));

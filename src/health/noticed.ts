@@ -1,45 +1,42 @@
 /**
  * Which health associations may even be LOOKED AT, and what came of
- * looking — the bridge between the user's confirmed focus and the
- * engine.
+ * looking — the bridge between the user's consent and the engine.
  *
- * The gate that matters here: an association is evaluated only when
- * its factor is one the user confirmed — the active observation
- * protocol's factors, chosen through the existing focus flow. Health
- * data being present is never, on its own, a reason to go looking.
- * A correlation engine pointed at everything it can reach is a machine
- * for finding accidents, and four user-asked questions is the entire
- * search space.
+ * CONSENT IS THE HEALTH SETUP ITSELF. The user picked categories on
+ * Pattern's sheet and confirmed them type-by-type on Apple's; that is
+ * them asking Pattern to watch sleep, or movement, or workouts, and
+ * demanding a second confirmation through the focus flow was double
+ * consent wearing principle's clothes — connecting sleep and then
+ * seeing nothing because a different switch was off. So each connected
+ * category licenses its own associations, and only those: heart and
+ * mind license NOTHING by design, and the whole search space is five
+ * predefined questions, never a scan. Focus remains the vehicle for
+ * what no sensor can answer — stress, weather, alcohol — and gates the
+ * manual questions exactly as before.
  *
- * Pure: entries, health days and the confirmed factor ids in, verdicts
+ * Pure: entries, health days and the connected categories in, verdicts
  * out. What was previously shown travels in as an argument and back
  * out as data — the caller owns remembering it.
  */
 import { Entries } from '../model';
 import { Association, evaluate } from './engine';
-import { HealthDay } from './types';
+import { HealthCategory, HealthDay } from './types';
 import { PairKind, buildPairs } from './windows';
 
-/** confirmed factor id → the associations it licenses. Sleep licenses
- *  the sleep pairing; the movement-shaped factors license the activity
- *  pairings. Nothing else licenses anything — stress, weather and the
- *  rest have no honest sensor here, and heart/mind data licenses
- *  nothing by design. */
-export const FACTOR_ASSOCIATIONS: Record<string, PairKind[]> = {
-  'sleep.quality.v1': ['sleepVsMorning'],
-  'movement.amount.v1': ['prevDayStepsVsMorning', 'stepsBeforeVsEvening'],
-  'load.physical.v1': [
-    'prevDayStepsVsMorning', 'stepsBeforeVsEvening',
-    'workoutVsNextMorning', 'workoutLoadVsNextMorning',
-  ],
+/** connected category → the associations it licenses. Heart and mind
+ *  are deliberately absent: imported, normalized, never examined. */
+export const CATEGORY_ASSOCIATIONS: Partial<Record<HealthCategory, PairKind[]>> = {
+  sleep: ['sleepVsMorning'],
+  movement: ['prevDayStepsVsMorning', 'stepsBeforeVsEvening'],
+  workouts: ['workoutVsNextMorning', 'workoutLoadVsNextMorning'],
 };
 
-/** the association kinds the given confirmed factors license, deduped */
-export function licensedKinds(confirmedFactorIds: string[]): PairKind[] {
+/** the association kinds the connected categories license, deduped */
+export function licensedKinds(categories: HealthCategory[]): PairKind[] {
   const seen: Record<string, true> = {};
   const out: PairKind[] = [];
-  confirmedFactorIds.forEach((id) => {
-    (FACTOR_ASSOCIATIONS[id] || []).forEach((k) => {
+  categories.forEach((c) => {
+    (CATEGORY_ASSOCIATIONS[c] || []).forEach((k) => {
       if (!seen[k]) { seen[k] = true; out.push(k); }
     });
   });
@@ -52,10 +49,10 @@ export function licensedKinds(confirmedFactorIds: string[]): PairKind[] {
 export function noticedAssociations(
   entries: Entries,
   health: Record<string, HealthDay>,
-  confirmedFactorIds: string[],
+  categories: HealthCategory[],
   previouslyShown: PairKind[]
 ): Association[] {
-  return licensedKinds(confirmedFactorIds).map((kind) =>
+  return licensedKinds(categories).map((kind) =>
     evaluate(kind, buildPairs(kind, entries, health), previouslyShown.indexOf(kind) >= 0));
 }
 

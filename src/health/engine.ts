@@ -31,8 +31,8 @@
  * a shown association no longer clears the gates the engine says so
  * out loud instead of pretending it never spoke.
  *
- * ONLY THE FOUR LISTED ASSOCIATIONS ARE EVER TESTED, and only when the
- * user's confirmed factors ask for them. Resting HR, HRV and State of
+ * ONLY THE LISTED ASSOCIATIONS ARE EVER TESTED, and only when the
+ * user's connected Health categories license them. Resting HR, HRV and State of
  * Mind are imported and normalized but generate nothing here — a
  * correlation engine pointed at every stream it can reach is a machine
  * for finding accidents.
