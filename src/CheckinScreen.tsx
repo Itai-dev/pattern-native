@@ -66,6 +66,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import PainShape from './PainShape';
+import BodyMap from './BodyMap';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
@@ -524,7 +525,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     ? 'Your read on the day — Pattern records it, it doesn’t test it'
     : step === 'questions' ? 'Optional — Skip if it doesn’t fit today'
     : step === 'feel' ? 'Optional — tap any that fit'
-      : step === 'where' ? 'Your usual places are already selected'
+      : step === 'where' ? 'Touch where it hurts — your usual places are already marked'
         : null;
 
   /* collapsed chips: the six you use most, plus anything already selected;
@@ -648,11 +649,25 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
             )}
           </View>
         </ScrollView>
+      ) : step === 'where' ? (
+        /* the body, touched, instead of a list scanned — same fourteen
+           ids underneath, same skip semantics, same storage. The marks
+           wear THIS check-in's pain colour: the intensity was chosen one
+           step ago, and the map only ever answers where. */
+        <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
+          <BodyMap
+            selected={loc}
+            onToggle={(id) => setLoc(
+              loc.indexOf(id) >= 0 ? loc.filter((x) => x !== id) : loc.concat(id)
+            )}
+            tint={painColor(pain == null ? 5 : pain)}
+            ink={inkOn(pain == null ? 5 : pain)}
+            width={230}
+          />
+        </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
-          {step === 'feel'
-            ? chipRow(visibleIds(ranked.q, quality), QUALITY_NAMES, quality, setQuality)
-            : chipRow(visibleIds(ranked.loc, loc), LOC_NAMES, loc, setLoc)}
+          {chipRow(visibleIds(ranked.q, quality), QUALITY_NAMES, quality, setQuality)}
           {!showAllChips && (
             <Press onPress={() => setShowAllChips(true)} style={styles.more} pressOpacity={0.7}>
               <Text style={styles.moreText}>Show more ›</Text>
