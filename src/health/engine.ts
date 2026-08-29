@@ -40,6 +40,7 @@
 import {
   HEALTH_MIN_DELTA, HEALTH_MIN_GROUP_DAYS, HEALTH_MIN_PAIRED_DAYS,
   HEALTH_SLEEP_MIN_SPREAD_MINUTES, HEALTH_STEPS_MIN_SPREAD,
+  HEALTH_WORKOUT_MIN_SPREAD_MINUTES,
 } from '../thresholds';
 import { PairKind, PairedDay } from './windows';
 
@@ -68,6 +69,7 @@ const mean = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length;
 function spreadFloor(kind: PairKind): number {
   if (kind === 'sleepVsMorning') return HEALTH_SLEEP_MIN_SPREAD_MINUTES;
   if (kind === 'workoutVsNextMorning') return 1;   // the groups are categorical
+  if (kind === 'workoutLoadVsNextMorning') return HEALTH_WORKOUT_MIN_SPREAD_MINUTES;
   return HEALTH_STEPS_MIN_SPREAD;
 }
 
@@ -169,7 +171,39 @@ const KIND_WORDS: Record<PairKind, {
     timing: 'Each morning is compared with the day before it, never with the same day.',
     join: 'after', lowWord: 'no-workout', highWord: 'workout', groupNoun: 'days',
   },
+  workoutLoadVsNextMorning: {
+    factor: 'Workout load',
+    timing: 'Each morning is compared with the previous day’s workouts. Load is total '
+      + 'workout time, split at your own usual — not a universal bar.',
+    join: 'after', lowWord: 'lighter-workout', highWord: 'harder-workout', groupNoun: 'days',
+  },
 };
+
+/** the group vocabulary for a kind, for surfaces that draw the groups
+ *  themselves — the same words the sentences use, never a second set */
+export function groupLabels(kind: PairKind): {
+  factor: string; low: string; high: string; noun: string; outcome: string; timing: string;
+} {
+  const w = KIND_WORDS[kind];
+  return {
+    factor: w.factor, low: w.lowWord, high: w.highWord, noun: w.groupNoun,
+    outcome: kind === 'stepsBeforeVsEvening' ? 'evening pain' : 'morning pain',
+    timing: w.timing,
+  };
+}
+
+/** the factor value as a human reads it, per kind — "7h 40m", "4,810
+ *  steps", "48 min". One formatter, shared by every surface that shows
+ *  a group mean, so no two screens spell the same quantity differently. */
+export function factorLabel(kind: PairKind, value: number): string {
+  if (kind === 'sleepVsMorning') {
+    const h = Math.floor(value / 60), m = Math.round(value % 60);
+    return h + 'h' + (m ? ' ' + m + 'm' : '');
+  }
+  if (kind === 'workoutLoadVsNextMorning') return Math.round(value) + ' min';
+  if (kind === 'workoutVsNextMorning') return value > 0 ? 'workout' : 'no workout';
+  return Math.round(value).toLocaleString('en-US') + ' steps';
+}
 
 export interface AssociationCopy {
   title: string;

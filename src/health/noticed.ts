@@ -28,7 +28,10 @@ import { PairKind, buildPairs } from './windows';
 export const FACTOR_ASSOCIATIONS: Record<string, PairKind[]> = {
   'sleep.quality.v1': ['sleepVsMorning'],
   'movement.amount.v1': ['prevDayStepsVsMorning', 'stepsBeforeVsEvening'],
-  'load.physical.v1': ['prevDayStepsVsMorning', 'stepsBeforeVsEvening', 'workoutVsNextMorning'],
+  'load.physical.v1': [
+    'prevDayStepsVsMorning', 'stepsBeforeVsEvening',
+    'workoutVsNextMorning', 'workoutLoadVsNextMorning',
+  ],
 };
 
 /** the association kinds the given confirmed factors license, deduped */

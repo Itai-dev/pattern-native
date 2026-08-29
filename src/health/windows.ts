@@ -33,10 +33,18 @@ import { bandOf } from '../metrics';
 import { HealthDay } from './types';
 
 export type PairKind =
-  | 'sleepVsMorning'        // last night's sleep → this morning's pain
-  | 'prevDayStepsVsMorning' // yesterday's steps → this morning's pain
-  | 'stepsBeforeVsEvening'  // today's steps up to the check-in → evening pain
-  | 'workoutVsNextMorning'; // yesterday: workout or none → this morning
+  | 'sleepVsMorning'          // last night's sleep → this morning's pain
+  | 'prevDayStepsVsMorning'   // yesterday's steps → this morning's pain
+  | 'stepsBeforeVsEvening'    // today's steps up to the check-in → evening pain
+  | 'workoutVsNextMorning'    // yesterday: workout or none → this morning
+  /* Yesterday's workout LOAD → this morning, on workout days only: the
+   * harder-than-usual vs lighter-than-usual question, split at the
+   * person's own distribution. Load is TOTAL WORKOUT MINUTES, and the
+   * word is "load", not "intensity", deliberately: duration is the one
+   * measure HealthKit carries on every workout, while energy is absent
+   * from many — and a comparison whose unit changes day to day is not a
+   * comparison. Heart-rate-based intensity can refine this later. */
+  | 'workoutLoadVsNextMorning';
 
 /** one paired observation: a factor value and the pain it may lawfully
  *  be compared with. `factor` is continuous except for workouts, where
@@ -124,6 +132,20 @@ export function buildPairs(
          see normalize.ts for why coverage requires measured movement */
       if (!pain || !prev || !prev.coverage.workouts) return;
       out.push({ date, factor: (prev.workouts || []).length > 0 ? 1 : 0, pain: pain.pain });
+      return;
+    }
+
+    if (kind === 'workoutLoadVsNextMorning') {
+      const pain = morningPain(logs);
+      const prev = health[addDays(date, -1)];
+      /* workout DAYS only: this question is "harder vs lighter", and a
+         day with no workout belongs to the other comparison, not to the
+         bottom of this one */
+      if (!pain || !prev || !prev.coverage.workouts) return;
+      const w = prev.workouts || [];
+      if (!w.length) return;
+      const minutes = w.reduce((s, x) => s + x.minutes, 0);
+      out.push({ date, factor: minutes, pain: pain.pain });
       return;
     }
   });

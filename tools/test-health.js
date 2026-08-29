@@ -333,7 +333,8 @@ ok('heart and mind data license nothing', (() => {
   // no factor maps to heart or mind — the taxonomy has no entry
   const all = Object.keys(noticed.FACTOR_ASSOCIATIONS).map((k) => noticed.FACTOR_ASSOCIATIONS[k]);
   return all.every((kinds) => kinds.every((x) =>
-    ['sleepVsMorning', 'prevDayStepsVsMorning', 'stepsBeforeVsEvening', 'workoutVsNextMorning'].indexOf(x) >= 0));
+    ['sleepVsMorning', 'prevDayStepsVsMorning', 'stepsBeforeVsEvening',
+      'workoutVsNextMorning', 'workoutLoadVsNextMorning'].indexOf(x) >= 0));
 })());
 ok('one card at most: the strongest possible wins', (() => {
   const a = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 7, 4));
@@ -355,6 +356,50 @@ ok('coverage counts covered days honestly', (() => {
   const c = coverage.factorCoverage(['sleep.quality.v1', 'stress.level.v1'], E, H, '2026-08-20', 7);
   return c[0].coveredDays === 1 && c[0].loggedDays === 1
     && c[1].category === null && c[1].coveredDays === 0;
+})());
+
+group('workout load: harder-than-usual vs lighter-than-usual');
+ok('load pairs only on workout days, summing that day’s minutes', (() => {
+  const E = { '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 6 }] } };
+  const withTwo = {
+    '2026-08-19': hday('2026-08-19', {
+      workouts: [{ uuid: 'a', h: 540, minutes: 30, activity: 'run' },
+        { uuid: 'b', h: 1080, minutes: 18, activity: 'walk' }],
+      coverage: { workouts: true, movement: true },
+    }),
+  };
+  const none = {
+    '2026-08-19': hday('2026-08-19', { workouts: [], coverage: { workouts: true, movement: true } }),
+  };
+  const p = windows.buildPairs('workoutLoadVsNextMorning', E, withTwo);
+  return p.length === 1 && p[0].factor === 48 && p[0].pain === 6
+    && windows.buildPairs('workoutLoadVsNextMorning', E, none).length === 0;
+})());
+ok('a 20-minute spread floor gates the load claim', (() => {
+  // groups 15 minutes apart in mean load — same behaviour sorted into piles
+  const near = engine.evaluate('workoutLoadVsNextMorning', fabricate(18, 40, 55, 7, 4));
+  const far = engine.evaluate('workoutLoadVsNextMorning', fabricate(18, 30, 75, 7, 4));
+  return near.verdict === 'observation' && far.verdict === 'possible';
+})());
+ok('the load sentence says harder-workout days and names the outcome', (() => {
+  const a = engine.evaluate('workoutLoadVsNextMorning', fabricate(18, 30, 75, 4, 7));
+  const c = engine.associationCopy(a);
+  return c && c.title === 'Workout load may be worth watching'
+    && c.body.indexOf('harder-workout') >= 0
+    && c.body.indexOf('morning pain') >= 0
+    && c.timing.indexOf('your own usual') >= 0;
+})());
+ok('factor labels read as humans do', (() => {
+  return engine.factorLabel('sleepVsMorning', 460) === '7h 40m'
+    && engine.factorLabel('workoutLoadVsNextMorning', 48.4) === '48 min'
+    && engine.factorLabel('prevDayStepsVsMorning', 4810) === '4,810 steps'
+    && engine.factorLabel('workoutVsNextMorning', 1) === 'workout';
+})());
+ok('load is licensed only by the physical-load focus', (() => {
+  const k = noticed.licensedKinds(['load.physical.v1']);
+  const s = noticed.licensedKinds(['sleep.quality.v1']);
+  return k.indexOf('workoutLoadVsNextMorning') >= 0
+    && s.indexOf('workoutLoadVsNextMorning') < 0;
 })());
 
 group('health context in the clinician report');

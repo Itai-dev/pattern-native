@@ -160,6 +160,11 @@ export const HEALTH_MIN_DELTA = PATTERN_MIN_DELTA;
 export const HEALTH_SLEEP_MIN_SPREAD_MINUTES = 60;
 export const HEALTH_STEPS_MIN_SPREAD = 2000;
 export const HEALTH_ENERGY_MIN_SPREAD_KCAL = 150;
+/** Workout-load groups (total workout minutes on the day) must differ by
+ *  at least this much. Twenty minutes: below that, a "harder" and a
+ *  "lighter" workout day are one stretching session apart, and the
+ *  comparison is rounding sorted into piles. */
+export const HEALTH_WORKOUT_MIN_SPREAD_MINUTES = 20;
 
 /** days of the recent record the foreground sync re-derives on each
  *  open — Health data arrives late (a watch syncs when it syncs), so

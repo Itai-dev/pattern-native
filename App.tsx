@@ -222,7 +222,11 @@ export default function App() {
       db.setPref('health.shownKinds', shown.concat(best.kind));
     }
     const fading = all.filter((a) => a.verdict === 'fading');
-    return { best, fading };
+    /* every association whose groups actually formed — Trends draws the
+       comparison itself, claim or no claim; the claim stays gated */
+    const groups = all.filter((a) =>
+      (a.verdict === 'possible' || a.verdict === 'observation') && a.low && a.high);
+    return { best, fading, groups };
   }, [entries, healthDays, protocol]);
   /* an event being edited, and the day sheet to return to afterwards */
   const [editEvent, setEditEvent] = useState<PainEvent | null>(null);

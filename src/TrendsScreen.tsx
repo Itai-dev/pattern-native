@@ -36,7 +36,8 @@ import {
 import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
 import { EndOfRecord, ReportData, buildReportData, fmtReportDate } from './report';
 import {
-  Association as HealthAssociation, associationCopy, fadedCopy,
+  Association as HealthAssociation, associationCopy, fadedCopy, factorLabel,
+  groupLabels,
 } from './health/engine';
 import { DigestCard, checkinBuys, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
@@ -62,6 +63,10 @@ export interface TrendsScreenProps {
   healthNoticed?: {
     best: HealthAssociation | null;
     fading: HealthAssociation[];
+    /** associations whose tercile groups formed, verdict or not — the
+     *  comparison is drawable the moment the groups exist; the CLAIM
+     *  stays gated exactly as before */
+    groups: HealthAssociation[];
   };
   /** the active observation period, for the progress cards — what a
    *  check-in is currently buying */
@@ -523,6 +528,86 @@ function outcomeOf(ev: PainEvent): string {
   return '';
 }
 
+/**
+ * The two groups of a health comparison, drawn.
+ *
+ * Bar LENGTH is the group's mean pain; bar COLOUR is painColor of that
+ * same mean — colour stays a pain value, and the factor (sleep, steps,
+ * workout minutes) lives entirely in the label text, never in the ramp.
+ * Every bar carries its n, because a bar without its sample size is a
+ * claim wearing a chart's clothes.
+ */
+function GroupBars({ a }: { a: HealthAssociation }) {
+  if (!a.low || !a.high) return null;
+  const w = groupLabels(a.kind);
+  const rows = [
+    { g: a.low, word: w.low },
+    { g: a.high, word: w.high },
+  ];
+  return (
+    <View style={cmpStyles.wrap}>
+      {rows.map((r) => (
+        <View
+          key={r.word}
+          style={cmpStyles.row}
+          accessible
+          accessibilityLabel={r.word + ' ' + w.noun + ', average '
+            + factorLabel(a.kind, r.g.factorMean) + ', ' + w.outcome + ' averaged '
+            + formatScore(r.g.painMean) + ' across ' + r.g.n + ' days'}
+        >
+          <View style={cmpStyles.head}>
+            <Text style={cmpStyles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {r.word[0].toUpperCase() + r.word.slice(1) + ' ' + w.noun
+                + (a.kind === 'workoutVsNextMorning'
+                  ? '' : ' · avg ' + factorLabel(a.kind, r.g.factorMean))}
+            </Text>
+            <Text style={cmpStyles.n} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {r.g.n} {w.noun}
+            </Text>
+          </View>
+          <View style={cmpStyles.barRow}>
+            <View style={cmpStyles.track}>
+              <View
+                style={[
+                  cmpStyles.fill,
+                  {
+                    width: `${Math.max(3, (r.g.painMean / 10) * 100)}%` as const,
+                    backgroundColor: painColor(r.g.painMean),
+                  },
+                ]}
+              />
+            </View>
+            <Text style={cmpStyles.value} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {formatScore(r.g.painMean)}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const cmpStyles = StyleSheet.create({
+  wrap: { marginTop: 12, gap: 12 },
+  row: { gap: 4 },
+  head: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  label: { flex: 1, color: color.textSecondary, fontSize: font.footnote },
+  n: { color: color.textTertiary, fontSize: font.footnote, fontVariant: ['tabular-nums'] },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  track: {
+    flex: 1, height: 10, borderRadius: 5, overflow: 'hidden',
+    backgroundColor: color.bgSegmentTrack,
+  },
+  fill: {
+    height: 10, borderRadius: 5,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.25)',
+  },
+  value: {
+    color: color.textPrimary, fontSize: font.footnote, fontWeight: '600',
+    minWidth: 26, textAlign: 'right', fontVariant: ['tabular-nums'],
+  },
+});
+
 /** one digest sentence: the claim, the numbers, the caveat. Sentence
  *  first and biggest — the Health pattern — with no glyph, no arrow and
  *  no colour: colour means pain, and none of these is a pain value. */
@@ -708,6 +793,10 @@ export default function TrendsScreen({
                 <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
                   {c.body}
                 </Text>
+                {/* the comparison behind the sentence, drawn — same
+                    groups, same numbers, so the words and the picture
+                    cannot drift apart */}
+                <GroupBars a={healthNoticed.best} />
                 <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
                   {c.sample}
                   {healthNoticed.best.from && healthNoticed.best.to
@@ -729,6 +818,39 @@ export default function TrendsScreen({
           </Card>
         );
       })()}
+
+      {/* ── the groups, drawn, claim or no claim ─────────────
+          A comparison whose tercile groups formed is drawable the
+          moment they exist; what stays gated is the CLAIM. Below the
+          delta or the spread floor, the bars appear under a sentence
+          that says plainly nothing meaningful separates them — showing
+          a small difference honestly is better than hiding the data
+          until it grows one, and it teaches what the bar means before
+          the day it matters. The best association's bars live in its
+          own card above, not repeated here. */}
+      {(healthNoticed?.groups || [])
+        .filter((a) => a !== healthNoticed?.best)
+        .map((a) => {
+          const w = groupLabels(a.kind);
+          return (
+            <Card key={a.kind} title={w.factor + ', against your record'}>
+              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                No meaningful difference in {w.outcome} between these groups so
+                far — that is a finding about these {a.pairedDays} days, not a
+                failure of them.
+              </Text>
+              <GroupBars a={a} />
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {w.timing}
+              </Text>
+              <Text style={styles.noteLine}>
+                Groups are your own lowest and highest third — the middle third
+                isn’t counted. An association here would still not be proof of
+                cause.
+              </Text>
+            </Card>
+          );
+        })}
 
       {/* ── the record, as sentences ─────────────────────────
           Apple Health's card grammar, held to this app's rules: the
