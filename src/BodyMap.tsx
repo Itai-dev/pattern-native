@@ -22,14 +22,18 @@
  * deciding argument for regions over pixels.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LOC_NAMES } from './model';
 import { color, font } from './theme';
 
-/* Regions in a 100 × 200 design space, symmetric about x = 50. The 2pt
-   gutters between blocks are what make the figure read as a segmented
-   body — the same trick the calendar plays with day squares. */
+/* The silhouette and these regions share ONE coordinate system: the
+   100 × 200 design space tools/make-body.js renders assets/body.png
+   from. Change the figure there and the numbers here, together — the
+   generator's shapes are the source of truth for where anatomy is. */
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const BODY = require('../assets/body.png');
+
 interface Region {
   id: string;          // a LOC_NAMES id — several regions may share one
   side?: 'Left' | 'Right';
@@ -37,33 +41,33 @@ interface Region {
 }
 
 const SHARED: Region[] = [
-  { id: 'head', x: 40, y: 2, w: 20, h: 19, r: 9 },
-  { id: 'neck', x: 44.5, y: 22, w: 11, h: 6, r: 2.5 },
-  { id: 'shoulders', side: 'Left', x: 22, y: 29, w: 17, h: 11, r: 4 },
-  { id: 'shoulders', side: 'Right', x: 61, y: 29, w: 17, h: 11, r: 4 },
-  { id: 'arms', side: 'Left', x: 13, y: 41, w: 11, h: 46, r: 5 },
-  { id: 'arms', side: 'Right', x: 76, y: 41, w: 11, h: 46, r: 5 },
-  { id: 'hands', side: 'Left', x: 11, y: 88, w: 12, h: 14, r: 5 },
-  { id: 'hands', side: 'Right', x: 77, y: 88, w: 12, h: 14, r: 5 },
-  { id: 'hips', x: 36, y: 75, w: 28, h: 16, r: 5 },
-  { id: 'legs', side: 'Left', x: 36.5, y: 92, w: 12.5, h: 37, r: 5 },
-  { id: 'legs', side: 'Right', x: 51, y: 92, w: 12.5, h: 37, r: 5 },
-  { id: 'knees', side: 'Left', x: 36.5, y: 130, w: 12.5, h: 13, r: 5 },
-  { id: 'knees', side: 'Right', x: 51, y: 130, w: 12.5, h: 13, r: 5 },
-  { id: 'legs', side: 'Left', x: 36.5, y: 144, w: 12.5, h: 32, r: 5 },
-  { id: 'legs', side: 'Right', x: 51, y: 144, w: 12.5, h: 32, r: 5 },
-  { id: 'feet', side: 'Left', x: 33, y: 177, w: 16, h: 12, r: 5 },
-  { id: 'feet', side: 'Right', x: 51, y: 177, w: 16, h: 12, r: 5 },
+  { id: 'head', x: 40, y: 1, w: 20, h: 20, r: 10 },
+  { id: 'neck', x: 43, y: 20, w: 14, h: 8, r: 3.5 },
+  { id: 'shoulders', side: 'Left', x: 28, y: 26.5, w: 16, h: 11, r: 5 },
+  { id: 'shoulders', side: 'Right', x: 56, y: 26.5, w: 16, h: 11, r: 5 },
+  { id: 'arms', side: 'Left', x: 21, y: 38, w: 11.5, h: 43, r: 5.5 },
+  { id: 'arms', side: 'Right', x: 67.5, y: 38, w: 11.5, h: 43, r: 5.5 },
+  { id: 'hands', side: 'Left', x: 18.5, y: 80, w: 11, h: 16, r: 5 },
+  { id: 'hands', side: 'Right', x: 70.5, y: 80, w: 11, h: 16, r: 5 },
+  { id: 'hips', x: 35, y: 72, w: 30, h: 21, r: 8 },
+  { id: 'legs', side: 'Left', x: 36, y: 93, w: 13.5, h: 34, r: 6 },
+  { id: 'legs', side: 'Right', x: 50.5, y: 93, w: 13.5, h: 34, r: 6 },
+  { id: 'knees', side: 'Left', x: 37, y: 127, w: 12.5, h: 15, r: 6 },
+  { id: 'knees', side: 'Right', x: 50.5, y: 127, w: 12.5, h: 15, r: 6 },
+  { id: 'legs', side: 'Left', x: 38, y: 142, w: 11.5, h: 33, r: 5.5 },
+  { id: 'legs', side: 'Right', x: 50.5, y: 142, w: 11.5, h: 33, r: 5.5 },
+  { id: 'feet', side: 'Left', x: 34, y: 174, w: 15.5, h: 14, r: 6 },
+  { id: 'feet', side: 'Right', x: 50.5, y: 174, w: 15.5, h: 14, r: 6 },
 ];
 
 const FRONT: Region[] = SHARED.concat([
-  { id: 'chest', x: 40, y: 29, w: 20, h: 23, r: 4 },
-  { id: 'belly', x: 40, y: 53, w: 20, h: 21, r: 4 },
+  { id: 'chest', x: 37.5, y: 36, w: 25, h: 20, r: 7 },
+  { id: 'belly', x: 37.5, y: 56, w: 25, h: 17, r: 7 },
 ]);
 
 const BACK: Region[] = SHARED.concat([
-  { id: 'upperBack', x: 40, y: 29, w: 20, h: 23, r: 4 },
-  { id: 'lowerBack', x: 40, y: 53, w: 20, h: 21, r: 4 },
+  { id: 'upperBack', x: 37.5, y: 36, w: 25, h: 20, r: 7 },
+  { id: 'lowerBack', x: 37.5, y: 56, w: 25, h: 17, r: 7 },
 ]);
 
 export interface BodyMapProps {
@@ -117,13 +121,27 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
       </View>
 
       <View style={{ width, height: 200 * k, alignSelf: 'center' }}>
+        {/* the figure — one generated silhouette serves front and back,
+            the way a paper pain drawing's outline does */}
+        <Image
+          source={BODY}
+          style={{ position: 'absolute', width, height: 200 * k }}
+          resizeMode="stretch"
+          accessible={false}
+        />
+        {/* Touch zones are INVISIBLE at rest — the body is the
+            affordance, and the heading says to touch it. A mark is a
+            soft patch of the check-in's own pain colour laid on the
+            anatomy it names, with the hairline every painted surface in
+            this app carries so a near-black 1 stays visible on the grey
+            figure. */}
         {regions.map((rg, i) => {
           const on = selected.indexOf(rg.id) >= 0;
           return (
             <Pressable
               key={rg.id + (rg.side || '') + i}
               onPress={() => tap(rg.id)}
-              hitSlop={2}
+              hitSlop={3}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
               accessibilityLabel={(rg.side ? rg.side + ' ' : '') + (LOC_NAMES[rg.id] || rg.id)}
@@ -135,13 +153,12 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
                   width: rg.w * k, height: rg.h * k,
                   borderRadius: rg.r * k, borderCurve: 'continuous',
                 },
-                on
-                  ? { backgroundColor: tint, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }
-                  : {
-                      backgroundColor: color.bgSurface,
-                      borderWidth: 1, borderColor: color.borderControl,
-                    },
-                pressed && { opacity: 0.7 },
+                on && {
+                  backgroundColor: tint, opacity: 0.92,
+                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+                },
+                pressed && !on && { backgroundColor: 'rgba(255,255,255,0.14)' },
+                pressed && on && { opacity: 0.65 },
               ]}
             />
           );
