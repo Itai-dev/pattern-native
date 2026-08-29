@@ -20,6 +20,11 @@
  * 63 min". Deterministic like every generated sentence here: same day,
  * same lines.
  */
+import {
+  CONTEXT_SLEEP_USUAL_DELTA_MIN, CONTEXT_STEPS_USUAL_RATIO,
+  CONTEXT_USUAL_MIN_DAYS, CONTEXT_USUAL_WINDOW_DAYS,
+} from '../thresholds';
+import { addDays } from '../model';
 import { HealthDay } from './types';
 
 function fmtDuration(min: number): string {
@@ -33,16 +38,68 @@ export interface HealthLine {
   text: string;
 }
 
-/** the lines for one day, in a fixed order, only where data exists —
- *  an uncovered category is simply not a line, never a zero */
-export function healthDayLines(day: HealthDay | null | undefined): HealthLine[] {
+/** The person's own recent baseline for one field: the mean over the
+ *  CONTEXT_USUAL_WINDOW_DAYS before (never including) the day being
+ *  described, and only once CONTEXT_USUAL_MIN_DAYS of it exist. The day
+ *  itself stays out of its own baseline — a night compared against an
+ *  average it is part of understates every deviation. */
+function usualOf(
+  all: Record<string, HealthDay> | undefined,
+  date: string,
+  read: (d: HealthDay) => number | undefined
+): number | null {
+  if (!all) return null;
+  const from = addDays(date, -CONTEXT_USUAL_WINDOW_DAYS);
+  const vals: number[] = [];
+  Object.keys(all).forEach((k) => {
+    if (k >= date || k < from) return;
+    const v = read(all[k]);
+    if (v != null) vals.push(v);
+  });
+  if (vals.length < CONTEXT_USUAL_MIN_DAYS) return null;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
+}
+
+/**
+ * The lines for one day, in a fixed order, only where data exists — an
+ * uncovered category is simply not a line, never a zero.
+ *
+ * With `all` days provided, sleep and steps also read against the
+ * person's own usual — Apple's card grammar, held to this app's rule:
+ * the comparison describes the FACTOR and never touches pain. The pain
+ * sits two lines above on the same page; the reader may notice the two
+ * move together, and that is theirs to notice. The app joins them in a
+ * sentence only when fourteen days have earned it.
+ */
+export function healthDayLines(
+  day: HealthDay | null | undefined,
+  all?: Record<string, HealthDay>
+): HealthLine[] {
   if (!day) return [];
   const out: HealthLine[] = [];
   if (day.sleepMinutes != null) {
-    out.push({ key: 'sleep', text: fmtDuration(day.sleepMinutes) + ' asleep the night before' });
+    let text = fmtDuration(day.sleepMinutes) + ' asleep the night before';
+    const usual = usualOf(all, day.date, (d) => d.sleepMinutes);
+    if (usual != null) {
+      const delta = day.sleepMinutes - usual;
+      if (Math.abs(delta) >= CONTEXT_SLEEP_USUAL_DELTA_MIN) {
+        text += ' — about ' + fmtDuration(Math.abs(Math.round(delta)))
+          + (delta > 0 ? ' more' : ' less') + ' than your usual';
+      }
+    }
+    out.push({ key: 'sleep', text });
   }
   if (day.steps != null) {
-    out.push({ key: 'steps', text: day.steps.toLocaleString('en-US') + ' steps' });
+    let text = day.steps.toLocaleString('en-US') + ' steps';
+    const usual = usualOf(all, day.date, (d) => d.steps);
+    if (usual != null && usual > 0) {
+      const ratio = (day.steps - usual) / usual;
+      if (Math.abs(ratio) >= CONTEXT_STEPS_USUAL_RATIO) {
+        text += ' — ' + (ratio > 0 ? 'above' : 'below') + ' your usual (about '
+          + Math.round(usual).toLocaleString('en-US') + ')';
+      }
+    }
+    out.push({ key: 'steps', text });
   }
   if (day.distanceMeters != null && day.distanceMeters >= 100) {
     out.push({

@@ -166,6 +166,29 @@ export const HEALTH_ENERGY_MIN_SPREAD_KCAL = 150;
  *  comparison is rounding sorted into piles. */
 export const HEALTH_WORKOUT_MIN_SPREAD_MINUTES = 20;
 
+/* ── "than your usual" on the day's context lines ────────────
+   Descriptive comparison of ONE day's sensor value against the person's
+   own recent baseline — Apple Health's card grammar. It never touches
+   pain and never pairs with it in a sentence: the conjunction would be
+   the claim, and one night is one coin flip. */
+
+/** covered days required before "your usual" is a real thing to compare
+ *  against — below a week it is an anecdote average */
+export const CONTEXT_USUAL_MIN_DAYS = 7;
+
+/** how far back the baseline reaches. Four weeks: long enough to be
+ *  stable, short enough to still be "your usual" and not "your spring" */
+export const CONTEXT_USUAL_WINDOW_DAYS = 28;
+
+/** minutes a night must differ from the baseline before the deviation
+ *  earns words — under this, "more than your usual" is describing
+ *  rounding */
+export const CONTEXT_SLEEP_USUAL_DELTA_MIN = 45;
+
+/** fraction a day's steps must differ from the baseline before the
+ *  deviation earns words */
+export const CONTEXT_STEPS_USUAL_RATIO = 0.25;
+
 /** days of the recent record the foreground sync re-derives on each
  *  open — Health data arrives late (a watch syncs when it syncs), so
  *  recent days are recomputed rather than trusted */

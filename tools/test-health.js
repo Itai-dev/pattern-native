@@ -435,6 +435,45 @@ ok('several workouts summarize as a count and a total', (() => {
   return lines.length === 1 && lines[0].text === '2 workouts · 1h 3m total';
 })());
 
+group('the day against your usual');
+/** ten prior nights around 400 min and 7,000 steps */
+const usualDays = {};
+for (let i = 1; i <= 10; i++) {
+  const d = '2026-08-' + String(i).padStart(2, '0');
+  usualDays[d] = hday(d, { sleepMinutes: 400, steps: 7000, coverage: { sleep: true, movement: true } });
+}
+ok('a real deviation earns the comparison, exactly worded', (() => {
+  const day = hday('2026-08-15', { sleepMinutes: 470, steps: 4810 });
+  const t = context.healthDayLines(day, usualDays).map((l) => l.text);
+  return t[0] === '7h 50m asleep the night before — about 1h 10m more than your usual'
+    && t[1] === '4,810 steps — below your usual (about 7,000)';
+})());
+ok('a small deviation stays a plain fact — no words for rounding', (() => {
+  const day = hday('2026-08-15', { sleepMinutes: 430, steps: 6200 });
+  const t = context.healthDayLines(day, usualDays).map((l) => l.text);
+  return t[0] === '7h 10m asleep the night before' && t[1] === '6,200 steps';
+})());
+ok('under a week of history there is no usual to compare against', (() => {
+  const few = {};
+  for (let i = 1; i <= 4; i++) {
+    const d = '2026-08-0' + i;
+    few[d] = hday(d, { sleepMinutes: 400 });
+  }
+  const day = hday('2026-08-15', { sleepMinutes: 480 });
+  return context.healthDayLines(day, few)[0].text === '8h asleep the night before';
+})());
+ok('the day never joins its own baseline', (() => {
+  // only the described day exists — no baseline, no comparison
+  const only = { '2026-08-15': hday('2026-08-15', { sleepMinutes: 480 }) };
+  return context.healthDayLines(only['2026-08-15'], only)[0].text
+    === '8h asleep the night before';
+})());
+ok('no line, with or without a usual, ever mentions pain', (() => {
+  const day = hday('2026-08-15', { sleepMinutes: 470, steps: 4810 });
+  const all = context.healthDayLines(day, usualDays).map((l) => l.text).join(' ').toLowerCase();
+  return all.indexOf('pain') < 0 && all.indexOf('better') < 0 && all.indexOf('worse') < 0;
+})());
+
 group('health context in the clinician report');
 const reportMod = require(path.join(OUT, 'report.js'));
 

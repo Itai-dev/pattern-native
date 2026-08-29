@@ -171,7 +171,7 @@ export default function DaySheet({
             qualifies. Missing categories are missing lines, never
             zeros. */}
         {(() => {
-          const lines = healthDayLines(db.getHealthDay(dateIso));
+          const lines = healthDayLines(db.getHealthDay(dateIso), db.getHealthDays());
           if (!lines.length) return null;
           return (
             <View style={styles.list}>
