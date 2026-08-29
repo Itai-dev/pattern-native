@@ -325,6 +325,11 @@ export default function App() {
         entries, events, func: [], goalText: null,
         todayIso: todayISO(), windowDays: trendsSpan || 36500,
         includeNotes,
+        /* the same health context Trends shows — one gate, two surfaces,
+           so the preview and the PDF can never disagree about what the
+           record supports */
+        healthDays: storedHealthDays(),
+        healthAssociation: healthNoticed.best,
       });
       if (!data) {
         Alert.alert('Nothing to share yet', 'Check in once and there will be a record to send.');
@@ -351,7 +356,7 @@ export default function App() {
     } finally {
       setSharing(false);
     }
-  }, [entries, events, trendsSpan]);
+  }, [entries, events, trendsSpan, healthNoticed]);
 
   const shareTrends = useCallback(() => {
     if (sharing) return;

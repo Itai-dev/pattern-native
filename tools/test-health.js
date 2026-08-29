@@ -357,6 +357,54 @@ ok('coverage counts covered days honestly', (() => {
     && c[1].category === null && c[1].coveredDays === 0;
 })());
 
+group('health context in the clinician report');
+const reportMod = require(path.join(OUT, 'report.js'));
+
+const repEntries = {};
+for (let i = 1; i <= 14; i++) {
+  const d = '2026-08-' + String(i).padStart(2, '0');
+  repEntries[d] = { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 5 }] };
+}
+const repHealth = {};
+for (let i = 1; i <= 9; i++) {
+  const d = '2026-08-' + String(i).padStart(2, '0');
+  repHealth[d] = { date: d, sleepMinutes: 400, coverage: { sleep: true } };
+}
+const repInput = (extra) => Object.assign({
+  entries: repEntries, events: [], func: [], goalText: null,
+  todayIso: '2026-08-14', windowDays: 30,
+}, extra);
+
+ok('no Health connection, no Health section — absent, not empty', (() => {
+  const d = reportMod.buildReportData(repInput({}));
+  return d && d.health === null
+    && reportMod.reportHtml(d).indexOf('Context from Apple Health') < 0;
+})());
+ok('coverage counts logged days that also carried sensor data', (() => {
+  const d = reportMod.buildReportData(repInput({ healthDays: repHealth }));
+  return d && d.health && d.health.coverage.length === 1
+    && d.health.coverage[0].name === 'Sleep'
+    && d.health.coverage[0].covered === 9
+    && reportMod.reportHtml(d).indexOf('9 of 14 logged days') >= 0;
+})());
+ok('nothing cleared the gates → the report says so, claims nothing', (() => {
+  const d = reportMod.buildReportData(repInput({ healthDays: repHealth }));
+  const html = reportMod.reportHtml(d);
+  return html.indexOf('has met Pattern’s reporting bar') >= 0
+    && html.indexOf('worth watching') < 0;
+})());
+ok('a gated association arrives with sizes, timing and the refusal of cause', (() => {
+  const assoc = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 7, 4));
+  const d = reportMod.buildReportData(repInput({
+    healthDays: repHealth, healthAssociation: assoc,
+  }));
+  const html = reportMod.reportHtml(d);
+  return html.indexOf('Sleep may be worth watching') >= 0
+    && html.indexOf('longer-sleep') >= 0
+    && html.indexOf('night before') >= 0
+    && html.indexOf('not proof of what caused what') >= 0;
+})());
+
 group('the mock service');
 (async () => {
   const u = new mock.UnavailableHealthService();

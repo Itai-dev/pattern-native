@@ -26,6 +26,8 @@ import {
   BAND_MIN_CHECKINS, BAND_MIN_DAYS, HALVES_MIN_DAYS, LIMITED_RECORD_DAYS,
   TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
 } from './thresholds';
+import { Association, associationCopy } from './health/engine';
+import { HEALTH_CATEGORIES, HealthDay } from './health/types';
 
 export interface ReportInput {
   entries: Entries;
@@ -40,6 +42,12 @@ export interface ReportInput {
    *  private paragraphs must not ride along because a toggle was
    *  forgotten. Absent = out. */
   includeNotes?: boolean;
+  /** Apple Health context, when connected: the normalized days (for the
+   *  coverage statement) and the single strongest association the engine
+   *  let through — already gated upstream by the same rules Trends
+   *  renders under. Absent = the section is not drawn. */
+  healthDays?: Record<string, HealthDay>;
+  healthAssociation?: Association | null;
 }
 
 export interface ReportDay { date: string; avg: number; count: number }
@@ -82,6 +90,15 @@ export interface ReportData {
    *  sentences, and these are the patient's words, kept apart so neither
    *  can be mistaken for the other. */
   notes: { date: string; text: string }[];
+  /** Apple Health context: how much sensor data actually stood behind
+   *  the record in this window, per category, and the one association
+   *  that cleared the gates (or null). null overall = Health was never
+   *  connected or produced nothing in the window — the section simply
+   *  does not exist, rather than existing to say it is empty. */
+  health: {
+    coverage: { name: string; covered: number }[];
+    association: Association | null;
+  } | null;
 }
 
 /* ── what you flagged ────────────────────────────────────────
@@ -244,7 +261,31 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       .filter((k) => k >= startIso && k <= todayIso && !!(entries[k].note || '').trim())
       .sort()
       .map((k) => ({ date: k, text: entries[k].note.trim() })),
+    health: healthContext(inp.healthDays, inp.healthAssociation || null, days),
   };
+}
+
+/** Coverage counted against LOGGED days: "sleep data on 9 of 14 logged
+ *  days" is the number a clinician needs to weigh the association — a
+ *  covered day with no pain recorded joins no comparison and does not
+ *  belong in the denominator's story. */
+function healthContext(
+  healthDays: Record<string, HealthDay> | undefined,
+  association: Association | null,
+  days: ReportDay[]
+): ReportData['health'] {
+  if (!healthDays) return null;
+  const counts: Record<string, number> = {};
+  days.forEach((d) => {
+    const h = healthDays[d.date];
+    if (!h) return;
+    Object.keys(h.coverage).forEach((c) => { counts[c] = (counts[c] || 0) + 1; });
+  });
+  const coverage = HEALTH_CATEGORIES
+    .filter((c) => counts[c.id])
+    .map((c) => ({ name: c.name, covered: counts[c.id] }));
+  if (!coverage.length) return null;
+  return { coverage, association };
 }
 
 /** how many days each chip was ticked on one side */
@@ -724,6 +765,45 @@ export function reportHtml(data: ReportData): string {
         '<td>' + note + '</td></tr>');
     });
     s.push('</table></section>');
+  }
+
+  /* ── Apple Health context ────────────────────────────────
+     Sensor context beside the self-report, stated the way everything
+     else here is stated: what was measured, over how many days, with
+     any association carrying its group sizes, its timing, and the
+     sentence that refuses causation. Read-only data the patient chose
+     to connect; no raw sensor charts — a clinician who wants those has
+     the Health app itself. When nothing cleared the gates, the section
+     says what is being collected and that nothing has met the bar,
+     which for a clinician is information, not absence. */
+  if (data.health) {
+    s.push('<section><h2>Context from Apple Health</h2>');
+    s.push('<div class="note">The patient connected Apple Health (read-only). ' +
+      'Coverage below counts the logged days that also carried sensor data — ' +
+      'days without Health data are left out of any comparison, never counted as zero.</div>');
+    s.push('<table><tr><th>Category</th><th>Coverage</th></tr>');
+    data.health.coverage.forEach((c) => {
+      s.push('<tr><td>' + esc(c.name) + '</td><td class="num">' + c.covered
+        + ' of ' + data.loggedDays + ' logged days</td></tr>');
+    });
+    s.push('</table>');
+    const hc = data.health.association ? associationCopy(data.health.association) : null;
+    if (hc && data.health.association) {
+      const a = data.health.association;
+      s.push('<div style="margin-top:10px"><b>' + esc(hc.title) + '</b></div>');
+      s.push('<div style="margin-top:4px">' + esc(hc.body) + '</div>');
+      s.push('<div class="note num" style="margin-top:4px">' + esc(hc.sample)
+        + (a.from && a.to
+          ? ' ' + esc(fmtReportDate(a.from)) + ' – ' + esc(fmtReportDate(a.to)) + '.'
+          : '') + '</div>');
+      s.push('<div class="note" style="margin-top:4px">' + esc(hc.timing) + '</div>');
+      s.push('<div class="note" style="margin-top:6px"><b>' + esc(hc.disclaimer) + '</b></div>');
+    } else {
+      s.push('<div class="note" style="margin-top:10px">No association between ' +
+        'this context and the pain record has met Pattern’s reporting bar in ' +
+        'this window (paired days, group sizes, and effect size are all gated).</div>');
+    }
+    s.push('</section>');
   }
 
   /* ── the patient's own words ─────────────────────────────
