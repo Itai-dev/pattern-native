@@ -29,7 +29,7 @@
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Pattern reads only the Health data you choose — sleep, activity, workouts, heart, State of Mind — to add context beside your pain record. It never writes to Health, and everything it reads stays on this iPhone.",
-          "NSHealthUpdateUsageDescription": false,
+          "NSHealthUpdateUsageDescription": "Pattern never writes to Apple Health and never asks for write access. This text exists only because the underlying library includes write APIs; you will not see a write permission request.",
           "background": false
         }
       ],
