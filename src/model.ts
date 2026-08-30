@@ -157,6 +157,40 @@ export const LOC_LEGACY_SIDED: Record<string, [string, string]> = {
   feet: ['footL', 'footR'],
 };
 
+/* the sided pairs, for reading a selection back as a person says it —
+   "Both knees" rather than "Left knee · Right knee" */
+const LOC_PAIRS: [string, string, string][] = [
+  ['shoulderL', 'shoulderR', 'Both shoulders'],
+  ['armL', 'armR', 'Both upper arms'],
+  ['elbowL', 'elbowR', 'Both elbows'],
+  ['forearmL', 'forearmR', 'Both forearms'],
+  ['wristL', 'wristR', 'Both wrists'],
+  ['handL', 'handR', 'Both hands'],
+  ['hipL', 'hipR', 'Both hips'],
+  ['thighL', 'thighR', 'Both thighs'],
+  ['kneeL', 'kneeR', 'Both knees'],
+  ['calfL', 'calfR', 'Both calves'],
+  ['ankleL', 'ankleR', 'Both ankles'],
+  ['footL', 'footR', 'Both feet'],
+];
+
+/** a location selection read back the way a person would say it —
+ *  pairs collapse, everything else speaks its display name */
+export function readLocSelection(selected: string[]): string {
+  const rest = selected.slice();
+  const parts: string[] = [];
+  LOC_PAIRS.forEach(([l, r, both]) => {
+    const iL = rest.indexOf(l), iR = rest.indexOf(r);
+    if (iL >= 0 && iR >= 0) {
+      parts.push(both);
+      rest.splice(Math.max(iL, iR), 1);
+      rest.splice(Math.min(iL, iR), 1);
+    }
+  });
+  rest.forEach((id) => parts.push(LOC_NAMES[id] || id));
+  return parts.join(' · ');
+}
+
 /** a location set with legacy paired ids expanded to their sides —
  *  used when yesterday's places seed today's map */
 export function expandLegacyLocs(ids: string[]): string[] {

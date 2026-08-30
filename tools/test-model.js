@@ -719,6 +719,12 @@ ok('a sided id survives cleaning — storage accepts it', (() => {
     && e.logs[0].loc.indexOf('wristR') >= 0
     && e.logs[0].loc.indexOf('nonsense') < 0;
 })());
+ok('a selection reads back the way a person says it', (() => {
+  return model.readLocSelection(['kneeL', 'kneeR', 'wristR', 'lowerBack'])
+    === 'Both knees · Right wrist · Lower back'
+    && model.readLocSelection(['arms']) === 'Arms'   // legacy speaks its own name
+    && model.readLocSelection([]) === '';
+})());
 ok('legacy pairs expand for the prefill only, sided ids pass through', (() => {
   const out = model.expandLegacyLocs(['knees', 'wristR', 'lowerBack']);
   return out.length === 4

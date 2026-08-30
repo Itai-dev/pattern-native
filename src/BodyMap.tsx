@@ -21,10 +21,12 @@
  * paint canvas can never say "left shoulder, selected", and that is the
  * deciding argument for regions over pixels.
  */
-import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  GestureResponderEvent, Image, Pressable, StyleSheet, Text, View,
+} from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { LOC_NAMES } from './model';
+import { LOC_NAMES, readLocSelection } from './model';
 import { color, font } from './theme';
 
 /* The silhouette and these regions share ONE coordinate system: the
@@ -111,6 +113,47 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
     onToggle(id);
   };
 
+  /* ── drag paints ──────────────────────────────────────────
+     A finger swept across the figure ADDS every region it crosses —
+     one stroke marks neck, shoulder and upper back together, with a
+     tick of haptic per region. Adding only: a stroke that could also
+     erase would betray the hand on the way back; removal stays a tap.
+     The container CAPTURES the gesture only after ~10pt of movement,
+     so plain taps still reach the region buttons (and VoiceOver), and
+     the page can still scroll from outside the figure. */
+  const start = useRef({ x: 0, y: 0 });
+  const painted = useRef<Record<string, true>>({});
+  const regionAt = (x: number, y: number): string | null => {
+    for (const rg of regions) {
+      if (x >= rg.x * k && x <= (rg.x + rg.w) * k
+        && y >= rg.y * k && y <= (rg.y + rg.h) * k) return rg.id;
+    }
+    return null;
+  };
+  const paint = (x: number, y: number) => {
+    const id = regionAt(x, y);
+    if (!id || painted.current[id]) return;
+    painted.current[id] = true;
+    if (selected.indexOf(id) < 0) {
+      Haptics.selectionAsync().catch(() => {});
+      onToggle(id);
+    }
+  };
+  const onTouchStart = (e: GestureResponderEvent) => {
+    start.current = { x: e.nativeEvent.locationX, y: e.nativeEvent.locationY };
+    painted.current = {};
+  };
+  const shouldCapture = (e: GestureResponderEvent) => {
+    const dx = e.nativeEvent.locationX - start.current.x;
+    const dy = e.nativeEvent.locationY - start.current.y;
+    return Math.abs(dx) + Math.abs(dy) > 10;
+  };
+  const onMove = (e: GestureResponderEvent) => {
+    /* the stroke's origin counts too — capture begins mid-gesture */
+    paint(start.current.x, start.current.y);
+    paint(e.nativeEvent.locationX, e.nativeEvent.locationY);
+  };
+
   return (
     <View>
       <View style={styles.viewSwitch}>
@@ -136,7 +179,13 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
         })}
       </View>
 
-      <View style={{ width, height: 200 * k, alignSelf: 'center' }}>
+      <View
+        style={{ width, height: 200 * k, alignSelf: 'center' }}
+        onTouchStart={onTouchStart}
+        onMoveShouldSetResponderCapture={shouldCapture}
+        onResponderMove={onMove}
+        onResponderTerminationRequest={() => false}
+      >
         {/* the figure — one generated silhouette serves front and back,
             the way a paper pain drawing's outline does */}
         <Image
@@ -181,6 +230,18 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
         })}
       </View>
 
+      {/* The selection, read back in words — the confirmation before
+          Save, and the only place a mark on the OTHER view (a back
+          while facing front) stays visible. Pairs collapse to how a
+          person says them: "Both knees", not two list items. */}
+      <Text
+        style={styles.readback}
+        allowFontScaling maxFontSizeMultiplier={1.4}
+        accessibilityLiveRegion="polite"
+      >
+        {selected.length ? readLocSelection(selected) : 'Nothing marked yet'}
+      </Text>
+
       {/* the one place with no place — a real answer, and its own control
           rather than a fifteenth patch of body */}
       <Pressable
@@ -223,8 +284,12 @@ const styles = StyleSheet.create({
   viewItemOn: { backgroundColor: color.bgSegmentActive },
   viewText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   viewTextOn: { color: color.textPrimary },
+  readback: {
+    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
+    textAlign: 'center', marginTop: 14, paddingHorizontal: 24, minHeight: 21,
+  },
   allOver: {
-    alignSelf: 'center', marginTop: 16, minHeight: 40,
+    alignSelf: 'center', marginTop: 12, minHeight: 40,
     paddingHorizontal: 18, justifyContent: 'center',
     borderRadius: 20, borderCurve: 'continuous',
     borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
