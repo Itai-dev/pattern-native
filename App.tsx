@@ -34,6 +34,7 @@ import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
+import { drainWatchCheckins } from './src/watch';
 import { PainEvent, ValidBackup, iso, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { refreshWidget } from './src/widgetPush';
@@ -255,6 +256,19 @@ export default function App() {
     /* one place to feed the widget, so no screen has to remember to */
     refreshWidget(next);
   }, []);
+
+  /* Check-ins made on the watch, waiting in the bridge's mailbox — the
+     same launch-and-foreground rhythm Health follows, because both are
+     data that arrived while nobody was looking at this screen. On
+     binaries without the watch build this is a no-op. */
+  useEffect(() => {
+    const pull = () => { if (drainWatchCheckins() > 0) refresh(); };
+    pull();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') pull();
+    });
+    return () => sub.remove();
+  }, [refresh]);
 
   const closeSheet = useCallback(() => {
     setSheet(null);

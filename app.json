@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.itaiagami.pattern",
+      "appleTeamId": "WZ6VU6BWNG",
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -25,6 +26,7 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
+      "@bacons/apple-targets",
       [
         "@kingstinct/react-native-healthkit",
         {

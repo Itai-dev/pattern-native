@@ -988,6 +988,37 @@ ok('the colours come from the one pain ramp, not a second one', (() => {
   return widget.weekColors(e, '2026-08-10')[6] === scale.painColor(7);
 })());
 
+/* ── a moment from the watch's clock ─────────────────────────
+   The watch sends WHEN it was, as epoch + the offset in force there;
+   the record stores a local date and minute. The arithmetic must not
+   depend on the phone's own zone — the tz travels with the check-in. */
+group('a moment from an epoch');
+
+ok('an instant lands at its own wall clock', (() => {
+  // 2026-08-30 06:30 UTC at +03:00 is 09:30 local
+  const at = model.momentFromEpoch(Date.UTC(2026, 7, 30, 6, 30), 180);
+  return at && at.date === '2026-08-30' && at.h === 9 * 60 + 30;
+})());
+ok('a negative offset works the same way', (() => {
+  // 2026-08-30 06:30 UTC at -04:00 is 02:30 local, same date
+  const at = model.momentFromEpoch(Date.UTC(2026, 7, 30, 6, 30), -240);
+  return at && at.date === '2026-08-30' && at.h === 2 * 60 + 30;
+})());
+ok('the date is the LOCAL date, either side of midnight', (() => {
+  // 22:30 UTC at +03:00 is already tomorrow; 01:30 UTC at -04:00 is still yesterday
+  const fwd = model.momentFromEpoch(Date.UTC(2026, 7, 30, 22, 30), 180);
+  const back = model.momentFromEpoch(Date.UTC(2026, 7, 30, 1, 30), -240);
+  return fwd && fwd.date === '2026-08-31' && fwd.h === 90
+    && back && back.date === '2026-08-29' && back.h === 21 * 60 + 30;
+})());
+ok('a dead-battery clock is refused, not recorded', (() => {
+  // a watch that reset to the epoch must not create a 1970 day
+  return model.momentFromEpoch(0, 180) === null
+    && model.momentFromEpoch(Date.UTC(2026, 7, 30), 99999) === null
+    && model.momentFromEpoch('soon', 180) === null
+    && model.momentFromEpoch(NaN, 180) === null;
+})());
+
 /* ── the guided note ────────────────────────────────────────── */
 group('the guided note');
 

@@ -758,6 +758,29 @@ export function cleanModifiers(a: unknown): string[] {
   return cleanIds(a, MODIFIERIDS) || [];
 }
 
+/* ── a moment from an epoch timestamp ────────────────────────
+   For check-ins that arrive from another device — the watch — carrying
+   the instant they were made rather than a local date and minute. The
+   tz is the offset IN FORCE AT CAPTURE, sent alongside, so a check-in
+   made in another timezone lands at the wall-clock time it was made
+   there, exactly like the app's own ts/tz metadata reads. */
+export function momentFromEpoch(ts: unknown, tz: unknown): { date: string; h: number } | null {
+  if (typeof ts !== 'number' || !isFinite(ts)) return null;
+  if (typeof tz !== 'number' || !isFinite(tz)) return null;
+  const tzm = Math.round(tz);
+  if (tzm < -18 * 60 || tzm > 18 * 60) return null;
+  /* shift to local wall-clock, then read with UTC getters — the one
+     arithmetic that does not depend on this device's own zone */
+  const local = new Date(Math.round(ts) + tzm * 60000);
+  const y = local.getUTCFullYear();
+  /* a watch with a dead battery resets its clock; a check-in from 1970
+     must not create a day the record shows forever */
+  if (y < 2020 || y > 2100) return null;
+  const date = y + '-' + String(local.getUTCMonth() + 1).padStart(2, '0')
+    + '-' + String(local.getUTCDate()).padStart(2, '0');
+  return { date, h: local.getUTCHours() * 60 + local.getUTCMinutes() };
+}
+
 /* ── the last places recorded ────────────────────────────────
    What the most recent day with an answer said, for the where step's
    "Same as last time" shortcut. It is OFFERED and never applied: a
