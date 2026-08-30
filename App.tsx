@@ -160,16 +160,18 @@ export default function App() {
     setDayScreen(d);
   }, []);
 
-  /** tapping a tab drives the pager. It also leaves the day screen, which
-   *  belongs to Today: a tab change is the one navigation in this app
-   *  that is instant, and animating out of a layer nobody is looking at
-   *  any more would only delay it. */
+  /** tapping a tab drives the pager, and always leaves the day screen —
+   *  including when it is the tab you are already on, which is how
+   *  "Today" gets you back to Today from a day you had walked into. A
+   *  tab change is the one navigation in this app that is instant, and
+   *  animating out of a layer nobody is looking at any more would only
+   *  delay it. */
   const goToTab = useCallback((t: Tab) => {
-    if (t === 'trends') track('trends_opened');
+    if (t !== tab && t === 'trends') track('trends_opened');
     setDayScreen(null);
     setTab(t);
     pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
-  }, [width]);
+  }, [tab, width]);
 
   const onPageSettled = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!width) return;

@@ -66,6 +66,7 @@ import { color, font, radius, size } from './theme';
    into this screen does not shift the page under you. */
 const SIDE = size.pageX - 6;
 const GAP = 6;
+
 /** how small a neighbour draws; the card is translated back out by
  *  whatever the scale pulls in, so the peek costs nothing */
 const MIN_SCALE = 0.94;
@@ -538,7 +539,7 @@ const styles = StyleSheet.create({
     marginHorizontal: GAP,
     borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-    padding: 16,
+    padding: size.cardPad,
   },
   cardTitle: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
@@ -563,6 +564,6 @@ const styles = StyleSheet.create({
 
   fine: {
     color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
-    marginTop: 14, paddingHorizontal: size.pageX,
+    marginTop: 14, paddingHorizontal: size.contentX,
   },
 });

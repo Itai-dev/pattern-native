@@ -143,4 +143,11 @@ export const size = {
   sliderTrackH: 6,
   pageX: 24,
   sheetX: 26,
+  /** a card's own padding — every card in the app uses this one */
+  cardPad: 16,
+  /** where WORDS start on a page whose first words are a card's title:
+   *  the card's gutter plus the card's padding. Text set outside a card
+   *  on such a page uses this, so the page has ONE left edge for reading
+   *  rather than one inside cards and another between them. */
+  contentX: 24 + 16,
 } as const;

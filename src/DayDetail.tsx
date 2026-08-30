@@ -495,7 +495,9 @@ export default function DayDetail({
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: size.pageX, paddingTop: 4 },
+  /* the card above sets the margin: its title is the first words on the
+     screen, and everything here lines up under them */
+  wrap: { paddingHorizontal: size.contentX, paddingTop: 4 },
   summary: {
     color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
     marginTop: 14,

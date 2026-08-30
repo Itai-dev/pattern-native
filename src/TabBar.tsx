@@ -103,8 +103,11 @@ export default function TabBar({ tab, onChange }: TabBarProps) {
     return (
       <Press
         key={t.key}
+        /* the tab you are already on still fires. Tapping Today from a
+           day you had walked into should land you back on Today, the way
+           every iOS tab bar pops its stack — swallowing the tap left the
+           only way out of the day screen its own back arrow. */
         onPress={() => {
-          if (active) return;
           Haptics.selectionAsync().catch(() => {});
           onChange(t.key);
         }}
@@ -161,13 +164,15 @@ const styles = StyleSheet.create({
      presence in its own height instead of borrowing it from the screen
      edge.
 
-     TWO destinations, so the pill can spend the width three were
-     sharing: taller, wider targets and type you can read without
-     leaning in. Three cramped 84pt items became two generous ones —
-     the same bar, no longer rationing itself. */
+     Losing a destination did NOT earn the pill more room. Widened to
+     fill what three tabs had used, it read as a slab across the bottom
+     of the screen and took attention the content should have; a
+     floating bar is supposed to be smaller than the thing it floats
+     over. Same size as it always was — two items simply sit in it with
+     more air. */
   pill: {
     flexDirection: 'row', alignItems: 'center', overflow: 'hidden',
-    borderRadius: 33, borderCurve: 'continuous', height: 66, paddingHorizontal: 6, gap: 4,
+    borderRadius: 30, borderCurve: 'continuous', height: 60, paddingHorizontal: 5, gap: 2,
   },
   /* the system material carries itself — the only paint on top is the
      hairline that catches light along the edge */
@@ -182,19 +187,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.16)',
   },
   item: {
-    minHeight: 54, minWidth: 132, borderRadius: 27, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', gap: 4,
-    paddingHorizontal: 16, paddingVertical: 6,
+    minHeight: 50, minWidth: 96, borderRadius: 25, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', gap: 3,
+    paddingHorizontal: 12, paddingVertical: 5,
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  dayGlyph: { width: 23, height: 23, borderRadius: 7, borderWidth: 2 },
+  dayGlyph: { width: 21, height: 21, borderRadius: 6, borderWidth: 1.9 },
   /* outline until chosen: the border draws the shape either way, and the
      fill arrives only with selection — a colour swap alone never says it */
   barsGlyph: {
-    width: 23, height: 23,
+    width: 21, height: 21,
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
   },
-  bar: { width: 6, borderRadius: 2, borderWidth: 1.7 },
-  label: { fontSize: 12, fontWeight: '600', color: color.textTertiary, letterSpacing: 0.1 },
+  bar: { width: 5.5, borderRadius: 2, borderWidth: 1.6 },
+  label: { fontSize: 11, fontWeight: '600', color: color.textTertiary, letterSpacing: 0.1 },
   labelActive: { color: color.textPrimary },
 });
