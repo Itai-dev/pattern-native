@@ -656,7 +656,6 @@ export default function App() {
                 entries={entries}
                 protocol={protocol}
                 onLog={() => setSheet('checkin')}
-                onOpenDay={openDay}
                 onOpenToday={() => openDay(todayISO())}
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}

@@ -38,7 +38,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, ScrollView,
+  Alert, FlatList, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, ScrollView,
   StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import Animated, {
@@ -46,15 +46,16 @@ import Animated, {
   useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import DayLine from './DayLine';
 import DayDetail from './DayDetail';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
-  Entries, Entry, PainEvent, checkinCount, dailyAverage,
-  dateFromISO, iso, logsOf, todayISO,
+  Entries, Entry, Moment, PainEvent, QUALITY_NAMES, checkinCount, dailyAverage,
+  dateFromISO, fmtTime, iso, logsOf, readLocParts, todayISO,
 } from './model';
-import { formatRange, formatScore } from './painScale';
+import { formatRange, formatScore, painColor, painLabel, speakScore } from './painScale';
 import { color, font, radius, size } from './theme';
 
 /* The pager's proportions — see the comment at the top of the file. SIDE
@@ -150,9 +151,135 @@ function Stat({ value, unit, label }: { value: string; unit?: string; label: str
   );
 }
 
+/* ── the check-in the chart is pointing at ───────────────────
+   The list of rows this replaces said 5/10 twenty-three times under a
+   chart that had already drawn all of them. One check-in is read at a
+   time instead: the one the finger picked, in full — its time, its
+   number, the places, the words, what was typed. The STEPPER is not a
+   convenience. Twenty check-ins in an evening land on top of each other
+   at any width, so tapping alone could never reach some of them; ‹ and ›
+   walk the day in order and always can. */
+function Reading({
+  logs, selected, onStep, onEdit, onDelete,
+}: {
+  logs: Moment[];
+  selected: Moment | null;
+  onStep: (h: number) => void;
+  onEdit: (h: number) => void;
+  onDelete: (h: number) => void;
+}) {
+  if (!selected || logs.length === 0) return null;
+  const i = logs.findIndex((l) => l.h === selected.h);
+  const prev = i > 0 ? logs[i - 1] : null;
+  const next = i >= 0 && i < logs.length - 1 ? logs[i + 1] : null;
+  const parts = readLocParts(selected.loc || []).map((p) => p.label);
+  const words = (selected.q || []).map((id) => QUALITY_NAMES[id] || id);
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete this check-in?',
+      fmtTime(selected.h) + ' · ' + speakScore(selected.pain)
+        + '. This cannot be undone from here.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => onDelete(selected.h) },
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.reading}>
+      <View style={styles.readingHead}>
+        <View style={[styles.swatch, { backgroundColor: painColor(selected.pain) }]} />
+        <Text style={styles.readingScore} allowFontScaling maxFontSizeMultiplier={1.3}>
+          {formatScore(selected.pain)}<Text style={styles.readingOutOf}>/10</Text>
+          {'  '}
+          <Text style={styles.readingWord}>{painLabel(selected.pain)}</Text>
+        </Text>
+        <Text style={styles.readingTime} allowFontScaling maxFontSizeMultiplier={1.2}>
+          {fmtTime(selected.h)}
+        </Text>
+        {/* the position in the day, said in words — "the 4th of 23"
+            is what a stepper is for, and a bare pair of arrows does
+            not say where you are */}
+        <View style={styles.stepper}>
+          <Press
+            onPress={() => prev && onStep(prev.h)}
+            disabled={!prev}
+            hitSlop={10}
+            pressOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="Earlier check-in"
+            accessibilityState={{ disabled: !prev }}
+          >
+            <Text style={[styles.stepGlyph, !prev && styles.stepOff]} allowFontScaling={false}>‹</Text>
+          </Press>
+          <Text style={styles.stepCount} allowFontScaling maxFontSizeMultiplier={1.2}>
+            {i + 1}/{logs.length}
+          </Text>
+          <Press
+            onPress={() => next && onStep(next.h)}
+            disabled={!next}
+            hitSlop={10}
+            pressOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="Later check-in"
+            accessibilityState={{ disabled: !next }}
+          >
+            <Text style={[styles.stepGlyph, !next && styles.stepOff]} allowFontScaling={false}>›</Text>
+          </Press>
+        </View>
+      </View>
+
+      {parts.length > 0 && (
+        <Text style={styles.readingSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {parts.join(', ')}
+        </Text>
+      )}
+      {/* the user's own words, quoted, so the record's voice and theirs
+          stay distinguishable */}
+      {!!selected.locNote && (
+        <Text style={styles.readingSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+          “{selected.locNote}”
+        </Text>
+      )}
+      {words.length > 0 && (
+        <Text style={styles.readingSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {words.join(', ')}
+        </Text>
+      )}
+
+      {/* Delete ASKS here, unlike the swipe it replaces. A swipe is a
+          deliberate two-step gesture that confirms itself; a button next
+          to the arrows you are tapping to browse is one slip away from
+          removing a check-in. */}
+      <View style={styles.readingActions}>
+        <Press
+          onPress={() => onEdit(selected.h)}
+          pressOpacity={0.7}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Edit this check-in"
+        >
+          <Text style={styles.actionText}>Edit</Text>
+        </Press>
+        <Press
+          onPress={confirmDelete}
+          pressOpacity={0.7}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Delete this check-in"
+        >
+          <Text style={[styles.actionText, styles.actionDanger]}>Delete</Text>
+        </Press>
+      </View>
+    </View>
+  );
+}
+
 /* ── one day's chart ────────────────────────────────────────── */
 function DayPage({
-  dateIso, entry, index, itemW, cardH, scrollX,
+  dateIso, entry, index, itemW, cardH, scrollX, selected, onSelect,
 }: {
   dateIso: string;
   entry: Entry | null;
@@ -162,6 +289,9 @@ function DayPage({
   /** live scroll offset, so a card sizes itself by how far off centre it
    *  is rather than waiting for the swipe to finish */
   scrollX: SharedValue<number>;
+  /** the moment being read — only ever set on the page in view */
+  selected: number | null;
+  onSelect: ((h: number) => void) | null;
 }) {
   const pageStyle = useAnimatedStyle(() => {
     const d = scrollX.value / itemW - index;
@@ -215,7 +345,14 @@ function DayPage({
               <>
                 {logs.length > 0 ? (
                   <View style={styles.plotWrap}>
-                    <DayLine logs={logs} height={PLOT_H} grid axis />
+                    <DayLine
+                      logs={logs}
+                      height={PLOT_H}
+                      grid
+                      axis
+                      selected={selected}
+                      onSelect={onSelect || undefined}
+                    />
                   </View>
                 ) : (
                   /* a day carrying an answer with no moment behind it —
@@ -380,6 +517,23 @@ export default function DayScreen({
 
   const onDate = days[at] || dateIso;
 
+  /* WHICH check-in is being read. Null means "the last one of the day",
+     resolved below rather than stored, so a check-in saved while this
+     screen is open moves the reading to it instead of leaving it on a
+     moment that is no longer the latest. Walking to another day clears
+     the pick, because a time picked on Tuesday means nothing on Monday. */
+  const [picked, setPicked] = useState<number | null>(null);
+  useEffect(() => { setPicked(null); }, [onDate]);
+  const dayLogs = useMemo(
+    () => logsOf(entries[onDate] || null).slice().sort((a, b) => a.h - b.h),
+    [entries, onDate]
+  );
+  const pick = useMemo(() => {
+    if (!dayLogs.length) return null;
+    const found = picked != null ? dayLogs.filter((l) => l.h === picked)[0] : null;
+    return found || dayLogs[dayLogs.length - 1];
+  }, [dayLogs, picked]);
+
   return (
     <Animated.View style={[styles.layer, { paddingTop: insets.top }, layerStyle]}>
       <View style={styles.topBar}>
@@ -472,6 +626,11 @@ export default function DayScreen({
             itemW={itemW}
             cardH={cardH}
             scrollX={scrollX}
+            /* only the page in view carries a selection: a ring on a
+               neighbour half off the screen is a reading nobody asked
+               for, and a tap on one would move the day under the finger */
+            selected={item === onDate && pick ? pick.h : null}
+            onSelect={item === onDate ? setPicked : null}
           />
         )}
       />
@@ -484,6 +643,20 @@ export default function DayScreen({
         hours you didn’t record, not hours without pain.
       </Text>
 
+      {/* the check-in the chart is pointing at, read in full */}
+      <Reading
+        logs={dayLogs}
+        selected={pick}
+        onStep={(h) => { setPicked(h); Haptics.selectionAsync().catch(() => {}); }}
+        onEdit={onEditLog}
+        onDelete={(h) => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+          db.dropMoment(onDate, h);
+          setPicked(null);
+          onChanged();
+        }}
+      />
+
       {/* the rest of the day, keyed by date so walking to another day
           rebuilds it rather than editing the last one's draft note */}
       <DayDetail
@@ -491,7 +664,6 @@ export default function DayScreen({
         dateIso={onDate}
         onChanged={onChanged}
         onAddLog={onAddLog}
-        onEditLog={onEditLog}
         onEditEvent={onEditEvent}
         onAddEvent={() => onAddEvent(onDate)}
       />
@@ -566,4 +738,41 @@ const styles = StyleSheet.create({
     color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
     marginTop: 14, paddingHorizontal: size.contentX,
   },
+
+  /* ── the reading ────────────────────────────────────────
+     A surface, not a card: it belongs to the chart above it and reads as
+     the chart's own caption rather than as the next section down. */
+  reading: {
+    marginTop: 16, marginHorizontal: size.pageX,
+    borderRadius: radius.button, borderCurve: 'continuous',
+    backgroundColor: color.bgSurface,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
+    paddingHorizontal: 14, paddingVertical: 12,
+  },
+  readingHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  swatch: {
+    width: 14, height: 14, borderRadius: 4.5,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  readingScore: {
+    flex: 1, color: color.textPrimary, fontSize: font.body, fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  readingOutOf: { fontSize: font.footnote, fontWeight: '500', color: color.textSecondary },
+  readingWord: { fontSize: font.subheadline, fontWeight: '500', color: color.textSecondary },
+  readingTime: {
+    color: color.textSecondary, fontSize: font.subheadline,
+    fontVariant: ['tabular-nums'],
+  },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 4 },
+  stepGlyph: { color: color.tint, fontSize: 22, lineHeight: 26, marginTop: -2 },
+  stepOff: { color: color.borderControl },
+  stepCount: {
+    color: color.textTertiary, fontSize: font.footnote, minWidth: 34,
+    textAlign: 'center', fontVariant: ['tabular-nums'],
+  },
+  readingSub: { color: color.textSecondary, fontSize: font.footnote, marginTop: 4 },
+  readingActions: { flexDirection: 'row', gap: 22, marginTop: 12 },
+  actionText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  actionDanger: { color: color.danger },
 });

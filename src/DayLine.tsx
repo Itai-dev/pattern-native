@@ -77,10 +77,19 @@ export interface DayLineProps {
   grid?: boolean;
   /** Morning / Afternoon / Evening under the plot */
   axis?: boolean;
+  /** the moment being read, by its `h`. It wears a ring; the others step
+   *  back. Null selects nothing and every dot is drawn equal. */
+  selected?: number | null;
+  /** tapping the plot picks the check-in nearest the finger. A TAP and
+   *  never a drag: this chart is the page of a horizontal pager, and a
+   *  scrub along it would be the day-swipe gesture asking to mean two
+   *  things at once. The stepper beside the reading is how you move one
+   *  at a time when the dots sit on top of each other. */
+  onSelect?: (h: number) => void;
 }
 
 export default function DayLine({
-  logs, height, dot = 12, grid, axis,
+  logs, height, dot = 12, grid, axis, selected = null, onSelect,
 }: DayLineProps) {
   /* measured rather than computed from window width: this draws inside
      two different cards at two different widths, and a chart that has to
@@ -159,23 +168,54 @@ export default function DayLine({
             );
           })}
 
-          {w > 0 && pts.map((p) => (
+          {w > 0 && pts.map((p) => {
+            const on = selected != null && p.h === selected;
+            /* the ring is WHITE, and the dot keeps its own value
+               underneath: selection is a state of the interface, not a
+               reading, and a hue here would claim to be a score */
+            return (
+              <View
+                key={'dot' + p.h}
+                pointerEvents="none"
+                style={[
+                  styles.dot,
+                  {
+                    left: x(p.h) - r,
+                    top: y(p.pain) - r,
+                    width: dot,
+                    height: dot,
+                    borderRadius: r,
+                    backgroundColor: painColor(p.pain),
+                  },
+                  /* dimming the rest, never brightening the one: a
+                     brighter dot would read as a higher number */
+                  selected != null && !on && { opacity: 0.45 },
+                  on && styles.dotOn,
+                ]}
+              />
+            );
+          })}
+
+          {w > 0 && !!onSelect && (
             <View
-              key={'dot' + p.h}
-              pointerEvents="none"
-              style={[
-                styles.dot,
-                {
-                  left: x(p.h) - r,
-                  top: y(p.pain) - r,
-                  width: dot,
-                  height: dot,
-                  borderRadius: r,
-                  backgroundColor: painColor(p.pain),
-                },
-              ]}
+              style={StyleSheet.absoluteFill}
+              onStartShouldSetResponder={() => true}
+              onResponderRelease={(e) => {
+                /* nearest in TIME, not in distance: the finger is
+                   answering "which check-in", and two moments an hour
+                   apart at different heights should not be decided by
+                   how high up the card the tap happened to land */
+                const px = e.nativeEvent.locationX;
+                let best = pts[0];
+                let bestD = Infinity;
+                pts.forEach((p) => {
+                  const d = Math.abs(x(p.h) - px);
+                  if (d < bestD) { bestD = d; best = p; }
+                });
+                if (best) onSelect(best.h);
+              }}
             />
-          ))}
+          )}
         </View>
       </View>
 
@@ -215,6 +255,13 @@ const styles = StyleSheet.create({
   dot: {
     position: 'absolute',
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)',
+  },
+  /* the one being read: a wider white rim and a lift off the card. No
+     size change — a dot that grew would be a bigger number */
+  dotOn: {
+    borderWidth: 3, borderColor: '#FFFFFF',
+    shadowColor: '#000000', shadowOpacity: 0.5,
+    shadowRadius: 5, shadowOffset: { width: 0, height: 1 },
   },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   axisInset: { marginLeft: GUTTER_W },
