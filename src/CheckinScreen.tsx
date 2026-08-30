@@ -80,8 +80,8 @@ import {
   painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
-  LOC_CHIP_IDS, LOC_NAMES, LOC_NOTE_MAX, QUALITYIDS, QUALITY_NAMES,
-  answerOf, collapseSidedLocs, defaultLocs, logsOf, minutesNow, nowMeta, todayISO,
+  LOC_NAMES, LOC_NOTE_MAX, LOC_SECTIONS, QUALITYIDS, QUALITY_NAMES,
+  answerOf, defaultLocs, expandLegacyLocs, logsOf, minutesNow, nowMeta, todayISO,
 } from './model';
 
 const IMPACT_LABELS: Record<string, string> = {};
@@ -168,11 +168,10 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      Save. The list is on screen and Save is pressed deliberately, so what
      gets filed is still something the user looked at and agreed to — the
      thing to avoid was recording places nobody was ever shown. */
-  /* sided ids from body-map-era entries collapse to the chips' coarse
-     words for the prefill — an offer to edit, never a rewrite of what
-     was recorded */
+  /* legacy coarse ids from older entries expand to both sides for the
+     prefill — an offer to edit, never a rewrite of what was recorded */
   const [previous] = useState<string[]>(
-    () => collapseSidedLocs(defaultLocs(db.getAll(), today))
+    () => expandLegacyLocs(defaultLocs(db.getAll(), today))
   );
   /* where, in the user's own words — the precision the chips cannot
      carry. Collapsed behind a tap so the step stays a question. */
@@ -183,18 +182,16 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      and the rest waits behind "Show more" — a wall of fourteen options is
      a form, five of your usual ones is a question */
   const ranked = useMemo(() => {
-    const locCount: Record<string, number> = {};
     const qCount: Record<string, number> = {};
     const all = db.getAll();
     Object.keys(all).forEach((k) => (all[k].logs || []).forEach((l) => {
-      /* body-map-era sided entries count toward their coarse family, so
-         a history of "left knee" still floats the Knees chip forward */
-      collapseSidedLocs(l.loc || []).forEach((id) => { locCount[id] = (locCount[id] || 0) + 1; });
       (l.q || []).forEach((id) => { qCount[id] = (qCount[id] || 0) + 1; });
     }));
     const rank = (ids: string[], counts: Record<string, number>) =>
       ids.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-    return { loc: rank(LOC_CHIP_IDS, locCount), q: rank(QUALITYIDS, qCount) };
+    /* where is NOT ranked: its sections are anatomical, and a body
+       does not reorder itself by frequency of complaint */
+    return { q: rank(QUALITYIDS, qCount) };
   }, []);
 
   /* the logged screen acknowledges and leaves — no button tax on every
@@ -662,21 +659,32 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       ) : step === 'where' ? (
         /* Chips again, after the body-map experiment — src/BodyMap.tsx
            is intact and one import away, but the figures crowded a step
-           that should take five seconds. Coarse words tapped fast, and
-           a free-text line underneath for the precision a vocabulary
-           cannot hold: "outer side of the right wrist" is the user's
-           own sentence, stored as written, parsed by nothing. */
+           that should take five seconds. The full sided vocabulary,
+           laid out in anatomical sections the way the figure laid it
+           out in space: the eye finds "Legs and feet" the way the
+           finger found the leg. Anatomical order, never ranked — a
+           body does not reorder itself by frequency of complaint. A
+           free-text line underneath carries the precision even this
+           vocabulary cannot: "outer side of the right wrist" is the
+           user's own sentence, stored as written, parsed by nothing. */
         <ScrollView
-          contentContainerStyle={styles.chipWrap}
+          contentContainerStyle={styles.sectionWrap}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {chipRow(visibleIds(ranked.loc, loc), LOC_NAMES, loc, setLoc)}
-          {!showAllChips && (
-            <Press onPress={() => setShowAllChips(true)} style={styles.more} pressOpacity={0.7}>
-              <Text style={styles.moreText}>Show more ›</Text>
-            </Press>
-          )}
+          <View style={styles.chipCloud}>
+            {chipRow(['allOver'], LOC_NAMES, loc, setLoc)}
+          </View>
+          {LOC_SECTIONS.map((sec) => (
+            <View key={sec.title}>
+              <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {sec.title}
+              </Text>
+              <View style={styles.chipCloud}>
+                {chipRow(sec.ids, LOC_NAMES, loc, setLoc)}
+              </View>
+            </View>
+          ))}
           {locNoteOpen || locNote ? (
             <TextInput
               value={locNote}
@@ -874,6 +882,15 @@ const styles = StyleSheet.create({
   /* wider than the note field under a question: this one shares a step
      with a centred chip cloud and should read as part of it */
   locNoteInput: { alignSelf: 'stretch', marginTop: 16, marginHorizontal: 8 },
+  /* the sectioned where step: a column of titled chip clouds */
+  sectionWrap: { paddingVertical: 18, gap: 4 },
+  sectionTitle: {
+    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    textAlign: 'center', marginTop: 14, marginBottom: 10,
+  },
+  chipCloud: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 9, justifyContent: 'center',
+  },
   impactWrap: { paddingVertical: 20 },
   chipGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,

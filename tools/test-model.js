@@ -739,15 +739,23 @@ ok('legacy pairs expand for the prefill only, sided ids pass through', (() => {
    clearing, and it survives a backup round-trip. */
 console.log('\nthe where note');
 
-ok('sided ids collapse to the chips\' coarse words, deduplicated', (() => {
-  const out = model.collapseSidedLocs(['kneeL', 'kneeR', 'wristR', 'lowerBack', 'thighL']);
-  return out.join(',') === 'knees,hands,lowerBack,legs'
-    && model.collapseSidedLocs(['belly']).join(',') === 'belly';
+ok('the sections cover every sided id once, and no legacy pair id', (() => {
+  const seen = {};
+  let dup = false;
+  model.LOC_SECTIONS.forEach((s) => s.ids.forEach((id) => {
+    if (seen[id]) dup = true;
+    seen[id] = true;
+  }));
+  const sided = ['shoulderL', 'shoulderR', 'wristL', 'wristR', 'kneeL', 'kneeR',
+    'ankleL', 'ankleR', 'hipL', 'hipR'];
+  return !dup
+    && sided.every((id) => seen[id])
+    && ['head', 'neck', 'chest', 'belly', 'upperBack', 'lowerBack'].every((id) => seen[id])
+    && !seen.knees && !seen.arms && !seen.legs      // legacy stays display-only
+    && !seen.allOver;                               // offered apart, not as anatomy
 })());
-ok('the chip vocabulary is exactly the coarse ids', (() => {
-  return model.LOC_CHIP_IDS.length === 14
-    && model.LOC_CHIP_IDS.indexOf('allOver') >= 0
-    && model.LOC_CHIP_IDS.indexOf('kneeL') < 0;
+ok('every offered id has a name to wear', (() => {
+  return model.LOC_SECTIONS.every((s) => s.ids.every((id) => !!model.LOC_NAMES[id]));
 })());
 ok('a note written at the where step lands on the moment, trimmed and capped', (() => {
   const e = model.applyMoment(null, 600, 5, ['knees'], null,

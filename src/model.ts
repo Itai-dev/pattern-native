@@ -225,38 +225,32 @@ export function expandLegacyLocs(ids: string[]): string[] {
   return out;
 }
 
-/* the ids the CHIPS offer — the coarse vocabulary. The sided ids stay
-   in LOC_NAMES so every body-map-era entry keeps displaying exactly as
-   recorded; they are just no longer what the question offers. */
-export const LOC_CHIP_IDS = [
-  'head', 'neck', 'shoulders', 'upperBack', 'lowerBack', 'arms', 'hands',
-  'chest', 'belly', 'hips', 'legs', 'knees', 'feet', 'allOver',
+/* The where question, laid out as a body is: five anatomical sections
+   offering the FULL sided vocabulary. Sections are what lets thirty
+   options stay a question instead of a wall — the eye jumps to "Legs
+   and feet" the way a finger jumped to the figure's leg. The legacy
+   coarse ids (shoulders, arms, legs…) stay valid for every old entry
+   but are no longer offered: "Left knee" says more than "Knees", and
+   the pair still reads back collapsed when both are marked. */
+export const LOC_SECTIONS: { title: string; ids: string[] }[] = [
+  { title: 'Head and neck', ids: ['head', 'neck'] },
+  { title: 'Chest and belly', ids: ['chest', 'belly'] },
+  { title: 'Back', ids: ['upperBack', 'lowerBack'] },
+  {
+    title: 'Arms and hands',
+    ids: [
+      'shoulderL', 'shoulderR', 'armL', 'armR', 'elbowL', 'elbowR',
+      'forearmL', 'forearmR', 'wristL', 'wristR', 'handL', 'handR',
+    ],
+  },
+  {
+    title: 'Legs and feet',
+    ids: [
+      'hipL', 'hipR', 'thighL', 'thighR', 'kneeL', 'kneeR',
+      'calfL', 'calfR', 'ankleL', 'ankleR', 'footL', 'footR',
+    ],
+  },
 ];
-
-/* every sided id → the coarse family word the chips speak */
-const LOC_SIDED_FAMILY: Record<string, string> = {
-  shoulderL: 'shoulders', shoulderR: 'shoulders',
-  armL: 'arms', armR: 'arms', elbowL: 'arms', elbowR: 'arms',
-  forearmL: 'arms', forearmR: 'arms',
-  wristL: 'hands', wristR: 'hands', handL: 'hands', handR: 'hands',
-  hipL: 'hips', hipR: 'hips',
-  thighL: 'legs', thighR: 'legs', calfL: 'legs', calfR: 'legs',
-  kneeL: 'knees', kneeR: 'knees',
-  ankleL: 'feet', ankleR: 'feet', footL: 'feet', footR: 'feet',
-};
-
-/** a location set spoken in the chips' coarse vocabulary — used ONLY
- *  for the prefill, so a body-map-era "left knee" offers today's
- *  "Knees" chip. An offer to edit, never a rewrite: the stored entry
- *  keeps its sided words forever. */
-export function collapseSidedLocs(ids: string[]): string[] {
-  const out: string[] = [];
-  ids.forEach((id) => {
-    const fam = LOC_SIDED_FAMILY[id] || id;
-    if (out.indexOf(fam) < 0) out.push(fam);
-  });
-  return out;
-}
 export const FACTOR_NAMES: Record<string, string> = {
   sleep: 'Sleep', stress: 'Stress', work: 'Work', sitting: 'Long sitting',
   activity: 'Physical activity', weather: 'Weather', food: 'Food',
