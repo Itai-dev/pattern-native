@@ -173,19 +173,22 @@ export default function BodyMap({
   };
 
   /* ── the pulse ────────────────────────────────────────────
-     One shared clock; every halo breathes on it together — pain marks
-     radiating in unison reads as one body, not as competing alarms.
-     Still, and slightly larger, under Reduce Motion. */
+     One shared clock; every glow breathes on it together — marks
+     brightening in unison reads as one body, not as competing alarms.
+     A slow there-and-back fade, never a size change: the highlight IS
+     the hurting area, and an area does not grow twice a second.
+     Held steady under Reduce Motion. */
   const rm = useReduceMotion();
   const pulse = useSharedValue(0);
   useEffect(() => {
-    if (rm) { cancelAnimation(pulse); pulse.value = 0.4; return; }
+    if (rm) { cancelAnimation(pulse); pulse.value = 0.5; return; }
     pulse.value = 0;
-    pulse.value = withRepeat(withTiming(1, { duration: 1700 }), -1, false);
+    pulse.value = withRepeat(withTiming(1, { duration: 2400 }), -1, true);
   }, [rm]);
-  const haloStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + pulse.value * 0.9 }],
-    opacity: 0.38 * (1 - pulse.value * 0.9),
+  /* never fully opaque — the glow is a wash over the figure, and the
+     outline ghosting through is what keeps it a body, not a heatmap */
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: 0.55 + pulse.value * 0.25,
   }));
 
   /* ── the stroke ───────────────────────────────────────────
@@ -257,12 +260,15 @@ export default function BodyMap({
     prevCount.current = parts.length;
   }, [parts.length]);
 
-  /* Marks are RADIATING DOTS: one uniform size everywhere (a wrist
-     hurts as loudly as a thigh), a solid core with a halo that
-     breathes outward on the shared pulse. No shadows — two circles
-     render the same on every device. Touch zones stay the full region
-     rectangles underneath. A shared id (head, neck) lights on both
-     figures at once, because it is one place, not two answers. */
+  /* Marks are SOFT GLOWS that fill the region: a pill of the pain
+     colour, inset from the touch rect, blurred outward by its own
+     tinted shadow so the brightest point sits over the hurt and fades
+     into the figure — a pain drawing, not a pin on a map. The shadow
+     IS the blur; this app is iOS-only and iOS shadows are true
+     gaussians, which is why this works with no gradient library.
+     Touch zones stay the full region rectangles underneath. A shared
+     id (head, neck) lights on both figures at once, because it is one
+     place, not two answers. */
   const figure = (src: number, list: Region[], off: number, tag: string) => (
     <React.Fragment key={tag}>
       <Image
@@ -273,7 +279,12 @@ export default function BodyMap({
       />
       {list.map((rg, i) => {
         const on = selected.indexOf(rg.id) >= 0;
-        const d = 9 * k;
+        /* the glow's core: inset so the blur has room to fade inside
+           the region's own footprint, pill-shaped so long regions
+           (a thigh) read as a streak and square ones as a blot */
+        const ix = rg.w * k * 0.22;
+        const iy = rg.h * k * 0.22;
+        const blur = Math.min(rg.w, rg.h) * k * 0.5;
         return (
           <Pressable
             key={tag + rg.id + (rg.side || '') + i}
@@ -296,26 +307,23 @@ export default function BodyMap({
             ]}
           >
             {on && (
-              <>
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    {
-                      position: 'absolute',
-                      width: d * 1.6, height: d * 1.6, borderRadius: d * 0.8,
-                      backgroundColor: tint,
-                    },
-                    haloStyle,
-                  ]}
-                />
-                <View
-                  pointerEvents="none"
-                  style={{
-                    width: d, height: d, borderRadius: d / 2,
-                    backgroundColor: tint, opacity: 0.95,
-                  }}
-                />
-              </>
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  {
+                    position: 'absolute',
+                    left: ix, top: iy, right: ix, bottom: iy,
+                    borderRadius: Math.min(rg.w, rg.h) * k * 0.28,
+                    borderCurve: 'continuous',
+                    backgroundColor: tint,
+                    shadowColor: tint,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 1,
+                    shadowRadius: blur,
+                  },
+                  glowStyle,
+                ]}
+              />
             )}
           </Pressable>
         );
