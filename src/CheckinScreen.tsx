@@ -80,8 +80,8 @@ import {
   painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
-  LOC_CHIP_IDS, LOC_NAMES, LOC_NOTE_MAX, LOC_SECTIONS, QUALITYIDS, QUALITY_NAMES,
-  answerOf, collapseSidedLocs, defaultLocs, expandLegacyLocs, logsOf,
+  LOC_CHIP_IDS, LOC_NAMES, LOC_SECTIONS, QUALITYIDS, QUALITY_NAMES,
+  answerOf, collapseSidedLocs, defaultLocs, logsOf,
   minutesNow, nowMeta, todayISO,
 } from './model';
 
@@ -179,10 +179,6 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      because opening every quality word must not silently switch the
      where question into its sided vocabulary */
   const [locExpanded, setLocExpanded] = useState(false);
-  /* where, in the user's own words — the precision the chips cannot
-     carry. Collapsed behind a tap so the step stays a question. */
-  const [locNote, setLocNote] = useState('');
-  const [locNoteOpen, setLocNoteOpen] = useState(false);
 
   /* chips in personal order: what you actually pick floats to the front,
      and the rest waits behind "Show more" — a wall of fourteen options is
@@ -263,7 +259,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
    *  the same moment rather than adding another. */
-  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean; locNote?: string }) => {
+  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean }) => {
     if (writtenAt == null || pain == null) return;
     db.writeMoment(today, writtenAt, pain, loc, quality, {
       ...nowMeta(SCALE_VERSION),
@@ -325,7 +321,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       if (nextAfter('feel') === 'where' && !loc.length) setLoc(previous);
       setStep(nextAfter('feel'));
     } else {
-      persist({ locAsked: true, locNote });
+      persist({ locAsked: true });
       finish();
     }
   };
@@ -668,79 +664,45 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           </View>
         </ScrollView>
       ) : step === 'where' ? (
-        /* Two levels of the same question. Collapsed: the main places,
-           your usual ones first — the daily answer in a couple of taps.
-           "Show more" opens the full sided vocabulary in anatomical
-           sections and expands the selection with it (Knees → both
-           knees), so nothing marked disappears when the words get more
-           precise. One-way within a check-in: collapsing back would
-           have to coarsen a sided choice, and no tap should quietly
-           unsay "left". A free-text line underneath carries what even
-           the sided words cannot: "outer side of the right wrist" is
-           the user's own sentence, stored as written, parsed by
-           nothing. */
+        /* The main places, your usual ones first — the daily answer in
+           a couple of taps. "Show more" ADDS the specific sided
+           vocabulary below in anatomical sections; the main chips stay
+           where they are, because more precision must never rearrange
+           what is already on screen. The two levels coexist in one
+           selection — "Knees" and "Left wrist" together is a fine
+           answer — and whichever words were chosen are the words
+           stored. */
         <ScrollView
           contentContainerStyle={styles.sectionWrap}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.chipCloud}>
+            {chipRow(ranked.loc, LOC_NAMES, loc, setLoc)}
+          </View>
           {!locExpanded ? (
-            <>
-              <View style={styles.chipCloud}>
-                {chipRow(ranked.loc, LOC_NAMES, loc, setLoc)}
-              </View>
-              <Press
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setLoc(expandLegacyLocs(loc));
-                  setLocExpanded(true);
-                }}
-                style={styles.more}
-                pressOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Show specific places, left and right"
-              >
-                <Text style={styles.moreText}>Show more ›</Text>
-              </Press>
-            </>
-          ) : (
-            <>
-              <View style={styles.chipCloud}>
-                {chipRow(['allOver'], LOC_NAMES, loc, setLoc)}
-              </View>
-              {LOC_SECTIONS.map((sec) => (
-                <View key={sec.title}>
-                  <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                    {sec.title}
-                  </Text>
-                  <View style={styles.chipCloud}>
-                    {chipRow(sec.ids, LOC_NAMES, loc, setLoc)}
-                  </View>
-                </View>
-              ))}
-            </>
-          )}
-          {locNoteOpen || locNote ? (
-            <TextInput
-              value={locNote}
-              onChangeText={setLocNote}
-              placeholder="Where exactly, in your own words — optional"
-              placeholderTextColor={color.textTertiary}
-              style={[styles.noteInput, styles.locNoteInput]}
-              multiline
-              maxLength={LOC_NOTE_MAX}
-              accessibilityLabel="Describe the location in your own words"
-            />
-          ) : (
             <Press
-              onPress={() => setLocNoteOpen(true)}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setLocExpanded(true);
+              }}
+              style={styles.more}
               pressOpacity={0.7}
-              style={styles.noteAdd}
               accessibilityRole="button"
-              accessibilityLabel="Describe the location in your own words"
+              accessibilityLabel="Show specific places, left and right"
             >
-              <Text style={styles.noteAddText}>+ Describe it in your own words</Text>
+              <Text style={styles.moreText}>Show more ›</Text>
             </Press>
+          ) : (
+            LOC_SECTIONS.map((sec) => (
+              <View key={sec.title}>
+                <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {sec.title}
+                </Text>
+                <View style={styles.chipCloud}>
+                  {chipRow(sec.ids, LOC_NAMES, loc, setLoc)}
+                </View>
+              </View>
+            ))
           )}
         </ScrollView>
       ) : (
@@ -914,9 +876,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', paddingVertical: 24,
   },
-  /* wider than the note field under a question: this one shares a step
-     with a centred chip cloud and should read as part of it */
-  locNoteInput: { alignSelf: 'stretch', marginTop: 16, marginHorizontal: 8 },
   /* the sectioned where step: a column of titled chip clouds */
   sectionWrap: { paddingVertical: 18, gap: 4 },
   sectionTitle: {

@@ -225,14 +225,14 @@ export function expandLegacyLocs(ids: string[]): string[] {
   return out;
 }
 
-/* The where question speaks TWO levels of the same vocabulary.
-   Collapsed, it offers the main places — the coarse ids the record has
-   always known, enough for the daily "same as usual" answer in a
-   couple of taps. "Show more" opens the full sided vocabulary in the
-   anatomical sections below, and the current selection expands with it
-   (knees → both knees) so nothing marked ever disappears from view.
-   Whichever level is on screen at save is the level that is stored:
-   coarse when coarse was enough, sided when the user reached for it. */
+/* The where question speaks TWO levels of the same vocabulary. The
+   main places — the coarse ids the record has always known — are
+   always on screen, enough for the daily "same as usual" answer in a
+   couple of taps. "Show more" ADDS the full sided vocabulary below in
+   the anatomical sections; nothing already shown moves or converts.
+   The levels coexist in one selection ("Knees" beside "Left wrist" is
+   a fine answer), and whichever words were chosen are the words
+   stored. */
 export const LOC_CHIP_IDS = [
   'head', 'neck', 'shoulders', 'upperBack', 'lowerBack', 'arms', 'hands',
   'chest', 'belly', 'hips', 'legs', 'knees', 'feet', 'allOver',
