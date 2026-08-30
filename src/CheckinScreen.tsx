@@ -66,7 +66,6 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import PainShape from './PainShape';
-import BodyMap from './BodyMap';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
@@ -81,8 +80,8 @@ import {
   painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
-  LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
-  answerOf, defaultLocs, expandLegacyLocs, logsOf, minutesNow, nowMeta, todayISO,
+  LOC_CHIP_IDS, LOC_NAMES, LOC_NOTE_MAX, QUALITYIDS, QUALITY_NAMES,
+  answerOf, collapseSidedLocs, defaultLocs, logsOf, minutesNow, nowMeta, todayISO,
 } from './model';
 
 const IMPACT_LABELS: Record<string, string> = {};
@@ -169,14 +168,16 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      Save. The list is on screen and Save is pressed deliberately, so what
      gets filed is still something the user looked at and agreed to — the
      thing to avoid was recording places nobody was ever shown. */
-  /* legacy paired ids from older entries expand to both sides for the
-     prefill — an offer to edit, never a rewrite of what was recorded */
+  /* sided ids from body-map-era entries collapse to the chips' coarse
+     words for the prefill — an offer to edit, never a rewrite of what
+     was recorded */
   const [previous] = useState<string[]>(
-    () => expandLegacyLocs(defaultLocs(db.getAll(), today))
+    () => collapseSidedLocs(defaultLocs(db.getAll(), today))
   );
-  /* the space the body map actually has — it sizes itself to this
-     rather than assuming a phone */
-  const [bodyBox, setBodyBox] = useState({ w: 0, h: 0 });
+  /* where, in the user's own words — the precision the chips cannot
+     carry. Collapsed behind a tap so the step stays a question. */
+  const [locNote, setLocNote] = useState('');
+  const [locNoteOpen, setLocNoteOpen] = useState(false);
 
   /* chips in personal order: what you actually pick floats to the front,
      and the rest waits behind "Show more" — a wall of fourteen options is
@@ -186,12 +187,14 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     const qCount: Record<string, number> = {};
     const all = db.getAll();
     Object.keys(all).forEach((k) => (all[k].logs || []).forEach((l) => {
-      (l.loc || []).forEach((id) => { locCount[id] = (locCount[id] || 0) + 1; });
+      /* body-map-era sided entries count toward their coarse family, so
+         a history of "left knee" still floats the Knees chip forward */
+      collapseSidedLocs(l.loc || []).forEach((id) => { locCount[id] = (locCount[id] || 0) + 1; });
       (l.q || []).forEach((id) => { qCount[id] = (qCount[id] || 0) + 1; });
     }));
     const rank = (ids: string[], counts: Record<string, number>) =>
       ids.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-    return { loc: rank(LOCIDS, locCount), q: rank(QUALITYIDS, qCount) };
+    return { loc: rank(LOC_CHIP_IDS, locCount), q: rank(QUALITYIDS, qCount) };
   }, []);
 
   /* the logged screen acknowledges and leaves — no button tax on every
@@ -252,7 +255,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
    *  the same moment rather than adding another. */
-  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean }) => {
+  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean; locNote?: string }) => {
     if (writtenAt == null || pain == null) return;
     db.writeMoment(today, writtenAt, pain, loc, quality, {
       ...nowMeta(SCALE_VERSION),
@@ -314,7 +317,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       if (nextAfter('feel') === 'where' && !loc.length) setLoc(previous);
       setStep(nextAfter('feel'));
     } else {
-      persist({ locAsked: true });
+      persist({ locAsked: true, locNote });
       finish();
     }
   };
@@ -532,7 +535,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     ? 'Your read on the day — Pattern records it, it doesn’t test it'
     : step === 'questions' ? 'Optional — Skip if it doesn’t fit today'
     : step === 'feel' ? 'Optional — tap any that fit'
-      : step === 'where' ? 'Touch or sweep across where it hurts — your usual places are already marked'
+      : step === 'where' ? 'Your usual places are already selected'
         : null;
 
   /* collapsed chips: the six you use most, plus anything already selected;
@@ -657,31 +660,46 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           </View>
         </ScrollView>
       ) : step === 'where' ? (
-        /* The body, touched, instead of a list scanned — same ids
-           underneath, same skip semantics, same storage. NOT a
-           ScrollView, deliberately: the native scroll gesture wins the
-           vertical-drag fight against any JS responder, which is what
-           silently broke the paint stroke. The step fits without
-           scrolling because the words and the All-over control live in
-           the figure's side gutters, and the map sizes itself to the
-           space it is actually given. */
-        <View
-          style={styles.bodyWrap}
-          onLayout={(e) => setBodyBox({
-            w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height,
-          })}
+        /* Chips again, after the body-map experiment — src/BodyMap.tsx
+           is intact and one import away, but the figures crowded a step
+           that should take five seconds. Coarse words tapped fast, and
+           a free-text line underneath for the precision a vocabulary
+           cannot hold: "outer side of the right wrist" is the user's
+           own sentence, stored as written, parsed by nothing. */
+        <ScrollView
+          contentContainerStyle={styles.chipWrap}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {bodyBox.w > 0 && (
-            <BodyMap
-              selected={loc}
-              onChange={setLoc}
-              tint={painColor(pain == null ? 5 : pain)}
-              ink={inkOn(pain == null ? 5 : pain)}
-              containerWidth={bodyBox.w}
-              containerHeight={bodyBox.h}
-            />
+          {chipRow(visibleIds(ranked.loc, loc), LOC_NAMES, loc, setLoc)}
+          {!showAllChips && (
+            <Press onPress={() => setShowAllChips(true)} style={styles.more} pressOpacity={0.7}>
+              <Text style={styles.moreText}>Show more ›</Text>
+            </Press>
           )}
-        </View>
+          {locNoteOpen || locNote ? (
+            <TextInput
+              value={locNote}
+              onChangeText={setLocNote}
+              placeholder="Where exactly, in your own words — optional"
+              placeholderTextColor={color.textTertiary}
+              style={[styles.noteInput, styles.locNoteInput]}
+              multiline
+              maxLength={LOC_NOTE_MAX}
+              accessibilityLabel="Describe the location in your own words"
+            />
+          ) : (
+            <Press
+              onPress={() => setLocNoteOpen(true)}
+              pressOpacity={0.7}
+              style={styles.noteAdd}
+              accessibilityRole="button"
+              accessibilityLabel="Describe the location in your own words"
+            >
+              <Text style={styles.noteAddText}>+ Describe it in your own words</Text>
+            </Press>
+          )}
+        </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
           {chipRow(visibleIds(ranked.q, quality), QUALITY_NAMES, quality, setQuality)}
@@ -853,7 +871,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', paddingVertical: 24,
   },
-  bodyWrap: { flex: 1, paddingTop: 8 },
+  /* wider than the note field under a question: this one shares a step
+     with a centred chip cloud and should read as part of it */
+  locNoteInput: { alignSelf: 'stretch', marginTop: 16, marginHorizontal: 8 },
   impactWrap: { paddingVertical: 20 },
   chipGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,

@@ -262,6 +262,11 @@ export default function DaySheet({
                     {l.loc && l.loc.length > 0 && (
                       <Text style={styles.rowSub}>{names(l.loc, LOC_NAMES)}</Text>
                     )}
+                    {/* the user's own words about where — quoted, so
+                        the record's voice and theirs stay distinct */}
+                    {!!l.locNote && (
+                      <Text style={styles.rowSub}>“{l.locNote}”</Text>
+                    )}
                     {l.q && l.q.length > 0 && (
                       <Text style={styles.rowSub}>{names(l.q, QUALITY_NAMES)}</Text>
                     )}

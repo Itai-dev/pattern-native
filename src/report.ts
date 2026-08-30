@@ -256,11 +256,22 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       better: countFlags(entries, days, IMPACT_BETTER),
     },
     /* from every day in the window, logged or not — a note can sit on a
-       day whose check-ins were all removed, and it is still theirs */
+       day whose check-ins were all removed, and it is still theirs.
+       Location descriptions ride the same opt-in: they are the user's
+       words about their body, so they share the day note's consent. */
     notes: !includeNotes ? [] : Object.keys(entries)
-      .filter((k) => k >= startIso && k <= todayIso && !!(entries[k].note || '').trim())
+      .filter((k) => k >= startIso && k <= todayIso)
       .sort()
-      .map((k) => ({ date: k, text: entries[k].note.trim() })),
+      .map((k) => {
+        const parts: string[] = [];
+        const day = (entries[k].note || '').trim();
+        if (day) parts.push(day);
+        logsOf(entries[k]).forEach((l) => {
+          if (l.locNote) parts.push('Where, at ' + fmtTime(l.h) + ': ' + l.locNote);
+        });
+        return { date: k, text: parts.join('\n') };
+      })
+      .filter((n) => !!n.text),
     health: healthContext(inp.healthDays, inp.healthAssociation || null, days),
   };
 }
@@ -859,13 +870,15 @@ export function reportHtml(data: ReportData): string {
      document is the reader's problem wearing the writer's name. */
   if (data.notes.length) {
     s.push('<section><h2>In the patient’s own words</h2>');
-    s.push('<div class="note">Day notes, included by the patient’s choice, ' +
-      'reproduced exactly as written. These are personal context, not ' +
-      'clinical observations.</div>');
+    s.push('<div class="note">Day notes and location descriptions, included ' +
+      'by the patient’s choice, reproduced exactly as written. These are ' +
+      'personal context, not clinical observations.</div>');
     s.push('<table><tr><th>Date</th><th>Note</th></tr>');
     data.notes.forEach((n) => {
+      /* a day's note and its location descriptions are separate lines
+         and stay separate lines — esc() then break, never trust text */
       s.push('<tr><td class="num">' + esc(fmtShortDate(n.date)) + '</td>' +
-        '<td>' + esc(n.text) + '</td></tr>');
+        '<td>' + esc(n.text).replace(/\n/g, '<br>') + '</td></tr>');
     });
     s.push('</table></section>');
   }

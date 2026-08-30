@@ -733,5 +733,53 @@ ok('legacy pairs expand for the prefill only, sided ids pass through', (() => {
     && out.indexOf('knees') < 0;
 })());
 
+/* ── the where note ──────────────────────────────────────────
+   Free text about location: stored as written, preserved across the
+   step-by-step writes of one check-in, removed only by an explicit
+   clearing, and it survives a backup round-trip. */
+console.log('\nthe where note');
+
+ok('sided ids collapse to the chips\' coarse words, deduplicated', (() => {
+  const out = model.collapseSidedLocs(['kneeL', 'kneeR', 'wristR', 'lowerBack', 'thighL']);
+  return out.join(',') === 'knees,hands,lowerBack,legs'
+    && model.collapseSidedLocs(['belly']).join(',') === 'belly';
+})());
+ok('the chip vocabulary is exactly the coarse ids', (() => {
+  return model.LOC_CHIP_IDS.length === 14
+    && model.LOC_CHIP_IDS.indexOf('allOver') >= 0
+    && model.LOC_CHIP_IDS.indexOf('kneeL') < 0;
+})());
+ok('a note written at the where step lands on the moment, trimmed and capped', (() => {
+  const e = model.applyMoment(null, 600, 5, ['knees'], null,
+    { locNote: '  outer right wrist  ' });
+  const long = model.applyMoment(null, 601, 5, null, null,
+    { locNote: 'x'.repeat(400) });
+  return e.logs[0].locNote === 'outer right wrist'
+    && long.logs[0].locNote.length === model.LOC_NOTE_MAX;
+})());
+ok('the pain-step write does not erase the words the where step saved', (() => {
+  let e = model.applyMoment(null, 600, 5, ['knees'], null, { locNote: 'behind the kneecap' });
+  e = model.applyMoment(e, 600, 6);          // edit pain, no meta.locNote
+  return e.logs[0].locNote === 'behind the kneecap';
+})());
+ok('an explicit empty string clears it — the user asked', (() => {
+  let e = model.applyMoment(null, 600, 5, ['knees'], null, { locNote: 'behind the kneecap' });
+  e = model.applyMoment(e, 600, 5, ['knees'], null, { locNote: '' });
+  return e.logs[0].locNote === undefined;
+})());
+ok('the note survives a backup round-trip, junk does not', (() => {
+  const e = model.cleanEntry({
+    pain: 5, cap: null, note: '',
+    logs: [
+      { h: 540, pain: 5, loc: ['knees'], locNote: ' up into the thumb ' },
+      { h: 600, pain: 4, locNote: 12345 },
+      { h: 660, pain: 4, locNote: '   ' },
+    ],
+  });
+  return e.logs[0].locNote === 'up into the thumb'
+    && e.logs[1].locNote === undefined
+    && e.logs[2].locNote === undefined;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

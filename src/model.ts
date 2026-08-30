@@ -52,9 +52,18 @@ export interface Moment {
    *  other says they would rather not answer. Both are honest; neither
    *  is a value. */
   locSkipped?: 1;
+  /** where, in the user's own words — "outer side of the right wrist,
+   *  up into the thumb". The chips answer where coarsely and fast; this
+   *  carries the precision a fixed vocabulary cannot. Free text, capped,
+   *  never parsed: it is shown back as written, and no engine reads it. */
+  locNote?: string;
   /** pain-quality words — the SOCRATES "Character" answer, per moment */
   q?: string[];
 }
+
+/** the longest a location description can be — same cap as every other
+ *  note field, long enough for a sentence, short enough to stay one */
+export const LOC_NOTE_MAX = 280;
 
 export interface Entry {
   pain: number;
@@ -215,6 +224,39 @@ export function expandLegacyLocs(ids: string[]): string[] {
   });
   return out;
 }
+
+/* the ids the CHIPS offer — the coarse vocabulary. The sided ids stay
+   in LOC_NAMES so every body-map-era entry keeps displaying exactly as
+   recorded; they are just no longer what the question offers. */
+export const LOC_CHIP_IDS = [
+  'head', 'neck', 'shoulders', 'upperBack', 'lowerBack', 'arms', 'hands',
+  'chest', 'belly', 'hips', 'legs', 'knees', 'feet', 'allOver',
+];
+
+/* every sided id → the coarse family word the chips speak */
+const LOC_SIDED_FAMILY: Record<string, string> = {
+  shoulderL: 'shoulders', shoulderR: 'shoulders',
+  armL: 'arms', armR: 'arms', elbowL: 'arms', elbowR: 'arms',
+  forearmL: 'arms', forearmR: 'arms',
+  wristL: 'hands', wristR: 'hands', handL: 'hands', handR: 'hands',
+  hipL: 'hips', hipR: 'hips',
+  thighL: 'legs', thighR: 'legs', calfL: 'legs', calfR: 'legs',
+  kneeL: 'knees', kneeR: 'knees',
+  ankleL: 'feet', ankleR: 'feet', footL: 'feet', footR: 'feet',
+};
+
+/** a location set spoken in the chips' coarse vocabulary — used ONLY
+ *  for the prefill, so a body-map-era "left knee" offers today's
+ *  "Knees" chip. An offer to edit, never a rewrite: the stored entry
+ *  keeps its sided words forever. */
+export function collapseSidedLocs(ids: string[]): string[] {
+  const out: string[] = [];
+  ids.forEach((id) => {
+    const fam = LOC_SIDED_FAMILY[id] || id;
+    if (out.indexOf(fam) < 0) out.push(fam);
+  });
+  return out;
+}
 export const FACTOR_NAMES: Record<string, string> = {
   sleep: 'Sleep', stress: 'Stress', work: 'Work', sitting: 'Long sitting',
   activity: 'Physical activity', weather: 'Weather', food: 'Food',
@@ -277,6 +319,10 @@ export function cleanLogs(l: unknown): Moment[] | undefined {
     // an empty selection is an answer, so the asked-marker survives on its own
     if (raw.locAsked === 1 || (Array.isArray(loc) && !lc)) v.locAsked = 1;
     if (raw.locSkipped === 1) { v.locSkipped = 1; v.locAsked = 1; }
+    // the user's own words survive a backup round-trip, re-capped
+    if (typeof raw.locNote === 'string' && raw.locNote.trim()) {
+      v.locNote = raw.locNote.trim().slice(0, LOC_NOTE_MAX);
+    }
     const qc = cleanIds(q, QUALITYIDS);
     if (qc) v.q = qc;
     const ts = typeof raw.ts === 'number' && isFinite(raw.ts) && raw.ts > 0 ? Math.round(raw.ts) : undefined;
@@ -470,6 +516,12 @@ export interface MomentMeta {
   locAsked?: boolean;
   /** ...and they declined it */
   locSkipped?: boolean;
+  /** where, described in the user's own words. Undefined = the writer
+   *  did not put the question, and any existing text is left alone;
+   *  '' = the user cleared it, and the clearing is honored. The
+   *  difference matters: the pain-step write must not erase what the
+   *  where-step wrote a moment ago. */
+  locNote?: string;
 }
 
 /** stamp the current instant. Kept here so every writer agrees on what
@@ -496,6 +548,9 @@ export function applyMoment(
   if (meta && meta.locSkipped) { moment.locSkipped = 1; moment.locAsked = 1; }
   else if (meta && meta.locAsked) moment.locAsked = 1;
   else if (loc && loc.length) moment.locAsked = 1;
+  if (meta && meta.locNote !== undefined && meta.locNote.trim()) {
+    moment.locNote = meta.locNote.trim().slice(0, LOC_NOTE_MAX);
+  }
   if (q && q.length) moment.q = q.slice();
   if (meta) {
     if (meta.ts !== undefined) moment.ts = meta.ts;
@@ -512,6 +567,10 @@ export function applyMoment(
     if (moment.sv === undefined && was.sv !== undefined) moment.sv = was.sv;
     if (!moment.locAsked && was.locAsked) moment.locAsked = 1;
     if (!moment.locSkipped && was.locSkipped && !moment.loc) moment.locSkipped = 1;
+    /* nothing typed is thrown away without being asked: only an
+       explicit '' (the user cleared the field) removes the words */
+    if (moment.locNote === undefined && was.locNote !== undefined
+      && (!meta || meta.locNote === undefined)) moment.locNote = was.locNote;
     logs[i] = moment;
   } else logs.push(moment);
   logs.sort((a, b) => a.h - b.h);
