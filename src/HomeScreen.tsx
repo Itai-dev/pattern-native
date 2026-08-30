@@ -3,18 +3,12 @@
  * and the one action that matters. The record lives in Trends, the month
  * on the Map, the day itself one tap away — act here, look there.
  *
- * ONE CARD FOR THE DAY. It was two, and the first was the last dot of
- * the second — the same number at the same minute, printed twice, one
- * above the other. The card leads with what you last said and when (the
- * thing a person opening this app at four in the afternoon actually
- * wants), then draws the day under it with that reading ringed, so the
- * headline and the dot are visibly one fact. The sentence between them
- * is the only comparison the record can make honestly before the day is
- * over: this against the first check-in of the same day.
- *
- * Under it, what Health recorded today. It used to be visible only
- * inside a day you had to open first, which is one tap too many for the
- * thing most likely to explain a morning.
+ * TWO CARDS, AND EACH ANSWERS ONE QUESTION. "Last check-in" answers "what
+ * did I say, and when" — the thing a person opening this app at four in
+ * the afternoon actually wants and previously had to work out from a
+ * daily average and a list. "Today so far" answers "what has the day
+ * done", in the only comparison the record can make honestly before the
+ * day is over: this against the first check-in of the same day.
  *
  * THE DAY PAGER IS GONE FROM HERE. Sideways used to walk this screen back
  * through the record, and it was in the wrong place: Today is where you
@@ -23,10 +17,10 @@
  * had to keep saying so. The gesture moved intact to Pain through the
  * day, where the day IS the subject and sideways can only mean one thing.
  *
- * NOTHING HERE REWARDS OPENING IT. There is no streak, no ring, no
- * comparison to yesterday and no count of anything completed. The screen
- * is the same on the fifth open of an afternoon as on the first; the
- * only thing that changes it is a check-in the user added.
+ * NEITHER CARD REWARDS OPENING IT. There is no streak, no ring, no
+ * comparison to yesterday and no count of anything completed. Both cards
+ * are the same on the fifth open of an afternoon as on the first; the
+ * only thing that changes either of them is a check-in the user added.
  */
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -36,7 +30,6 @@ import Animated, {
 import DayLine from './DayLine';
 import DaySquare from './DaySquare';
 import FocusCard from './FocusCard';
-import HealthTiles, { hasHealthTiles } from './HealthTiles';
 import { Press, useReduceMotion } from './motion';
 import {
   Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, checkinCount, fmtTime,
@@ -80,8 +73,9 @@ export interface HomeScreenProps {
   entries: Entries;
   protocol: Protocol | null;
   onLog: () => void;
-  /** the day itself, opened on today — one destination, from the one
-   *  card that is about today */
+  /** the day detail — where editing, deleting and events live */
+  onOpenDay: (dateIso: string) => void;
+  /** Pain through the day, opened on today */
   onOpenToday: () => void;
   onFocus: () => void;
   onKeepFocus: () => void;
@@ -89,7 +83,7 @@ export interface HomeScreenProps {
 }
 
 export default function HomeScreen({
-  entries, protocol, onLog, onOpenToday, onFocus, onKeepFocus,
+  entries, protocol, onLog, onOpenDay, onOpenToday, onFocus, onKeepFocus,
   onTestFactor,
 }: HomeScreenProps) {
   const t = todayISO();
@@ -134,25 +128,18 @@ export default function HomeScreen({
 
   return (
     <View>
-      {/* ── today, in ONE card ────────────────────────────
-          The last thing you said and the shape of the day were two cards,
-          and the first was the last dot of the second: the same number,
-          the same minute, printed twice, one above the other. One card
-          now — the latest reading as its headline, the drawing under it
-          with that reading ringed, and the whole thing opening the day. */}
+      {/* ── what you last said ────────────────────────────── */}
       {value != null ? (
         <Press
-          onPress={onOpenToday}
+          onPress={() => onOpenDay(t)}
           pressScale={0.985}
           pressOpacity={0.92}
           style={styles.card}
           accessibilityRole="button"
           accessibilityLabel={(latest ? 'Last check-in, ' + fmtTime(latest.h) + ', ' : 'Today, ')
             + speakScore(value)
-            + (latest && tagsOf(latest).length ? ', ' + tagsOf(latest).join(', ') : '')
-            + (logs.length > 1 ? '. ' + formatCheckins(count, true) : '')
-            + (shape ? '. ' + shape : '')}
-          accessibilityHint="Opens the day, where you can read, edit or remove any check-in"
+            + (latest && tagsOf(latest).length ? ', ' + tagsOf(latest).join(', ') : '')}
+          accessibilityHint="Opens the day’s detail, where you can edit or remove it"
         >
           <View style={styles.head}>
             <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -221,47 +208,6 @@ export default function HomeScreen({
               )}
             </View>
           </View>
-
-          {/* the day, under the reading it belongs to. Only once there is
-              more than one check-in: a single dot on a whole day's axis
-              is a chart of nothing, and the hero above already said it. */}
-          {logs.length > 1 && (
-            <>
-              {!!shape && (
-                <Text
-                  style={styles.reading} numberOfLines={2}
-                  allowFontScaling maxFontSizeMultiplier={1.3}
-                >
-                  {shape}
-                </Text>
-              )}
-              <View style={styles.spark}>
-                {/* the latest check-in wears the ring here too, so the
-                    number above and the dot below are visibly the same
-                    fact rather than two readings to reconcile */}
-                <DayLine
-                  logs={logs}
-                  height={SPARK_H}
-                  grid
-                  axis
-                  selected={latest ? latest.h : null}
-                />
-              </View>
-              <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Each dot is a check-in, at the hour you made it. One day is not a
-                trend, and nothing here is being compared to another day.
-              </Text>
-              <View style={styles.rule} />
-              <View style={styles.foot}>
-                <Text style={styles.footCount} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {formatCheckins(count, true)}
-                </Text>
-                <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  View details
-                </Text>
-              </View>
-            </>
-          )}
         </Press>
       ) : (
         /* Nothing yet today. One card, one thing to do — and it says what
@@ -298,15 +244,59 @@ export default function HomeScreen({
         </Press>
       )}
 
-      {/* ── what your body did today ──────────────────────
-          Apple Health, on the screen the day is on. It was only ever
-          visible inside a day you had to open, which is one tap too many
-          for the thing most likely to explain a morning. Context, never
-          a verdict: the caveat travels inside the block. */}
-      {hasHealthTiles(t) && (
-        <View style={[styles.card, styles.cardGap]}>
-          <HealthTiles dateIso={t} title="Today, from Apple Health" />
-        </View>
+      {/* ── the day so far ────────────────────────────────── */}
+      {logs.length > 0 && (
+        <Press
+          onPress={onOpenToday}
+          pressScale={0.985}
+          pressOpacity={0.92}
+          style={[styles.card, styles.cardGap]}
+          accessibilityRole="button"
+          accessibilityLabel={'Today so far, ' + formatCheckins(count, true)
+            + (shape ? '. ' + shape : '')}
+          accessibilityHint="Opens pain through the day"
+        >
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Today so far
+          </Text>
+
+          {/* The reading sits ABOVE the drawing on its own line rather than
+              beside it. Sharing the row cost the chart nearly half the card
+              — three check-ins in an afternoon became four dots in a thumb's
+              width, which is a decoration, not a drawing. It is the same
+              spec as the sentence Trends puts over its own chart. */}
+          {!!shape && (
+            <Text
+              style={styles.reading} numberOfLines={2}
+              allowFontScaling maxFontSizeMultiplier={1.3}
+            >
+              {shape}
+            </Text>
+          )}
+
+          {/* the scale and the times, on the small chart too. Without them
+              a cluster of dots in the middle of the card cannot be read at
+              all — which is the whole complaint a bare sparkline earns. */}
+          <View style={styles.spark}>
+            <DayLine logs={logs} height={SPARK_H} grid axis />
+          </View>
+
+          {/* what the drawing is NOT, inside the card it qualifies */}
+          <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Each dot is a check-in, at the hour you made it. One day is not a
+            trend, and nothing here is being compared to another day.
+          </Text>
+
+          <View style={styles.rule} />
+          <View style={styles.foot}>
+            <Text style={styles.footCount} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {formatCheckins(count, true)}
+            </Text>
+            <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
+              View details
+            </Text>
+          </View>
+        </Press>
       )}
 
       {/* ── the period, or the invitation to start one ──────

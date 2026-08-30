@@ -1,36 +1,31 @@
 /**
- * Everything about one day that the chart above does not carry: where it
- * hurt, what Health recorded around it, the questions that were put, the
- * events, and the day's own note.
+ * Everything about one day that is not the chart: where it hurt, what
+ * Health recorded around it, each check-in, the questions that were put,
+ * the events, and the day's own note.
  *
  * This used to be a sheet that opened ON TOP of the day screen, which
  * meant one day had two surfaces — the same list rendered twice, one of
  * them able to edit and one not, and which one you got depended on
  * whether you arrived from Today or from History. It is a section now,
- * rendered under the chart on the one day screen there is.
+ * rendered under the chart on the one day screen there is. Nothing here
+ * changed except where it lives; the sheet's rules come with it.
  *
- * THE CHECK-INS ARE NOT HERE ANY MORE. A list of twenty-three rows
- * saying 5/10 twenty-three times is the chart's own data typed out
- * underneath it; the chart is where a check-in is picked now, and the
- * reading beside it is where one is read, edited and removed. What is
- * left here is everything the drawing cannot show.
- *
- * A row that remains — a question, an event — is TAPPED to edit and
- * SWIPED to delete. There is no ✕ per row: the ambiguous button is what
- * the swipe replaced.
+ * A row is TAPPED to edit and SWIPED to delete. There is no ✕ per row:
+ * the ambiguous button is what the swipe replaced.
  */
 import React, { useCallback, useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import * as db from './db';
-import HealthTiles, { hasHealthTiles } from './HealthTiles';
 import { Press, useReduceMotion } from './motion';
 import { getMetric, levelLabel } from './metrics';
 import {
   Answer, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES,
   daySummary, fmtTime, logsOf, readLocParts, todayISO,
 } from './model';
+import { formatOutOf, formatScoreAndLabel, painColor, speakScore } from './painScale';
 import { healthDayTiles } from './health/context';
 import { color, font, radius, size } from './theme';
 
@@ -47,12 +42,13 @@ export interface DayDetailProps {
   dateIso: string;
   onChanged: () => void;
   onAddLog: () => void;
+  onEditLog: (h: number) => void;
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: () => void;
 }
 
 export default function DayDetail({
-  dateIso, onChanged, onAddLog, onEditEvent, onAddEvent,
+  dateIso, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent,
 }: DayDetailProps) {
   const [, force] = useState(0);
   const rm = useReduceMotion();
@@ -105,6 +101,16 @@ export default function DayDetail({
     onChanged();
   }, [onChanged, rm]);
 
+  const deleteMoment = useCallback((h: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (!rm) {
+      LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    }
+    db.dropMoment(dateIso, h);
+    force((n) => n + 1);
+    onChanged();
+  }, [dateIso, onChanged, rm]);
+
   const summary = daySummary(logs);
 
   return (
@@ -137,11 +143,116 @@ export default function DayDetail({
         </Press>
       )}
 
-      {/* the day's Health readings — beside the pain they are context
-          for, and drawn by the one component Today uses too */}
-      {hasHealthTiles(dateIso) && (
+      {/* ── the day's health context ──────────────────────
+          Apple Health, organized the one way it is not in Apple's own
+          app: by the day it belongs to, beside the pain it is context
+          for. Tiles in Pattern's own grammar — outline glyphs in line
+          weight, neutral ink, and no borrowed Apple branding: colour
+          here means pain or it is not a colour, and these are not pain
+          values. Missing categories are missing tiles, never zeros; the
+          caveat lives inside the block it qualifies. */}
+      {(() => {
+        const tiles = healthDayTiles(db.getHealthDay(dateIso), db.getHealthDays());
+        if (!tiles.length) return null;
+        return (
+          <View style={styles.list}>
+            <Text style={styles.listTitle}>From Apple Health</Text>
+            <View style={styles.tileGrid}>
+              {tiles.map((t) => (
+                <View
+                  key={t.key}
+                  style={styles.tile}
+                  accessible
+                  accessibilityLabel={t.label + ', ' + t.value + (t.sub ? ', ' + t.sub : '')}
+                >
+                  <View style={styles.tileHead}>
+                    <Ionicons
+                      name={t.icon as keyof typeof Ionicons.glyphMap}
+                      size={16}
+                      color={color.textSecondary}
+                    />
+                    <Text
+                      style={styles.tileLabel} numberOfLines={1}
+                      allowFontScaling maxFontSizeMultiplier={1.2}
+                    >
+                      {t.label}
+                    </Text>
+                  </View>
+                  <Text
+                    style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit
+                    allowFontScaling maxFontSizeMultiplier={1.3}
+                  >
+                    {t.value}
+                  </Text>
+                  {!!t.sub && (
+                    <Text
+                      style={styles.tileSub} numberOfLines={2}
+                      allowFontScaling maxFontSizeMultiplier={1.3}
+                    >
+                      {t.sub}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+            <Text style={styles.swipeHint}>
+              Read from Health for context beside what you recorded. Sitting
+              next to each other is not a claim that one caused the other.
+            </Text>
+          </View>
+        );
+      })()}
+
+      {logs.length > 0 && (
         <View style={styles.list}>
-          <HealthTiles dateIso={dateIso} />
+          <Text style={styles.listTitle}>Check-ins</Text>
+          {logs.map((l) => (
+            <Swipeable
+              key={l.h}
+              overshootRight={false}
+              renderRightActions={() => (
+                <Press
+                  onPress={() => deleteMoment(l.h)}
+                  style={styles.deleteAction}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Delete the ' + fmtTime(l.h) + ' check-in'}
+                >
+                  <Text style={styles.deleteText}>Delete</Text>
+                </Press>
+              )}
+            >
+              <Press
+                onPress={() => onEditLog(l.h)}
+                pressOpacity={0.7}
+                style={styles.row}
+                accessibilityRole="button"
+                accessibilityLabel={fmtTime(l.h) + ', ' + speakScore(l.pain) +
+                  (l.loc && l.loc.length ? ', ' + names(l.loc, LOC_NAMES) : '')}
+                accessibilityHint="Opens this check-in to edit. Swipe left to delete."
+              >
+                <View style={[styles.swatch, { backgroundColor: painColor(l.pain) }]} />
+                <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {fmtTime(l.h)}
+                </Text>
+                <View style={styles.rowMid}>
+                  <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {formatOutOf(l.pain)} · {formatScoreAndLabel(l.pain).split(' · ')[1]}
+                  </Text>
+                  {l.loc && l.loc.length > 0 && (
+                    <Text style={styles.rowSub}>{names(l.loc, LOC_NAMES)}</Text>
+                  )}
+                  {/* the user's own words about where — quoted, so the
+                      record's voice and theirs stay distinct */}
+                  {!!l.locNote && <Text style={styles.rowSub}>“{l.locNote}”</Text>}
+                  {l.q && l.q.length > 0 && (
+                    <Text style={styles.rowSub}>{names(l.q, QUALITY_NAMES)}</Text>
+                  )}
+                </View>
+                <Text style={styles.chev}>›</Text>
+              </Press>
+            </Swipeable>
+          ))}
+          <Text style={styles.swipeHint}>Tap to edit · swipe left to delete</Text>
         </View>
       )}
 
