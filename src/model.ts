@@ -59,6 +59,13 @@ export interface Moment {
   locNote?: string;
   /** pain-quality words — the SOCRATES "Character" answer, per moment */
   q?: string[];
+  /** 1 = the character question was PUT at this moment. It always was,
+   *  once, so absence used to be unambiguous; now that it is asked once
+   *  a day rather than every time, an empty `q` alone can no longer tell
+   *  "asked and nothing fit" from "not asked today" — and those are
+   *  different facts about the same silence. Additive: older moments
+   *  carry no flag and are read as the unknown they are. */
+  qAsked?: 1;
 }
 
 /** the longest a location description can be — same cap as every other
@@ -354,6 +361,7 @@ export function cleanLogs(l: unknown): Moment[] | undefined {
     }
     const qc = cleanIds(q, QUALITYIDS);
     if (qc) v.q = qc;
+    if (raw.qAsked === 1) v.qAsked = 1;
     const ts = typeof raw.ts === 'number' && isFinite(raw.ts) && raw.ts > 0 ? Math.round(raw.ts) : undefined;
     if (ts !== undefined) v.ts = ts;
     const tz = cleanInt(raw.tz, -18 * 60, 18 * 60);
@@ -545,6 +553,8 @@ export interface MomentMeta {
   locAsked?: boolean;
   /** ...and they declined it */
   locSkipped?: boolean;
+  /** the character question was put at this moment, whatever came back */
+  qAsked?: boolean;
   /** where, described in the user's own words. Undefined = the writer
    *  did not put the question, and any existing text is left alone;
    *  '' = the user cleared it, and the clearing is honored. The
@@ -581,6 +591,8 @@ export function applyMoment(
     moment.locNote = meta.locNote.trim().slice(0, LOC_NOTE_MAX);
   }
   if (q && q.length) moment.q = q.slice();
+  if (meta && meta.qAsked) moment.qAsked = 1;
+  else if (q && q.length) moment.qAsked = 1;
   if (meta) {
     if (meta.ts !== undefined) moment.ts = meta.ts;
     if (meta.tz !== undefined) moment.tz = meta.tz;
@@ -594,6 +606,7 @@ export function applyMoment(
     if (moment.ts === undefined && was.ts !== undefined) moment.ts = was.ts;
     if (moment.tz === undefined && was.tz !== undefined) moment.tz = was.tz;
     if (moment.sv === undefined && was.sv !== undefined) moment.sv = was.sv;
+    if (!moment.qAsked && was.qAsked) moment.qAsked = 1;
     if (!moment.locAsked && was.locAsked) moment.locAsked = 1;
     if (!moment.locSkipped && was.locSkipped && !moment.loc) moment.locSkipped = 1;
     /* nothing typed is thrown away without being asked: only an

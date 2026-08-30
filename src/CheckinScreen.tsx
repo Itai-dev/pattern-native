@@ -161,6 +161,25 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     const first = logsOf(entry).length === 0;
     return eligibleNow('firstOfDay', minutes, first, answerOf(entry, IMPACT_WORSE) != null);
   });
+  /* HOW IT FEELS IS ASKED ONCE A DAY, on the first check-in — the same
+     rule the day's attributions already follow.
+     For chronic pain the character is the stable part: aching is aching
+     on Tuesday and on Friday, and asking every check-in collects the
+     same three words three hundred times. That is burden with almost no
+     information in it, and worse, it buries the thing the question is
+     actually for — the day the words CHANGE, when an ache starts
+     burning or numbness arrives.
+     Once a day rather than on unusual days, deliberately. Asking only
+     when the pain is high would mean every day carrying words is a hard
+     day, and "Described as" would fill with flare vocabulary and read as
+     if that were the usual character. Data missing in step with the
+     value being studied is worse than less data. */
+  const [askFeel] = useState<boolean>(() => {
+    const entry = db.getDay(today);
+    const first = logsOf(entry).length === 0;
+    const saidToday = logsOf(entry).some((l) => !!(l.q && l.q.length));
+    return eligibleNow('firstOfDay', minutes, first, saidToday);
+  });
   const [side, setSide] = useState<Side>('worse');
   const [worse, setWorse] = useState<string[]>([]);
   const [better, setBetter] = useState<string[]>([]);
@@ -255,7 +274,8 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const stepsShown = order.filter((s) => (
     s === 'questions' ? askIds.length > 0
       : s === 'impact' ? askImpact
-        : true
+        : s === 'feel' ? askFeel
+          : true
   ));
   const isLast = stepsShown.indexOf(step) === stepsShown.length - 1;
 
@@ -279,7 +299,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
    *  the same moment rather than adding another. */
-  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean }) => {
+  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean; qAsked?: boolean }) => {
     if (writtenAt == null || pain == null) return;
     db.writeMoment(today, writtenAt, pain, loc, quality, {
       ...nowMeta(SCALE_VERSION),
@@ -341,7 +361,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
       db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
     } else if (step === 'where') persist({ locAsked: true });
-    else persist();
+    else persist({ qAsked: true });
     if (isLast) finish(); else setStep(nextAfter(step));
   };
 

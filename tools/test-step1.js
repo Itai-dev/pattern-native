@@ -244,6 +244,33 @@ ok('unknown region ids are still dropped', (() => {
   return logs[0].loc.length === 1 && logs[0].loc[0] === 'hands';
 })());
 
+/* ── the character question, now asked once a day ────────────
+   The same three states the where step has always kept. They matter for
+   `q` only now that the question is not put at every check-in: before,
+   silence could only mean "nothing fit". */
+group('pain-character tri-state');
+ok('choosing words marks the question as asked', (() => {
+  const m = model.applyMoment(null, 600, 5, null, ['aching']).logs[0];
+  return m.qAsked === 1 && m.q[0] === 'aching';
+})());
+ok('asked with nothing chosen survives as asked', (() => {
+  const m = model.applyMoment(null, 600, 5, null, null, { qAsked: true }).logs[0];
+  return m.qAsked === 1 && m.q === undefined;
+})());
+ok('a later check-in that never saw the question carries no marker', (() => {
+  const m = model.applyMoment(null, 600, 5, ['hands'], null, { locAsked: true }).logs[0];
+  return m.qAsked === undefined && m.q === undefined;
+})());
+ok('editing a moment cannot erase that it was asked', (() => {
+  let e = model.applyMoment(null, 600, 5, null, ['burning']);
+  e = model.applyMoment(e, 600, 7);              // same minute, no meta
+  return e.logs[0].qAsked === 1;
+})());
+ok('the marker survives a backup round-trip', (() => {
+  const logs = model.cleanLogs([{ h: 600, pain: 5, qAsked: 1 }]);
+  return logs[0].qAsked === 1 && logs[0].q === undefined;
+})());
+
 /* ── events: two response formats, never mapped together ────── */
 group('events');
 ok('the picker no longer offers sleep',
