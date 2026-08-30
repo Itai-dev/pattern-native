@@ -32,8 +32,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { FadeInRight, runOnJS } from 'react-native-reanimated';
+import Animated, {
+  FadeInRight, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue,
+  withRepeat, withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useReduceMotion } from './motion';
 import { LOC_NAMES, readLocParts } from './model';
 import { color, font } from './theme';
 
@@ -132,34 +136,51 @@ export default function BodyMap({
   /* fit: switch ~46pt, actions ~36pt, tag line ~52pt; the figure takes
      the rest */
   const k = Math.max(1.4, Math.min(
-    (containerHeight - 134) / 200,
+    (containerHeight - 142) / 200,
     (containerWidth - 24) / 100
   ));
   const width = 100 * k;
   const regions = view === 'front' ? FRONT : BACK;
-  const allOver = selected.indexOf('allOver') >= 0;
+  const allSelected = ALL_IDS.every((id) => selected.indexOf(id) >= 0);
+
+  /* A legacy 'allOver' arriving through the prefill (an older entry
+     said it) becomes the explicit whole body it always meant — Select
+     all now records every named place rather than one umbrella id, so
+     an "everywhere except…" erase reads correctly in the record too.
+     Old stored entries keep their allOver id and still display. */
+  useEffect(() => {
+    if (selected.indexOf('allOver') >= 0) onChange(ALL_IDS.slice());
+  }, [selected]);
 
   const haptic = () => Haptics.selectionAsync().catch(() => {});
 
   const toggle = (id: string) => {
     haptic();
-    if (allOver) {
-      /* the whole body was marked; touching one place starts precision
-         over from that place */
-      onChange([id]);
-      return;
-    }
     onChange(selected.indexOf(id) >= 0
       ? selected.filter((x) => x !== id)
       : selected.concat(id));
   };
 
-  /* All over IS the whole body: stored as the one id the record has
-     always used, drawn as every region lit. */
-  const toggleAllOver = () => {
+  const toggleSelectAll = () => {
     haptic();
-    onChange(allOver ? [] : ['allOver']);
+    onChange(allSelected ? [] : ALL_IDS.slice());
   };
+
+  /* ── the pulse ────────────────────────────────────────────
+     One shared clock; every halo breathes on it together — pain marks
+     radiating in unison reads as one body, not as competing alarms.
+     Still, and slightly larger, under Reduce Motion. */
+  const rm = useReduceMotion();
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (rm) { cancelAnimation(pulse); pulse.value = 0.4; return; }
+    pulse.value = 0;
+    pulse.value = withRepeat(withTiming(1, { duration: 1700 }), -1, false);
+  }, [rm]);
+  const haloStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + pulse.value * 0.9 }],
+    opacity: 0.38 * (1 - pulse.value * 0.9),
+  }));
 
   /* ── the stroke ───────────────────────────────────────────
      A ref mirrors the selection so a fast sweep is not throttled by
@@ -185,15 +206,7 @@ export default function BodyMap({
   };
   const beginStroke = (x: number, y: number) => {
     const id = regionAt(x, y);
-    const cur = strokeSel.current;
-    const wasAllOver = cur.indexOf('allOver') >= 0;
-    strokeMode.current = id && (wasAllOver || cur.indexOf(id) >= 0) ? 'erase' : 'add';
-    if (strokeMode.current === 'erase' && wasAllOver) {
-      strokeSel.current = ALL_IDS.slice();
-      onChange(strokeSel.current);
-    } else if (strokeMode.current === 'add' && wasAllOver) {
-      strokeSel.current = [];
-    }
+    strokeMode.current = id && strokeSel.current.indexOf(id) >= 0 ? 'erase' : 'add';
     paintAt(x, y);
   };
   const paintAt = (x: number, y: number) => {
@@ -265,16 +278,14 @@ export default function BodyMap({
             resizeMode="stretch"
             accessible={false}
           />
-          {/* Marks are RADIATING DOTS, not filled plates: a solid core
-              with a soft halo at the region's centre, the way pain sits
-              in a place rather than armouring it. The halo is a second,
-              larger circle at low opacity — no shadows, so it renders
-              the same on every device. Touch zones stay the full
-              region rectangles underneath. */}
+          {/* Marks are RADIATING DOTS: one uniform size everywhere (a
+              wrist hurts as loudly as a thigh), a solid core with a
+              halo that breathes outward on the shared pulse. No
+              shadows — two circles render the same on every device.
+              Touch zones stay the full region rectangles underneath. */}
           {regions.map((rg, i) => {
-            const on = allOver || selected.indexOf(rg.id) >= 0;
-            const d = Math.min(rg.w, rg.h) * k * 0.9;
-            const cx = (rg.x + rg.w / 2) * k, cy = (rg.y + rg.h / 2) * k;
+            const on = selected.indexOf(rg.id) >= 0;
+            const d = 9 * k;
             return (
               <Pressable
                 key={rg.id + (rg.side || '') + i}
@@ -298,14 +309,16 @@ export default function BodyMap({
               >
                 {on && (
                   <>
-                    <View
+                    <Animated.View
                       pointerEvents="none"
-                      style={{
-                        position: 'absolute',
-                        left: cx - rg.x * k - d * 0.85, top: cy - rg.y * k - d * 0.85,
-                        width: d * 1.7, height: d * 1.7, borderRadius: d * 0.85,
-                        backgroundColor: tint, opacity: 0.3,
-                      }}
+                      style={[
+                        {
+                          position: 'absolute',
+                          width: d * 1.6, height: d * 1.6, borderRadius: d * 0.8,
+                          backgroundColor: tint,
+                        },
+                        haloStyle,
+                      ]}
                     />
                     <View
                       pointerEvents="none"
@@ -338,15 +351,15 @@ export default function BodyMap({
           </Text>
         </Pressable>
         <Pressable
-          onPress={toggleAllOver}
+          onPress={toggleSelectAll}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityState={{ selected: allOver }}
+          accessibilityState={{ selected: allSelected }}
           accessibilityLabel="Select the whole body"
           style={({ pressed }) => pressed && { opacity: 0.6 }}
         >
           <Text
-            style={[styles.actionText, allOver && { fontWeight: '700' as const }]}
+            style={[styles.actionText, allSelected && { fontWeight: '700' as const }]}
             allowFontScaling maxFontSizeMultiplier={1.3}
           >
             Select all
@@ -430,7 +443,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28, marginTop: 8, minHeight: 28,
   },
   actionText: { color: color.tint, fontSize: font.footnote, fontWeight: '600' },
-  tagsScroll: { marginTop: 8, maxHeight: 44, flexGrow: 0 },
+  /* NO maxHeight — that was the top-and-bottom cropping: scaled-up text
+     made tags taller than the cap and the scroller clipped them. The
+     row hugs whatever height its tags actually need. */
+  tagsScroll: { marginTop: 8, flexGrow: 0 },
   /* left-aligned, deliberately not centred: iOS horizontal scrollers
      drop trailing padding when the content is centred and overflows,
      which is exactly the cropping this row kept re-growing. Newest tags
