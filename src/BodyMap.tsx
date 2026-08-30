@@ -32,9 +32,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  FadeInRight, FadeOut, LinearTransition, runOnJS,
-} from 'react-native-reanimated';
+import Animated, { FadeInRight, runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LOC_NAMES, readLocParts } from './model';
 import { color, font } from './theme';
@@ -329,14 +327,14 @@ export default function BodyMap({
           </Text>
         </Pressable>
         {!allOver && parts.map((part) => (
-          /* a new tag slides in from the right — the arrival is the
-             confirmation that the touch landed — and neighbours make
-             room smoothly rather than jumping */
+          /* A new tag slides in from the right — the arrival is the
+             confirmation that the touch landed. Entering only: a layout
+             transition on the siblings fought the row's own
+             scroll-to-end inside the centred scroll content and the two
+             animations tore at each other. One mover at a time. */
           <Animated.View
             key={part.label}
             entering={FadeInRight.duration(220)}
-            exiting={FadeOut.duration(140)}
-            layout={LinearTransition.duration(180)}
           >
             <Pressable
               onPress={() => {
@@ -362,11 +360,6 @@ export default function BodyMap({
             </Pressable>
           </Animated.View>
         ))}
-        {!allOver && parts.length === 0 && (
-          <Text style={styles.tagHint} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Touch the body, or sweep across it
-          </Text>
-        )}
       </ScrollView>
     </View>
   );
@@ -401,5 +394,4 @@ const styles = StyleSheet.create({
   },
   tagGhost: { borderColor: color.borderControl, backgroundColor: color.bgSurface },
   tagText: { color: color.textPrimary, fontSize: font.footnote },
-  tagHint: { color: color.textTertiary, fontSize: font.footnote },
 });

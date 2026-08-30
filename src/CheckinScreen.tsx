@@ -532,7 +532,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     ? 'Your read on the day — Pattern records it, it doesn’t test it'
     : step === 'questions' ? 'Optional — Skip if it doesn’t fit today'
     : step === 'feel' ? 'Optional — tap any that fit'
-      : step === 'where' ? 'Touch where it hurts — your usual places are already marked'
+      : step === 'where' ? 'Touch or sweep across where it hurts — your usual places are already marked'
         : null;
 
   /* collapsed chips: the six you use most, plus anything already selected;
