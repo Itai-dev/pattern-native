@@ -135,19 +135,29 @@ export const radius = {
   segmentTrack: 11,
 } as const;
 
+/* The page gutter and a card's own padding.
+   Twenty points, which is what Apple Health leaves beside its own cards
+   and what an inset grouped table uses on iPhone. Pattern sat at
+   twenty-four, and beside Health the difference reads as this app being
+   narrower rather than as this app being different — four points of
+   nothing on both sides of every card, on the screen where the
+   comparison is most likely to be made. */
+const PAGE_X = 20;
+const CARD_PAD = 16;
+
 export const size = {
   buttonH: 52,
   rowH: 50,
   fab: 54,
   sliderThumb: 30,
   sliderTrackH: 6,
-  pageX: 24,
+  pageX: PAGE_X,
   sheetX: 26,
   /** a card's own padding — every card in the app uses this one */
-  cardPad: 16,
+  cardPad: CARD_PAD,
   /** where WORDS start on a page whose first words are a card's title:
    *  the card's gutter plus the card's padding. Text set outside a card
    *  on such a page uses this, so the page has ONE left edge for reading
    *  rather than one inside cards and another between them. */
-  contentX: 24 + 16,
+  contentX: PAGE_X + CARD_PAD,
 } as const;
