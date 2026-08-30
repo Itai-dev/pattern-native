@@ -13,12 +13,12 @@
  *
  * Three interactions, each with its own honesty rule:
  *  - TAP toggles a region (and VoiceOver gets a labelled button).
- *  - A STROKE adds every region it crosses — and only adds, because a
- *    stroke that could also erase would betray the hand on the way
- *    back. Gesture Handler's pan, the machinery the slider trusts,
- *    with coordinates in the figure's own frame — the home-rolled
- *    responder measured deltas across mixed coordinate frames, which
- *    is why it never fired.
+ *  - A STROKE paints every region it crosses, and its START POINT
+ *    picks the direction: begin on an unmarked region and the sweep
+ *    adds; begin on a marked one and it erases. One stroke, one
+ *    direction — fixed at touch-down, so a wobble on the way back can
+ *    never undo what the same stroke just did. Gesture Handler's pan,
+ *    the machinery the slider trusts, in the figure's own frame.
  *  - ALL OVER is the whole body: stored as the one id the record has
  *    always used, drawn as every region lit. Individual marks are
  *    redundant beside it, so choosing it clears them, and touching one
@@ -30,7 +30,7 @@
  * is also the way to take a mark back.
  */
 import React, { useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -92,6 +92,17 @@ const BACK: Region[] = CENTRE.concat(sideRegions(false), [
   { id: 'lowerBack', x: 37.5, y: 56, w: 25, h: 17, r: 7 },
 ]);
 
+/** every place the body knows, both views — what an erase stroke works
+ *  against when it starts from "all over" */
+const ALL_IDS: string[] = (() => {
+  const seen: Record<string, true> = {};
+  const out: string[] = [];
+  FRONT.concat(BACK).forEach((r) => {
+    if (!seen[r.id]) { seen[r.id] = true; out.push(r.id); }
+  });
+  return out;
+})();
+
 export interface BodyMapProps {
   selected: string[];
   /** the whole next selection — the map owns toggle, stroke and
@@ -118,9 +129,9 @@ export default function BodyMap({
      clinical instrument, and a slider would be precision the record
      cannot store. */
   const [view, setView] = useState<'front' | 'back'>('front');
-  /* fit: switch ~48pt, tag row ~70pt; the figure takes the rest */
+  /* fit: switch ~46pt, one tag line ~52pt; the figure takes the rest */
   const k = Math.max(1.4, Math.min(
-    (containerHeight - 118) / 200,
+    (containerHeight - 100) / 200,
     (containerWidth - 24) / 100
   ));
   const width = 100 * k;
@@ -151,10 +162,18 @@ export default function BodyMap({
 
   /* ── the stroke ───────────────────────────────────────────
      A ref mirrors the selection so a fast sweep is not throttled by
-     render round-trips: each new region paints against the stroke's own
-     running state, and every change still flows up through onChange. */
+     render round-trips: each region paints against the stroke's own
+     running state, and every change still flows up through onChange.
+
+     The MODE is fixed at touch-down: starting on a marked region makes
+     this an erasing sweep, on an unmarked one an adding sweep. An erase
+     that starts from "all over" first materialises the whole body as
+     explicit places and then removes what the finger crosses — "all
+     over except my right knee" is a real thing to say, and this is the
+     only honest way to say it. */
   const strokeSel = useRef<string[]>(selected);
   strokeSel.current = selected;
+  const strokeMode = useRef<'add' | 'erase'>('add');
   const regionAt = (x: number, y: number): string | null => {
     const pad = STROKE_PAD * k;
     for (const rg of regions) {
@@ -163,19 +182,35 @@ export default function BodyMap({
     }
     return null;
   };
+  const beginStroke = (x: number, y: number) => {
+    const id = regionAt(x, y);
+    const cur = strokeSel.current;
+    const wasAllOver = cur.indexOf('allOver') >= 0;
+    strokeMode.current = id && (wasAllOver || cur.indexOf(id) >= 0) ? 'erase' : 'add';
+    if (strokeMode.current === 'erase' && wasAllOver) {
+      strokeSel.current = ALL_IDS.slice();
+      onChange(strokeSel.current);
+    } else if (strokeMode.current === 'add' && wasAllOver) {
+      strokeSel.current = [];
+    }
+    paintAt(x, y);
+  };
   const paintAt = (x: number, y: number) => {
     const id = regionAt(x, y);
     if (!id) return;
     const cur = strokeSel.current;
-    if (cur.indexOf(id) >= 0 && cur.indexOf('allOver') < 0) return;
-    const next = (cur.indexOf('allOver') >= 0 ? [] : cur).concat(id);
+    const has = cur.indexOf(id) >= 0;
+    if (strokeMode.current === 'add' ? has : !has) return;
+    const next = strokeMode.current === 'add'
+      ? cur.concat(id)
+      : cur.filter((x2) => x2 !== id);
     strokeSel.current = next;
     haptic();
     onChange(next);
   };
   const pan = Gesture.Pan()
     .minDistance(12)
-    .onStart((e) => { 'worklet'; runOnJS(paintAt)(e.x, e.y); })
+    .onStart((e) => { 'worklet'; runOnJS(beginStroke)(e.x, e.y); })
     .onUpdate((e) => { 'worklet'; runOnJS(paintAt)(e.x, e.y); });
 
   const parts = readLocParts(selected);
@@ -245,9 +280,17 @@ export default function BodyMap({
       </GestureDetector>
 
       {/* ── the selection, as removable tags ────────────────
-          Full words that wrap as a row, never a cropped column. A tag
-          is the selection made legible AND the way to take it back. */}
-      <View style={styles.tags} accessibilityLiveRegion="polite">
+          ONE line that scrolls sideways, never a stack: a dozen marks
+          must not pile into the Save button below. Full words, pairs
+          collapsed; a tag is the selection made legible AND the way to
+          take it back. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tagsScroll}
+        contentContainerStyle={styles.tags}
+        accessibilityLiveRegion="polite"
+      >
         <Pressable
           onPress={toggleAllOver}
           accessibilityRole="button"
@@ -296,7 +339,7 @@ export default function BodyMap({
             Touch the body, or sweep across it
           </Text>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -315,10 +358,10 @@ const styles = StyleSheet.create({
   viewItemOn: { backgroundColor: color.bgSegmentActive },
   viewText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   viewTextOn: { color: color.textPrimary },
+  tagsScroll: { marginTop: 12, maxHeight: 40, flexGrow: 0 },
   tags: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 7,
-    justifyContent: 'center', alignItems: 'center',
-    marginTop: 12, minHeight: 34, paddingHorizontal: 4,
+    flexDirection: 'row', gap: 7, alignItems: 'center',
+    paddingHorizontal: 4, minWidth: '100%', justifyContent: 'center',
   },
   tag: {
     minHeight: 32, paddingHorizontal: 12, justifyContent: 'center',
