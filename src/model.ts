@@ -122,7 +122,52 @@ export const LOC_NAMES: Record<string, string> = {
   lowerBack: 'Lower back', arms: 'Arms', hands: 'Hands', chest: 'Chest',
   belly: 'Belly', hips: 'Hips', legs: 'Legs', knees: 'Knees', feet: 'Feet',
   allOver: 'All over',
+
+  /* ── sided and jointed, added 2026-08 for the body map ─────
+     "Right wrist" was unrecordable: no wrist, no sides. These are
+     ADDITIVE — every id above stays valid and displayed, old entries
+     never migrate, and a restored backup keeps whichever vocabulary it
+     was recorded in. The body map writes these; the legacy ids remain
+     the words old data speaks. */
+  shoulderL: 'Left shoulder', shoulderR: 'Right shoulder',
+  armL: 'Left upper arm', armR: 'Right upper arm',
+  elbowL: 'Left elbow', elbowR: 'Right elbow',
+  forearmL: 'Left forearm', forearmR: 'Right forearm',
+  wristL: 'Left wrist', wristR: 'Right wrist',
+  handL: 'Left hand', handR: 'Right hand',
+  hipL: 'Left hip', hipR: 'Right hip',
+  thighL: 'Left thigh', thighR: 'Right thigh',
+  kneeL: 'Left knee', kneeR: 'Right knee',
+  calfL: 'Left calf', calfR: 'Right calf',
+  ankleL: 'Left ankle', ankleR: 'Right ankle',
+  footL: 'Left foot', footR: 'Right foot',
 };
+
+/* Legacy paired ids → their sided pair, for the PREFILL only. A person
+   whose last check-in said 'knees' gets both knees pre-marked as the
+   suggestion they then confirm or edit — a prefill is an offer, not a
+   record, and the stored history itself is never rewritten. */
+export const LOC_LEGACY_SIDED: Record<string, [string, string]> = {
+  shoulders: ['shoulderL', 'shoulderR'],
+  arms: ['armL', 'armR'],
+  hands: ['handL', 'handR'],
+  hips: ['hipL', 'hipR'],
+  legs: ['thighL', 'thighR'],
+  knees: ['kneeL', 'kneeR'],
+  feet: ['footL', 'footR'],
+};
+
+/** a location set with legacy paired ids expanded to their sides —
+ *  used when yesterday's places seed today's map */
+export function expandLegacyLocs(ids: string[]): string[] {
+  const out: string[] = [];
+  ids.forEach((id) => {
+    const pair = LOC_LEGACY_SIDED[id];
+    if (pair) { pair.forEach((p) => { if (out.indexOf(p) < 0) out.push(p); }); }
+    else if (out.indexOf(id) < 0) out.push(id);
+  });
+  return out;
+}
 export const FACTOR_NAMES: Record<string, string> = {
   sleep: 'Sleep', stress: 'Stress', work: 'Work', sitting: 'Long sitting',
   activity: 'Physical activity', weather: 'Weather', food: 'Food',

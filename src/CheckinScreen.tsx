@@ -82,7 +82,7 @@ import {
 } from './painScale';
 import {
   LOCIDS, LOC_NAMES, QUALITYIDS, QUALITY_NAMES,
-  answerOf, defaultLocs, logsOf, minutesNow, nowMeta, todayISO,
+  answerOf, defaultLocs, expandLegacyLocs, logsOf, minutesNow, nowMeta, todayISO,
 } from './model';
 
 const IMPACT_LABELS: Record<string, string> = {};
@@ -169,7 +169,11 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      Save. The list is on screen and Save is pressed deliberately, so what
      gets filed is still something the user looked at and agreed to — the
      thing to avoid was recording places nobody was ever shown. */
-  const [previous] = useState<string[]>(() => defaultLocs(db.getAll(), today));
+  /* legacy paired ids from older entries expand to both sides for the
+     prefill — an offer to edit, never a rewrite of what was recorded */
+  const [previous] = useState<string[]>(
+    () => expandLegacyLocs(defaultLocs(db.getAll(), today))
+  );
 
   /* chips in personal order: what you actually pick floats to the front,
      and the rest waits behind "Show more" — a wall of fourteen options is

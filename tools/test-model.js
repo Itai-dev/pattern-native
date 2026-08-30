@@ -699,5 +699,33 @@ ok('a comparable factor produces no card — the engine speaks from there', (() 
   }) === null;
 })());
 
+/* ── sided locations ─────────────────────────────────────────
+   "Right wrist" is a place now — additively, so old entries and old
+   backups keep the vocabulary they were recorded in. */
+console.log('\nsided locations');
+
+ok('the new ids exist beside the old, both displayed', (() => {
+  return model.LOC_NAMES.wristR === 'Right wrist'
+    && model.LOC_NAMES.ankleL === 'Left ankle'
+    && model.LOC_NAMES.arms === 'Arms'          // legacy stays
+    && model.LOCIDS.indexOf('wristR') >= 0;
+})());
+ok('a sided id survives cleaning — storage accepts it', (() => {
+  const e = model.cleanEntry({
+    pain: 5, cap: null, note: '',
+    logs: [{ h: 540, pain: 5, loc: ['wristR', 'nonsense', 'kneeL'] }],
+  });
+  return e && e.logs[0].loc.length === 2
+    && e.logs[0].loc.indexOf('wristR') >= 0
+    && e.logs[0].loc.indexOf('nonsense') < 0;
+})());
+ok('legacy pairs expand for the prefill only, sided ids pass through', (() => {
+  const out = model.expandLegacyLocs(['knees', 'wristR', 'lowerBack']);
+  return out.length === 4
+    && out.indexOf('kneeL') >= 0 && out.indexOf('kneeR') >= 0
+    && out.indexOf('wristR') >= 0 && out.indexOf('lowerBack') >= 0
+    && out.indexOf('knees') < 0;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

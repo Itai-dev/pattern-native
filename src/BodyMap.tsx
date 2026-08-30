@@ -40,32 +40,48 @@ interface Region {
   x: number; y: number; w: number; h: number; r: number;
 }
 
-const SHARED: Region[] = [
-  { id: 'head', x: 40, y: 1, w: 20, h: 20, r: 10 },
-  { id: 'neck', x: 43, y: 20, w: 14, h: 8, r: 3.5 },
-  { id: 'shoulders', side: 'Left', x: 28, y: 26.5, w: 16, h: 11, r: 5 },
-  { id: 'shoulders', side: 'Right', x: 56, y: 26.5, w: 16, h: 11, r: 5 },
-  { id: 'arms', side: 'Left', x: 21, y: 38, w: 11.5, h: 43, r: 5.5 },
-  { id: 'arms', side: 'Right', x: 67.5, y: 38, w: 11.5, h: 43, r: 5.5 },
-  { id: 'hands', side: 'Left', x: 18.5, y: 80, w: 11, h: 16, r: 5 },
-  { id: 'hands', side: 'Right', x: 70.5, y: 80, w: 11, h: 16, r: 5 },
-  { id: 'hips', x: 35, y: 72, w: 30, h: 21, r: 8 },
-  { id: 'legs', side: 'Left', x: 36, y: 93, w: 13.5, h: 34, r: 6 },
-  { id: 'legs', side: 'Right', x: 50.5, y: 93, w: 13.5, h: 34, r: 6 },
-  { id: 'knees', side: 'Left', x: 37, y: 127, w: 12.5, h: 15, r: 6 },
-  { id: 'knees', side: 'Right', x: 50.5, y: 127, w: 12.5, h: 15, r: 6 },
-  { id: 'legs', side: 'Left', x: 38, y: 142, w: 11.5, h: 33, r: 5.5 },
-  { id: 'legs', side: 'Right', x: 50.5, y: 142, w: 11.5, h: 33, r: 5.5 },
-  { id: 'feet', side: 'Left', x: 34, y: 174, w: 15.5, h: 14, r: 6 },
-  { id: 'feet', side: 'Right', x: 50.5, y: 174, w: 15.5, h: 14, r: 6 },
+/* The sided, jointed vocabulary — "right wrist" is a place now. Left in
+   these tables means the figure's anatomical left, which sits on the
+   VIEWER'S right in the front view; the x-coordinates encode that, and
+   the back view mirrors it (your left shoulder is on the image's left
+   when the figure faces away). Small joints (wrist, ankle, elbow) lean
+   on hitSlop — a sore wrist deserves a target bigger than a wrist. */
+const mirrorX = (r: Omit<Region, 'id' | 'side'>) => ({ ...r, x: 100 - r.x - r.w });
+const pairL = (idL: string, idR: string, r: Omit<Region, 'id' | 'side'>, front: boolean): Region[] => [
+  /* front view: figure faces you, its left = your right side of image */
+  { id: front ? idR : idL, side: front ? 'Right' : 'Left', ...r },
+  { id: front ? idL : idR, side: front ? 'Left' : 'Right', ...mirrorX(r) },
 ];
 
-const FRONT: Region[] = SHARED.concat([
+function sideRegions(front: boolean): Region[] {
+  const p = (l: string, r: string, box: Omit<Region, 'id' | 'side'>) => pairL(l, r, box, front);
+  return ([] as Region[]).concat(
+    p('shoulderL', 'shoulderR', { x: 28, y: 26.5, w: 16, h: 11, r: 5 }),
+    p('armL', 'armR', { x: 22, y: 38, w: 11, h: 17, r: 5 }),
+    p('elbowL', 'elbowR', { x: 21.5, y: 55, w: 11, h: 9, r: 4.5 }),
+    p('forearmL', 'forearmR', { x: 21, y: 64, w: 11, h: 13, r: 4.5 }),
+    p('wristL', 'wristR', { x: 20.5, y: 77, w: 10.5, h: 7, r: 3.5 }),
+    p('handL', 'handR', { x: 18.5, y: 84, w: 11, h: 13, r: 5 }),
+    p('hipL', 'hipR', { x: 35, y: 72, w: 15, h: 21, r: 7 }),
+    p('thighL', 'thighR', { x: 36, y: 93, w: 13.5, h: 34, r: 6 }),
+    p('kneeL', 'kneeR', { x: 37, y: 127, w: 12.5, h: 15, r: 6 }),
+    p('calfL', 'calfR', { x: 38, y: 142, w: 11.5, h: 26, r: 5.5 }),
+    p('ankleL', 'ankleR', { x: 38.5, y: 168, w: 11, h: 8, r: 4 }),
+    p('footL', 'footR', { x: 34, y: 176, w: 15.5, h: 13, r: 6 }),
+  );
+}
+
+const CENTRE: Region[] = [
+  { id: 'head', x: 40, y: 1, w: 20, h: 20, r: 10 },
+  { id: 'neck', x: 43, y: 20, w: 14, h: 8, r: 3.5 },
+];
+
+const FRONT: Region[] = CENTRE.concat(sideRegions(true), [
   { id: 'chest', x: 37.5, y: 36, w: 25, h: 20, r: 7 },
   { id: 'belly', x: 37.5, y: 56, w: 25, h: 17, r: 7 },
 ]);
 
-const BACK: Region[] = SHARED.concat([
+const BACK: Region[] = CENTRE.concat(sideRegions(false), [
   { id: 'upperBack', x: 37.5, y: 36, w: 25, h: 20, r: 7 },
   { id: 'lowerBack', x: 37.5, y: 56, w: 25, h: 17, r: 7 },
 ]);
@@ -141,10 +157,10 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
             <Pressable
               key={rg.id + (rg.side || '') + i}
               onPress={() => tap(rg.id)}
-              hitSlop={3}
+              hitSlop={rg.h < 10 ? 5 : 3}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
-              accessibilityLabel={(rg.side ? rg.side + ' ' : '') + (LOC_NAMES[rg.id] || rg.id)}
+              accessibilityLabel={LOC_NAMES[rg.id] || rg.id}
               accessibilityHint={on ? 'Removes this area' : 'Marks this area'}
               style={({ pressed }) => [
                 {
