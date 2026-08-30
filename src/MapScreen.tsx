@@ -238,7 +238,10 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  root: { paddingHorizontal: size.pageX, paddingTop: 2 },
+  /* no gutter of its own: this is a section inside Trends' page now, and
+     the page already sits in size.pageX — which is the same gutter the
+     cell arithmetic above measures against */
+  root: { paddingTop: 2 },
   legend: {
     color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
     marginBottom: 14,

@@ -1,13 +1,11 @@
 /**
  * Pain through the day — one day, drawn against the clock.
  *
- * THIS IS THE ONLY SCREEN THAT SWIPES BETWEEN DAYS. Today used to carry
- * the gesture, and it was in the wrong place: Today is where you act, and
- * a surface you act on should not be able to become Tuesday underneath
- * the button. Here the day IS the subject — the chart, the three figures
- * and the list are all about one date and nothing else — so sideways
- * meaning "a different day" is the only thing it could mean. Nowhere else
- * in the app takes the gesture.
+ * THIS IS THE ONLY SCREEN THAT SWIPES BETWEEN DAYS, and only on its
+ * card. Today used to carry the gesture, and it was in the wrong place:
+ * Today is where you act, and a surface you act on should not be able to
+ * become Tuesday underneath the button. Here the day IS the subject, so
+ * sideways meaning "a different day" is the only thing it could mean.
  *
  * The mechanics are the ones Today proved and are deliberately unchanged:
  * a page is one card wide rather than one screen wide, neighbours peek so
@@ -21,14 +19,27 @@
  * transition in this app uses — and leaves on it, and both are silent
  * under Reduce Motion.
  *
- * WHAT IT DOES NOT DO is edit. Tapping a check-in, or asking for all of
- * them, opens the day detail that already owns editing, deleting, events
- * and the day's questions. One place writes; this one reads.
+ * THIS IS THE ONLY DAY SURFACE. It used to show three check-ins and hand
+ * the rest to a sheet that opened on top of it — one day rendered twice,
+ * the same list in two designs, and only the covered one could edit. The
+ * sheet is gone: its sections are DayDetail, rendered under the chart
+ * here, and every route into a day (Today's card, the calendar) lands on
+ * this screen.
+ *
+ * ONLY THE CHART PAGES. The pager is the card at the top, not the whole
+ * page — a horizontal FlatList around the detail would fight every
+ * swipe-to-delete row inside it, and the card being the bounded thing
+ * that moves is the same rule Today already follows: on the card, days;
+ * off it, the page. That is also why the card is a FIXED height. A pager
+ * whose pages differ in height shifts the screen as you swipe, so the
+ * chart, the three figures and nothing else live inside it, and the
+ * caveat that qualifies them sits directly under the pager where it can
+ * wrap to any size Dynamic Type asks for.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text,
-  View, useWindowDimensions,
+  FlatList, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, ScrollView,
+  StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import Animated, {
   Easing, Extrapolation, SharedValue, interpolate, runOnJS,
@@ -36,15 +47,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DayLine from './DayLine';
+import DayDetail from './DayDetail';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
-  Entries, Entry, Moment, QUALITY_NAMES, checkinCount, dailyAverage,
-  dateFromISO, fmtTime, iso, logsOf, todayISO,
+  Entries, Entry, PainEvent, checkinCount, dailyAverage,
+  dateFromISO, iso, logsOf, todayISO,
 } from './model';
-import {
-  formatRange, formatScore, painColor, speakScore,
-} from './painScale';
+import { formatRange, formatScore } from './painScale';
 import { color, font, radius, size } from './theme';
 
 /* The pager's proportions — see the comment at the top of the file. SIDE
@@ -63,23 +73,24 @@ const MIN_SCALE = 0.94;
  *  it is a blank surface, so a swipe never crosses a dark gap */
 const READABLE = 0.35;
 
-/** check-in rows a page shows before it defers to the day detail. The
- *  same three Today used, and for the same reason: a page that unfolds
- *  changes height, and a pager whose pages differ in height shifts the
- *  screen as you swipe. */
-const ROWS = 3;
-
 /** how far back the pager goes. Ninety days is a season — longer than
- *  anyone swipes, and History is still the way to anything older. */
+ *  anyone swipes, and the calendar in Trends is still the way to
+ *  anything older. */
 const MAX_PAGES = 90;
 
 /** the plot's drawing height. Tall enough that a one-point difference is
- *  visible and short enough that three check-ins still fit beneath it. */
+ *  visible and short enough to leave the figures room beneath it. */
 const PLOT_H = 150;
 
-/** quality words shown beside a check-in before the row gives up. Two
- *  fits the narrowest phone without the time being pushed off. */
-const CHIPS = 2;
+/** The pager's fixed height, in points: the fixed parts of a card (its
+ *  padding and the plot) plus the parts that grow with Dynamic Type (the
+ *  title and the three figures), scaled by the type size actually in
+ *  force. Every page is this tall whatever it holds, because a pager
+ *  whose pages differ in height shifts the screen as you swipe. */
+function cardHeight(): number {
+  const fs = Math.max(1, Math.min(PixelRatio.getFontScale(), 1.3));
+  return Math.round(32 + PLOT_H + 16 + 18 + (26 + 48) * fs);
+}
 
 /* ── the nudge ──────────────────────────────────────────────
    How far the pager leans on arrival, and when.
@@ -115,8 +126,13 @@ export interface DayScreenProps {
   entries: Entries;
   /** the day to open on. The pager starts there and can walk either way. */
   dateIso: string;
-  /** the day detail — where editing, deleting and events already live */
-  onOpenDay: (dateIso: string) => void;
+  /** the record changed under this screen — the app re-reads and the
+   *  detail below re-renders from storage */
+  onChanged: () => void;
+  onAddLog: () => void;
+  onEditLog: (h: number) => void;
+  onEditEvent: (ev: PainEvent) => void;
+  onAddEvent: (dateIso: string) => void;
   onClose: () => void;
 }
 
@@ -133,50 +149,18 @@ function Stat({ value, unit, label }: { value: string; unit?: string; label: str
   );
 }
 
-/* ── one check-in ───────────────────────────────────────────── */
-function Row({ log, first, onPress }: { log: Moment; first: boolean; onPress: () => void }) {
-  const chips = (log.q || []).map((id) => QUALITY_NAMES[id] || id).slice(0, CHIPS);
-  return (
-    <Press
-      onPress={onPress}
-      pressOpacity={0.7}
-      style={[styles.row, !first && styles.rowDivider]}
-      accessibilityRole="button"
-      accessibilityLabel={fmtTime(log.h) + ', ' + speakScore(log.pain)
-        + (chips.length ? ', ' + chips.join(', ') : '')}
-      accessibilityHint="Opens the day’s detail"
-    >
-      <View style={[styles.swatch, { backgroundColor: painColor(log.pain) }]} />
-      <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
-        {formatScore(log.pain)}<Text style={styles.rowOutOf}>/10</Text>
-      </Text>
-      <View style={styles.chips}>
-        {chips.map((c) => (
-          <View key={c} style={styles.chip}>
-            <Text style={styles.chipText} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.2}>
-              {c}
-            </Text>
-          </View>
-        ))}
-      </View>
-      <Text style={styles.rowTime} allowFontScaling maxFontSizeMultiplier={1.2}>{fmtTime(log.h)}</Text>
-      <Text style={styles.chev}>›</Text>
-    </Press>
-  );
-}
-
-/* ── one day ────────────────────────────────────────────────── */
+/* ── one day's chart ────────────────────────────────────────── */
 function DayPage({
-  dateIso, entry, index, itemW, scrollX, onOpenDay,
+  dateIso, entry, index, itemW, cardH, scrollX,
 }: {
   dateIso: string;
   entry: Entry | null;
   index: number;
   itemW: number;
+  cardH: number;
   /** live scroll offset, so a card sizes itself by how far off centre it
    *  is rather than waiting for the swipe to finish */
   scrollX: SharedValue<number>;
-  onOpenDay: (dateIso: string) => void;
 }) {
   const pageStyle = useAnimatedStyle(() => {
     const d = scrollX.value / itemW - index;
@@ -198,8 +182,6 @@ function DayPage({
   const logs = logsOf(entry).slice().sort((a, b) => b.h - a.h);
   const avg = dailyAverage(entry);
   const count = entry ? checkinCount(entry) : 0;
-  const shown = logs.slice(0, ROWS);
-  const hidden = logs.length - shown.length;
   /* the day's own extremes, and they fall back to the day value rather
      than to the seeds: a legacy day carries an answer with no moments
      behind it, and seeding from 10 and 0 would print a range of 10–0 over
@@ -208,14 +190,9 @@ function DayPage({
   const high = logs.length ? logs.reduce((m, l) => (l.pain > m ? l.pain : m), 0) : avg;
 
   return (
-    <Animated.View style={[{ width: itemW }, pageStyle]}>
-      {/* each page scrolls on its own. A card sized for eleven check-ins
-          and Dynamic Type at its largest will not fit every phone, and the
-          alternative — one fixed height for every page — either clips the
-          longest day or leaves the shortest one floating in space. */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.page}>
-        <Animated.View style={contentStyle}>
-          <View style={styles.card}>
+    <Animated.View style={[{ width: itemW, height: cardH }, pageStyle]}>
+        <Animated.View style={[contentStyle, { flex: 1 }]}>
+          <View style={[styles.card, { flex: 1 }]}>
             <Text
               style={styles.cardTitle}
               allowFontScaling maxFontSizeMultiplier={1.3}
@@ -263,51 +240,20 @@ function DayPage({
                   <Stat value={String(count)} label={count === 1 ? 'Check-in' : 'Check-ins'} />
                 </View>
 
-                {/* what the drawing is NOT, inside the card it qualifies */}
-                <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  The line joins the times you checked in. The stretches between
-                  them are hours you didn’t record, not hours without pain.
-                </Text>
-
-                {logs.length > 0 && (
-                  <>
-                    <View style={styles.rule} />
-                    <Text style={styles.listTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
-                      Check-ins
-                    </Text>
-                    {shown.map((l, i) => (
-                      <Row key={l.h} log={l} first={i === 0} onPress={() => onOpenDay(dateIso)} />
-                    ))}
-
-                    {/* the count is named rather than implied: a list holding
-                        back an unknown number is a list you cannot trust. It
-                        opens the detail rather than unfolding — a card that
-                        grows when tapped moves every other page with it. */}
-                    {hidden > 0 && (
-                      <Press
-                        onPress={() => onOpenDay(dateIso)}
-                        pressOpacity={0.7}
-                        style={styles.moreRow}
-                        accessibilityRole="button"
-                        accessibilityLabel={'View all ' + logs.length + ' check-ins'}
-                      >
-                        <Text style={styles.moreText}>View all {logs.length}</Text>
-                      </Press>
-                    )}
-                  </>
-                )}
               </>
             )}
           </View>
         </Animated.View>
-      </ScrollView>
     </Animated.View>
   );
 }
 
-export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayScreenProps) {
+export default function DayScreen({
+  entries, dateIso, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, onClose,
+}: DayScreenProps) {
   const t = todayISO();
   const { width } = useWindowDimensions();
+  const cardH = useMemo(cardHeight, []);
   const rm = useReduceMotion();
   /* This layer is absolutely positioned inside the app's SafeAreaView,
      and Yoga measures an absolute child's offsets from its parent's
@@ -320,7 +266,7 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
 
   /* Oldest first, today last — so the pager's resting place is the
      right-hand end and swiping right goes back in time, the direction a
-     calendar runs and the direction History already scrolls. */
+     calendar runs and the direction the calendar in Record already scrolls. */
   const days = useMemo(() => {
     const keys = Object.keys(entries).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
     const first = keys.length ? keys[0] : t;
@@ -457,7 +403,7 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
           {fmtDay(onDate)}
         </Text>
         {/* one tap out of a pager you can swipe a long way into — the same
-            control History carries, and only once you have gone somewhere */}
+            control the record carries, and only once you have gone somewhere */}
         {onDate !== t && (
           <Press
             onPress={jumpToToday}
@@ -472,6 +418,17 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
         )}
       </View>
 
+      {/* One vertical scroll for the whole day: the chart pager, the
+          sentence that qualifies it, and everything the sheet used to
+          hold. The pager is a bounded object inside it — sideways on the
+          card is another day, sideways on a row is delete, and the two
+          gestures never meet because one is not inside the other. */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.page}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
       <Animated.FlatList
         ref={list}
         data={days}
@@ -505,18 +462,39 @@ export default function DayScreen({ entries, dateIso, onOpenDay, onClose }: DayS
            swipe. Both endings are handled. */
         onScrollEndDrag={(ev: NativeSyntheticEvent<NativeScrollEvent>) =>
           settle(ev.nativeEvent.contentOffset.x)}
-        style={styles.pager}
+        style={[styles.pager, { height: cardH }]}
         renderItem={({ item, index }: { item: string; index: number }) => (
           <DayPage
             dateIso={item}
             entry={entries[item] || null}
             index={index}
             itemW={itemW}
+            cardH={cardH}
             scrollX={scrollX}
-            onOpenDay={onOpenDay}
           />
         )}
       />
+
+      {/* what the drawing is NOT — under the pager rather than inside a
+          card, so it can wrap to whatever length the type size needs
+          instead of being clipped by a fixed page height */}
+      <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.6}>
+        The line joins the times you checked in. The stretches between them are
+        hours you didn’t record, not hours without pain.
+      </Text>
+
+      {/* the rest of the day, keyed by date so walking to another day
+          rebuilds it rather than editing the last one's draft note */}
+      <DayDetail
+        key={onDate}
+        dateIso={onDate}
+        onChanged={onChanged}
+        onAddLog={onAddLog}
+        onEditLog={onEditLog}
+        onEditEvent={onEditEvent}
+        onAddEvent={() => onAddEvent(onDate)}
+      />
+      </ScrollView>
     </Animated.View>
   );
 }
@@ -547,7 +525,7 @@ const styles = StyleSheet.create({
   },
   todayBtn: { minHeight: 38, justifyContent: 'center', paddingLeft: 6 },
   todayText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
-  pager: { flex: 1 },
+  pager: { flexGrow: 0 },
   /* room for the last line to clear the floating tab bar, which this
      screen keeps rather than covering */
   page: { paddingBottom: 132 },
@@ -583,41 +561,8 @@ const styles = StyleSheet.create({
   statUnit: { fontSize: font.footnote, fontWeight: '600', color: color.textSecondary },
   statL: { color: color.textSecondary, fontSize: font.footnote },
 
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 16 },
-  rule: {
-    height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider, marginTop: 14,
+  fine: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
+    marginTop: 14, paddingHorizontal: size.pageX,
   },
-  listTitle: {
-    color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
-    marginTop: 12, marginBottom: 2,
-  },
-
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
-  swatch: {
-    width: 11, height: 11, borderRadius: 5.5,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-  },
-  rowScore: {
-    color: color.textPrimary, fontSize: font.body, fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  rowOutOf: { fontSize: font.footnote, fontWeight: '500', color: color.textSecondary },
-  chips: { flex: 1, flexDirection: 'row', gap: 6, flexShrink: 1 },
-  chip: {
-    flexShrink: 1, borderRadius: 8, borderCurve: 'continuous',
-    backgroundColor: color.bgSegmentTrack, paddingHorizontal: 8, paddingVertical: 4,
-  },
-  chipText: { color: color.textSecondary, fontSize: font.footnote },
-  rowTime: {
-    color: color.textSecondary, fontSize: font.subheadline,
-    fontVariant: ['tabular-nums'],
-  },
-  chev: { color: color.textTertiary, fontSize: 18, marginTop: -2 },
-  moreRow: {
-    minHeight: 44, alignItems: 'center', justifyContent: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
-  },
-  moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
-
 });

@@ -16,10 +16,8 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './src/HomeScreen';
-import MapScreen from './src/MapScreen';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
-import DaySheet from './src/DaySheet';
 import DayScreen, { fmtDay } from './src/DayScreen';
 import HealthSheet from './src/HealthSheet';
 import { HealthKitService, deviceClock } from './src/health/healthkit';
@@ -117,12 +115,17 @@ function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
 }
 
 /**
- * Two tabs under a floating glass bar, and a profile built like the iOS
- * Settings app. The top bar carries the screen's large title — today's
- * date on Today, the month name on the Map — so both tabs share one
- * hierarchy. Sheets are real iOS page sheets, each with a native control
- * in its own navigation bar — the check-in keeps its ✕ because it is a
- * full-screen flow, everything else says Done or Close.
+ * TWO tabs under a floating glass bar, and a profile built like the iOS
+ * Settings app. Today is where you act; Record is everything that has
+ * been recorded — the charts, and under them the calendar of every day.
+ * They used to be three: History and Trends each held half of the same
+ * answer, and the user had to decide which half they wanted before they
+ * could look at either.
+ *
+ * The top bar carries the screen's large title, and one day surface sits
+ * over whichever tab opened it. Sheets are real iOS page sheets, each
+ * with a native control in its own navigation bar — the check-in keeps
+ * its ✕ because it is a full-screen flow, everything else says Done.
  */
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
@@ -138,18 +141,24 @@ export default function App() {
   /* a factor the chips pointed at, carried into the focus flow so the
      picker opens on it instead of making the user find it again */
   const [seedFactor, setSeedFactor] = useState<string | null>(null);
-  /* act on Today, see the month on Pattern, see what it adds up to on
-     Trends — and the three sit side by side, so a swipe moves between
-     them and the tab bar is a shortcut rather than the only way */
+  /* act on Today, read the record on Record — the two sit side by side,
+     so a swipe moves between them and the tab bar is a shortcut rather
+     than the only way */
   const [tab, setTab] = useState<Tab>('today');
   const { width } = useWindowDimensions();
   const pager = useRef<ScrollView>(null);
 
-  /* Pain through the day, open on this date. A layer inside the Today
-     tab rather than a sheet, so the tab bar stays live — and null the
-     rest of the time, which is what keeps its pager unmounted and its
-     sideways gesture off every other screen. */
+  /* One day, open on this date — THE day surface, and the only one.
+     A layer inside the tab rather than a sheet, so the tab bar stays
+     live, and null the rest of the time, which is what keeps its pager
+     unmounted and its sideways gesture off every other screen. */
   const [dayScreen, setDayScreen] = useState<string | null>(null);
+  /* every route into a day goes through here: Today's card, and any
+     square on the calendar */
+  const openDay = useCallback((d: string) => {
+    track('day_opened');
+    setDayScreen(d);
+  }, []);
 
   /** tapping a tab drives the pager. It also leaves the day screen, which
    *  belongs to Today: a tab change is the one navigation in this app
@@ -157,7 +166,6 @@ export default function App() {
    *  any more would only delay it. */
   const goToTab = useCallback((t: Tab) => {
     if (t === 'trends') track('trends_opened');
-    if (t === 'map') track('history_opened');
     setDayScreen(null);
     setTab(t);
     pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
@@ -169,17 +177,17 @@ export default function App() {
     const next = TAB_ORDER[Math.max(0, Math.min(TAB_ORDER.length - 1, i))];
     if (next && next !== tab) {
       if (next === 'trends') track('trends_opened');
-      if (next === 'map') track('history_opened');
       setTab(next);
     }
   }, [tab, width]);
 
   const [sheet, setSheet] = useState<Sheet>(null);
-  /* History stacks months newest-first, so back-to-today is simply the
-     top. The pill appears only once you have actually gone somewhere. */
-  const historyScroll = useRef<ScrollView>(null);
-  const [historyAway, setHistoryAway] = useState(false);
-  const [daySheet, setDaySheet] = useState<string | null>(null);
+  /* The record is a long page now — the charts, then the calendar of
+     every day stacked newest-first — so the way back to the top is a
+     pill rather than a lot of scrolling. It appears only once you have
+     actually gone somewhere. */
+  const recordScroll = useRef<ScrollView>(null);
+  const [recordAway, setRecordAway] = useState(false);
   const [profile, setProfile] = useState(false);
   const [appearance, setAppearance] = useState(false);
   const [about, setAbout] = useState(false);
@@ -231,9 +239,11 @@ export default function App() {
       (a.verdict === 'possible' || a.verdict === 'observation') && a.low && a.high);
     return { best, fading, groups };
   }, [entries, healthDays, protocol]);
-  /* an event being edited, and the day sheet to return to afterwards */
+  /* an event being edited. Nothing has to be closed to reach it any more:
+     the day is a LAYER, not a modal, so the event sheet presents on top
+     of it and the day is still there underneath when it dismisses. The
+     whole reopen-after-dismiss dance the day sheet needed went with it. */
   const [editEvent, setEditEvent] = useState<PainEvent | null>(null);
-  const [returnDay, setReturnDay] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     const next = db.getAll();
@@ -248,15 +258,7 @@ export default function App() {
     setSheet(null);
     setEditEvent(null);
     refresh();
-    /* editing was reached from a day's detail — go back there. NOT here
-       and not now: the reopen happens in the event modal's onDismiss,
-       after iOS has actually finished dismissing. Presenting one sheet
-       in the same tick as dismissing another is a race UIKit sometimes
-       answers with "tried to present while a presentation is in
-       progress" — an uncatchable native exception, i.e. a crash on
-       Save. See `swapSheet` for the forward direction of the same bug. */
   }, [refresh]);
-  const closeDay = useCallback(() => { setDaySheet(null); refresh(); }, [refresh]);
 
   /* ── one modal at a time, SEQUENCED ───────────────────────
      Everywhere the app closes one sheet and opens another — day detail
@@ -299,10 +301,9 @@ export default function App() {
   }, [refresh]);
 
   const startEditEvent = useCallback((ev: PainEvent) => {
-    setReturnDay(daySheet);
-    afterDismiss.current = () => { setEditEvent(ev); setSheet('event'); };
-    setDaySheet(null);
-  }, [daySheet]);
+    setEditEvent(ev);
+    setSheet('event');
+  }, []);
 
   /* A plain mail draft. The app never learns whether it was sent and
      wants no inbox of its own to moderate; the version and update id go
@@ -570,7 +571,7 @@ export default function App() {
                   now fixed on today, and a heading that names the day is
                   the one thing on it that a person reads back weeks later
                   in a screenshot and can still place */}
-              {tab === 'today' ? fmtDay(todayISO()) : tab === 'trends' ? 'Trends' : 'History'}
+              {tab === 'today' ? fmtDay(todayISO()) : 'Record'}
             </Text>
             <View style={styles.topActions}>
               {tab === 'today' && (
@@ -653,22 +654,12 @@ export default function App() {
                 entries={entries}
                 protocol={protocol}
                 onLog={() => setSheet('checkin')}
-                onOpenDay={setDaySheet}
-                onOpenToday={() => { track('day_opened'); setDayScreen(todayISO()); }}
+                onOpenDay={openDay}
+                onOpenToday={() => openDay(todayISO())}
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
               />
-            </ScrollView>
-
-            <ScrollView
-              ref={historyScroll}
-              style={{ width }} contentContainerStyle={styles.page}
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={64}
-              onScroll={(e) => setHistoryAway(e.nativeEvent.contentOffset.y > 420)}
-            >
-              <MapScreen entries={entries} onDayPress={setDaySheet} />
             </ScrollView>
 
             {/* The activity goal and its weekly rating are out of the app
@@ -678,14 +669,20 @@ export default function App() {
                 and restores; passing nothing here is what keeps it off the
                 screen and out of the PDF, and putting the two values back
                 is what brings it all back. */}
-            <ScrollView style={{ width }} contentContainerStyle={styles.page}
-              showsVerticalScrollIndicator={false}>
+            <ScrollView
+              ref={recordScroll}
+              style={{ width }} contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={64}
+              onScroll={(e) => setRecordAway(e.nativeEvent.contentOffset.y > 600)}
+            >
               <TrendsScreen
                 entries={entries}
                 events={events}
                 func={[]}
                 goalText={null}
                 todayIso={todayISO()}
+                onOpenDay={openDay}
                 onSpanChange={setTrendsSpan}
                 healthNoticed={healthNoticed}
                 protocol={protocol}
@@ -701,16 +698,20 @@ export default function App() {
             <DayScreen
               entries={entries}
               dateIso={dayScreen}
-              onOpenDay={setDaySheet}
+              onChanged={refresh}
+              onAddLog={() => setSheet('checkin')}
+              onEditLog={() => setSheet('checkin')}
+              onEditEvent={startEditEvent}
+              onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
               onClose={() => setDayScreen(null)}
             />
           )}
 
-          {tab === 'map' && historyAway && (
+          {tab === 'trends' && recordAway && (
             <GlassPill
-              onPress={() => historyScroll.current?.scrollTo({ y: 0, animated: true })}
-              label="Today ↑"
-              accessibilityLabel="Back to today"
+              onPress={() => recordScroll.current?.scrollTo({ y: 0, animated: true })}
+              label="Top ↑"
+              accessibilityLabel="Back to the top of the record"
             />
           )}
 
@@ -726,51 +727,14 @@ export default function App() {
           <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
-        {/* onDismiss, not the Save tap, reopens the day sheet the event
-            was entered from — see afterDismiss for the crash this
-            sequencing exists to prevent */}
         <Modal
           visible={sheet === 'event'}
           animationType="slide"
           presentationStyle="pageSheet"
           onRequestClose={closeSheet}
-          onDismiss={() => {
-            if (returnDay) { setDaySheet(returnDay); setReturnDay(null); }
-            runAfterDismiss();
-          }}
-        >
-          <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
-        </Modal>
-
-        <Modal
-          visible={!!daySheet}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={closeDay}
           onDismiss={runAfterDismiss}
         >
-          {daySheet && (
-            <DaySheet
-              dateIso={daySheet}
-              entry={db.getDay(daySheet)}
-              onChanged={refresh}
-              onAddLog={() => {
-                afterDismiss.current = () => setSheet('checkin');
-                setDaySheet(null);
-              }}
-              onEditLog={() => {
-                afterDismiss.current = () => setSheet('checkin');
-                setDaySheet(null);
-              }}
-              onEditEvent={startEditEvent}
-              onAddEvent={() => {
-                setReturnDay(daySheet);
-                afterDismiss.current = () => { setEditEvent(null); setSheet('event'); };
-                setDaySheet(null);
-              }}
-              onClose={closeDay}
-            />
-          )}
+          <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         {/* the profile — grouped like the iOS Settings app: inset cards,
@@ -1036,7 +1000,7 @@ const styles = StyleSheet.create({
      21pt across, 1.9pt lines — because it sits in the same family of
      controls and was previously a lighter, smaller drawing that read as a
      different set of marks. */
-  /* hovers top right, under the headline, only on History and only once
+  /* hovers top right, under the headline, only on Record and only once
      you have left — glass, so it sits over the grids without occluding */
   backToToday: {
     position: 'absolute', top: 78, right: size.pageX,

@@ -29,11 +29,13 @@ import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import { color } from './theme';
 
-export type Tab = 'today' | 'trends' | 'map';
+export type Tab = 'today' | 'trends';
 
-/** Left to right, and the same order the pages sit in. Today is where you
- *  act, History is what has happened, Trends is what it adds up to. */
-export const TAB_ORDER: Tab[] = ['today', 'map', 'trends'];
+/** Left to right, and the same order the pages sit in. TWO tabs: Today
+ *  is where you act, and Trends is the record — the calendar of every day
+ *  and what those days add up to, which used to be split across two tabs
+ *  that each held half the answer. */
+export const TAB_ORDER: Tab[] = ['today', 'trends'];
 
 export interface TabBarProps {
   tab: Tab;
@@ -64,25 +66,6 @@ function TodayGlyph({ active }: { active: boolean }) {
   );
 }
 
-/** a small grid of them — the month. Outlines until chosen. */
-function MapGlyph({ active }: { active: boolean }) {
-  return (
-    <View style={styles.gridGlyph}>
-      {[0, 1, 2, 3].map((i) => (
-        <View
-          key={i}
-          style={[
-            styles.gridCell,
-            active
-              ? { backgroundColor: color.textPrimary, borderColor: color.textPrimary }
-              : { borderColor: color.textTertiary },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
 /** the same square, three of them, at the heights of a record */
 function TrendsGlyph({ active }: { active: boolean }) {
   return (
@@ -105,14 +88,11 @@ function TrendsGlyph({ active }: { active: boolean }) {
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
-  { key: 'map', label: 'History' },
-  { key: 'trends', label: 'Trends' },
+  { key: 'trends', label: 'Record' },
 ];
 
 function glyphFor(key: Tab, active: boolean) {
-  if (key === 'today') return <TodayGlyph active={active} />;
-  if (key === 'trends') return <TrendsGlyph active={active} />;
-  return <MapGlyph active={active} />;
+  return key === 'today' ? <TodayGlyph active={active} /> : <TrendsGlyph active={active} />;
 }
 
 export default function TabBar({ tab, onChange }: TabBarProps) {
@@ -203,14 +183,8 @@ const styles = StyleSheet.create({
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
   dayGlyph: { width: 21, height: 21, borderRadius: 6, borderWidth: 1.9 },
-  gridGlyph: {
-    width: 21, height: 21,
-    flexDirection: 'row', flexWrap: 'wrap',
-    justifyContent: 'space-between', alignContent: 'space-between',
-  },
   /* outline until chosen: the border draws the shape either way, and the
      fill arrives only with selection — a colour swap alone never says it */
-  gridCell: { width: 9, height: 9, borderRadius: 2.5, borderWidth: 1.6 },
   barsGlyph: {
     width: 21, height: 21,
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',

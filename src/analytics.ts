@@ -46,9 +46,13 @@ export type EventName =
   | 'reminder_enabled'
   | 'reminder_disabled'
   | 'trends_opened'
+  /* Kept in the list, no longer sent: History stopped being a tab when
+     the calendar moved into the record. An id is never reused for a
+     different meaning, and an id already in the field is never deleted —
+     older builds still send this one. */
   | 'history_opened'
-  /* the day chart was opened from Today. That it was opened, never which
-     day and never what was on it. */
+  /* a day was opened, from Today or from the calendar. That it was
+     opened, never which day and never what was on it. */
   | 'day_opened'
   /* Apple Health: the setup was opened, completed, or undone. A category
      COUNT may travel; which categories, what was granted inside Apple's
