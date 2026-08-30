@@ -233,27 +233,62 @@ export default function BodyMap({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.viewSwitch}>
-        {(['front', 'back'] as const).map((v) => {
-          const on = view === v;
-          return (
-            <Pressable
-              key={v}
-              onPress={() => { haptic(); setView(v); }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={v === 'front' ? 'Front of the body' : 'Back of the body'}
-              style={({ pressed }) => [
-                styles.viewItem, on && styles.viewItemOn, pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={[styles.viewText, on && styles.viewTextOn]}
-                allowFontScaling maxFontSizeMultiplier={1.3}>
-                {v === 'front' ? 'Front' : 'Back'}
-              </Text>
-            </Pressable>
-          );
-        })}
+      {/* one control row: whole-body actions flanking the view switch —
+          Clear all on the left, Select all on the right, so the row
+          reads none ← views → all */}
+      <View style={styles.topRow}>
+        <Pressable
+          onPress={() => { haptic(); onChange([]); }}
+          accessibilityRole="button"
+          accessibilityLabel="Clear all marked areas"
+          style={({ pressed }) => [styles.sideBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.sideBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>
+            Clear all
+          </Text>
+        </Pressable>
+
+        <View style={styles.viewSwitch}>
+          {(['front', 'back'] as const).map((v) => {
+            const on = view === v;
+            return (
+              <Pressable
+                key={v}
+                onPress={() => { haptic(); setView(v); }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={v === 'front' ? 'Front of the body' : 'Back of the body'}
+                style={({ pressed }) => [
+                  styles.viewItem, on && styles.viewItemOn, pressed && { opacity: 0.85 },
+                ]}
+              >
+                <Text style={[styles.viewText, on && styles.viewTextOn]}
+                  allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {v === 'front' ? 'Front' : 'Back'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Pressable
+          onPress={toggleAllOver}
+          accessibilityRole="button"
+          accessibilityState={{ selected: allOver }}
+          accessibilityLabel="Select the whole body"
+          style={({ pressed }) => [
+            styles.sideBtn,
+            allOver && { backgroundColor: tint, borderColor: 'rgba(255,255,255,0.35)' },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <Text
+            style={[styles.sideBtnText, allOver && { color: ink, fontWeight: '700' as const }]}
+            allowFontScaling maxFontSizeMultiplier={1.2}
+          >
+            Select all
+          </Text>
+        </Pressable>
       </View>
 
       <GestureDetector gesture={pan}>
@@ -308,25 +343,7 @@ export default function BodyMap({
         contentContainerStyle={styles.tags}
         accessibilityLiveRegion="polite"
       >
-        <Pressable
-          onPress={toggleAllOver}
-          accessibilityRole="button"
-          accessibilityState={{ selected: allOver }}
-          accessibilityLabel="All over"
-          style={({ pressed }) => [
-            styles.tag, styles.tagGhost,
-            allOver && { backgroundColor: tint, borderColor: 'rgba(255,255,255,0.35)' },
-            pressed && { opacity: 0.75 },
-          ]}
-        >
-          <Text
-            style={[styles.tagText, allOver && { color: ink, fontWeight: '700' as const }]}
-            allowFontScaling maxFontSizeMultiplier={1.3}
-          >
-            All over
-          </Text>
-        </Pressable>
-        {!allOver && parts.map((part) => (
+        {parts.map((part) => (
           /* A new tag slides in from the right — the arrival is the
              confirmation that the touch landed. Entering only: a layout
              transition on the siblings fought the row's own
@@ -368,30 +385,40 @@ export default function BodyMap({
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   viewSwitch: {
-    flexDirection: 'row', alignSelf: 'center', marginBottom: 12,
+    flexDirection: 'row',
     backgroundColor: color.bgSegmentTrack, borderRadius: 11, borderCurve: 'continuous',
     padding: 2,
   },
   viewItem: {
-    minWidth: 86, minHeight: 34, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 9, borderCurve: 'continuous', paddingHorizontal: 14,
+    minWidth: 68, minHeight: 34, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 9, borderCurve: 'continuous', paddingHorizontal: 12,
   },
   viewItemOn: { backgroundColor: color.bgSegmentActive },
   viewText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   viewTextOn: { color: color.textPrimary },
+  topRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, marginBottom: 12,
+  },
+  sideBtn: {
+    minHeight: 34, paddingHorizontal: 11, justifyContent: 'center',
+    borderRadius: 17, borderCurve: 'continuous',
+    borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
+  },
+  sideBtnText: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '600' },
   tagsScroll: { marginTop: 12, maxHeight: 40, flexGrow: 0 },
-  /* real end-padding, so the last tag rests inside the row instead of
-     being guillotined at the screen edge — a half-visible neighbour
-     while SCROLLING is the affordance; a cropped final tag at rest is
-     just a wound */
+  /* flexGrow centres a short row and — unlike a minWidth percentage —
+     reliably honours the end padding when the row overflows, so the
+     last tag rests inside the row instead of being guillotined at the
+     screen edge. A half-visible neighbour while SCROLLING is the
+     affordance; a cropped final tag at rest is just a wound. */
   tags: {
     flexDirection: 'row', gap: 7, alignItems: 'center',
-    paddingHorizontal: 16, minWidth: '100%', justifyContent: 'center',
+    paddingHorizontal: 16, flexGrow: 1, justifyContent: 'center',
   },
   tag: {
     minHeight: 32, paddingHorizontal: 12, justifyContent: 'center',
     borderRadius: 16, borderCurve: 'continuous', borderWidth: 1,
   },
-  tagGhost: { borderColor: color.borderControl, backgroundColor: color.bgSurface },
   tagText: { color: color.textPrimary, fontSize: font.footnote },
 });
