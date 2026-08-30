@@ -1,0 +1,26 @@
+# A manually-triggered iOS build + TestFlight submit.
+#
+# NO `on:` TRIGGER, DELIBERATELY. This repo once had a workflow that ran
+# on every push and its queued runs kept publishing stale commits for an
+# hour after it was deleted — the stray-publisher incident AGENTS.md
+# retells. This one runs only when someone types
+#   npx eas-cli@latest workflow:run build-ios.yml
+# and it BUILDS; it never runs `eas update`, so it can never land
+# anything at the head of the production update branch.
+#
+# Why it exists at all: creating a provisioning profile for a NEW target
+# (the watch app) is something eas-cli refuses to do non-interactively,
+# but EAS's own servers do it with the ASC API key they already hold.
+name: Build and submit iOS
+
+jobs:
+  build:
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit:
+    needs: [build]
+    type: submit
+    params:
+      build_id: ${{ needs.build.outputs.build_id }}
