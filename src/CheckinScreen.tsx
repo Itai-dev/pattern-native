@@ -174,6 +174,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const [previous] = useState<string[]>(
     () => expandLegacyLocs(defaultLocs(db.getAll(), today))
   );
+  /* the space the body map actually has — it sizes itself to this
+     rather than assuming a phone */
+  const [bodyBox, setBodyBox] = useState({ w: 0, h: 0 });
 
   /* chips in personal order: what you actually pick floats to the front,
      and the rest waits behind "Show more" — a wall of fourteen options is
@@ -654,21 +657,33 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           </View>
         </ScrollView>
       ) : step === 'where' ? (
-        /* the body, touched, instead of a list scanned — same fourteen
-           ids underneath, same skip semantics, same storage. The marks
-           wear THIS check-in's pain colour: the intensity was chosen one
-           step ago, and the map only ever answers where. */
-        <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
-          <BodyMap
-            selected={loc}
-            onToggle={(id) => setLoc(
-              loc.indexOf(id) >= 0 ? loc.filter((x) => x !== id) : loc.concat(id)
-            )}
-            tint={painColor(pain == null ? 5 : pain)}
-            ink={inkOn(pain == null ? 5 : pain)}
-            width={230}
-          />
-        </ScrollView>
+        /* The body, touched, instead of a list scanned — same ids
+           underneath, same skip semantics, same storage. NOT a
+           ScrollView, deliberately: the native scroll gesture wins the
+           vertical-drag fight against any JS responder, which is what
+           silently broke the paint stroke. The step fits without
+           scrolling because the words and the All-over control live in
+           the figure's side gutters, and the map sizes itself to the
+           space it is actually given. */
+        <View
+          style={styles.bodyWrap}
+          onLayout={(e) => setBodyBox({
+            w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height,
+          })}
+        >
+          {bodyBox.w > 0 && (
+            <BodyMap
+              selected={loc}
+              onToggle={(id) => setLoc(
+                loc.indexOf(id) >= 0 ? loc.filter((x) => x !== id) : loc.concat(id)
+              )}
+              tint={painColor(pain == null ? 5 : pain)}
+              ink={inkOn(pain == null ? 5 : pain)}
+              containerWidth={bodyBox.w}
+              containerHeight={bodyBox.h}
+            />
+          )}
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
           {chipRow(visibleIds(ranked.q, quality), QUALITY_NAMES, quality, setQuality)}
@@ -840,6 +855,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', paddingVertical: 24,
   },
+  bodyWrap: { flex: 1, paddingTop: 8 },
   impactWrap: { paddingVertical: 20 },
   chipGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,

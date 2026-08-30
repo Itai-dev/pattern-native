@@ -95,17 +95,31 @@ export interface BodyMapProps {
   tint: string;
   /** legible ink on that colour, for the one control that carries words */
   ink: string;
-  /** width the figure may use; height follows at 2× */
-  width: number;
+  /** The space the step actually has. The figure sizes itself to fit —
+   *  never taller than the box, never so wide the side gutters (which
+   *  carry the words and the All-over control) fall under ~64pt. */
+  containerWidth: number;
+  containerHeight: number;
 }
 
-export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMapProps) {
+/** the words and controls beside the figure need at least this much */
+const GUTTER_MIN = 64;
+
+export default function BodyMap({
+  selected, onToggle, tint, ink, containerWidth, containerHeight,
+}: BodyMapProps) {
   /* Front/back as a toggle, not a rotation: two flat views ARE the
      clinical instrument, and a slider would be precision the record
      cannot store. Chest pain and back pain live on different sides,
      which is the whole reason two views exist. */
   const [view, setView] = useState<'front' | 'back'>('front');
-  const k = width / 100;               // design units → points
+  /* fit: the switch takes ~48pt of the height; the figure takes what
+     is left, capped by the width the gutters can spare */
+  const k = Math.max(1.5, Math.min(
+    (containerHeight - 56) / 200,
+    (containerWidth - GUTTER_MIN * 2) / 100
+  ));
+  const width = 100 * k;
   const regions = view === 'front' ? FRONT : BACK;
 
   const tap = (id: string) => {
@@ -179,8 +193,36 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
         })}
       </View>
 
+      <View style={styles.row}>
+        {/* left gutter: the selection, read back in words as it is
+            painted — the confirmation before Save, and the one place a
+            mark on the OTHER view stays visible while you face this
+            one. Pairs collapse to how a person says them. */}
+        <View
+          style={styles.gutter}
+          accessible
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={selected.length
+            ? 'Marked: ' + readLocSelection(selected)
+            : 'Nothing marked yet'}
+        >
+          {selected.length === 0 ? (
+            <Text style={styles.gutterHint} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Nothing marked yet
+            </Text>
+          ) : readLocSelection(selected).split(' · ').map((word) => (
+            <Text
+              key={word}
+              style={styles.gutterWord}
+              allowFontScaling maxFontSizeMultiplier={1.3}
+            >
+              {word}
+            </Text>
+          ))}
+        </View>
+
       <View
-        style={{ width, height: 200 * k, alignSelf: 'center' }}
+        style={{ width, height: 200 * k }}
         onTouchStart={onTouchStart}
         onMoveShouldSetResponderCapture={shouldCapture}
         onResponderMove={onMove}
@@ -230,43 +272,34 @@ export default function BodyMap({ selected, onToggle, tint, ink, width }: BodyMa
         })}
       </View>
 
-      {/* The selection, read back in words — the confirmation before
-          Save, and the only place a mark on the OTHER view (a back
-          while facing front) stays visible. Pairs collapse to how a
-          person says them: "Both knees", not two list items. */}
-      <Text
-        style={styles.readback}
-        allowFontScaling maxFontSizeMultiplier={1.4}
-        accessibilityLiveRegion="polite"
-      >
-        {selected.length ? readLocSelection(selected) : 'Nothing marked yet'}
-      </Text>
-
-      {/* the one place with no place — a real answer, and its own control
-          rather than a fifteenth patch of body */}
-      <Pressable
-        onPress={() => tap('allOver')}
-        accessibilityRole="button"
-        accessibilityState={{ selected: selected.indexOf('allOver') >= 0 }}
-        accessibilityLabel="All over"
-        style={({ pressed }) => [
-          styles.allOver,
-          selected.indexOf('allOver') >= 0 && {
-            backgroundColor: tint, borderColor: 'rgba(255,255,255,0.35)',
-          },
-          pressed && { opacity: 0.8 },
-        ]}
-      >
-        <Text
-          style={[
-            styles.allOverText,
-            selected.indexOf('allOver') >= 0 && { color: ink, fontWeight: '700' as const },
-          ]}
-          allowFontScaling maxFontSizeMultiplier={1.3}
-        >
-          All over
-        </Text>
-      </Pressable>
+        {/* right gutter: the one place with no place — a real answer,
+            and its own control rather than a fifteenth patch of body */}
+        <View style={[styles.gutter, styles.gutterRight]}>
+          <Pressable
+            onPress={() => tap('allOver')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selected.indexOf('allOver') >= 0 }}
+            accessibilityLabel="All over"
+            style={({ pressed }) => [
+              styles.allOver,
+              selected.indexOf('allOver') >= 0 && {
+                backgroundColor: tint, borderColor: 'rgba(255,255,255,0.35)',
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Text
+              style={[
+                styles.allOverText,
+                selected.indexOf('allOver') >= 0 && { color: ink, fontWeight: '700' as const },
+              ]}
+              allowFontScaling maxFontSizeMultiplier={1.3}
+            >
+              All over
+            </Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -284,15 +317,24 @@ const styles = StyleSheet.create({
   viewItemOn: { backgroundColor: color.bgSegmentActive },
   viewText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   viewTextOn: { color: color.textPrimary },
-  readback: {
-    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
-    textAlign: 'center', marginTop: 14, paddingHorizontal: 24, minHeight: 21,
+  row: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center' },
+  /* the columns beside the figure — words on the left, controls on the
+     right, both starting at the figure's shoulder height so the head
+     keeps its air */
+  gutter: { flex: 1, paddingTop: 46, gap: 6, alignItems: 'flex-end', paddingRight: 8 },
+  gutterRight: { alignItems: 'flex-start', paddingLeft: 8, paddingRight: 0 },
+  gutterWord: {
+    color: color.textSecondary, fontSize: font.footnote, lineHeight: 17,
+    textAlign: 'right',
+  },
+  gutterHint: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 17,
+    textAlign: 'right',
   },
   allOver: {
-    alignSelf: 'center', marginTop: 12, minHeight: 40,
-    paddingHorizontal: 18, justifyContent: 'center',
-    borderRadius: 20, borderCurve: 'continuous',
+    minHeight: 38, paddingHorizontal: 14, justifyContent: 'center',
+    borderRadius: 19, borderCurve: 'continuous',
     borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
   },
-  allOverText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
+  allOverText: { color: color.textPrimary, fontSize: font.footnote, fontWeight: '600' },
 });
