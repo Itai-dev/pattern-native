@@ -1,0 +1,25 @@
+# Publish an OTA update from EAS's servers — MANUAL TRIGGER ONLY.
+#
+# This exists because the machine that publishes lost the ability to:
+# Windows Application Control blocked the freshly-installed hermesc.exe
+# that `expo export` needs, and unblocking a security policy is the
+# owner's decision, not a build step. The export runs server-side
+# instead, where the compiler is not in question.
+#
+# NO `on:` TRIGGER, and that is the whole safety argument. This repo's
+# stray-publisher incident — AGENTS.md retells it — was a workflow that
+# published on every push and kept landing stale commits at the head of
+# production for an hour after it was deleted. This one runs only when
+# someone types
+#   npx eas-cli@latest workflow:run publish-update.yml
+# and it publishes the commit at the remote HEAD at that moment. The
+# head-check rule in AGENTS.md applies to it exactly as to a local
+# publish: read update:list afterwards, and confirm the top row is you.
+name: Publish OTA update
+
+jobs:
+  update:
+    type: update
+    environment: production
+    params:
+      branch: production
