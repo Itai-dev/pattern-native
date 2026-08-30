@@ -6,6 +6,8 @@
  * back). Drawn from code, not licensed, so the outlines and BodyMap's
  * touch regions share one 100×200 coordinate system per figure.
  *
+ * Also assets/glow.png — the edgeless wash a pain mark is drawn with.
+ *
  *   node tools/make-body.js
  */
 const fs = require('fs');
@@ -192,17 +194,23 @@ function render(lines, outFile) {
     }
   }
 
-  const crcTable = [];
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let kk = 0; kk < 8; kk++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    crcTable[n] = c >>> 0;
-  }
-  const crc32 = (buf) => {
-    let c = 0xffffffff;
-    for (const b of buf) c = crcTable[(c ^ b) & 255] ^ (c >>> 8);
-    return (c ^ 0xffffffff) >>> 0;
-  };
+  writePng(W, H, raw, outFile);
+}
+
+/* ── a minimal RGBA PNG encoder ──────────────────────────────
+   raw is scanlines with a leading filter byte each, already laid out */
+const crcTable = [];
+for (let n = 0; n < 256; n++) {
+  let c = n;
+  for (let kk = 0; kk < 8; kk++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  crcTable[n] = c >>> 0;
+}
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (const b of buf) c = crcTable[(c ^ b) & 255] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function writePng(w, h, raw, outFile) {
   const chunk = (type, data) => {
     const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
     const td = Buffer.concat([Buffer.from(type), data]);
@@ -210,7 +218,7 @@ function render(lines, outFile) {
     return Buffer.concat([len, td, crc]);
   };
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
   ihdr[8] = 8; ihdr[9] = 6;
   const png = Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -225,3 +233,33 @@ function render(lines, outFile) {
 
 render(FRONT_LINES, 'body-front.png');
 render(BACK_LINES, 'body-back.png');
+
+/* ── the glow sprite ─────────────────────────────────────────
+   A pain mark is a wash with no edge anywhere, so it cannot be a view
+   with a border radius — every rounded rectangle has a rim, however
+   soft the shadow around it. This is white with a gaussian alpha,
+   stretched to a region and tinted with the check-in's pain colour:
+   brightest in the middle, gone by the edge, identical on every
+   device. Alpha is forced to zero at the rim so a stretched sprite
+   never shows a seam. */
+function renderGlow(size, outFile) {
+  const raw = Buffer.alloc(size * (size * 4 + 1));
+  const c = (size - 1) / 2;
+  const sigma = size * 0.19;
+  for (let y = 0; y < size; y++) {
+    const row = y * (size * 4 + 1);
+    raw[row] = 0;
+    for (let x = 0; x < size; x++) {
+      const r = Math.hypot(x - c, y - c) / c;      // 0 centre, 1 at the rim
+      /* gaussian, then a cosine window that reaches exactly 0 at r=1 */
+      const g = Math.exp(-((r * c) ** 2) / (2 * sigma * sigma));
+      const w = r >= 1 ? 0 : 0.5 * (1 + Math.cos(Math.PI * r));
+      const a = Math.round(255 * Math.min(1, g) * w);
+      const o = row + 1 + x * 4;
+      raw[o] = 255; raw[o + 1] = 255; raw[o + 2] = 255; raw[o + 3] = a;
+    }
+  }
+  writePng(size, size, raw, outFile);
+}
+
+renderGlow(192, 'glow.png');

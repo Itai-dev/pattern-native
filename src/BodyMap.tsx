@@ -50,9 +50,20 @@ import { color, font } from './theme';
 const BODY_FRONT = require('../assets/body-front.png');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const BODY_BACK = require('../assets/body-back.png');
+/* a white radial gaussian, tinted at use — see tools/make-body.js */
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const GLOW = require('../assets/glow.png');
 
-/** the breathing room between the two figures, in design units */
-const GAP = 10;
+/* A figure's ink spans x ≈ 19…81; the rest of its 100-unit box is
+   empty margin. The two boxes therefore OVERLAP by TUCK units — only
+   whitespace overlaps, and the bodies get that room instead, which is
+   the whole difference between two small figures and two large ones on
+   a phone. SPLIT is the line between them for touch: past every front
+   fingertip, short of every back one. */
+const TUCK = 22;
+const SPAN = 200 - TUCK;
+const BACK_OFF = 100 - TUCK;
+const SPLIT = 89;
 
 interface Region {
   id: string;          // a LOC_NAMES id — several regions may share one
@@ -136,17 +147,17 @@ const STROKE_PAD = 1.6;
 export default function BodyMap({
   selected, onChange, tint, ink, containerWidth, containerHeight,
 }: BodyMapProps) {
-  /* fit: captions ~24pt, actions ~36pt, tag line ~52pt; the figures
-     take the rest. Two bodies share the width now, so the width bound
-     covers 100 + GAP + 100 design units and the floor is lower — a
-     narrow phone gets two smaller figures, never one cropped one. */
+  /* fit: captions ~26pt, actions ~32pt, tag line ~54pt; the figures
+     take everything else. Two bodies share the width, so the floor is
+     low — a narrow phone gets two smaller figures, never one cropped
+     one. */
   const k = Math.max(1.0, Math.min(
-    (containerHeight - 118) / 200,
-    (containerWidth - 16) / (200 + GAP)
+    (containerHeight - 128) / 200,
+    (containerWidth - 8) / SPAN
   ));
   const figW = 100 * k;
-  const backOff = (100 + GAP) * k;
-  const width = (200 + GAP) * k;
+  const backOff = BACK_OFF * k;
+  const width = SPAN * k;
   const allSelected = ALL_IDS.every((id) => selected.indexOf(id) >= 0);
 
   /* A legacy 'allOver' arriving through the prefill (an older entry
@@ -174,21 +185,23 @@ export default function BodyMap({
 
   /* ── the pulse ────────────────────────────────────────────
      One shared clock; every glow breathes on it together — marks
-     brightening in unison reads as one body, not as competing alarms.
-     A slow there-and-back fade, never a size change: the highlight IS
-     the hurting area, and an area does not grow twice a second.
-     Held steady under Reduce Motion. */
+     softening in unison reads as one body, not as competing alarms.
+     The breath is in the BLUR: the wash spreads a little wider and
+     dims as it spreads, then draws back in. Slight on purpose, and a
+     slow there-and-back, so it never reads as a blinking alert. Held
+     mid-breath under Reduce Motion. */
   const rm = useReduceMotion();
   const pulse = useSharedValue(0);
   useEffect(() => {
     if (rm) { cancelAnimation(pulse); pulse.value = 0.5; return; }
     pulse.value = 0;
-    pulse.value = withRepeat(withTiming(1, { duration: 2400 }), -1, true);
+    pulse.value = withRepeat(withTiming(1, { duration: 2600 }), -1, true);
   }, [rm]);
   /* never fully opaque — the glow is a wash over the figure, and the
      outline ghosting through is what keeps it a body, not a heatmap */
   const glowStyle = useAnimatedStyle(() => ({
-    opacity: 0.55 + pulse.value * 0.25,
+    opacity: 0.92 - pulse.value * 0.18,
+    transform: [{ scale: 1 + pulse.value * 0.1 }],
   }));
 
   /* ── the stroke ───────────────────────────────────────────
@@ -217,7 +230,7 @@ export default function BodyMap({
       }
       return null;
     };
-    return x < figW + (GAP * k) / 2 ? scan(FRONT, x) : scan(BACK, x - backOff);
+    return x < SPLIT * k ? scan(FRONT, x) : scan(BACK, x - backOff);
   };
   const beginStroke = (x: number, y: number) => {
     const id = regionAt(x, y);
@@ -260,15 +273,43 @@ export default function BodyMap({
     prevCount.current = parts.length;
   }, [parts.length]);
 
-  /* Marks are SOFT GLOWS that fill the region: a pill of the pain
-     colour, inset from the touch rect, blurred outward by its own
-     tinted shadow so the brightest point sits over the hurt and fades
-     into the figure — a pain drawing, not a pin on a map. The shadow
-     IS the blur; this app is iOS-only and iOS shadows are true
-     gaussians, which is why this works with no gradient library.
-     Touch zones stay the full region rectangles underneath. A shared
-     id (head, neck) lights on both figures at once, because it is one
-     place, not two answers. */
+  /* A mark is a WASH WITH NO EDGE: the gaussian sprite, tinted with
+     the check-in's pain colour and stretched over the region, so a
+     thigh reads as a long streak and a shoulder as a round bloom, and
+     neighbouring marks bleed into one another the way a hurting area
+     actually spreads. Nothing here has a border to catch the eye.
+     Glows are drawn as their own layer BENEATH every touch target, so
+     what lights up can spill past the rectangle that was touched.
+     A shared id (head, neck) lights on both figures at once, because
+     it is one place, not two answers. */
+  const glow = (list: Region[], off: number, tag: string) =>
+    list.map((rg, i) => {
+      if (selected.indexOf(rg.id) < 0) return null;
+      /* the sprite is invisible by its own rim, so it is drawn half
+         again as large as the region: the bright middle covers the
+         place, the falloff leaves it */
+      const gw = rg.w * k * 1.5, gh = rg.h * k * 1.5;
+      return (
+        <Animated.Image
+          key={'g' + tag + rg.id + i}
+          source={GLOW}
+          resizeMode="stretch"
+          accessible={false}
+          style={[
+            {
+              position: 'absolute',
+              left: off + (rg.x + rg.w / 2) * k - gw / 2,
+              top: (rg.y + rg.h / 2) * k - gh / 2,
+              width: gw, height: gh,
+              tintColor: tint,
+            },
+            glowStyle,
+          ]}
+        />
+      );
+    });
+
+  /* Touch zones stay the full region rectangles. */
   const figure = (src: number, list: Region[], off: number, tag: string) => (
     <React.Fragment key={tag}>
       <Image
@@ -277,14 +318,9 @@ export default function BodyMap({
         resizeMode="stretch"
         accessible={false}
       />
+      {glow(list, off, tag)}
       {list.map((rg, i) => {
         const on = selected.indexOf(rg.id) >= 0;
-        /* the glow's core: inset so the blur has room to fade inside
-           the region's own footprint, pill-shaped so long regions
-           (a thigh) read as a streak and square ones as a blot */
-        const ix = rg.w * k * 0.22;
-        const iy = rg.h * k * 0.22;
-        const blur = Math.min(rg.w, rg.h) * k * 0.5;
         return (
           <Pressable
             key={tag + rg.id + (rg.side || '') + i}
@@ -302,30 +338,13 @@ export default function BodyMap({
                 borderRadius: rg.r * k, borderCurve: 'continuous',
                 alignItems: 'center', justifyContent: 'center',
               },
-              pressed && !on && { backgroundColor: 'rgba(255,255,255,0.12)' },
-              pressed && on && { opacity: 0.6 },
+              /* the glow lives outside this view now, so press
+                 feedback is the same faint wash either way: it says
+                 "this is the place you are touching", not what will
+                 happen to it */
+              pressed && { backgroundColor: 'rgba(255,255,255,0.10)' },
             ]}
-          >
-            {on && (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  {
-                    position: 'absolute',
-                    left: ix, top: iy, right: ix, bottom: iy,
-                    borderRadius: Math.min(rg.w, rg.h) * k * 0.28,
-                    borderCurve: 'continuous',
-                    backgroundColor: tint,
-                    shadowColor: tint,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 1,
-                    shadowRadius: blur,
-                  },
-                  glowStyle,
-                ]}
-              />
-            )}
-          </Pressable>
+          />
         );
       })}
     </React.Fragment>
@@ -343,15 +362,19 @@ export default function BodyMap({
       {/* quiet captions, not a control — with both bodies on screen
           the words only settle which is which */}
       <View style={[styles.captions, { width, alignSelf: 'center' }]}>
-        <Text style={[styles.captionText, { width: figW }]}
+        <Text style={[styles.captionText, { left: 0, width: figW }]}
           allowFontScaling maxFontSizeMultiplier={1.3}>
           Front
         </Text>
-        <Text style={[styles.captionText, { width: figW }]}
+        <Text style={[styles.captionText, { left: backOff, width: figW }]}
           allowFontScaling maxFontSizeMultiplier={1.3}>
           Back
         </Text>
       </View>
+
+      {/* any slack goes HERE, so the figures sit high and everything
+          written sits low, near the thumb and the Save button */}
+      <View style={{ flex: 1, minHeight: 4 }} />
 
       {/* whole-body actions on their own quiet line — text, not pills:
           they are actions on the canvas above, not peers of the view
@@ -444,11 +467,12 @@ export default function BodyMap({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
-  /* space-between, not a gap: each caption already carries its
-     figure's exact width, so the row lines up under the figures at
-     any scale */
-  captions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  /* each caption is placed at its own figure's offset — the figures
+     overlap their empty margins, so nothing evenly spaced would land
+     under them */
+  captions: { height: 20, marginTop: 6 },
   captionText: {
+    position: 'absolute',
     color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
     textAlign: 'center',
   },
