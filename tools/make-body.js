@@ -30,7 +30,7 @@ shapes.push({
     [69.5, 38], [66.5, 45],
     [63, 56], [62, 66],
     [65, 74], [65.5, 84], [63, 91], [57, 95.5],
-    [50, 97],
+    [50, 99.5],
     [43, 95.5], [37, 91], [34.5, 84], [35, 74],
     [38, 66], [37, 56],
     [33.5, 45], [30.5, 38],
@@ -42,13 +42,13 @@ shapes.push({
 const armL = [
   [32, 31.5], [34.5, 36.5],
   [31.5, 47], [29.8, 58],
-  [28.2, 70], [26.8, 82],
-  [22.2, 81.2], [22.6, 69],
+  [28.2, 70], [26.8, 84],
+  [22.2, 83.2], [22.6, 69],
   [23.6, 56], [25, 44],
   [27.5, 33],
 ];
 // hands overlap the wrist so no seam shows
-const handL = [[21.6, 80.5], [27.4, 81.5], [27.8, 89.5], [25.4, 94.5], [21.2, 93.5], [19.8, 86.5]];
+const handL = [[21.4, 79], [27.8, 80], [28.4, 89], [25.8, 95.5], [20.8, 94.5], [19.2, 86.5]];
 
 const mirror = (pts) => pts.map(([x, y]) => [100 - x, y]);
 shapes.push({ pts: armL }, { pts: mirror(armL) });
@@ -56,8 +56,8 @@ shapes.push({ pts: handL }, { pts: mirror(handL) });
 
 // legs: thigh, knee tuck, calf swell, ankle
 const legL = [
-  [38.5, 92], [49.2, 96.5],
-  [49.3, 128], [48, 141],
+  [38.5, 91.5], [49.6, 94.5],
+  [49.6, 128], [48, 141],
   [48.6, 152], [47.6, 168], [46.8, 177],
   [42.2, 177], [41.6, 168], [40.4, 152],
   [39.6, 141], [37.6, 128],
@@ -66,6 +66,26 @@ const legL = [
 const footL = [[41.4, 175], [47.6, 175], [48.2, 182.5], [46.5, 187], [35.5, 186.5], [36.5, 181], [40, 178]];
 shapes.push({ pts: legL }, { pts: mirror(legL) });
 shapes.push({ pts: footL }, { pts: mirror(footL) });
+
+/* ── smooth the outlines ─────────────────────────────────────
+   Closed Catmull-Rom through each polygon's vertices, sampled densely —
+   straight edges are what made the first figure read as cut from card.
+   The point tables stay coarse and editable; the curves are derived. */
+function smoothPoly(pts, steps) {
+  const n = pts.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    for (let t = 0; t < steps; t++) {
+      const u = t / steps, u2 = u * u, u3 = u2 * u;
+      out.push([
+        0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * u + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * u2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * u3),
+        0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * u + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * u2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * u3),
+      ]);
+    }
+  }
+  return out;
+}
+for (const sh of shapes) if (sh.pts) sh.pts = smoothPoly(sh.pts, 8);
 
 /* ── rasterize ─────────────────────────────────────────────── */
 
@@ -108,17 +128,49 @@ for (let py = 0; py < H; py++) {
   }
 }
 
+/* ── shade ───────────────────────────────────────────────────
+   The rounded-form illusion, without a renderer: distance from the
+   nearest edge, darker at the rim and lighter through the core — the
+   same soft reading the clinical reference silhouettes carry. Chamfer
+   distance transform, two passes, cheap and deterministic. */
+const INF = 1e9;
+const dist = new Float32Array(W * H);
+for (let i = 0; i < W * H; i++) dist[i] = cov[i] > 127 ? INF : 0;
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const i = y * W + x;
+  if (!dist[i]) continue;
+  if (x > 0) dist[i] = Math.min(dist[i], dist[i - 1] + 1);
+  if (y > 0) dist[i] = Math.min(dist[i], dist[i - W] + 1);
+  if (x > 0 && y > 0) dist[i] = Math.min(dist[i], dist[i - W - 1] + 1.414);
+  if (x < W - 1 && y > 0) dist[i] = Math.min(dist[i], dist[i - W + 1] + 1.414);
+}
+for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+  const i = y * W + x;
+  if (!dist[i]) continue;
+  if (x < W - 1) dist[i] = Math.min(dist[i], dist[i + 1] + 1);
+  if (y < H - 1) dist[i] = Math.min(dist[i], dist[i + W] + 1);
+  if (x < W - 1 && y < H - 1) dist[i] = Math.min(dist[i], dist[i + W + 1] + 1.414);
+  if (x > 0 && y < H - 1) dist[i] = Math.min(dist[i], dist[i + W - 1] + 1.414);
+}
+
 /* ── PNG encode (RGBA, filter 0) ───────────────────────────── */
 
-const FILL = [58, 58, 64];       // #3A3A40 — a step over bgSurface, flat
+const RIM = [38, 38, 43];        // near the ground, at the edge
+const CORE = [82, 82, 92];       // lifted through the middle
+const CAP = 22;                  // px at which the core tone is reached
 const raw = Buffer.alloc(H * (W * 4 + 1));
 for (let y = 0; y < H; y++) {
   const row = y * (W * 4 + 1);
   raw[row] = 0;
   for (let x = 0; x < W; x++) {
-    const a = cov[y * W + x];
+    const idx = y * W + x;
+    const a = cov[idx];
+    const t = Math.min(dist[idx], CAP) / CAP;
     const o = row + 1 + x * 4;
-    raw[o] = FILL[0]; raw[o + 1] = FILL[1]; raw[o + 2] = FILL[2]; raw[o + 3] = a;
+    raw[o]     = Math.round(RIM[0] + (CORE[0] - RIM[0]) * t);
+    raw[o + 1] = Math.round(RIM[1] + (CORE[1] - RIM[1]) * t);
+    raw[o + 2] = Math.round(RIM[2] + (CORE[2] - RIM[2]) * t);
+    raw[o + 3] = a;
   }
 }
 const crcTable = [];
