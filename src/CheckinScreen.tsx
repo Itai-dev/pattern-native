@@ -60,9 +60,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
-  cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withRepeat,
-  withSpring, withTiming,
+  cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withDelay,
+  withRepeat, withSpring, withTiming,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import Slider from './Slider';
 import PainShape from './PainShape';
@@ -326,6 +327,34 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     }
   };
 
+  /* ── swiping between steps ───────────────────────────────
+     A sideways swipe is the Continue button by another hand: forward
+     persists exactly what the button would have persisted, back is the
+     back arrow. Two steps opt out — pain and any questions screen with
+     a numeric slider — because a horizontal gesture there already
+     means "move the value", and a swipe that could change an answer
+     while leaving the screen is two intents in one motion. The final
+     save stays on the button alone: finishing a day's record should
+     never be a flick. */
+  const swipeEnabled = step !== 'pain'
+    && !(step === 'questions'
+      && askIds.some((id) => (getMetric(id) || { type: '' }).type === 'numeric'));
+  const swipeNext = () => {
+    if (step === 'where' || pain == null) return;
+    advance();
+  };
+  const stepSwipe = Gesture.Pan()
+    .enabled(swipeEnabled)
+    /* horizontal-only: the step's own vertical scroll must win a
+       vertical drag, so the pan fails fast on any real y-movement */
+    .activeOffsetX([-28, 28])
+    .failOffsetY([-16, 16])
+    .onEnd((e) => {
+      'worklet';
+      if (e.translationX < -60) runOnJS(swipeNext)();
+      else if (e.translationX > 60) runOnJS(back)();
+    });
+
   const chipRow = (
     ids: string[], names: Record<string, string>,
     chosen: string[], setChosen: (v: string[]) => void
@@ -584,9 +613,30 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         </Press>
       </View>
 
+      {/* where you are in the flow — position, not obligation: no
+          count, no percentage, and a pain-only entry that stops at the
+          first segment is as finished as the record says it is */}
+      <View
+        style={styles.progressRow}
+        accessible
+        accessibilityLabel={'Step ' + (stepsShown.indexOf(step) + 1)
+          + ' of ' + stepsShown.length}
+      >
+        {stepsShown.map((s, i) => (
+          <View
+            key={s}
+            style={[
+              styles.progressSeg,
+              i <= stepsShown.indexOf(step) && styles.progressSegOn,
+            ]}
+          />
+        ))}
+      </View>
+
       <Text style={styles.title}>{title}</Text>
       {hint && <Text style={styles.hint}>{hint}</Text>}
 
+      <GestureDetector gesture={stepSwipe}>
       {step === 'pain' ? (
         <View style={styles.middle}>
           <View
@@ -715,6 +765,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           )}
         </ScrollView>
       )}
+      </GestureDetector>
 
       <View style={styles.bottom}>
         {step === 'pain' && (
@@ -805,6 +856,18 @@ const styles = StyleSheet.create({
   },
   hint: { color: color.textTertiary, fontSize: font.subheadline, textAlign: 'center', marginTop: 8 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  /* quiet position marker: neutral segments, filled up to here in
+     white — never the pain palette, which would hand a hue a meaning
+     this bar does not have */
+  progressRow: {
+    flexDirection: 'row', gap: 5, alignSelf: 'center',
+    marginTop: 14, marginBottom: 2,
+  },
+  progressSeg: {
+    width: 26, height: 3, borderRadius: 1.5,
+    backgroundColor: color.bgSegmentTrack,
+  },
+  progressSegOn: { backgroundColor: color.textPrimary },
   /* unset reads as waiting, not as a value: the shape is dimmed rather than
      showing a colour the user has not chosen */
   shapeUnset: { opacity: 0.28 },
