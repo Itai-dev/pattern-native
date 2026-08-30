@@ -80,11 +80,17 @@ export interface HomeScreenProps {
   onFocus: () => void;
   onKeepFocus: () => void;
   onTestFactor: (metricId: string) => void;
+  /** a flare, a treatment, anything that happened — captured from HERE,
+   *  because an event happens now and its button must not live at the
+   *  bottom of a screen you have to walk into. It was moved off Today
+   *  once for clutter; burying the capture turned out to be the worse
+   *  trade, and one quiet row is not clutter. */
+  onAddEvent: () => void;
 }
 
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onOpenToday, onFocus, onKeepFocus,
-  onTestFactor,
+  onTestFactor, onAddEvent,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -299,6 +305,24 @@ export default function HomeScreen({
         </Press>
       )}
 
+      {/* ── something happened ──────────────────────────────
+          The event capture, one tap from where you land. Reading events
+          back stays on the day screen; this is only the way IN, which is
+          the part that must be near the thumb when something is
+          happening. */}
+      <Press
+        onPress={onAddEvent}
+        pressOpacity={0.85}
+        style={styles.eventEntry}
+        accessibilityRole="button"
+        accessibilityLabel="Note something that happened"
+        accessibilityHint="Opens a short set of questions about a flare or a treatment"
+      >
+        <Text style={styles.eventEntryText} allowFontScaling maxFontSizeMultiplier={1.3}>
+          Note something that happened
+        </Text>
+      </Press>
+
       {/* ── the period, or the invitation to start one ──────
           About the record rather than about a day, which is why it sits
           outside both cards and under them. */}
@@ -337,6 +361,15 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardGap: { marginTop: 14 },
+  /* the day-detail event button's spec, at the page's own gutter: an
+     outlined action, deliberately quieter than the two cards above it */
+  eventEntry: {
+    marginHorizontal: size.pageX, marginTop: 14, minHeight: 48,
+    borderRadius: radius.button, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  },
+  eventEntryText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   headTime: {

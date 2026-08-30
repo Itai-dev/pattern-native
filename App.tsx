@@ -675,6 +675,7 @@ export default function App() {
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
+                onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
               />
             </ScrollView>
 

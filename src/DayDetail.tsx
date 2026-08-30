@@ -143,66 +143,6 @@ export default function DayDetail({
         </Press>
       )}
 
-      {/* ── the day's health context ──────────────────────
-          Apple Health, organized the one way it is not in Apple's own
-          app: by the day it belongs to, beside the pain it is context
-          for. Tiles in Pattern's own grammar — outline glyphs in line
-          weight, neutral ink, and no borrowed Apple branding: colour
-          here means pain or it is not a colour, and these are not pain
-          values. Missing categories are missing tiles, never zeros; the
-          caveat lives inside the block it qualifies. */}
-      {(() => {
-        const tiles = healthDayTiles(db.getHealthDay(dateIso), db.getHealthDays());
-        if (!tiles.length) return null;
-        return (
-          <View style={styles.list}>
-            <Text style={styles.listTitle}>From Apple Health</Text>
-            <View style={styles.tileGrid}>
-              {tiles.map((t) => (
-                <View
-                  key={t.key}
-                  style={styles.tile}
-                  accessible
-                  accessibilityLabel={t.label + ', ' + t.value + (t.sub ? ', ' + t.sub : '')}
-                >
-                  <View style={styles.tileHead}>
-                    <Ionicons
-                      name={t.icon as keyof typeof Ionicons.glyphMap}
-                      size={16}
-                      color={color.textSecondary}
-                    />
-                    <Text
-                      style={styles.tileLabel} numberOfLines={1}
-                      allowFontScaling maxFontSizeMultiplier={1.2}
-                    >
-                      {t.label}
-                    </Text>
-                  </View>
-                  <Text
-                    style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit
-                    allowFontScaling maxFontSizeMultiplier={1.3}
-                  >
-                    {t.value}
-                  </Text>
-                  {!!t.sub && (
-                    <Text
-                      style={styles.tileSub} numberOfLines={2}
-                      allowFontScaling maxFontSizeMultiplier={1.3}
-                    >
-                      {t.sub}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </View>
-            <Text style={styles.swipeHint}>
-              Read from Health for context beside what you recorded. Sitting
-              next to each other is not a claim that one caused the other.
-            </Text>
-          </View>
-        );
-      })()}
-
       {logs.length > 0 && (
         <View style={styles.list}>
           <Text style={styles.listTitle}>Check-ins</Text>
@@ -478,6 +418,70 @@ export default function DayDetail({
           </Text>
         </View>
       )}
+
+      {/* ── the day's health context, LAST on purpose ─────
+          Apple Health, organized the one way it is not in Apple's own
+          app: by the day it belongs to, beside the pain it is context
+          for. It reads after everything the user entered, because
+          imported context is the appendix to a record, not its opening
+          — the answers given, the events noted and the words written
+          outrank what a watch happened to measure.
+          Tiles in Pattern's own grammar — outline glyphs in line
+          weight, neutral ink, and no borrowed Apple branding: colour
+          here means pain or it is not a colour, and these are not pain
+          values. Missing categories are missing tiles, never zeros; the
+          caveat lives inside the block it qualifies. */}
+      {(() => {
+        const tiles = healthDayTiles(db.getHealthDay(dateIso), db.getHealthDays());
+        if (!tiles.length) return null;
+        return (
+          <View style={styles.list}>
+            <Text style={styles.listTitle}>From Apple Health</Text>
+            <View style={styles.tileGrid}>
+              {tiles.map((t) => (
+                <View
+                  key={t.key}
+                  style={styles.tile}
+                  accessible
+                  accessibilityLabel={t.label + ', ' + t.value + (t.sub ? ', ' + t.sub : '')}
+                >
+                  <View style={styles.tileHead}>
+                    <Ionicons
+                      name={t.icon as keyof typeof Ionicons.glyphMap}
+                      size={16}
+                      color={color.textSecondary}
+                    />
+                    <Text
+                      style={styles.tileLabel} numberOfLines={1}
+                      allowFontScaling maxFontSizeMultiplier={1.2}
+                    >
+                      {t.label}
+                    </Text>
+                  </View>
+                  <Text
+                    style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit
+                    allowFontScaling maxFontSizeMultiplier={1.3}
+                  >
+                    {t.value}
+                  </Text>
+                  {!!t.sub && (
+                    <Text
+                      style={styles.tileSub} numberOfLines={2}
+                      allowFontScaling maxFontSizeMultiplier={1.3}
+                    >
+                      {t.sub}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+            <Text style={styles.swipeHint}>
+              Read from Health for context beside what you recorded. Sitting
+              next to each other is not a claim that one caused the other.
+            </Text>
+          </View>
+        );
+      })()}
 
       {isToday && (
         <Press
