@@ -29,10 +29,12 @@
  * ("Shoulders": on a body map, both marked already says both). A tag
  * is also the way to take a mark back.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import Animated, {
+  FadeInRight, FadeOut, LinearTransition, runOnJS,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LOC_NAMES, readLocParts } from './model';
 import { color, font } from './theme';
@@ -213,7 +215,23 @@ export default function BodyMap({
     .onStart((e) => { 'worklet'; runOnJS(beginStroke)(e.x, e.y); })
     .onUpdate((e) => { 'worklet'; runOnJS(paintAt)(e.x, e.y); });
 
-  const parts = readLocParts(selected);
+  /* Tags in ADD ORDER, newest rightmost — the selection array already
+     records the order marks were made, so a stroke down the arm files
+     Shoulder, Elbow, Wrist into the row as the finger passes. The row
+     follows the newest tag so its arrival is always seen. */
+  const parts = readLocParts(selected).slice().sort((a, b) => {
+    const at = (p: { ids: string[] }) =>
+      Math.max.apply(null, p.ids.map((id) => selected.indexOf(id)));
+    return at(a) - at(b);
+  });
+  const tagScroll = useRef<ScrollView>(null);
+  const prevCount = useRef(parts.length);
+  useEffect(() => {
+    if (parts.length > prevCount.current) {
+      tagScroll.current?.scrollToEnd({ animated: true });
+    }
+    prevCount.current = parts.length;
+  }, [parts.length]);
 
   return (
     <View style={styles.wrap}>
@@ -285,6 +303,7 @@ export default function BodyMap({
           collapsed; a tag is the selection made legible AND the way to
           take it back. */}
       <ScrollView
+        ref={tagScroll}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.tagsScroll}
@@ -310,29 +329,38 @@ export default function BodyMap({
           </Text>
         </Pressable>
         {!allOver && parts.map((part) => (
-          <Pressable
+          /* a new tag slides in from the right — the arrival is the
+             confirmation that the touch landed — and neighbours make
+             room smoothly rather than jumping */
+          <Animated.View
             key={part.label}
-            onPress={() => {
-              haptic();
-              onChange(selected.filter((x) => part.ids.indexOf(x) < 0));
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={part.label + ', marked'}
-            accessibilityHint="Removes this area"
-            style={({ pressed }) => [
-              styles.tag,
-              { backgroundColor: tint, borderColor: 'rgba(255,255,255,0.3)' },
-              pressed && { opacity: 0.7 },
-            ]}
+            entering={FadeInRight.duration(220)}
+            exiting={FadeOut.duration(140)}
+            layout={LinearTransition.duration(180)}
           >
-            <Text
-              style={[styles.tagText, { color: ink, fontWeight: '600' as const }]}
-              allowFontScaling maxFontSizeMultiplier={1.3}
-              numberOfLines={1}
+            <Pressable
+              onPress={() => {
+                haptic();
+                onChange(selected.filter((x) => part.ids.indexOf(x) < 0));
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={part.label + ', marked'}
+              accessibilityHint="Removes this area"
+              style={({ pressed }) => [
+                styles.tag,
+                { backgroundColor: tint, borderColor: 'rgba(255,255,255,0.3)' },
+                pressed && { opacity: 0.7 },
+              ]}
             >
-              {part.label}
-            </Text>
-          </Pressable>
+              <Text
+                style={[styles.tagText, { color: ink, fontWeight: '600' as const }]}
+                allowFontScaling maxFontSizeMultiplier={1.3}
+                numberOfLines={1}
+              >
+                {part.label}
+              </Text>
+            </Pressable>
+          </Animated.View>
         ))}
         {!allOver && parts.length === 0 && (
           <Text style={styles.tagHint} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -359,9 +387,13 @@ const styles = StyleSheet.create({
   viewText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   viewTextOn: { color: color.textPrimary },
   tagsScroll: { marginTop: 12, maxHeight: 40, flexGrow: 0 },
+  /* real end-padding, so the last tag rests inside the row instead of
+     being guillotined at the screen edge — a half-visible neighbour
+     while SCROLLING is the affordance; a cropped final tag at rest is
+     just a wound */
   tags: {
     flexDirection: 'row', gap: 7, alignItems: 'center',
-    paddingHorizontal: 4, minWidth: '100%', justifyContent: 'center',
+    paddingHorizontal: 16, minWidth: '100%', justifyContent: 'center',
   },
   tag: {
     minHeight: 32, paddingHorizontal: 12, justifyContent: 'center',
