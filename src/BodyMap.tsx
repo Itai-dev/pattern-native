@@ -129,9 +129,10 @@ export default function BodyMap({
      clinical instrument, and a slider would be precision the record
      cannot store. */
   const [view, setView] = useState<'front' | 'back'>('front');
-  /* fit: switch ~46pt, one tag line ~52pt; the figure takes the rest */
+  /* fit: switch ~46pt, actions ~36pt, tag line ~52pt; the figure takes
+     the rest */
   const k = Math.max(1.4, Math.min(
-    (containerHeight - 100) / 200,
+    (containerHeight - 134) / 200,
     (containerWidth - 24) / 100
   ));
   const width = 100 * k;
@@ -233,62 +234,27 @@ export default function BodyMap({
 
   return (
     <View style={styles.wrap}>
-      {/* one control row: whole-body actions flanking the view switch —
-          Clear all on the left, Select all on the right, so the row
-          reads none ← views → all */}
-      <View style={styles.topRow}>
-        <Pressable
-          onPress={() => { haptic(); onChange([]); }}
-          accessibilityRole="button"
-          accessibilityLabel="Clear all marked areas"
-          style={({ pressed }) => [styles.sideBtn, pressed && { opacity: 0.7 }]}
-        >
-          <Text style={styles.sideBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>
-            Clear all
-          </Text>
-        </Pressable>
-
-        <View style={styles.viewSwitch}>
-          {(['front', 'back'] as const).map((v) => {
-            const on = view === v;
-            return (
-              <Pressable
-                key={v}
-                onPress={() => { haptic(); setView(v); }}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-                accessibilityLabel={v === 'front' ? 'Front of the body' : 'Back of the body'}
-                style={({ pressed }) => [
-                  styles.viewItem, on && styles.viewItemOn, pressed && { opacity: 0.85 },
-                ]}
-              >
-                <Text style={[styles.viewText, on && styles.viewTextOn]}
-                  allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {v === 'front' ? 'Front' : 'Back'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Pressable
-          onPress={toggleAllOver}
-          accessibilityRole="button"
-          accessibilityState={{ selected: allOver }}
-          accessibilityLabel="Select the whole body"
-          style={({ pressed }) => [
-            styles.sideBtn,
-            allOver && { backgroundColor: tint, borderColor: 'rgba(255,255,255,0.35)' },
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Text
-            style={[styles.sideBtnText, allOver && { color: ink, fontWeight: '700' as const }]}
-            allowFontScaling maxFontSizeMultiplier={1.2}
-          >
-            Select all
-          </Text>
-        </Pressable>
+      <View style={styles.viewSwitch}>
+        {(['front', 'back'] as const).map((v) => {
+          const on = view === v;
+          return (
+            <Pressable
+              key={v}
+              onPress={() => { haptic(); setView(v); }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={v === 'front' ? 'Front of the body' : 'Back of the body'}
+              style={({ pressed }) => [
+                styles.viewItem, on && styles.viewItemOn, pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Text style={[styles.viewText, on && styles.viewTextOn]}
+                allowFontScaling maxFontSizeMultiplier={1.3}>
+                {v === 'front' ? 'Front' : 'Back'}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <GestureDetector gesture={pan}>
@@ -299,8 +265,16 @@ export default function BodyMap({
             resizeMode="stretch"
             accessible={false}
           />
+          {/* Marks are RADIATING DOTS, not filled plates: a solid core
+              with a soft halo at the region's centre, the way pain sits
+              in a place rather than armouring it. The halo is a second,
+              larger circle at low opacity — no shadows, so it renders
+              the same on every device. Touch zones stay the full
+              region rectangles underneath. */}
           {regions.map((rg, i) => {
             const on = allOver || selected.indexOf(rg.id) >= 0;
+            const d = Math.min(rg.w, rg.h) * k * 0.9;
+            const cx = (rg.x + rg.w / 2) * k, cy = (rg.y + rg.h / 2) * k;
             return (
               <Pressable
                 key={rg.id + (rg.side || '') + i}
@@ -316,19 +290,69 @@ export default function BodyMap({
                     left: rg.x * k, top: rg.y * k,
                     width: rg.w * k, height: rg.h * k,
                     borderRadius: rg.r * k, borderCurve: 'continuous',
+                    alignItems: 'center', justifyContent: 'center',
                   },
-                  on && {
-                    backgroundColor: tint, opacity: 0.92,
-                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-                  },
-                  pressed && !on && { backgroundColor: 'rgba(255,255,255,0.14)' },
-                  pressed && on && { opacity: 0.65 },
+                  pressed && !on && { backgroundColor: 'rgba(255,255,255,0.12)' },
+                  pressed && on && { opacity: 0.6 },
                 ]}
-              />
+              >
+                {on && (
+                  <>
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        position: 'absolute',
+                        left: cx - rg.x * k - d * 0.85, top: cy - rg.y * k - d * 0.85,
+                        width: d * 1.7, height: d * 1.7, borderRadius: d * 0.85,
+                        backgroundColor: tint, opacity: 0.3,
+                      }}
+                    />
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        width: d, height: d, borderRadius: d / 2,
+                        backgroundColor: tint, opacity: 0.95,
+                      }}
+                    />
+                  </>
+                )}
+              </Pressable>
             );
           })}
         </View>
       </GestureDetector>
+
+      {/* whole-body actions on their own quiet line — text, not pills:
+          they are actions on the canvas above, not peers of the view
+          switch they used to crowd */}
+      <View style={styles.actionsRow}>
+        <Pressable
+          onPress={() => { haptic(); onChange([]); }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Clear all marked areas"
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
+        >
+          <Text style={styles.actionText} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Clear all
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={toggleAllOver}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityState={{ selected: allOver }}
+          accessibilityLabel="Select the whole body"
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
+        >
+          <Text
+            style={[styles.actionText, allOver && { fontWeight: '700' as const }]}
+            allowFontScaling maxFontSizeMultiplier={1.3}
+          >
+            Select all
+          </Text>
+        </Pressable>
+      </View>
 
       {/* ── the selection, as removable tags ────────────────
           ONE line that scrolls sideways, never a stack: a dozen marks
@@ -377,6 +401,11 @@ export default function BodyMap({
             </Pressable>
           </Animated.View>
         ))}
+        {/* a spacer ELEMENT, not padding: iOS horizontal scrollers drop
+            trailing padding under some layout combinations, and a real
+            view cannot be optimised away — the last tag always rests
+            against this, never against the blade of the screen edge */}
+        <View style={{ width: 16 }} />
       </ScrollView>
     </View>
   );
@@ -385,7 +414,7 @@ export default function BodyMap({
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   viewSwitch: {
-    flexDirection: 'row',
+    flexDirection: 'row', alignSelf: 'center', marginBottom: 12,
     backgroundColor: color.bgSegmentTrack, borderRadius: 11, borderCurve: 'continuous',
     padding: 2,
   },
@@ -396,29 +425,23 @@ const styles = StyleSheet.create({
   viewItemOn: { backgroundColor: color.bgSegmentActive },
   viewText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   viewTextOn: { color: color.textPrimary },
-  topRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, marginBottom: 12,
+  actionsRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 28, marginTop: 8, minHeight: 28,
   },
-  sideBtn: {
-    minHeight: 34, paddingHorizontal: 11, justifyContent: 'center',
-    borderRadius: 17, borderCurve: 'continuous',
-    borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
-  },
-  sideBtnText: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '600' },
-  tagsScroll: { marginTop: 12, maxHeight: 40, flexGrow: 0 },
-  /* flexGrow centres a short row and — unlike a minWidth percentage —
-     reliably honours the end padding when the row overflows, so the
-     last tag rests inside the row instead of being guillotined at the
-     screen edge. A half-visible neighbour while SCROLLING is the
-     affordance; a cropped final tag at rest is just a wound. */
+  actionText: { color: color.tint, fontSize: font.footnote, fontWeight: '600' },
+  tagsScroll: { marginTop: 8, maxHeight: 44, flexGrow: 0 },
+  /* left-aligned, deliberately not centred: iOS horizontal scrollers
+     drop trailing padding when the content is centred and overflows,
+     which is exactly the cropping this row kept re-growing. Newest tags
+     arrive at the right and the row follows them, so a left start is
+     also the natural reading order. */
   tags: {
-    flexDirection: 'row', gap: 7, alignItems: 'center',
-    paddingHorizontal: 16, flexGrow: 1, justifyContent: 'center',
+    flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 20,
   },
   tag: {
-    minHeight: 32, paddingHorizontal: 12, justifyContent: 'center',
-    borderRadius: 16, borderCurve: 'continuous', borderWidth: 1,
+    minHeight: 36, paddingHorizontal: 14, justifyContent: 'center',
+    borderRadius: 18, borderCurve: 'continuous', borderWidth: 1,
   },
-  tagText: { color: color.textPrimary, fontSize: font.footnote },
+  tagText: { color: color.textPrimary, fontSize: font.subheadline },
 });
