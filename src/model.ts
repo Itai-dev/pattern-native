@@ -745,9 +745,12 @@ export function cleanModifiers(a: unknown): string[] {
   return cleanIds(a, MODIFIERIDS) || [];
 }
 
-/* ── where-step defaults: confirm, not choose ────────────────
-   Chronic pain usually lives in the same places, so the where step opens
-   with the most recent day's places already selected. */
+/* ── the last places recorded ────────────────────────────────
+   What the most recent day with an answer said, for the where step's
+   "Same as last time" shortcut. It is OFFERED and never applied: a
+   pre-ticked default gets rubber-stamped, and a record that cannot tell
+   "it hurt there today" from "it usually does and I left it alone" has
+   lost the only thing every comparison in this app is built on. */
 
 export function defaultLocs(entries: Entries, todayIso: string, horizon = 14): string[] {
   for (let back = 0; back <= horizon; back++) {

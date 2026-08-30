@@ -170,12 +170,24 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      Save. The list is on screen and Save is pressed deliberately, so what
      gets filed is still something the user looked at and agreed to — the
      thing to avoid was recording places nobody was ever shown. */
-  /* the prefill speaks the collapsed view's coarse words — sided ids
-     from body-map-era entries fold to their family. An offer to edit,
-     never a rewrite of what was recorded. */
+  /* WHERE IT HURT LAST TIME IS NOT TICKED FOR YOU. It used to be, and
+     the argument was that the list is on screen and Save is pressed
+     deliberately — but a default gets rubber-stamped, and once it does
+     the record cannot tell "it hurt there today" from "it usually hurts
+     there and I didn't untick it". That difference is the whole value of
+     the data: every comparison this app makes is between days where
+     something was true and days where it was not.
+
+     The places are still here, one explicit tap away, and the chips
+     still lead with the ones you actually use. Convenience that costs a
+     tap, rather than convenience that answers for you. */
   const [previous] = useState<string[]>(
     () => collapseSidedLocs(defaultLocs(db.getAll(), today))
   );
+  const sameAsLast = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setLoc(previous.slice());
+  };
   /* the where step's own "Show more" — separate from the feel step's,
      because opening every quality word must not silently switch the
      where question into its sided vocabulary */
@@ -233,12 +245,19 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     transform: [{ scale: (0.86 + landed.value * 0.14) * (1 + breath.value * 0.035) }],
   }));
 
-  const order: Step[] = ['pain', 'questions', 'impact', 'feel', 'where'];
+  /* WHERE comes before HOW IT FEELS. What this app is for is what
+     changes around the pain, and where it is is part of that; the words
+     for what it is like are the description, and a description is worth
+     less to a comparison than a place. The last two steps are both
+     optional either way, so the only thing the order decides is which
+     one a person answers before they stop. */
+  const order: Step[] = ['pain', 'questions', 'impact', 'where', 'feel'];
   const stepsShown = order.filter((s) => (
     s === 'questions' ? askIds.length > 0
       : s === 'impact' ? askImpact
         : true
   ));
+  const isLast = stepsShown.indexOf(step) === stepsShown.length - 1;
 
   const back = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -300,6 +319,11 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     setStep('done');
   };
 
+  /* Each step writes what it owns and then either moves on or finishes.
+     WHICH step finishes is decided by position, not by name: the last
+     two are optional and either can be last depending on what today
+     asked, and a hardcoded 'where' meant reordering them silently
+     dropped the final write. */
   const advance = () => {
     if (pain == null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -307,24 +331,18 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       db.writeMoment(today, minutes, pain, null, null, nowMeta(SCALE_VERSION));
       setWrittenAt(minutes);
       setStep(nextAfter('pain'));
-    } else if (step === 'questions') {
-      persistAnswers();
-      setStep(nextAfter('questions'));
-    } else if (step === 'impact') {
+      return;
+    }
+    if (step === 'questions') persistAnswers();
+    else if (step === 'impact') {
       /* both lists are written even when empty — "I looked and nothing
          applied" is an answer, and an ordinary day is exactly the kind
          this record is worst at keeping */
       db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
       db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
-      setStep(nextAfter('impact'));
-    } else if (step === 'feel') {
-      persist();
-      if (nextAfter('feel') === 'where' && !loc.length) setLoc(previous);
-      setStep(nextAfter('feel'));
-    } else {
-      persist({ locAsked: true });
-      finish();
-    }
+    } else if (step === 'where') persist({ locAsked: true });
+    else persist();
+    if (isLast) finish(); else setStep(nextAfter(step));
   };
 
   /* ── swiping between steps ───────────────────────────────
@@ -340,7 +358,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     && !(step === 'questions'
       && askIds.some((id) => (getMetric(id) || { type: '' }).type === 'numeric'));
   const swipeNext = () => {
-    if (step === 'where' || pain == null) return;
+    /* the last step is not swipeable: finishing a day's record should
+       never be a flick, whichever step happens to be last today */
+    if (isLast || pain == null) return;
     advance();
   };
   const stepSwipe = Gesture.Pan()
@@ -568,7 +588,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     ? 'Your read on the day — Pattern records it, it doesn’t test it'
     : step === 'questions' ? 'Optional — Skip if it doesn’t fit today'
     : step === 'feel' ? 'Optional — tap any that fit'
-      : step === 'where' ? 'Your usual places are already selected'
+      : step === 'where' ? 'Optional — only where it hurts today'
         : null;
 
   /* collapsed chips: the six you use most, plus anything already selected;
@@ -726,6 +746,24 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           contentContainerStyle={styles.sectionWrap}
           showsVerticalScrollIndicator={false}
         >
+          {/* the shortcut the prefill used to be, as a tap. It appears
+              only while nothing is chosen: once you have said where it
+              hurts, an offer to overwrite that with last time's answer
+              is a trap, not a shortcut. */}
+          {previous.length > 0 && loc.length === 0 && (
+            <Press
+              onPress={sameAsLast}
+              pressOpacity={0.7}
+              style={styles.sameAs}
+              accessibilityRole="button"
+              accessibilityLabel={'Same as last time: '
+                + previous.map((id) => LOC_NAMES[id] || id).join(', ')}
+            >
+              <Text style={styles.sameAsText} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Same as last time
+              </Text>
+            </Press>
+          )}
           <View style={styles.chipCloud}>
             {chipRow(ranked.loc, LOC_NAMES, loc, setLoc)}
           </View>
@@ -805,7 +843,11 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
                 styles.primaryText,
                 canAdvance ? styles.primaryTextOn : styles.primaryTextOff,
               ]}>
-                {step === 'where' ? 'Save today'
+                {/* DONE, not "Save": the check-in was written the moment
+                    you left the pain step, and every step since has been
+                    editing it. Nothing is pending here, so a Save button
+                    would be describing work that already happened. */}
+                {isLast ? 'Done'
                   : step === 'questions' && !anyAnswered ? 'Skip'
                     : 'Continue'}
               </Text>
@@ -939,6 +981,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', paddingVertical: 24,
   },
+  /* the shortcut, drawn as a quiet outlined pill rather than as a chip:
+     it is an action on the chips below, not one of them */
+  sameAs: {
+    alignSelf: 'center', minHeight: 38, justifyContent: 'center',
+    paddingHorizontal: 16, marginBottom: 14,
+    borderRadius: 19, borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  },
+  sameAsText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   /* the sectioned where step: a column of titled chip clouds */
   sectionWrap: { paddingVertical: 18, gap: 4 },
   sectionTitle: {
