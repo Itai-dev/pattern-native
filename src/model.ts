@@ -160,35 +160,48 @@ export const LOC_LEGACY_SIDED: Record<string, [string, string]> = {
 /* the sided pairs, for reading a selection back as a person says it —
    "Both knees" rather than "Left knee · Right knee" */
 const LOC_PAIRS: [string, string, string][] = [
-  ['shoulderL', 'shoulderR', 'Both shoulders'],
-  ['armL', 'armR', 'Both upper arms'],
-  ['elbowL', 'elbowR', 'Both elbows'],
-  ['forearmL', 'forearmR', 'Both forearms'],
-  ['wristL', 'wristR', 'Both wrists'],
-  ['handL', 'handR', 'Both hands'],
-  ['hipL', 'hipR', 'Both hips'],
-  ['thighL', 'thighR', 'Both thighs'],
-  ['kneeL', 'kneeR', 'Both knees'],
-  ['calfL', 'calfR', 'Both calves'],
-  ['ankleL', 'ankleR', 'Both ankles'],
-  ['footL', 'footR', 'Both feet'],
+  /* the pair label is the PLAIN plural — "Shoulders", not "Both
+     shoulders": on a body map, both marked already says both */
+  ['shoulderL', 'shoulderR', 'Shoulders'],
+  ['armL', 'armR', 'Upper arms'],
+  ['elbowL', 'elbowR', 'Elbows'],
+  ['forearmL', 'forearmR', 'Forearms'],
+  ['wristL', 'wristR', 'Wrists'],
+  ['handL', 'handR', 'Hands'],
+  ['hipL', 'hipR', 'Hips'],
+  ['thighL', 'thighR', 'Thighs'],
+  ['kneeL', 'kneeR', 'Knees'],
+  ['calfL', 'calfR', 'Calves'],
+  ['ankleL', 'ankleR', 'Ankles'],
+  ['footL', 'footR', 'Feet'],
 ];
 
-/** a location selection read back the way a person would say it —
- *  pairs collapse, everything else speaks its display name */
-export function readLocSelection(selected: string[]): string {
+export interface LocPart {
+  label: string;
+  /** the ids this part stands for — what removing the tag removes */
+  ids: string[];
+}
+
+/** a location selection as parts a person can read and remove — pairs
+ *  collapse to their plain plural, everything else speaks its name */
+export function readLocParts(selected: string[]): LocPart[] {
   const rest = selected.slice();
-  const parts: string[] = [];
-  LOC_PAIRS.forEach(([l, r, both]) => {
+  const parts: LocPart[] = [];
+  LOC_PAIRS.forEach(([l, r, label]) => {
     const iL = rest.indexOf(l), iR = rest.indexOf(r);
     if (iL >= 0 && iR >= 0) {
-      parts.push(both);
+      parts.push({ label, ids: [l, r] });
       rest.splice(Math.max(iL, iR), 1);
       rest.splice(Math.min(iL, iR), 1);
     }
   });
-  rest.forEach((id) => parts.push(LOC_NAMES[id] || id));
-  return parts.join(' · ');
+  rest.forEach((id) => parts.push({ label: LOC_NAMES[id] || id, ids: [id] }));
+  return parts;
+}
+
+/** the same, as one spoken string */
+export function readLocSelection(selected: string[]): string {
+  return readLocParts(selected).map((p) => p.label).join(' · ');
 }
 
 /** a location set with legacy paired ids expanded to their sides —

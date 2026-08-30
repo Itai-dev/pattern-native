@@ -674,9 +674,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           {bodyBox.w > 0 && (
             <BodyMap
               selected={loc}
-              onToggle={(id) => setLoc(
-                loc.indexOf(id) >= 0 ? loc.filter((x) => x !== id) : loc.concat(id)
-              )}
+              onChange={setLoc}
               tint={painColor(pain == null ? 5 : pain)}
               ink={inkOn(pain == null ? 5 : pain)}
               containerWidth={bodyBox.w}
