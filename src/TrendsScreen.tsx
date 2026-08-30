@@ -1019,40 +1019,49 @@ export default function TrendsScreen({
         </Card>
       )}
 
-      {/* ── where ───────────────────────────────────────────── */}
-      {data.locations.length > 0 && (
-        <Card title="Where">
-          {/* against the most-recorded area, because the question a
-              reader has here is "which of my places comes up most", not
-              "how close is my shoulder to every day of the record" */}
-          <FoldedList
-            bars
-            label="body areas"
-            items={data.locations.map((l) => ({
-              key: l.id,
-              left: l.name,
-              right: l.days + (l.days === 1 ? ' day' : ' days'),
-              frac: l.days / Math.max(1, data.locations[0].days),
-              tint: color.textPrimary,
-            }))}
-          />
-        </Card>
-      )}
-
-      {/* ── described as ────────────────────────────────────── */}
-      {data.qualities.length > 0 && (
-        <Card title="Described as">
-          <FoldedList
-            bars
-            label="words"
-            items={data.qualities.map((q) => ({
-              key: q.id,
-              left: q.name,
-              right: '×' + q.count,
-              frac: q.count / Math.max(1, data.qualities[0].count),
-              tint: color.textPrimary,
-            }))}
-          />
+      {/* ── what you recorded about it ──────────────────────
+          Where it hurt and what it felt like, in one card. They were two,
+          and two cards holding one counted list each is a card per
+          question rather than a card per subject — the reader's question
+          is "what do I say about my pain", and both answers belong under
+          it. */}
+      {(data.locations.length > 0 || data.qualities.length > 0) && (
+        <Card title="What you recorded">
+          {data.locations.length > 0 && (
+            <>
+              <Text style={styles.subhead}>Where</Text>
+              {/* against the most-recorded area, because the question a
+                  reader has here is "which of my places comes up most",
+                  not "how close is my shoulder to every day" */}
+              <FoldedList
+                bars
+                label="body areas"
+                items={data.locations.map((l) => ({
+                  key: l.id,
+                  left: l.name,
+                  right: l.days + (l.days === 1 ? ' day' : ' days'),
+                  frac: l.days / Math.max(1, data.locations[0].days),
+                  tint: color.textPrimary,
+                }))}
+              />
+            </>
+          )}
+          {data.qualities.length > 0 && (
+            <>
+              <Text style={styles.subhead}>Described as</Text>
+              <FoldedList
+                bars
+                label="words"
+                items={data.qualities.map((q) => ({
+                  key: q.id,
+                  left: q.name,
+                  right: '×' + q.count,
+                  frac: q.count / Math.max(1, data.qualities[0].count),
+                  tint: color.textPrimary,
+                }))}
+              />
+            </>
+          )}
         </Card>
       )}
 
@@ -1134,17 +1143,23 @@ export default function TrendsScreen({
         </Card>
       )}
 
-      {/* ── what you tried ──────────────────────────────────── */}
-      {tried.length > 0 && (
+      {/* ── events ──────────────────────────────────────────
+          ONE list. "What you tried" was a filtered copy of this one:
+          every event carrying an impression appeared in both cards, the
+          same evening printed twice a screen apart. The counted
+          impressions stay — that summary is the only place a run of
+          "About the same" can be seen at once — and the list under them
+          is every event, with its impression on the right where it has
+          one. */}
+      {data.events.length > 0 && (
         <Card
-          title="What you tried"
-          note="Your own impression afterwards, recorded as you gave it. Pattern doesn’t assess whether something worked."
+          title="Events"
+          note={'Events sit alongside your check-ins. Their timing doesn’t prove they caused a change.'
+            + (tried.length > 0
+              ? ' Impressions are your own, afterwards, recorded as you gave them —'
+                + ' Pattern doesn’t assess whether anything worked.'
+              : '')}
         >
-          {/* what came back, counted. The list underneath is dated and
-              specific; this is the only place the whole run of them can
-              be seen at once, and a lot of "About the same" is worth
-              being able to notice. Recorded impressions only — Pattern
-              does not assess whether anything worked. */}
           {outcomes.length > 0 && (
             <>
               <Stack segments={outcomes.map((o) => ({ key: o.key, n: o.n, tint: o.tint }))} />
@@ -1152,31 +1167,15 @@ export default function TrendsScreen({
             </>
           )}
           <FoldedList
-            label="things you tried"
-            items={tried.slice().reverse().map((ev, i) => ({
-              key: ev.id != null ? 't' + ev.id : 'ti' + i,
-              left: shortDate(ev.date) + ' · '
-                + (ev.intervention ? INTERVENTIONS[ev.intervention] || ev.intervention : EVENT_LABELS[ev.kind])
-                + (ev.text ? ' — ' + ev.text : ''),
-              right: outcomeOf(ev),
-            }))}
-          />
-        </Card>
-      )}
-
-      {/* ── events ──────────────────────────────────────────── */}
-      {data.events.length > 0 && (
-        <Card
-          title="Events"
-          note="Events sit alongside your check-ins. Their timing doesn’t prove they caused a change."
-        >
-          <FoldedList
             label="events"
             items={data.events.slice().reverse().map((ev, i) => ({
               key: ev.id != null ? 'e' + ev.id : 'ei' + i,
-              left: shortDate(ev.date) + ' ' + fmtTime(ev.h) + ' · ' + EVENT_LABELS[ev.kind]
+              left: shortDate(ev.date) + ' ' + fmtTime(ev.h) + ' · '
+                + (ev.intervention
+                  ? INTERVENTIONS[ev.intervention] || ev.intervention
+                  : EVENT_LABELS[ev.kind])
                 + (ev.text ? ' — ' + ev.text : ''),
-              right: '',
+              right: outcomeOf(ev),
             }))}
           />
         </Card>

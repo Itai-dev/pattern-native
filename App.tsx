@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
   },
   /* room at the bottom so the last content clears the floating bar, and
      a little at the top so a page never begins hard against its heading */
-  page: { paddingTop: 4, paddingBottom: 132 },
+  page: { paddingTop: 4, paddingBottom: 140 },
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

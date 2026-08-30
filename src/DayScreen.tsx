@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   pager: { flexGrow: 0 },
   /* room for the last line to clear the floating tab bar, which this
      screen keeps rather than covering */
-  page: { paddingBottom: 132 },
+  page: { paddingBottom: 140 },
 
   /* Trends' card, to the pixel — same surface, same 16pt padding, and
      below it the same type doing the same jobs: a figure is title3, a

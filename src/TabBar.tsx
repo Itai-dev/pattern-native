@@ -159,10 +159,15 @@ const styles = StyleSheet.create({
   /* A real iOS tab bar is 49pt of content sitting on the safe area, so it
      reads as roughly 83pt tall. A pill that floats has to carry that
      presence in its own height instead of borrowing it from the screen
-     edge. */
+     edge.
+
+     TWO destinations, so the pill can spend the width three were
+     sharing: taller, wider targets and type you can read without
+     leaning in. Three cramped 84pt items became two generous ones —
+     the same bar, no longer rationing itself. */
   pill: {
     flexDirection: 'row', alignItems: 'center', overflow: 'hidden',
-    borderRadius: 30, borderCurve: 'continuous', height: 60, paddingHorizontal: 5, gap: 2,
+    borderRadius: 33, borderCurve: 'continuous', height: 66, paddingHorizontal: 6, gap: 4,
   },
   /* the system material carries itself — the only paint on top is the
      hairline that catches light along the edge */
@@ -177,19 +182,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.16)',
   },
   item: {
-    minHeight: 50, minWidth: 84, borderRadius: 25, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', gap: 3,
-    paddingHorizontal: 10, paddingVertical: 5,
+    minHeight: 54, minWidth: 132, borderRadius: 27, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', gap: 4,
+    paddingHorizontal: 16, paddingVertical: 6,
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  dayGlyph: { width: 21, height: 21, borderRadius: 6, borderWidth: 1.9 },
+  dayGlyph: { width: 23, height: 23, borderRadius: 7, borderWidth: 2 },
   /* outline until chosen: the border draws the shape either way, and the
      fill arrives only with selection — a colour swap alone never says it */
   barsGlyph: {
-    width: 21, height: 21,
+    width: 23, height: 23,
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
   },
-  bar: { width: 5.5, borderRadius: 2, borderWidth: 1.6 },
-  label: { fontSize: 11, fontWeight: '600', color: color.textTertiary, letterSpacing: 0.1 },
+  bar: { width: 6, borderRadius: 2, borderWidth: 1.7 },
+  label: { fontSize: 12, fontWeight: '600', color: color.textTertiary, letterSpacing: 0.1 },
   labelActive: { color: color.textPrimary },
 });
