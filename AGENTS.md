@@ -30,6 +30,21 @@ The update command needs `EXPO_TOKEN` in the environment. Check with
 `npx eas-cli@latest whoami`; if that fails, say so and stop rather than
 committing work that cannot ship.
 
+**If `npm run verify` ends in `Error: spawn UNKNOWN`**, the export could
+not run `hermesc.exe` — Windows Application Control has blocked it. That
+is the machine owner's decision to reverse, never a build step. Publish
+from EAS's servers instead:
+
+```bash
+git push origin master
+npx eas-cli@latest workflow:run .eas/workflows/publish-update.yml
+```
+
+It publishes whatever is at the REMOTE head, so push first. It is
+manual-only and carries no `on:` trigger — see the stray-publisher
+section below for why that matters — and the head check afterwards
+applies to it exactly as to a local publish.
+
 A change to documentation alone — this file, `docs/` — is not in the bundle
 and does not need publishing. Everything else does.
 
@@ -96,6 +111,36 @@ OTA updates because the runtime never changed. The guard is load-bearing:
 an unguarded import of a native module crashes every binary that predates
 it, at launch, via OTA. Bump the runtime only for a native change the JS
 cannot guard around.
+
+## A NEW native target needs a human, once
+
+A new Xcode target — a widget extension, a watch app, an app clip —
+gets its own bundle identifier, and its own provisioning profile.
+`eas-cli` will register the identifier and sync capabilities using the
+stored App Store Connect key, but it REFUSES TO CREATE THE PROFILE
+outside an interactive terminal. It is a deliberate guard, not an
+authentication limit, and it cannot be flagged away:
+
+```
+Distribution Certificate is not validated for non-interactive builds.
+Failed to set up credentials.
+```
+
+Nothing routes around it. EAS's own build servers hit the same refusal.
+The expo.dev credentials wizard only uploads or reuses profiles — it has
+no generate. A fake TTY reaches the prompt and then asks for the Apple
+ID password, which no session may ever type.
+
+So: the owner runs `npx eas-cli@latest build --platform ios --profile
+production --auto-submit` once in their own terminal, answers yes to the
+Apple login, and lets it generate the profile. After that the profile
+lives in EAS's credentials store and every later build — from a phone,
+from a workflow, from a session with no terminal — signs that target
+without asking.
+
+Until it exists, EVERY iOS build fails. If a native target is committed
+but not yet provisioned, say so plainly and offer to comment it out of
+`app.json` rather than leaving builds broken for unrelated work.
 
 # What this app refuses to do
 
