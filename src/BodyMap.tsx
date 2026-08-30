@@ -35,7 +35,7 @@ import React, { useEffect, useRef } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  FadeInRight, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue,
+  FadeIn, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue,
   withRepeat, withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -60,10 +60,10 @@ const GLOW = require('../assets/glow.png');
    the whole difference between two small figures and two large ones on
    a phone. SPLIT is the line between them for touch: past every front
    fingertip, short of every back one. */
-const TUCK = 22;
+const TUCK = 30;
 const SPAN = 200 - TUCK;
 const BACK_OFF = 100 - TUCK;
-const SPLIT = 89;
+const SPLIT = 85;
 
 interface Region {
   id: string;          // a LOC_NAMES id — several regions may share one
@@ -352,8 +352,16 @@ export default function BodyMap({
 
   return (
     <View style={styles.wrap}>
+      {/* Slack is split ABOVE and BELOW the figures rather than pooled
+          into one gap. The figures are capped by width, not height —
+          two bodies fixed at 100 × 200 each cannot grow into spare
+          height — so on a tall phone there is always slack, and a
+          single spacer put all of it in one place, which read as a
+          hole in the middle of the step instead of as air. */}
+      <View style={styles.slack} />
+
       <GestureDetector gesture={pan}>
-        <View style={{ width, height: 200 * k, alignSelf: 'center' }}>
+        <View style={{ width, height: 200 * k, alignSelf: 'center', flexShrink: 0 }}>
           {figure(BODY_FRONT, FRONT, 0, 'front')}
           {figure(BODY_BACK, BACK, backOff, 'back')}
         </View>
@@ -372,14 +380,13 @@ export default function BodyMap({
         </Text>
       </View>
 
-      {/* any slack goes HERE, so the figures sit high and everything
-          written sits low, near the thumb and the Save button */}
-      <View style={{ flex: 1, minHeight: 4 }} />
+      <View style={styles.slack} />
 
-      {/* whole-body actions on their own quiet line — text, not pills:
-          they are actions on the canvas above, not peers of the view
-          switch they used to crowd */}
-      <View style={styles.actionsRow}>
+      {/* whole-body actions on their own quiet line — text, not pills.
+          Set to the FIGURES' width, not the screen's: they act on the
+          canvas above, and at the screen edges they read as page
+          buttons belonging to the step. */}
+      <View style={[styles.actionsRow, { width, alignSelf: 'center' }]}>
         <Pressable
           onPress={() => { haptic(); onChange([]); }}
           hitSlop={8}
@@ -409,27 +416,28 @@ export default function BodyMap({
       </View>
 
       {/* ── the selection, as removable tags ────────────────
-          ONE line that scrolls sideways, never a stack: a dozen marks
-          must not pile into the Save button below. Full words, pairs
-          collapsed; a tag is the selection made legible AND the way to
-          take it back. */}
+          Tags WRAP now, up to two lines, and scroll vertically beyond
+          that. One sideways-scrolling line kept slicing tags at the
+          edge and hid most of a dozen marks behind a gesture nobody
+          was told about; two lines show the whole selection in the
+          common case. The block shrinks before it ever pushes into the
+          Save button below. Full words, pairs collapsed; a tag is the
+          selection made legible AND the way to take it back. */}
       <ScrollView
         ref={tagScroll}
-        horizontal
-        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
         style={styles.tagsScroll}
         contentContainerStyle={styles.tags}
         accessibilityLiveRegion="polite"
       >
         {parts.map((part) => (
-          /* A new tag slides in from the right — the arrival is the
-             confirmation that the touch landed. Entering only: a layout
-             transition on the siblings fought the row's own
-             scroll-to-end inside the centred scroll content and the two
+          /* A new tag fades in — the arrival is the confirmation that
+             the touch landed. Entering only: a layout transition on the
+             siblings fought the block's own scroll-to-end and the two
              animations tore at each other. One mover at a time. */
           <Animated.View
             key={part.label}
-            entering={FadeInRight.duration(220)}
+            entering={FadeIn.duration(200)}
           >
             <Pressable
               onPress={() => {
@@ -455,18 +463,16 @@ export default function BodyMap({
             </Pressable>
           </Animated.View>
         ))}
-        {/* a spacer ELEMENT, not padding: iOS horizontal scrollers drop
-            trailing padding under some layout combinations, and a real
-            view cannot be optimised away — the last tag always rests
-            against this, never against the blade of the screen edge */}
-        <View style={{ width: 16 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1 },
+  wrap: { flex: 1, paddingBottom: 10 },
+  /* the two halves of the leftover height; equal, so the figures sit
+     centred in whatever the step has */
+  slack: { flex: 1, minHeight: 0 },
   /* each caption is placed at its own figure's offset — the figures
      overlap their empty margins, so nothing evenly spaced would land
      under them */
@@ -478,20 +484,18 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 28, marginTop: 8, minHeight: 28,
+    marginTop: 10, minHeight: 28,
   },
   actionText: { color: color.tint, fontSize: font.footnote, fontWeight: '600' },
-  /* NO maxHeight — that was the top-and-bottom cropping: scaled-up text
-     made tags taller than the cap and the scroller clipped them. The
-     row hugs whatever height its tags actually need. */
-  tagsScroll: { marginTop: 8, flexGrow: 0 },
-  /* left-aligned, deliberately not centred: iOS horizontal scrollers
-     drop trailing padding when the content is centred and overflows,
-     which is exactly the cropping this row kept re-growing. Newest tags
-     arrive at the right and the row follows them, so a left start is
-     also the natural reading order. */
+  /* Two lines of tags, then it scrolls: flexShrink lets the block give
+     its height back when the step is short, so it can never push into
+     the Save button, and the cap is generous enough that scaled-up type
+     still shows two whole rows rather than two clipped ones. */
+  tagsScroll: { marginTop: 8, flexGrow: 0, flexShrink: 1, maxHeight: 96 },
   tags: {
-    flexDirection: 'row', gap: 8, alignItems: 'center', paddingLeft: 20,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 16, paddingBottom: 4,
   },
   tag: {
     minHeight: 36, paddingHorizontal: 14, justifyContent: 'center',
