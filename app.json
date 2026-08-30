@@ -48,11 +48,13 @@
           "widgets": [
             {
               "name": "WeekWidget",
-              "displayName": "Last 7 days",
-              "description": "The shape of your week, and a tap to check in.",
+              "displayName": "Pattern",
+              "description": "What you last recorded, the shape of your week, and a tap to check in.",
               "supportedFamilies": [
                 "systemSmall",
-                "systemMedium"
+                "systemMedium",
+                "accessoryCircular",
+                "accessoryRectangular"
               ]
             }
           ]

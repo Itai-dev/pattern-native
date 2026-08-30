@@ -112,43 +112,72 @@ const walk = (node, out) => {
   return out;
 };
 
+/** every family the widget declares in app.json. Each one is a separate
+ *  branch of the same serialized function, so each one is a separate
+ *  chance to reference something that does not exist in the sandbox. */
+const FAMILIES = ['systemSmall', 'systemMedium', 'accessoryCircular', 'accessoryRectangular'];
+const textOf = (nodes) => nodes.filter((n) => n.type === 'Text')
+  .map((n) => n.props.children).join(' | ');
+
 if (render) {
   console.log('\nthe gallery preview (no props at all)');
-  let preview = null, previewErr = null;
-  try { preview = render({}, { widgetFamily: 'systemSmall' }); } catch (e) { previewErr = e; }
-  ok('renders without throwing', !previewErr, previewErr && previewErr.message);
-  if (preview) {
+  FAMILIES.forEach((fam) => {
+    let preview = null, previewErr = null;
+    try { preview = render({}, { widgetFamily: fam }); } catch (e) { previewErr = e; }
+    ok(fam + ' renders without throwing', !previewErr, previewErr && previewErr.message);
+    if (!preview) return;
     const nodes = walk(preview, []);
-    const shapes = nodes.filter((n) => n.type === 'RoundedRectangle');
-    ok('seven squares', shapes.length === 7, shapes.length);
-    ok('every square falls back to the empty-day outline', shapes.every((s) =>
-      s.props.modifiers.some((m) =>
-        m.modifier === 'foregroundStyle' && m.args[0] === '#2E2E30')));
-    ok('the caption falls back to Check in', nodes.some((n) =>
-      n.type === 'Text' && n.props.children === 'Check in'));
-    ok('the container declares its background', preview.props.modifiers.some((m) =>
+    ok(fam + ' declares its container background', preview.props.modifiers.some((m) =>
       m.modifier === 'containerBackground'));
-    ok('the whole surface is a link into the check-in', preview.props.modifiers.some((m) =>
+    ok(fam + ' is a link into the check-in', preview.props.modifiers.some((m) =>
       m.modifier === 'widgetURL' && m.args[0] === 'pattern://checkin'));
-  }
+    /* a day with nothing in it must never read as a zero — zero is a
+       real answer on this scale, and the widget has no way to say which
+       one it meant */
+    ok(fam + ' shows no number before anything is logged',
+      textOf(nodes).indexOf('0') < 0, textOf(nodes));
+    if (fam.indexOf('system') === 0) {
+      const shapes = nodes.filter((n) => n.type === 'RoundedRectangle');
+      ok(fam + ' draws seven squares', shapes.length === 7, shapes.length);
+      ok(fam + ' falls back to the empty-day outline', shapes.every((s) =>
+        s.props.modifiers.some((m) =>
+          m.modifier === 'foregroundStyle' && m.args[0] === '#2E2E30')));
+    }
+  });
 
   console.log('\na real snapshot');
   const snap = {
     d0: '#111111', d1: '#222222', d2: '#333333', d3: '#444444',
-    d4: '#555555', d5: '#666666', d6: '#777777', caption: 'Checked in today',
+    d4: '#555555', d5: '#666666', d6: '#777777',
+    w0: 'M', w1: 'T', w2: 'W', w3: 'T', w4: 'F', w5: 'S', w6: 'S',
+    caption: 'Checked in today', last: '7', word: 'Severe', at: '19:29', tint: '#AAAAAA',
   };
-  let full = null, fullErr = null;
-  try { full = render(snap, { widgetFamily: 'systemMedium' }); } catch (e) { fullErr = e; }
-  ok('renders without throwing', !fullErr, fullErr && fullErr.message);
-  if (full) {
+  FAMILIES.forEach((fam) => {
+    let full = null, fullErr = null;
+    try { full = render(snap, { widgetFamily: fam }); } catch (e) { fullErr = e; }
+    ok(fam + ' renders a snapshot without throwing', !fullErr, fullErr && fullErr.message);
+    if (!full) return;
     const nodes = walk(full, []);
-    const fills = nodes.filter((n) => n.type === 'RoundedRectangle').map((s) =>
-      s.props.modifiers.filter((m) => m.modifier === 'foregroundStyle')[0].args[0]);
-    ok('the seven colours land oldest-first', JSON.stringify(fills) === JSON.stringify(
-      ['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777']), fills);
-    ok('the caption is the snapshot caption', nodes.some((n) =>
-      n.type === 'Text' && n.props.children === 'Checked in today'));
-  }
+    const words = textOf(nodes);
+    ok(fam + ' says the number the user entered', words.indexOf('7') >= 0, words);
+    if (fam === 'systemSmall' || fam === 'systemMedium' || fam === 'accessoryRectangular') {
+      ok(fam + ' says when', words.indexOf('19:29') >= 0, words);
+    }
+    if (fam.indexOf('system') === 0) {
+      const fills = nodes.filter((n) => n.type === 'RoundedRectangle').map((s) =>
+        s.props.modifiers.filter((m) => m.modifier === 'foregroundStyle')[0].args[0]);
+      ok(fam + ' lands the seven colours oldest-first', JSON.stringify(fills) === JSON.stringify(
+        ['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777']), fills);
+      ok(fam + ' labels the days', words.indexOf('M') >= 0 && words.indexOf('W') >= 0, words);
+    }
+    /* the calm-surface rule, enforced rather than remembered: nothing
+       derived may reach a surface the user cannot dismiss */
+    ok(fam + ' shows nothing averaged, counted or compared',
+      words.toLowerCase().indexOf('average') < 0
+      && words.toLowerCase().indexOf('week') < 0
+      && words.indexOf('%') < 0
+      && words.indexOf('↑') < 0 && words.indexOf('↓') < 0, words);
+  });
 }
 
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');

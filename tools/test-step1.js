@@ -944,15 +944,42 @@ ok('the caption states, and never nudges', (() => {
   return none === 'Check in' && some === 'Checked in today'
     && !/haven|forgot|don.t|missed|streak/i.test(none + ' ' + some);
 })());
-ok('nothing in the snapshot is a pain value', (() => {
-  /* the whole point: a home screen you cannot choose not to look at gets
-     the shape of the week and no figure to read as a verdict */
+ok('the snapshot carries what the user entered — and nothing derived', (() => {
+  /* The rule the widget is held to, and the line it draws. Today's own
+     number may travel: it is what the user typed, said back to them.
+     An AVERAGE may not — a rolling figure moves on its own as an old day
+     leaves the window, which on a surface nobody can dismiss reads as
+     progress that was never made. Notes never travel at all. */
   const e = {
-    '2026-08-10': { pain: 9, cap: null, note: 'agony', logs: [{ h: 540, pain: 9 }] },
+    '2026-08-08': { pain: 2, cap: null, note: '', logs: [{ h: 540, pain: 2 }] },
+    '2026-08-10': {
+      pain: 9, cap: null, note: 'agony',
+      logs: [{ h: 540, pain: 4 }, { h: 1140, pain: 9 }],
+    },
   };
-  const c = widget.weekColors(e, '2026-08-10');
-  const blob = JSON.stringify(c) + widget.weekCaption(e, '2026-08-10');
-  return blob.indexOf('9') < 0 && blob.indexOf('agony') < 0 && !/\/10/.test(blob);
+  const s = widget.widgetSnapshot(e, '2026-08-10');
+  const blob = JSON.stringify(s);
+  return s.last === '9'                       // today's LATEST, not its peak-by-luck
+    && s.at === '19:00'
+    && s.word === scale.painLabel(9)
+    && s.tint === scale.painColor(9)
+    && blob.indexOf('agony') < 0
+    && !/avg|average|mean|trend|streak/i.test(blob);
+})());
+ok('a day with no check-in sends no number at all', (() => {
+  /* yesterday's value on today's home screen would be read as today's,
+     and a widget quietly showing the wrong day is worse than a blank one */
+  const e = {
+    '2026-08-09': { pain: 7, cap: null, note: '', logs: [{ h: 540, pain: 7 }] },
+  };
+  const s = widget.widgetSnapshot(e, '2026-08-10');
+  return s.last === '' && s.word === '' && s.at === ''
+    && s.tint === EMPTY_FILL && s.caption === 'Check in';
+})());
+ok('the seven letters are the seven days, today last', (() => {
+  /* 2026-08-10 is a Monday, so the week reads Tue…Mon */
+  const w = widget.weekLetters('2026-08-10');
+  return w.length === 7 && w.join('') === 'TWTFSSM';
 })());
 ok('the colours come from the one pain ramp, not a second one', (() => {
   const e = {
