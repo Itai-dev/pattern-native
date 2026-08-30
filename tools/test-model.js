@@ -739,6 +739,23 @@ ok('legacy pairs expand for the prefill only, sided ids pass through', (() => {
    clearing, and it survives a backup round-trip. */
 console.log('\nthe where note');
 
+ok('sided ids collapse to the coarse words, deduplicated', (() => {
+  const out = model.collapseSidedLocs(['kneeL', 'kneeR', 'wristR', 'lowerBack', 'thighL']);
+  return out.join(',') === 'knees,hands,lowerBack,legs'
+    && model.collapseSidedLocs(['belly']).join(',') === 'belly';
+})());
+ok('collapse and expand are inverse enough for the two views', (() => {
+  // coarse → sided → coarse comes home; allOver passes through both
+  const coarse = ['knees', 'lowerBack', 'allOver'];
+  const there = model.expandLegacyLocs(coarse);
+  return model.collapseSidedLocs(there).slice().sort().join(',')
+    === coarse.slice().sort().join(',');
+})());
+ok('the collapsed vocabulary is exactly the coarse ids', (() => {
+  return model.LOC_CHIP_IDS.length === 14
+    && model.LOC_CHIP_IDS.indexOf('allOver') >= 0
+    && model.LOC_CHIP_IDS.indexOf('kneeL') < 0;
+})());
 ok('the sections cover every sided id once, and no legacy pair id', (() => {
   const seen = {};
   let dup = false;

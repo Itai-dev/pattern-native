@@ -80,8 +80,9 @@ import {
   painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
-  LOC_NAMES, LOC_NOTE_MAX, LOC_SECTIONS, QUALITYIDS, QUALITY_NAMES,
-  answerOf, defaultLocs, expandLegacyLocs, logsOf, minutesNow, nowMeta, todayISO,
+  LOC_CHIP_IDS, LOC_NAMES, LOC_NOTE_MAX, LOC_SECTIONS, QUALITYIDS, QUALITY_NAMES,
+  answerOf, collapseSidedLocs, defaultLocs, expandLegacyLocs, logsOf,
+  minutesNow, nowMeta, todayISO,
 } from './model';
 
 const IMPACT_LABELS: Record<string, string> = {};
@@ -168,11 +169,16 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      Save. The list is on screen and Save is pressed deliberately, so what
      gets filed is still something the user looked at and agreed to — the
      thing to avoid was recording places nobody was ever shown. */
-  /* legacy coarse ids from older entries expand to both sides for the
-     prefill — an offer to edit, never a rewrite of what was recorded */
+  /* the prefill speaks the collapsed view's coarse words — sided ids
+     from body-map-era entries fold to their family. An offer to edit,
+     never a rewrite of what was recorded. */
   const [previous] = useState<string[]>(
-    () => expandLegacyLocs(defaultLocs(db.getAll(), today))
+    () => collapseSidedLocs(defaultLocs(db.getAll(), today))
   );
+  /* the where step's own "Show more" — separate from the feel step's,
+     because opening every quality word must not silently switch the
+     where question into its sided vocabulary */
+  const [locExpanded, setLocExpanded] = useState(false);
   /* where, in the user's own words — the precision the chips cannot
      carry. Collapsed behind a tap so the step stays a question. */
   const [locNote, setLocNote] = useState('');
@@ -182,16 +188,21 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      and the rest waits behind "Show more" — a wall of fourteen options is
      a form, five of your usual ones is a question */
   const ranked = useMemo(() => {
+    const locCount: Record<string, number> = {};
     const qCount: Record<string, number> = {};
     const all = db.getAll();
     Object.keys(all).forEach((k) => (all[k].logs || []).forEach((l) => {
+      /* sided history counts toward its coarse family, so a run of
+         "left knee" still floats the Knees chip forward */
+      collapseSidedLocs(l.loc || []).forEach((id) => { locCount[id] = (locCount[id] || 0) + 1; });
       (l.q || []).forEach((id) => { qCount[id] = (qCount[id] || 0) + 1; });
     }));
     const rank = (ids: string[], counts: Record<string, number>) =>
       ids.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-    /* where is NOT ranked: its sections are anatomical, and a body
-       does not reorder itself by frequency of complaint */
-    return { q: rank(QUALITYIDS, qCount) };
+    /* only the COLLAPSED where view ranks; the expanded sections stay
+       anatomical — a body does not reorder itself by frequency of
+       complaint */
+    return { loc: rank(LOC_CHIP_IDS, locCount), q: rank(QUALITYIDS, qCount) };
   }, []);
 
   /* the logged screen acknowledges and leaves — no button tax on every
@@ -657,34 +668,58 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
           </View>
         </ScrollView>
       ) : step === 'where' ? (
-        /* Chips again, after the body-map experiment — src/BodyMap.tsx
-           is intact and one import away, but the figures crowded a step
-           that should take five seconds. The full sided vocabulary,
-           laid out in anatomical sections the way the figure laid it
-           out in space: the eye finds "Legs and feet" the way the
-           finger found the leg. Anatomical order, never ranked — a
-           body does not reorder itself by frequency of complaint. A
-           free-text line underneath carries the precision even this
-           vocabulary cannot: "outer side of the right wrist" is the
-           user's own sentence, stored as written, parsed by nothing. */
+        /* Two levels of the same question. Collapsed: the main places,
+           your usual ones first — the daily answer in a couple of taps.
+           "Show more" opens the full sided vocabulary in anatomical
+           sections and expands the selection with it (Knees → both
+           knees), so nothing marked disappears when the words get more
+           precise. One-way within a check-in: collapsing back would
+           have to coarsen a sided choice, and no tap should quietly
+           unsay "left". A free-text line underneath carries what even
+           the sided words cannot: "outer side of the right wrist" is
+           the user's own sentence, stored as written, parsed by
+           nothing. */
         <ScrollView
           contentContainerStyle={styles.sectionWrap}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.chipCloud}>
-            {chipRow(['allOver'], LOC_NAMES, loc, setLoc)}
-          </View>
-          {LOC_SECTIONS.map((sec) => (
-            <View key={sec.title}>
-              <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {sec.title}
-              </Text>
+          {!locExpanded ? (
+            <>
               <View style={styles.chipCloud}>
-                {chipRow(sec.ids, LOC_NAMES, loc, setLoc)}
+                {chipRow(ranked.loc, LOC_NAMES, loc, setLoc)}
               </View>
-            </View>
-          ))}
+              <Press
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setLoc(expandLegacyLocs(loc));
+                  setLocExpanded(true);
+                }}
+                style={styles.more}
+                pressOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Show specific places, left and right"
+              >
+                <Text style={styles.moreText}>Show more ›</Text>
+              </Press>
+            </>
+          ) : (
+            <>
+              <View style={styles.chipCloud}>
+                {chipRow(['allOver'], LOC_NAMES, loc, setLoc)}
+              </View>
+              {LOC_SECTIONS.map((sec) => (
+                <View key={sec.title}>
+                  <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                    {sec.title}
+                  </Text>
+                  <View style={styles.chipCloud}>
+                    {chipRow(sec.ids, LOC_NAMES, loc, setLoc)}
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
           {locNoteOpen || locNote ? (
             <TextInput
               value={locNote}

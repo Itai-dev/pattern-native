@@ -225,13 +225,48 @@ export function expandLegacyLocs(ids: string[]): string[] {
   return out;
 }
 
-/* The where question, laid out as a body is: five anatomical sections
-   offering the FULL sided vocabulary. Sections are what lets thirty
-   options stay a question instead of a wall — the eye jumps to "Legs
-   and feet" the way a finger jumped to the figure's leg. The legacy
-   coarse ids (shoulders, arms, legs…) stay valid for every old entry
-   but are no longer offered: "Left knee" says more than "Knees", and
-   the pair still reads back collapsed when both are marked. */
+/* The where question speaks TWO levels of the same vocabulary.
+   Collapsed, it offers the main places — the coarse ids the record has
+   always known, enough for the daily "same as usual" answer in a
+   couple of taps. "Show more" opens the full sided vocabulary in the
+   anatomical sections below, and the current selection expands with it
+   (knees → both knees) so nothing marked ever disappears from view.
+   Whichever level is on screen at save is the level that is stored:
+   coarse when coarse was enough, sided when the user reached for it. */
+export const LOC_CHIP_IDS = [
+  'head', 'neck', 'shoulders', 'upperBack', 'lowerBack', 'arms', 'hands',
+  'chest', 'belly', 'hips', 'legs', 'knees', 'feet', 'allOver',
+];
+
+/* every sided id → the coarse family word the collapsed chips speak */
+const LOC_SIDED_FAMILY: Record<string, string> = {
+  shoulderL: 'shoulders', shoulderR: 'shoulders',
+  armL: 'arms', armR: 'arms', elbowL: 'arms', elbowR: 'arms',
+  forearmL: 'arms', forearmR: 'arms',
+  wristL: 'hands', wristR: 'hands', handL: 'hands', handR: 'hands',
+  hipL: 'hips', hipR: 'hips',
+  thighL: 'legs', thighR: 'legs', calfL: 'legs', calfR: 'legs',
+  kneeL: 'knees', kneeR: 'knees',
+  ankleL: 'feet', ankleR: 'feet', footL: 'feet', footR: 'feet',
+};
+
+/** a location set spoken in the coarse vocabulary — for the collapsed
+ *  view's prefill and ranking, so a history of "left knee" still means
+ *  the Knees chip. An offer to edit, never a rewrite: stored entries
+ *  keep whichever words they were recorded in. */
+export function collapseSidedLocs(ids: string[]): string[] {
+  const out: string[] = [];
+  ids.forEach((id) => {
+    const fam = LOC_SIDED_FAMILY[id] || id;
+    if (out.indexOf(fam) < 0) out.push(fam);
+  });
+  return out;
+}
+
+/* the expanded view: five anatomical sections offering the full sided
+   vocabulary. Sections are what lets thirty options stay a question
+   instead of a wall — the eye jumps to "Legs and feet" the way a
+   finger jumped to the figure's leg. */
 export const LOC_SECTIONS: { title: string; ids: string[] }[] = [
   { title: 'Head and neck', ids: ['head', 'neck'] },
   { title: 'Chest and belly', ids: ['chest', 'belly'] },
