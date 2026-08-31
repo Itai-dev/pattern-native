@@ -578,21 +578,28 @@ export default function App() {
                  only into empty fields — words already written win. A
                  bare "yes" to diagnosis writes nothing: a name belongs
                  there, and the Background sheet asks for it properly. */
-              if (r.duration || r.diagnosis === 'no' || r.diagnosis === 'looking') {
+              if (r.duration || r.diagnosis || r.diagnosisText) {
                 const bg = db.getBackground() || { v: 1 as const };
                 if (!bg.onset && r.duration) {
                   bg.onset = r.duration === 'weeks' ? 'Started a few weeks ago'
                     : r.duration === 'months' ? 'Going on for months'
                       : 'Going on for a year or more';
                 }
+                if (!bg.diagnoses && r.diagnosisText) bg.diagnoses = r.diagnosisText;
                 if (!bg.diagnoses && r.diagnosis === 'no') bg.diagnoses = 'No formal diagnosis';
                 if (!bg.diagnoses && r.diagnosis === 'looking') bg.diagnoses = 'Still being investigated';
                 db.setBackground(bg);
               }
-              /* straight into the first check-in — the button said so, and
-                 an introduction that ends on an empty screen has taught
-                 nothing about what the app is for */
-              setSheet('checkin');
+              /* the Health offer taken at onboarding opens the real setup
+                 first, and the first check-in follows when it closes —
+                 sequenced through onDismiss like every other sheet swap */
+              if (r.connectHealth) {
+                track('health_setup_opened');
+                afterDismiss.current = () => setSheet('checkin');
+                setHealthSheet(true);
+              } else {
+                setSheet('checkin');
+              }
             }}
           />
           <StatusBar style="light" />
@@ -712,6 +719,7 @@ export default function App() {
                 onKeepFocus={keepFocus}
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
                 onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
+                onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
               />
             </ScrollView>
 

@@ -120,6 +120,13 @@ export interface MetricDef {
   analysis: AnalysisRule;
   /** may a protocol activate this as one of its two factors? */
   protocolEligible: boolean;
+  /** What a suspicion about this factor would MEAN. An 'influence' is
+   *  an exposure that could act on pain (stress, lifting, weather); an
+   *  'accompanies' state travels WITH pain (fatigue, stiffness) and a
+   *  comparison against it reads pain↔X, not X→pain. Both are testable;
+   *  they are different questions, and blending them is how a symptom
+   *  gets mistaken for a cause. */
+  suspectKind?: 'influence' | 'accompanies';
   /** lowercase substrings the local hypothesis matcher looks for */
   keywords?: string[];
   /**
@@ -212,6 +219,7 @@ export const METRICS: MetricDef[] = [
   /* ── protocol-eligible factors ────────────────────────────── */
   {
     id: 'stress.level.v1',
+    suspectKind: 'influence',
     name: 'Stress',
     question: 'How stressed do you feel right now?',
     type: 'ordinal', scope: 'day',
@@ -223,6 +231,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'sleep.quality.v1',
+    suspectKind: 'influence',
     name: 'Sleep',
     question: 'How was your sleep last night?',
     type: 'ordinal', scope: 'day',
@@ -234,6 +243,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'fatigue.level.v1',
+    suspectKind: 'accompanies',
     name: 'Fatigue',
     question: 'How tired do you feel right now?',
     type: 'ordinal', scope: 'day',
@@ -245,6 +255,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'stiffness.level.v1',
+    suspectKind: 'accompanies',
     name: 'Stiffness',
     question: 'How stiff do you feel this morning?',
     type: 'ordinal', scope: 'day',
@@ -256,6 +267,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'load.physical.v1',
+    suspectKind: 'influence',
     name: 'Physical load',
     question: 'Compared with usual, how physically demanding has today been?',
     type: 'ordinal', scope: 'day',
@@ -268,6 +280,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'movement.amount.v1',
+    suspectKind: 'influence',
     name: 'Movement',
     question: 'Compared with usual, how much did you move today?',
     type: 'ordinal', scope: 'day',
@@ -280,6 +293,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'lifting.carrying.v1',
+    suspectKind: 'influence',
     name: 'Lifting or carrying',
     question: 'Did you lift or carry anything heavy today?',
     type: 'ordinal', scope: 'day',
@@ -292,6 +306,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'weather.felt.v1',
+    suspectKind: 'influence',
     name: 'Weather',
     question: 'Compared with usual, how did the weather feel today?',
     type: 'ordinal', scope: 'day',
@@ -303,6 +318,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'alcohol.intake.v1',
+    suspectKind: 'influence',
     name: 'Alcohol',
     question: 'Did you drink alcohol today?',
     type: 'ordinal', scope: 'day',
@@ -315,6 +331,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     id: 'recovery.practice.v1',
+    suspectKind: 'influence',
     name: 'Recovery',
     question: 'Did you do anything today to look after yourself?',
     type: 'ordinal', scope: 'day',

@@ -50,12 +50,14 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
+import BodyMap from './BodyMap';
 import { protocolFactors } from './metrics';
-import { LOC_CHIP_IDS, LOC_NAMES } from './model';
+import { collapseSidedLocs } from './model';
 import { themeBrand } from './painScale';
 import { color, font, radius, size } from './theme';
 
@@ -67,6 +69,11 @@ export interface OnboardingResult {
   /** '' when skipped */
   duration: '' | 'weeks' | 'months' | 'years';
   diagnosis: '' | 'yes' | 'no' | 'looking';
+  /** what they were diagnosed with, when diagnosis is 'yes' — a bare
+   *  yes gives the record nothing; a name gives the report page one */
+  diagnosisText: string;
+  /** they took the Apple Health offer on the final step */
+  connectHealth: boolean;
   /** protocol-eligible metric ids, in the order they were tapped —
    *  the first is what the week-later focus offer names */
   suspicions: string[];
@@ -86,10 +93,15 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [understand, setUnderstand] = useState('');
-  const [where, setWhere] = useState<string[]>([]);
   const [duration, setDuration] = useState<OnboardingResult['duration']>('');
   const [diagnosis, setDiagnosis] = useState<OnboardingResult['diagnosis']>('');
   const [suspicions, setSuspicions] = useState<string[]>([]);
+  const [diagnosisText, setDiagnosisText] = useState('');
+  const [connectHealth, setConnectHealth] = useState(false);
+  /* the body map speaks the sided vocabulary; onboarding stores the
+     coarse words the first check-in's offer uses */
+  const [mapSel, setMapSel] = useState<string[]>([]);
+  const { width: winW } = useWindowDimensions();
   const brand = themeBrand();
   /* the pool the focus flow itself draws from — one vocabulary, so a
      suspicion marked here IS a factor the offer can test later */
@@ -98,12 +110,18 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
   /* reading it again from Profile stops at the boundaries — the row says
      "what Pattern is and isn't", and re-asking the question of someone
      who answered it weeks ago is not what they tapped */
-  const lastStep = review ? 1 : 4;
+  const lastStep = review ? 1 : 5;
 
   const advance = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (step < lastStep) setStep(step + 1);
-    else onDone({ understand: understand.trim(), where, duration, diagnosis, suspicions });
+    else onDone({
+      understand: understand.trim(),
+      where: collapseSidedLocs(mapSel),
+      duration, diagnosis,
+      diagnosisText: diagnosisText.trim(),
+      suspicions, connectHealth,
+    });
   };
 
   const toggleIn = (list: string[], set: (v: string[]) => void, id: string) => {
@@ -146,16 +164,13 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               Make pain feel{'\n'}less random.
             </Text>
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              A quick daily check-in builds a clear record of how your pain
-              changes across time, body areas, and everyday context.
-            </Text>
-            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Over weeks it becomes something better than memory — and a
-              summary worth bringing to your doctor.
+              A quick check-in builds a record of how your pain changes and
+              what happens around it. Over time, Pattern helps you notice
+              relationships worth paying attention to — and makes a summary
+              you can bring to your doctor.
             </Text>
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              One answer is a complete check-in. Everything else is optional,
-              always.
+              One answer is enough. Everything else is optional, always.
             </Text>
           </>
         ) : step === 1 ? (
@@ -171,13 +186,16 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
 
             <View style={styles.card}>
               <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Don’t log it — get help
+                Know when not to log
               </Text>
+              {/* shorter, but every red flag stays: numbness, weakness,
+                  fever and bladder or bowel loss are the signs that turn
+                  back pain into an emergency, and a safety card that
+                  drops them to read nicer protects nobody */}
               <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Sudden severe pain, pain after a serious injury, chest pain, or
-                pain with numbness, weakness, fever, or loss of bladder or
-                bowel control needs a doctor or emergency services now — not a
-                check-in.
+                Sudden severe pain, chest pain, a serious injury, or pain with
+                numbness, weakness, fever, or loss of bladder or bowel control
+                needs medical attention now — not a check-in.
               </Text>
             </View>
 
@@ -197,29 +215,24 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               Where does it{'\n'}usually hurt?
             </Text>
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Tap what applies — it seeds your first check-in and the report's
-              background, nothing else. All of this is skippable.
+              Tap or sweep across the body — one or more places, or none. It
+              seeds your first check-in, nothing else.
             </Text>
-            <View style={styles.chips}>
-              {LOC_CHIP_IDS.filter((id) => id !== 'allOver').map((id) => {
-                const on = where.indexOf(id) >= 0;
-                return (
-                  <Press
-                    key={id}
-                    onPress={() => toggleIn(where, setWhere, id)}
-                    pressOpacity={0.8}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: on }}
-                    accessibilityLabel={LOC_NAMES[id]}
-                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
-                  >
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}
-                      allowFontScaling maxFontSizeMultiplier={1.3}>
-                      {LOC_NAMES[id]}
-                    </Text>
-                  </Press>
-                );
-              })}
+            {/* the body map, in the setting it was shelved FOR: the daily
+                flow needed five seconds and the figures crowded it, but
+                onboarding is the one take-your-time screen. Marks wear
+                the theme accent — there is no pain value yet for them to
+                wear. Selections store as the coarse words the check-in
+                offer speaks, via the same collapse the chips used. */}
+            <View style={{ height: 400, marginTop: 4 }}>
+              <BodyMap
+                selected={mapSel}
+                onChange={setMapSel}
+                tint={brand}
+                ink="#FFFFFF"
+                containerWidth={winW - 56}
+                containerHeight={400}
+              />
             </View>
 
             <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -265,6 +278,18 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
                 );
               })}
             </View>
+            {/* a bare yes gives the record nothing — the name is what a
+                clinician reads. Optional even once opened. */}
+            {diagnosis === 'yes' && (
+              <TextInput
+                value={diagnosisText}
+                onChangeText={setDiagnosisText}
+                placeholder="What were you diagnosed with?"
+                placeholderTextColor={color.textTertiary}
+                style={[styles.input, { minHeight: 48, marginTop: 10 }]}
+                accessibilityLabel="What were you diagnosed with?"
+              />
+            )}
           </>
         ) : step === 3 ? (
           <>
@@ -287,21 +312,31 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               accessibilityLabel="What are you trying to understand about your pain?"
             />
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Optional, and you can change it later. In about a week Pattern
-              will use it to suggest something worth watching day to day.
+              Optional, and you can change it later. Pattern will use it to
+              decide what may be worth investigating first — no promises about
+              when, because that depends on how the record grows.
             </Text>
           </>
-        ) : (
+        ) : step === 4 ? (
           <>
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
-              What do you{'\n'}already suspect?
+              What do you{'\n'}already wonder about?
             </Text>
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Mark anything you think affects your pain. Pattern won't treat
-              these as answers — they decide which questions are worth asking.
+              Mark anything you suspect. Pattern won’t treat these as answers —
+              they decide which questions are worth asking.
+            </Text>
+
+            {/* two kinds of suspicion, kept apart on purpose: an
+                influence could act ON pain; an accompanying state
+                travels WITH it, and a comparison against it asks
+                pain↔X rather than X→pain. Blending them is how a
+                symptom gets mistaken for a cause. */}
+            <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Things that might affect it
             </Text>
             <View style={styles.chips}>
-              {factors.map((m) => {
+              {factors.filter((m) => m.suspectKind === 'influence').map((m) => {
                 const on = suspicions.indexOf(m.id) >= 0;
                 return (
                   <Press
@@ -322,22 +357,77 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               })}
             </View>
 
-            {/* what Pattern will watch — SOURCES, never directions: a
-                predicted direction handed to a self-reporting person
-                biases the reports themselves, so Pattern never says
-                which way it is betting */}
+            <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Things that often come with it
+            </Text>
+            <View style={styles.chips}>
+              {factors.filter((m) => m.suspectKind === 'accompanies').map((m) => {
+                const on = suspicions.indexOf(m.id) >= 0;
+                return (
+                  <Press
+                    key={m.id}
+                    onPress={() => toggleIn(suspicions, setSuspicions, m.id)}
+                    pressOpacity={0.8}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={m.name}
+                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>
+                      {m.name}
+                    </Text>
+                  </Press>
+                );
+              })}
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Some of this can{'\n'}arrive on its own.
+            </Text>
+            {/* the permission request at the moment it has a reason —
+                "find it later in Profile" was friction wearing a
+                privacy costume. Still a choice, defaulting to no. */}
+            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Connect Apple Health and sleep and activity sit beside your
+              check-ins automatically. You choose exactly what Pattern can
+              read, nothing is written back, and it all stays on this iPhone.
+            </Text>
+            <View style={styles.chips}>
+              {([[true, 'Connect Apple Health'], [false, 'Not now']] as const).map(([v, label]) => {
+                const on = connectHealth === v;
+                return (
+                  <Press key={label}
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); setConnectHealth(v); }}
+                    pressOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={label}
+                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>{label}</Text>
+                  </Press>
+                );
+              })}
+            </View>
+
+            {/* SOURCES, never directions — a predicted direction handed
+                to a self-reporting person biases the reports themselves */}
             <View style={styles.card}>
               <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
                 What Pattern will watch
               </Text>
               <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {'Your check-ins, always. Sleep and activity arrive from Apple'
-                  + ' Health once you connect it in Profile.'
+                {'Your check-ins, always.'
+                  + (connectHealth ? ' Sleep and activity, from Apple Health.' : '')
                   + (suspicions.length
-                    ? ' In about a week, Pattern will offer to properly test '
+                    ? ' As your record grows, Pattern will offer to properly test '
                       + (factors.filter((m) => m.id === suspicions[0])[0] || { name: 'it' }).name.toLowerCase()
                       + (suspicions.length > 1 ? ' first — the rest wait their turn.' : '.')
-                    : ' In about a week, it will offer something worth testing.')}
+                    : ' As your record grows, it will offer something worth testing.')}
               </Text>
             </View>
           </>
@@ -370,7 +460,7 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
         )}
 
         <View style={styles.dots}>
-          {(review ? [0, 1] : [0, 1, 2, 3, 4]).map((i) => (
+          {(review ? [0, 1] : [0, 1, 2, 3, 4, 5]).map((i) => (
             <View
               key={i}
               style={[styles.dot, i === step && { backgroundColor: color.textSecondary }]}

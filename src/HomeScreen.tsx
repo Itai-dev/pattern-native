@@ -22,7 +22,7 @@
  * are the same on the fifth open of an afternoon as on the first; the
  * only thing that changes either of them is a check-in the user added.
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
@@ -35,6 +35,7 @@ import {
   Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, checkinCount, fmtTime,
   logsOf, todayISO,
 } from './model';
+import * as db from './db';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
 import {
   dayShape, formatCheckins, formatScore, painColor, painLabel, speakScore,
@@ -86,11 +87,13 @@ export interface HomeScreenProps {
    *  once for clutter; burying the capture turned out to be the worse
    *  trade, and one quiet row is not clutter. */
   onAddEvent: () => void;
+  /** the Background sheet, offered from here once a record exists */
+  onOpenBackground: () => void;
 }
 
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onOpenToday, onFocus, onKeepFocus,
-  onTestFactor, onAddEvent,
+  onTestFactor, onAddEvent, onOpenBackground,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -122,6 +125,19 @@ export default function HomeScreen({
   /* the focus question is worth asking only once there is a record to
      form a hypothesis about — a first-day user has nothing to suspect */
   const offerSetup = Object.keys(entries).length >= HYPOTHESIS_OFFER_AFTER_DAYS;
+
+  /* The background offer: once, after the record exists, gone forever
+     on either answer. Onboarding is the wrong home for a five-minute
+     survey — this is the right moment, when the first check-in has
+     shown what the app is and the survey has a reason. Dismissing is a
+     real no: the sheet stays reachable in Profile, and this card never
+     returns to ask again. */
+  const [bgDismissed, setBgDismissed] = useState(
+    () => db.getPref<boolean>('background.offer.dismissed', false)
+  );
+  const offerBackground = !bgDismissed
+    && Object.keys(entries).length > 0
+    && db.getBackground() == null;
 
   /* the day's shape, from the two numbers on screen: the first check-in
      of today against the latest. Nothing is stored, nothing is derived
@@ -323,6 +339,44 @@ export default function HomeScreen({
         </Text>
       </Press>
 
+      {/* ── the background offer ──────────────────────────── */}
+      {offerBackground && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Give Pattern some background
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Optional, about five minutes, in your own words. It becomes the
+            first page of the summary you share with a clinician — nothing in
+            it is analysed or compared.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={onOpenBackground}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Add my background"
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Add my background
+              </Text>
+            </Press>
+            <Press
+              onPress={() => { db.setPref('background.offer.dismissed', true); setBgDismissed(true); }}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Maybe later — the sheet stays in Profile"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Maybe later
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
       {/* ── the period, or the invitation to start one ──────
           About the record rather than about a day, which is why it sits
           outside both cards and under them. */}
@@ -361,6 +415,15 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardGap: { marginTop: 14 },
+  bgOfferBody: {
+    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8,
+  },
+  bgOfferActions: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 14,
+  },
+  bgOfferGo: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  bgOfferLater: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },
   /* the day-detail event button's spec, at the page's own gutter: an
      outlined action, deliberately quieter than the two cards above it */
   eventEntry: {
