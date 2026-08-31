@@ -198,6 +198,8 @@ export default function App() {
   const [appearance, setAppearance] = useState(false);
   const [background, setBackgroundOpen] = useState(false);
   const [about, setAbout] = useState(false);
+  /* TEMPORARY — see the "Preview onboarding" row this drives */
+  const [previewOnboarding, setPreviewOnboarding] = useState(false);
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
@@ -940,6 +942,24 @@ export default function App() {
                 </Pressable>
               </View>
 
+              {/* TEMPORARY — a look at the full onboarding flow without
+                  re-installing. Runs the real screens; onDone here just
+                  closes it and writes nothing, so previewing costs
+                  nothing to undo. Remove this row once the new steps
+                  have been seen. */}
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => setPreviewOnboarding(true)}
+                  style={[styles.row, styles.rowCentre]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Preview the onboarding flow"
+                >
+                  <Text style={{ color: color.tint, fontSize: font.body, fontWeight: '600' }}>
+                    Preview onboarding
+                  </Text>
+                </Pressable>
+              </View>
+
               <Text style={styles.groupTitle}>Your data</Text>
               <View style={styles.group}>
                 <Pressable
@@ -1032,6 +1052,17 @@ export default function App() {
                 which is why the first placement never opened */}
             <Modal visible={about} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAbout(false)}>
               <OnboardingScreen review onDone={() => setAbout(false)} />
+            </Modal>
+
+            {/* TEMPORARY — see the row above. The full five-step flow,
+                writing nothing: onDone just closes it. */}
+            <Modal
+              visible={previewOnboarding}
+              animationType="slide"
+              presentationStyle="pageSheet"
+              onRequestClose={() => setPreviewOnboarding(false)}
+            >
+              <OnboardingScreen onDone={() => setPreviewOnboarding(false)} />
             </Modal>
 
             <Modal visible={background} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setBackgroundOpen(false)}>
