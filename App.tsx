@@ -548,17 +548,44 @@ export default function App() {
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaProvider>
           <OnboardingScreen
-            onDone={(understand) => {
-              track('onboarding_completed', { wroteHypothesis: !!understand });
+            onDone={(r) => {
+              /* counts only, never content — the closed-list rule */
+              track('onboarding_completed', {
+                wroteHypothesis: !!r.understand,
+                suspicions: r.suspicions.length,
+                where: r.where.length,
+              });
               db.setPref('onboarded', true);
               setOnboarded(true);
               /* their words, verbatim, from the moment they had the
                  clearest reason to open this. The focus flow finds it a
                  week later and builds its offer on it. */
-              if (understand) {
+              if (r.understand) {
                 db.addHypothesis({
-                  createdOn: todayISO(), understand, harder: '', helps: '',
+                  createdOn: todayISO(), understand: r.understand, harder: '', helps: '',
                 });
+              }
+              /* the suspicions, in tap order — what makes the week-later
+                 focus offer specific instead of cold. Stored as metric
+                 ids, the focus flow's own vocabulary. */
+              if (r.suspicions.length) db.setPref('suspicions.v1', r.suspicions);
+              /* usual places, for the first check-in's offer — a record
+                 with no history yet has no last time to be the same as */
+              if (r.where.length) db.setPref('onboard.loc.v1', r.where);
+              /* duration and diagnosis seed the report background, and
+                 only into empty fields — words already written win. A
+                 bare "yes" to diagnosis writes nothing: a name belongs
+                 there, and the Background sheet asks for it properly. */
+              if (r.duration || r.diagnosis === 'no' || r.diagnosis === 'looking') {
+                const bg = db.getBackground() || { v: 1 as const };
+                if (!bg.onset && r.duration) {
+                  bg.onset = r.duration === 'weeks' ? 'Started a few weeks ago'
+                    : r.duration === 'months' ? 'Going on for months'
+                      : 'Going on for a year or more';
+                }
+                if (!bg.diagnoses && r.diagnosis === 'no') bg.diagnoses = 'No formal diagnosis';
+                if (!bg.diagnoses && r.diagnosis === 'looking') bg.diagnoses = 'Still being investigated';
+                db.setBackground(bg);
               }
               /* straight into the first check-in — the button said so, and
                  an introduction that ends on an empty screen has taught

@@ -14,6 +14,7 @@
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as db from './db';
 import { Press } from './motion';
 import { getMetric } from './metrics';
 import { Entries, Protocol } from './model';
@@ -103,29 +104,50 @@ export default function FocusCard({
   /* nothing running, and not enough record to have a question yet */
   if (!protocol && !offerSetup) return null;
 
-  /* nothing running — the invitation */
+  /* Nothing running — the invitation. When onboarding recorded
+     suspicions, the offer NAMES the first one still untested instead of
+     asking cold: "you suspected stress — ready to test it properly?" is
+     the whole reason the suspicions were collected. The suspicion opens
+     the picker POINTED at that factor, still a choice, never a start. */
   if (!protocol) {
+    const suspicions = db.getPref<string[]>('suspicions.v1', []);
+    /* the first suspicion NOT yet given its fourteen days — a factor a
+       past period already tested waits at the back of the line, so the
+       queue actually advances instead of re-offering the same thing */
+    const tested: Record<string, true> = {};
+    db.getProtocols().forEach((pr) => { tested[pr.chosenFactor] = true; });
+    const suspect = suspicions
+      .filter((id) => !tested[id])
+      .map((id) => getMetric(id))
+      .filter((m) => !!m)[0] || null;
     return (
       <>
         <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
           Your focus
         </Text>
         <Press
-          onPress={onStart}
+          onPress={() => (suspect ? onTest(suspect.id) : onStart())}
           pressOpacity={0.85}
           style={styles.card}
           accessibilityRole="button"
-          accessibilityLabel="Choose what to watch for the next fourteen days"
+          accessibilityLabel={suspect
+            ? 'Test whether ' + suspect.name + ' moves with your pain'
+            : 'Choose what to watch for the next fourteen days'}
         >
           <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-            What do you want to understand?
+            {suspect
+              ? 'You suspected ' + suspect.name.toLowerCase()
+              : 'What do you want to understand?'}
           </Text>
           <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Pick one thing to watch alongside your pain, and Pattern will keep
-            asking about it the same way for fourteen days.
+            {suspect
+              ? 'Ready to test it properly? Pattern asks about it the same way '
+                + 'for fourteen days, then says what the answers actually show.'
+              : 'Pick one thing to watch alongside your pain, and Pattern will keep '
+                + 'asking about it the same way for fourteen days.'}
           </Text>
           <Text style={styles.cardAction} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Choose a focus →
+            {suspect ? 'Test ' + suspect.name.toLowerCase() + ' →' : 'Choose a focus →'}
           </Text>
         </Press>
       </>

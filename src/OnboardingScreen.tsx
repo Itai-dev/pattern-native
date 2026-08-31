@@ -9,7 +9,24 @@
  * tool they have not used. The focus question waits a week for exactly
  * this reason; the reminder question waits until after the first log.
  *
- * So: what it is for, what it is not, one question, and out of the way.
+ * So: what it is for, what it is not, a few questions that are cheap to
+ * answer on day zero, and out of the way — still under two minutes, and
+ * every answer skippable by the same button that submits it.
+ *
+ * THE NEW QUESTIONS EARN THEIR PLACE THE SAME WAY the understand
+ * question always did: they are answerable before the app has been
+ * used, and they ask for no commitment. Where it hurts and how long
+ * seeds the first check-in's usual-places offer and the report's
+ * background. WHAT YOU SUSPECT is the one that matters most — the
+ * suspicions are stored, and when the focus offer arrives a week in,
+ * it names the thing the person already suspected instead of asking
+ * cold. What onboarding still does NOT do is start daily questions:
+ * committing to a question a day before answering anything once is
+ * committing to a tool you have not used, and the suspicions do not
+ * change that — they only make the later offer specific. Nor does the
+ * closing line predict a DIRECTION: telling a self-reporting person
+ * what you expect biases the reports themselves, so Pattern says what
+ * it will watch and never which way it is betting.
  *
  * THE ONE QUESTION IS THE EXCEPTION, and it earns it by asking for
  * nothing. "What are you trying to understand about your pain?" is
@@ -37,13 +54,27 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
+import { protocolFactors } from './metrics';
+import { LOC_CHIP_IDS, LOC_NAMES } from './model';
 import { themeBrand } from './painScale';
 import { color, font, radius, size } from './theme';
 
+export interface OnboardingResult {
+  /** whatever they typed, trimmed; empty when skipped */
+  understand: string;
+  /** coarse location ids — the first check-in's usual-places offer */
+  where: string[];
+  /** '' when skipped */
+  duration: '' | 'weeks' | 'months' | 'years';
+  diagnosis: '' | 'yes' | 'no' | 'looking';
+  /** protocol-eligible metric ids, in the order they were tapped —
+   *  the first is what the week-later focus offer names */
+  suspicions: string[];
+}
+
 export interface OnboardingScreenProps {
-  /** finished — record it and open the first check-in. `understand` is
-   *  whatever they typed, trimmed; empty when skipped. */
-  onDone: (understand: string) => void;
+  /** finished — record it and open the first check-in */
+  onDone: (result: OnboardingResult) => void;
   /** Reading it again from Profile, not arriving for the first time. The
      spec requires the urgent-care guidance to stay reachable, and a
      safety card shown once and never again is not reachable — it is
@@ -53,19 +84,31 @@ export interface OnboardingScreenProps {
 
 export default function OnboardingScreen({ onDone, review }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [step, setStep] = useState(0);
   const [understand, setUnderstand] = useState('');
+  const [where, setWhere] = useState<string[]>([]);
+  const [duration, setDuration] = useState<OnboardingResult['duration']>('');
+  const [diagnosis, setDiagnosis] = useState<OnboardingResult['diagnosis']>('');
+  const [suspicions, setSuspicions] = useState<string[]>([]);
   const brand = themeBrand();
+  /* the pool the focus flow itself draws from — one vocabulary, so a
+     suspicion marked here IS a factor the offer can test later */
+  const factors = protocolFactors();
 
   /* reading it again from Profile stops at the boundaries — the row says
      "what Pattern is and isn't", and re-asking the question of someone
      who answered it weeks ago is not what they tapped */
-  const lastStep = review ? 1 : 2;
+  const lastStep = review ? 1 : 4;
 
   const advance = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    if (step < lastStep) setStep((step + 1) as 0 | 1 | 2);
-    else onDone(understand.trim());
+    if (step < lastStep) setStep(step + 1);
+    else onDone({ understand: understand.trim(), where, duration, diagnosis, suspicions });
+  };
+
+  const toggleIn = (list: string[], set: (v: string[]) => void, id: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    set(list.indexOf(id) >= 0 ? list.filter((x) => x !== id) : list.concat(id));
   };
 
   return (
@@ -148,7 +191,82 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               </Text>
             </View>
           </>
-        ) : (
+        ) : step === 2 ? (
+          <>
+            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Where does it{'\n'}usually hurt?
+            </Text>
+            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Tap what applies — it seeds your first check-in and the report's
+              background, nothing else. All of this is skippable.
+            </Text>
+            <View style={styles.chips}>
+              {LOC_CHIP_IDS.filter((id) => id !== 'allOver').map((id) => {
+                const on = where.indexOf(id) >= 0;
+                return (
+                  <Press
+                    key={id}
+                    onPress={() => toggleIn(where, setWhere, id)}
+                    pressOpacity={0.8}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={LOC_NAMES[id]}
+                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>
+                      {LOC_NAMES[id]}
+                    </Text>
+                  </Press>
+                );
+              })}
+            </View>
+
+            <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
+              How long has this been going on?
+            </Text>
+            <View style={styles.chips}>
+              {([['weeks', 'A few weeks'], ['months', 'Months'], ['years', 'A year or more']] as const).map(([id, label]) => {
+                const on = duration === id;
+                return (
+                  <Press key={id}
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); setDuration(on ? '' : id); }}
+                    pressOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={label}
+                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>{label}</Text>
+                  </Press>
+                );
+              })}
+            </View>
+
+            <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Do you have a diagnosis?
+            </Text>
+            <View style={styles.chips}>
+              {([['yes', 'Yes'], ['no', 'No'], ['looking', 'Still looking']] as const).map(([id, label]) => {
+                const on = diagnosis === id;
+                return (
+                  <Press key={id}
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); setDiagnosis(on ? '' : id); }}
+                    pressOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={label}
+                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>{label}</Text>
+                  </Press>
+                );
+              })}
+            </View>
+          </>
+        ) : step === 3 ? (
           <>
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
               What do you want{'\n'}to understand?
@@ -173,6 +291,56 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               will use it to suggest something worth watching day to day.
             </Text>
           </>
+        ) : (
+          <>
+            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+              What do you{'\n'}already suspect?
+            </Text>
+            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Mark anything you think affects your pain. Pattern won't treat
+              these as answers — they decide which questions are worth asking.
+            </Text>
+            <View style={styles.chips}>
+              {factors.map((m) => {
+                const on = suspicions.indexOf(m.id) >= 0;
+                return (
+                  <Press
+                    key={m.id}
+                    onPress={() => toggleIn(suspicions, setSuspicions, m.id)}
+                    pressOpacity={0.8}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={m.name}
+                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>
+                      {m.name}
+                    </Text>
+                  </Press>
+                );
+              })}
+            </View>
+
+            {/* what Pattern will watch — SOURCES, never directions: a
+                predicted direction handed to a self-reporting person
+                biases the reports themselves, so Pattern never says
+                which way it is betting */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
+                What Pattern will watch
+              </Text>
+              <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {'Your check-ins, always. Sleep and activity arrive from Apple'
+                  + ' Health once you connect it in Profile.'
+                  + (suspicions.length
+                    ? ' In about a week, Pattern will offer to properly test '
+                      + (factors.filter((m) => m.id === suspicions[0])[0] || { name: 'it' }).name.toLowerCase()
+                      + (suspicions.length > 1 ? ' first — the rest wait their turn.' : '.')
+                    : ' In about a week, it will offer something worth testing.')}
+              </Text>
+            </View>
+          </>
         )}
       </ScrollView>
 
@@ -195,14 +363,14 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
 
         {/* the question is genuinely skippable, and says so — a blank
             answer walks through the same button */}
-        {step === 2 && !understand.trim() && (
+        {step === 3 && !understand.trim() && (
           <Text style={styles.skipHint} allowFontScaling maxFontSizeMultiplier={1.3}>
             Leave it blank if you’d rather just start.
           </Text>
         )}
 
         <View style={styles.dots}>
-          {(review ? [0, 1] : [0, 1, 2]).map((i) => (
+          {(review ? [0, 1] : [0, 1, 2, 3, 4]).map((i) => (
             <View
               key={i}
               style={[styles.dot, i === step && { backgroundColor: color.textSecondary }]}
@@ -251,6 +419,17 @@ const styles = StyleSheet.create({
   },
   dot: {
     width: 6, height: 6, borderRadius: 3, backgroundColor: color.borderControl,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  chip: {
+    paddingVertical: 9, paddingHorizontal: 14, borderRadius: 19, borderCurve: 'continuous',
+    borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
+  },
+  chipText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '500' },
+  chipTextOn: { color: '#FFFFFF', fontWeight: '600' },
+  smallQ: {
+    color: color.textPrimary, fontSize: font.body, fontWeight: '600',
+    marginTop: 22, marginBottom: 8,
   },
   input: {
     marginTop: 6, minHeight: 92, borderRadius: 14, borderCurve: 'continuous', padding: 14,

@@ -200,9 +200,16 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      The places are still here, one explicit tap away, and the chips
      still lead with the ones you actually use. Convenience that costs a
      tap, rather than convenience that answers for you. */
-  const [previous] = useState<string[]>(
-    () => collapseSidedLocs(defaultLocs(db.getAll(), today))
-  );
+  /* The offer's SOURCE decides its words. History says "same as last
+     time"; before any history exists, the places named at onboarding
+     stand in, and the pill says "your usual places" instead — there is
+     no last time to be the same as, and a pill should not claim one. */
+  const [prev] = useState<{ ids: string[]; fromHistory: boolean }>(() => {
+    const fromLogs = collapseSidedLocs(defaultLocs(db.getAll(), today));
+    if (fromLogs.length) return { ids: fromLogs, fromHistory: true };
+    return { ids: db.getPref<string[]>('onboard.loc.v1', []), fromHistory: false };
+  });
+  const previous = prev.ids;
   const sameAsLast = () => {
     Haptics.selectionAsync().catch(() => {});
     setLoc(previous.slice());
@@ -776,11 +783,11 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
               pressOpacity={0.7}
               style={styles.sameAs}
               accessibilityRole="button"
-              accessibilityLabel={'Same as last time: '
+              accessibilityLabel={(prev.fromHistory ? 'Same as last time: ' : 'Your usual places: ')
                 + previous.map((id) => LOC_NAMES[id] || id).join(', ')}
             >
               <Text style={styles.sameAsText} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Same as last time
+                {prev.fromHistory ? 'Same as last time' : 'Your usual places'}
               </Text>
             </Press>
           )}
