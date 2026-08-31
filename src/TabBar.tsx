@@ -32,9 +32,8 @@ import { color } from './theme';
 export type Tab = 'today' | 'trends';
 
 /** Left to right, and the same order the pages sit in. TWO tabs: Today
- *  is where you act, and Trends is the record — the calendar of every day
- *  and what those days add up to, which used to be split across two tabs
- *  that each held half the answer. */
+ *  is where you act, and Patterns is what the record is
+ *  beginning to show — findings first, description folded beneath. */
 export const TAB_ORDER: Tab[] = ['today', 'trends'];
 
 export interface TabBarProps {
@@ -88,7 +87,10 @@ function TrendsGlyph({ active }: { active: boolean }) {
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
-  { key: 'trends', label: 'Record' },
+  /* Patterns, not Record: "here is everything you entered" is a
+     spreadsheet's promise, and "here is what you're beginning to
+     learn" is this app's */
+  { key: 'trends', label: 'Patterns' },
 ];
 
 function glyphFor(key: Tab, active: boolean) {

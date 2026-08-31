@@ -623,7 +623,7 @@ export default function App() {
                   now fixed on today, and a heading that names the day is
                   the one thing on it that a person reads back weeks later
                   in a screenshot and can still place */}
-              {tab === 'today' ? fmtDay(todayISO()) : 'Record'}
+              {tab === 'today' ? fmtDay(todayISO()) : 'Patterns'}
             </Text>
             <View style={styles.topActions}>
               {tab === 'today' && (
@@ -738,6 +738,8 @@ export default function App() {
                 onOpenDay={openDay}
                 onSpanChange={setTrendsSpan}
                 healthNoticed={healthNoticed}
+                onShare={shareTrends}
+                sharing={sharing}
                 protocol={protocol}
               />
             </ScrollView>

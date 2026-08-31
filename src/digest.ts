@@ -115,13 +115,23 @@ export function progressCard(f: FactorProgress): DigestCard | null {
   const shortLow = Math.max(0, f.needed - f.lowCount);
   const shortHigh = Math.max(0, f.needed - f.highCount);
   const remaining = Math.max(shortLow, shortHigh);
+  /* the factor is the headline and the mechanics are the small print —
+     "Sleep / not enough data yet / 3 more poor days needed" reads as
+     learning about yourself; "about 5 answers from a comparison" read
+     as feeding an algorithm */
+  const need: string[] = [];
+  if (shortLow > 0) need.push(shortLow + ' more ' + f.lowLabel.toLowerCase()
+    + ' ' + (shortLow === 1 ? 'day' : 'days'));
+  if (shortHigh > 0) need.push(shortHigh + ' more ' + f.highLabel.toLowerCase()
+    + ' ' + (shortHigh === 1 ? 'day' : 'days'));
   return {
     key: 'progress.' + f.metricId,
-    title: f.name + ' is about ' + remaining + ' '
-      + (remaining === 1 ? 'answer' : 'answers') + ' from a comparison.',
-    evidence: 'Pattern needs around ' + f.needed + ' ' + f.lowLabel.toLowerCase()
-      + ' days and ' + f.needed + ' ' + f.highLabel.toLowerCase()
-      + ' — you have ' + f.lowCount + ' and ' + f.highCount + ' so far.',
+    title: f.name,
+    evidence: (remaining <= 2 ? 'Almost comparable — ' : 'Not enough data yet — ')
+      + need.join(' and ') + ' needed.',
+    caveat: 'So far: ' + f.lowCount + ' ' + f.lowLabel.toLowerCase() + ', '
+      + f.highCount + ' ' + f.highLabel.toLowerCase()
+      + '. Pattern needs around ' + f.needed + ' of each.',
   };
 }
 

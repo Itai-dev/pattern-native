@@ -77,6 +77,10 @@ export interface TrendsScreenProps {
   /** the active observation period, for the progress cards — what a
    *  check-in is currently buying */
   protocol?: Protocol | null;
+  /** the PDF, from its natural home at the foot of the screen — the
+   *  handoff is the destination of everything above it */
+  onShare?: () => void;
+  sharing?: boolean;
 }
 
 function Metric({ label, value, sub, onPress }: {
@@ -700,13 +704,16 @@ const digestStyles = StyleSheet.create({
 
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
-  healthNoticed, protocol,
+  healthNoticed, protocol, onShare, sharing,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
      day — a fixed window that happens to miss the days someone logged
      reads as "nothing here", which is exactly the bug report it
      generated. Narrower ranges are for leaning in, not landing on. */
   const [rangeKey, setRangeKey] = useState('a');
+  /* the descriptive tail, folded — counts of places, words and times
+     are the record's appendix, not its findings */
+  const [profileOpen, setProfileOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -826,7 +833,20 @@ export default function TrendsScreen({
           this screen — a map of days, so it lives inside the card that
           draws days, not as a section of its own). A calendar square
           opens its day. */}
-      <Card title={data.limited ? 'Pain recorded so far' : 'Pain over time'}>
+      <Card title={data.limited ? 'Pain recorded so far' : 'Your pain'}>
+      {/* the two figures a reader wants before any drawing — and only
+          those two. The tally of check-ins is the appendix's business:
+          nobody needs to be told how productive they were at feeding
+          the app. */}
+      <View style={styles.painHead}>
+        <Text style={styles.painAvg} allowFontScaling maxFontSizeMultiplier={1.3}>
+          {formatScore(data.avg)}
+          <Text style={styles.painAvgUnit}>  average · {painLabel(data.avg)}</Text>
+        </Text>
+        <Text style={styles.painDays} allowFontScaling maxFontSizeMultiplier={1.3}>
+          {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} recorded
+        </Text>
+      </View>
       {ranges.length > 1 && (
       <View style={styles.segment}>
         {ranges.map((r) => {
@@ -865,6 +885,34 @@ export default function TrendsScreen({
       {!!data.halves && (
         <Direction first={data.halves.first} second={data.halves.second} />
       )}
+
+      {/* the extremes, as doors — a summary that names a day opens it */}
+      <View style={styles.extremes}>
+        <Press
+          onPress={() => onOpenDay(data.lowestDayDate)}
+          pressOpacity={0.7}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={'Lowest day, ' + formatScore(data.lowestDay)
+            + ', ' + shortDate(data.lowestDayDate) + '. Opens this day'}
+        >
+          <Text style={styles.extremeText} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Lowest {formatScore(data.lowestDay)} · {shortDate(data.lowestDayDate)} ›
+          </Text>
+        </Press>
+        <Press
+          onPress={() => onOpenDay(data.highestDayDate)}
+          pressOpacity={0.7}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={'Highest day, ' + formatScore(data.highestDay)
+            + ', ' + shortDate(data.highestDayDate) + '. Opens this day'}
+        >
+          <Text style={styles.extremeText} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Highest {formatScore(data.highestDay)} · {shortDate(data.highestDayDate)} ›
+          </Text>
+        </Press>
+      </View>
       </Card>
 
 
@@ -883,7 +931,7 @@ export default function TrendsScreen({
         const c = healthNoticed.best ? associationCopy(healthNoticed.best) : null;
         if (!c && !healthNoticed.fading.length) return null;
         return (
-          <Card title="What Pattern noticed">
+          <Card title="Patterns worth watching">
             {c && healthNoticed.best ? (
               <>
                 <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -969,7 +1017,14 @@ export default function TrendsScreen({
           this is the honest version of a reward, and it moves only when
           data does. */}
       {buys.length > 0 && (
-        <Card title="What a check-in is buying">
+        <Card title="Pattern is still learning">
+          {/* progress lives INSIDE the thing being investigated — a
+              factor, its status, what it still needs — instead of a
+              card about sampling mechanics */}
+          <Text style={styles.noteLine}>
+            You’re building enough comparable days to test what you suspect.
+            Nothing is claimed until a comparison actually holds.
+          </Text>
           {buys.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
           <Text style={styles.noteLine}>
             Counts move only when you add a check-in — nothing here changes on
@@ -977,6 +1032,51 @@ export default function TrendsScreen({
           </Text>
         </Card>
       )}
+
+      {/* ── what you noticed ─────────────────────────────────
+          The user's own reads, and NEVER blended with findings: these
+          are hypotheses, and the engines test them. The two kinds of
+          evidence stay visually and verbally apart. */}
+      {(data.flagged.worse.length > 0 || data.flagged.better.length > 0) && (
+        <Card
+          title="What you noticed"
+          note="Things you felt affected your pain, counted — not a comparison. A thing only lands here on days you already suspected it, so there are no days without it to weigh against. Pattern tests what you notice against your record — a noticing becomes a finding only after its fourteen days of being asked properly."
+        >
+          {data.flagged.worse.length > 0 && (
+            <>
+              <Text style={styles.subhead}>Made it harder</Text>
+              <FoldedList
+                bars
+                label="things"
+                items={data.flagged.worse.map((f) => ({
+                  key: 'w' + f.id,
+                  left: f.name,
+                  right: f.days + (f.days === 1 ? ' day' : ' days'),
+                  frac: f.days / Math.max(1, data.flagged.worse[0].days),
+                  tint: color.textPrimary,
+                }))}
+              />
+            </>
+          )}
+          {data.flagged.better.length > 0 && (
+            <>
+              <Text style={styles.subhead}>Helped</Text>
+              <FoldedList
+                bars
+                label="things"
+                items={data.flagged.better.map((f) => ({
+                  key: 'b' + f.id,
+                  left: f.name,
+                  right: f.days + (f.days === 1 ? ' day' : ' days'),
+                  frac: f.days / Math.max(1, data.flagged.better[0].days),
+                  tint: color.textPrimary,
+                }))}
+              />
+            </>
+          )}
+        </Card>
+      )}
+
 
       {/* THE COUNT THAT GOES UP as things get better — promoted to the
           top of the charts, above the falling line, so the screen's
@@ -1003,36 +1103,6 @@ export default function TrendsScreen({
       )}
 
       {/* ── the numbers ─────────────────────────────────────── */}
-      <Card title="Your record">
-        {/* the scale, said once, so no figure on this screen has to
-            carry "/10" on its back to be understood */}
-        <Text style={styles.rangeLine}>Pain is 0–10, where 0 is no pain</Text>
-        <View style={styles.metrics}>
-          <Metric label="Average pain" value={formatScore(data.avg)} sub={painLabel(data.avg)} />
-          <Metric
-            label="Lowest day"
-            value={formatScore(data.lowestDay)}
-            sub={shortDate(data.lowestDayDate)}
-            onPress={() => onOpenDay(data.lowestDayDate)}
-          />
-          <Metric
-            label="Highest day"
-            value={formatScore(data.highestDay)}
-            sub={shortDate(data.highestDayDate)}
-            onPress={() => onOpenDay(data.highestDayDate)}
-          />
-          <Metric label="Logged days" value={String(data.loggedDays)} />
-          <Metric label="Check-ins" value={String(data.totalCheckins)} />
-          {data.goalText != null && data.latestAbility != null && (
-            <Metric
-              label="Weekly ability"
-              value={String(data.latestAbility.ability)}
-              sub={data.goalText}
-            />
-          )}
-        </View>
-      </Card>
-
       {/* ── the two ends ────────────────────────────────────── */}
       {!!data.harderEasier && (
         <Card
@@ -1092,149 +1162,97 @@ export default function TrendsScreen({
         </Card>
       )}
 
-      {/* ── time of day ─────────────────────────────────────── */}
-      {data.timeOfDay.length > 0 && (
-        <Card
-          title="Time of day"
-          note="The average of the check-ins you recorded in each part of the day, with how many are behind it. It reflects when you checked in — not a claim about when your pain is worst."
-        >
-          {/* bars run against the full 0–10 scale rather than against
-              the highest band, so a day whose parts sit at 4, 5 and 6
-              does not draw as if the evening were three times the
-              morning. The comparison being invited is real. */}
-          {data.timeOfDay.map((b) => (
-            <BarRow
-              key={b.key}
-              label={b.label}
-              sub={b.range + ' · ' + b.checkins
-                + (b.checkins === 1 ? ' check-in' : ' check-ins')}
-              right={formatScore(b.avg)}
-              frac={b.avg / 10}
-              tint={painColor(b.avg)}
-            />
-          ))}
-        </Card>
-      )}
-
-      {/* ── what you recorded about it ──────────────────────
-          Where it hurt and what it felt like, in one card. They were two,
-          and two cards holding one counted list each is a card per
-          question rather than a card per subject — the reader's question
-          is "what do I say about my pain", and both answers belong under
-          it. */}
-      {(data.locations.length > 0 || data.qualities.length > 0) && (
-        <Card title="What you recorded">
+      {/* ── your pain profile ───────────────────────────
+          The descriptive tail in one compact card: the counts of
+          places, words and times are the appendix of a record, not its
+          findings, and five stat boxes were letting them dress as
+          insight. The face says the most common few; details unfold for
+          anyone who wants the full tables. */}
+      {(data.locations.length > 0 || data.qualities.length > 0 || data.timeOfDay.length > 0) && (
+        <Card title="Your pain profile">
           {data.locations.length > 0 && (
-            <>
-              <Text style={styles.subhead}>Where</Text>
-              {/* against the most-recorded area, because the question a
-                  reader has here is "which of my places comes up most",
-                  not "how close is my shoulder to every day" */}
-              <FoldedList
-                bars
-                label="body areas"
-                items={data.locations.map((l) => ({
-                  key: l.id,
-                  left: l.name,
-                  right: l.days + (l.days === 1 ? ' day' : ' days'),
-                  frac: l.days / Math.max(1, data.locations[0].days),
-                  tint: color.textPrimary,
-                }))}
-              />
-            </>
+            <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+              <Text style={styles.profileKey}>Most recorded areas   </Text>
+              {data.locations.slice(0, 3).map((l) => l.name).join(' · ')}
+            </Text>
           )}
           {data.qualities.length > 0 && (
-            <>
-              <Text style={styles.subhead}>Described as</Text>
-              <FoldedList
-                bars
-                label="words"
-                items={data.qualities.map((q) => ({
-                  key: q.id,
-                  left: q.name,
-                  right: '×' + q.count,
-                  frac: q.count / Math.max(1, data.qualities[0].count),
-                  tint: color.textPrimary,
-                }))}
-              />
-            </>
+            <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+              <Text style={styles.profileKey}>Most used words   </Text>
+              {data.qualities.slice(0, 3).map((q) => q.name).join(' · ')}
+            </Text>
           )}
-        </Card>
-      )}
-
-      {/* ── what you pointed at ─────────────────────────────── */}
-      {(data.flagged.worse.length > 0 || data.flagged.better.length > 0) && (
-        <Card
-          title="What you pointed at"
-          note="This is your read on those days, counted — not a comparison. A thing only lands here on days you already suspected it, so there are no days without it to weigh against. Pattern will offer to ask about something properly once you’ve pointed at it enough times."
-        >
-          {data.flagged.worse.length > 0 && (
-            <>
-              <Text style={styles.subhead}>Made it harder</Text>
-              <FoldedList
-                bars
-                label="things"
-                items={data.flagged.worse.map((f) => ({
-                  key: 'w' + f.id,
-                  left: f.name,
-                  right: f.days + (f.days === 1 ? ' day' : ' days'),
-                  frac: f.days / Math.max(1, data.flagged.worse[0].days),
-                  tint: color.textPrimary,
-                }))}
-              />
-            </>
-          )}
-          {data.flagged.better.length > 0 && (
-            <>
-              <Text style={styles.subhead}>Helped</Text>
-              <FoldedList
-                bars
-                label="things"
-                items={data.flagged.better.map((f) => ({
-                  key: 'b' + f.id,
-                  left: f.name,
-                  right: f.days + (f.days === 1 ? ' day' : ' days'),
-                  frac: f.days / Math.max(1, data.flagged.better[0].days),
-                  tint: color.textPrimary,
-                }))}
-              />
-            </>
-          )}
-        </Card>
-      )}
-
-      {/* ── function ────────────────────────────────────────── */}
-      {!!data.goalText && (
-        <Card
-          title="Function"
-          note="Ability is a separate scale from pain, and a higher number is better. The two are never averaged together."
-        >
-          <Text style={styles.bodyText}>
-            {data.goalText}
-            {data.latestAbility
-              ? ' — latest weekly ability ' + data.latestAbility.ability
-              : ' — no weekly ratings yet'}
-            {data.abilityChange && !data.limited
-              ? '. Since the first rating: ' + data.abilityChange.first.ability
-                + ' → ' + data.abilityChange.last.ability + '.'
-              : '.'}
+          <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+            <Text style={styles.profileKey}>The record   </Text>
+            {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} · {data.totalCheckins}{' '}
+            {data.totalCheckins === 1 ? 'check-in' : 'check-ins'}
           </Text>
-          {/* the one chart on this screen where a rising column is
-              straightforwardly good news — and the reason it is drawn in
-              the interface tint rather than the pain ramp. Borrowing those
-              hues would say a high ability was a bad day. */}
-          {data.func.length > 1 && (
+          {!profileOpen ? (
+            <Press
+              onPress={() => setProfileOpen(true)}
+              pressOpacity={0.7}
+              style={styles.more}
+              accessibilityRole="button"
+              accessibilityLabel="Show the full tables of areas, words and times of day"
+            >
+              <Text style={styles.moreText}>Show details ›</Text>
+            </Press>
+          ) : (
             <>
-              <Columns
-                tint={color.textPrimary}
-                values={data.func.map((f) => ({ key: f.week, v: f.ability }))}
-              />
-              <View style={styles.chartAxis}>
-                <Text style={styles.axisText}>{shortDate(data.func[0].week)}</Text>
-                <Text style={styles.axisText}>
-                  {shortDate(data.func[data.func.length - 1].week)} · higher is better
-                </Text>
-              </View>
+              {data.locations.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>Where</Text>
+                  <FoldedList
+                    bars
+                    label="body areas"
+                    items={data.locations.map((l) => ({
+                      key: l.id,
+                      left: l.name,
+                      right: l.days + (l.days === 1 ? ' day' : ' days'),
+                      frac: l.days / Math.max(1, data.locations[0].days),
+                      tint: color.textPrimary,
+                    }))}
+                  />
+                </>
+              )}
+              {data.qualities.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>Described as</Text>
+                  <FoldedList
+                    bars
+                    label="words"
+                    items={data.qualities.map((q) => ({
+                      key: q.id,
+                      left: q.name,
+                      right: '×' + q.count,
+                      frac: q.count / Math.max(1, data.qualities[0].count),
+                      tint: color.textPrimary,
+                    }))}
+                  />
+                </>
+              )}
+              {data.timeOfDay.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>Time of day</Text>
+                  {data.timeOfDay.map((b) => (
+                    <BarRow
+                      key={b.key}
+                      label={b.label}
+                      sub={b.range + ' · ' + b.checkins
+                        + (b.checkins === 1 ? ' check-in' : ' check-ins')}
+                      right={formatScore(b.avg)}
+                      frac={b.avg / 10}
+                      tint={painColor(b.avg)}
+                    />
+                  ))}
+                  {/* looks like an insight, is a logging schedule — the
+                      sentence lives beside the numbers it qualifies */}
+                  <Text style={styles.noteLine}>
+                    These are the averages of when you happened to check in — not
+                    a claim about when your pain is worst.
+                  </Text>
+                </>
+              )}
             </>
           )}
         </Card>
@@ -1278,13 +1296,32 @@ export default function TrendsScreen({
         </Card>
       )}
 
-      {/* the claim the share button used to sit under, kept where it can
-          still be read before anything is sent */}
-      <Text style={styles.footNote}>
-        Share, at the top of this screen, makes a PDF on this iPhone and sends
-        it only where you send it. It carries the same numbers you see here,
-        and says on its face that it is self-recorded and not a diagnosis.
-      </Text>
+      {/* ── the handoff ─────────────────────────────────
+          The PDF's natural home: at the foot, as the destination of
+          everything above it, rather than the whole screen dressing as
+          a medical report. */}
+      {!!onShare && (
+        <Card title="Share with your clinician">
+          <Text style={styles.bodyText} allowFontScaling maxFontSizeMultiplier={1.4}>
+            A PDF of this record — your background, the numbers above, and what
+            they do and don’t mean. Made on this iPhone, sent only where you
+            send it, and it says on its face that it is self-recorded and not a
+            diagnosis.
+          </Text>
+          <Press
+            onPress={onShare}
+            pressOpacity={0.8}
+            style={styles.shareBtn}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !!sharing }}
+            accessibilityLabel={sharing ? 'Preparing the PDF' : 'Create the PDF and open the share sheet'}
+          >
+            <Text style={styles.shareBtnText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {sharing ? 'Preparing…' : 'Create report'}
+            </Text>
+          </Press>
+        </Card>
+      )}
     </View>
   );
 }
@@ -1480,6 +1517,32 @@ const styles = StyleSheet.create({
     color: color.textSecondary, fontSize: font.footnote, fontVariant: ['tabular-nums'],
   },
   endLine: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
+  more: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  painHead: {
+    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  painAvg: {
+    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  painAvgUnit: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '500' },
+  painDays: { color: color.textSecondary, fontSize: font.footnote },
+  extremes: {
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: 12,
+  },
+  extremeText: { color: color.tint, fontSize: font.footnote, fontWeight: '600' },
+  profileLine: {
+    color: color.textPrimary, fontSize: font.subheadline, lineHeight: 22, marginTop: 6,
+  },
+  profileKey: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '600' },
+  shareBtn: {
+    minHeight: 48, borderRadius: radius.button, borderCurve: 'continuous',
+    backgroundColor: color.textPrimary, alignItems: 'center', justifyContent: 'center',
+    marginTop: 14, paddingHorizontal: 16,
+  },
+  shareBtnText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
   footNote: {
     color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 24,
   },

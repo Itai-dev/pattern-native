@@ -694,9 +694,11 @@ ok('a factor still collecting says how far it is, in answers', (() => {
     highId: 'good', highLabel: 'Good', highCount: 5,
     needed: 8, comparable: false,
   });
+  /* the factor is the headline; the shortage names its sides */
   return card
-    && card.title === 'Sleep is about 5 answers from a comparison.'
-    && card.evidence.indexOf('you have 3 and 5') >= 0;
+    && card.title === 'Sleep'
+    && card.evidence === 'Not enough data yet — 5 more poor days and 3 more good days needed.'
+    && card.caveat.indexOf('3 poor, 5 good') >= 0;
 })());
 ok('a comparable factor produces no card — the engine speaks from there', (() => {
   return digest.progressCard({
