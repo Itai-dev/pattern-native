@@ -19,6 +19,7 @@ import HomeScreen from './src/HomeScreen';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DayScreen, { fmtDay } from './src/DayScreen';
+import CalendarScreen from './src/CalendarScreen';
 import HealthSheet from './src/HealthSheet';
 import { HealthKitService, deviceClock } from './src/health/healthkit';
 import {
@@ -117,11 +118,11 @@ function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
 
 /**
  * TWO tabs under a floating glass bar, and a profile built like the iOS
- * Settings app. Today is where you act; Record is everything that has
- * been recorded — the charts, and under them the calendar of every day.
- * They used to be three: History and Trends each held half of the same
- * answer, and the user had to decide which half they wanted before they
- * could look at either.
+ * Settings app. Today is where you act — and where the DAYS are: the
+ * week strip, and behind the title, the calendar of every one. Record
+ * is what those days add up to, purely. The calendar lived at the foot
+ * of Record for a while, by way of the old History tab; it is
+ * navigation, not an aggregate, and it served neither purpose there.
  *
  * The top bar carries the screen's large title, and one day surface sits
  * over whichever tab opened it. Sheets are real iOS page sheets, each
@@ -154,6 +155,9 @@ export default function App() {
      live, and null the rest of the time, which is what keeps its pager
      unmounted and its sideways gesture off every other screen. */
   const [dayScreen, setDayScreen] = useState<string | null>(null);
+  /* the calendar, summoned from Today's title — navigation, so it is a
+     layer like the day, not a tab like an aggregate */
+  const [calendarOpen, setCalendarOpen] = useState(false);
   /* every route into a day goes through here: Today's card, and any
      square on the calendar */
   const openDay = useCallback((d: string) => {
@@ -170,6 +174,7 @@ export default function App() {
   const goToTab = useCallback((t: Tab) => {
     if (t !== tab && t === 'trends') track('trends_opened');
     setDayScreen(null);
+    setCalendarOpen(false);
     setTab(t);
     pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
   }, [tab, width]);
@@ -575,20 +580,46 @@ export default function App() {
               keeps them in — off the tab bar, out of thumb reach, and out
               of the way of the three things the app is actually for */}
           <View style={styles.topBar}>
-            <Text
-              style={styles.wordmark}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
-              allowFontScaling
-              maxFontSizeMultiplier={1.2}
-            >
-              {/* the date, not the word "Today": the screen below it is
-                  now fixed on today, and a heading that names the day is
-                  the one thing on it that a person reads back weeks later
-                  in a screenshot and can still place */}
-              {tab === 'today' ? fmtDay(todayISO()) : 'Record'}
-            </Text>
+            {/* the date, not the word "Today": the screen below it is
+                now fixed on today, and a heading that names the day is
+                the one thing on it that a person reads back weeks later
+                in a screenshot and can still place.
+
+                On Today the title also OPENS THE CALENDAR — day = day
+                (the strip, the squares), title = every day. The chevron
+                is what says a heading is also a door. */}
+            {tab === 'today' ? (
+              <Pressable
+                onPress={() => setCalendarOpen(true)}
+                style={({ pressed }) => [styles.titleTap, pressed && { opacity: 0.7 }]}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={fmtDay(todayISO()) + '. Opens the calendar of every day'}
+              >
+                <Text
+                  style={styles.wordmark}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  allowFontScaling
+                  maxFontSizeMultiplier={1.2}
+                >
+                  {fmtDay(todayISO())}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={color.textTertiary} />
+              </Pressable>
+            ) : (
+              <Text
+                style={styles.wordmark}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                allowFontScaling
+                maxFontSizeMultiplier={1.2}
+              >
+                Record
+              </Text>
+            )}
             <View style={styles.topActions}>
               {tab === 'today' && (
                 <Pressable
@@ -699,7 +730,6 @@ export default function App() {
                 func={[]}
                 goalText={null}
                 todayIso={todayISO()}
-                onOpenDay={openDay}
                 onSpanChange={setTrendsSpan}
                 healthNoticed={healthNoticed}
                 protocol={protocol}
@@ -711,6 +741,16 @@ export default function App() {
               Absolutely filling the safe area, so it covers the large
               title too and brings its own; the tab bar is a sibling
               rendered after it and stays reachable. */}
+          {/* the calendar sits UNDER the day layer: a square opens its
+              day on top, and coming back lands where the browsing was */}
+          {calendarOpen && (
+            <CalendarScreen
+              entries={entries}
+              onOpenDay={openDay}
+              onClose={() => setCalendarOpen(false)}
+            />
+          )}
+
           {dayScreen && (
             <DayScreen
               entries={entries}
@@ -1059,6 +1099,8 @@ const styles = StyleSheet.create({
     color: color.textPrimary, fontSize: font.title1, fontWeight: '700',
     letterSpacing: -0.5, flex: 1,
   },
+  /* the title and its chevron as one target — the gap is part of it */
+  titleTap: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   /* room at the bottom so the last content clears the floating bar, and
      a little at the top so a page never begins hard against its heading */
   page: { paddingTop: 4, paddingBottom: 140 },

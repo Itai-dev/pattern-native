@@ -30,6 +30,7 @@ import Animated, {
 import DayLine from './DayLine';
 import DaySquare from './DaySquare';
 import FocusCard from './FocusCard';
+import WeekStrip from './WeekStrip';
 import { Press, useReduceMotion } from './motion';
 import {
   Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, checkinCount, fmtTime,
@@ -134,6 +135,11 @@ export default function HomeScreen({
 
   return (
     <View>
+      {/* ── the last seven days, tappable ─────────────────
+          the widget's strip, in the app — see WeekStrip for the rules
+          that keep it a map and not a scoreboard */}
+      <WeekStrip entries={entries} todayIso={t} onOpenDay={onOpenDay} />
+
       {/* ── what you last said ────────────────────────────── */}
       {value != null ? (
         <Press

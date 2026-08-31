@@ -28,7 +28,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
-import MapScreen from './MapScreen';
 import { Press } from './motion';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, Protocol,
@@ -51,12 +50,6 @@ const shortDate = (iso: string) => {
 
 export interface TrendsScreenProps {
   entries: Entries;
-  /** opening a day from the calendar at the foot of this screen. History
-   *  used to be its own tab; it is the last section here now — the
-   *  record and what the record adds up to are one subject, and two
-   *  tabs made the user decide which of them they wanted before they
-   *  could look at either. */
-  onOpenDay: (dateIso: string) => void;
   events: PainEvent[];
   func: FuncEntry[];
   goalText: string | null;
@@ -657,7 +650,7 @@ const digestStyles = StyleSheet.create({
 });
 
 export default function TrendsScreen({
-  entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
+  entries, events, func, goalText, todayIso, onSpanChange,
   healthNoticed, protocol,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
@@ -1181,17 +1174,6 @@ export default function TrendsScreen({
         </Card>
       )}
 
-      {/* ── the record itself, day by day ────────────────────
-          The calendar that used to be its own tab. It sits last because
-          it is the raw material: everything above is what the days add
-          up to, and this is the days. A square opens that day. */}
-      <View style={styles.calendar}>
-        <Text style={styles.calendarTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
-          Every day
-        </Text>
-        <MapScreen entries={entries} onDayPress={onOpenDay} />
-      </View>
-
       {/* the claim the share button used to sit under, kept where it can
           still be read before anything is sent */}
       <Text style={styles.footNote}>
@@ -1380,12 +1362,5 @@ const styles = StyleSheet.create({
   endLine: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
   footNote: {
     color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 24,
-  },
-  /* the calendar brings its own cards, so this only titles them — no
-     second card around a stack of cards */
-  calendar: { marginTop: 26 },
-  calendarTitle: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    letterSpacing: -0.2, marginBottom: 10,
   },
 });
