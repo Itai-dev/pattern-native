@@ -10,7 +10,7 @@ import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { getMetric } from './metrics';
 import { addDays } from './model';
 import {
-  Answer, BACKUP_VERSION, CONTEXT_VERSION, ContextAnswers, Entries, Entry,
+  Answer, BACKUP_VERSION, Background, CONTEXT_VERSION, ContextAnswers, Entries, Entry,
   Duration, EventKind, FuncEntry, Hypothesis, Onset, PainEvent, Protocol, ProtocolStatus,
   MomentMeta, Response, ValidBackup,
   applyMoment, cleanCtx, cleanEntry, cleanModifiers, dedupeEvents,
@@ -756,6 +756,11 @@ export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResu
       });
     }
   });
+  /* the background restores like the conservative half of everything
+     else: replace takes the file's word (including its absence), merge
+     never overwrites words already written on this phone */
+  if (mode === 'replace') setBackground(backup.background);
+  else if (backup.background && !getBackground()) setBackground(backup.background);
   return {
     ok: true, mode, days: dayKeys.length, events: eventsAdded,
     func: backup.func.length, hypotheses: hypAdded, protocols: protAdded,
@@ -766,10 +771,22 @@ export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResu
  *  row ids), function check-ins with their saved dates, and the activity;
  *  it records the pain-scale version so a future reader knows which label
  *  set the numbers were captured under. */
+/* ── the background ─────────────────────────────────────────
+   One object in prefs — it is a document, not a table, and it changes a
+   few times a year at most. cleanBackground runs on the way IN, so what
+   is stored is always exactly what would print. */
+export function getBackground(): Background | null {
+  return getPref<Background | null>('background.v1', null);
+}
+export function setBackground(b: Background | null): void {
+  setPref('background.v1', b);
+}
+
 export function exportBackup(todayIso: string): string {
   const out: Record<string, unknown> = {
     app: 'pattern', version: BACKUP_VERSION, scaleVersion: SCALE_VERSION,
     contextVersion: CONTEXT_VERSION, exported: todayIso,
+    background: getBackground(),
     entries: getAll(), events: getEvents(), func: getFunc(), goal: getGoal(),
     hypotheses: getHypotheses(), protocols: getProtocols(), modifiers: getModifiers(),
   };

@@ -16,6 +16,7 @@ import {
   BANDS, IMPACT_BETTER, IMPACT_WORSE, TimeBandKey, bandOf, impactName,
 } from './metrics';
 import {
+  BACKGROUND_FIELDS, Background,
   Entries, EVENT_LABELS, EventKind, FuncEntry, LOC_NAMES, PainEvent,
   DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, QUALITY_NAMES, RESPONSE_LABELS,
   Response, checkinCount, dailyAverage,
@@ -43,6 +44,10 @@ export interface ReportInput {
    *  private paragraphs must not ride along because a toggle was
    *  forgotten. Absent = out. */
   includeNotes?: boolean;
+  /** the patient's background, when they have written one. It exists FOR
+   *  this document — the sheet that collects it says so — so unlike day
+   *  notes it rides every share without a second toggle. */
+  background?: Background | null;
   /** Apple Health context, when connected: the normalized days (for the
    *  coverage statement) and the single strongest association the engine
    *  let through — already gated upstream by the same rules Trends
@@ -91,6 +96,10 @@ export interface ReportData {
   harderEasier: HarderEasier | null;
   /** what the user pointed at, counted. ATTRIBUTIONS, not findings. */
   flagged: { worse: FlagCount[]; better: FlagCount[] };
+  /** the background, printed first — what a clinician wants on page one
+   *  of a pain history, in the patient's words, never verified or read
+   *  by anything */
+  background: Background | null;
   /** Day notes, verbatim, chronological — EMPTY unless the share asked
    *  for them. They render as their own section at the end and are never
    *  woven into the charts: the report's body is numbers and computed
@@ -301,6 +310,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       })
       .filter((n) => !!n.text),
     health: healthContext(inp.healthDays, inp.healthAssociation || null, days),
+    background: inp.background || null,
   };
 }
 
@@ -674,6 +684,20 @@ export function reportHtml(data: ReportData): string {
   if (data.limited) {
     s.push('<div class="limited"><b>Limited record — ' + data.loggedDays +
       (data.loggedDays === 1 ? ' day' : ' days') + ' logged.</b>' + esc(LIMITED_NOTE) + '</div>');
+  }
+
+  // ── background, first — page one of any pain history ──
+  if (data.background) {
+    s.push('<section><h2>Background</h2>');
+    s.push('<div class="note">Provided by the patient, in their own words. ' +
+      'Not verified by the app, and read by none of its analysis.</div>');
+    s.push('<table style="margin-top:8px">');
+    BACKGROUND_FIELDS.forEach(({ key, label }) => {
+      const v = data.background![key];
+      if (!v) return;
+      s.push('<tr><td style="width:190px"><b>' + esc(label) + '</b></td><td>' + esc(v) + '</td></tr>');
+    });
+    s.push('</table></section>');
   }
 
   // ── key metrics ──

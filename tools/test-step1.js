@@ -458,8 +458,8 @@ ok('many check-ins from too few days do not qualify either', (() => {
 })());
 
 /* ── backups: nothing older stops restoring ─────────────────── */
-group('backup v1 → v5');
-ok('the version moved to 5', model.BACKUP_VERSION === 5);
+group('backup v1 → v6');
+ok('the version moved to 6', model.BACKUP_VERSION === 6);
 ok('a v1 file (entries only) still restores', (() => {
   const b = model.validateBackup(JSON.stringify({
     version: 1, entries: { '2026-01-01': { pain: 5, cap: null, note: '' } },
@@ -1054,6 +1054,64 @@ ok('a dead-battery clock is refused, not recorded', (() => {
     && model.momentFromEpoch(Date.UTC(2026, 7, 30), 99999) === null
     && model.momentFromEpoch('soon', 180) === null
     && model.momentFromEpoch(NaN, 180) === null;
+})());
+
+/* ── the background ──────────────────────────────────────────
+   Page one of a pain history, in the patient's words. Free text, each
+   field capped, none of it ever read by an engine — a static fact has
+   an n of 1 and no comparison group. */
+group('the background');
+
+ok('fields trim, cap, and junk drops', (() => {
+  const b = model.cleanBackground({
+    v: 1,
+    medications: '  naproxen 500mg  ',
+    diagnoses: 'x'.repeat(400),
+    bloodType: 'A+',          // never asked for, never stored
+    body: 42,                  // not a string, not kept
+  });
+  return b && b.medications === 'naproxen 500mg'
+    && b.diagnoses.length === model.BACKGROUND_FIELD_MAX
+    && !('bloodType' in b) && !('body' in b);
+})());
+ok('a sheet of empty fields is no background at all', (() => {
+  return model.cleanBackground({ v: 1, body: '  ', family: '' }) === null
+    && model.cleanBackground('words') === null
+    && model.cleanBackground(null) === null;
+})());
+ok('the backup carries it, and an old backup reads as none', (() => {
+  const withBg = model.validateBackup(JSON.stringify({
+    version: 6, entries: {}, background: { v: 1, allergies: 'penicillin' },
+  }));
+  const old = model.validateBackup(JSON.stringify({ version: 5, entries: {} }));
+  return withBg && withBg.background && withBg.background.allergies === 'penicillin'
+    && old && old.background === null;
+})());
+ok('the report prints it first, and only what was written', (() => {
+  const [e] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), () => 'hands');
+  const last = Object.keys(e).sort().pop();
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: last, windowDays: 90,
+    background: { v: 1, medications: 'naproxen 500mg', allergies: 'penicillin' },
+  });
+  const html = report.reportHtml(data);
+  const bgAt = html.indexOf('Background');
+  const metricsAt = html.indexOf('Key metrics');
+  return data.background.medications === 'naproxen 500mg'
+    && bgAt >= 0 && metricsAt >= 0 && bgAt < metricsAt
+    && html.indexOf('naproxen 500mg') >= 0
+    && html.indexOf('Family history') < 0;    // unwritten fields stay unprinted
+})());
+ok('without a background the report has no such section', (() => {
+  const [e] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), () => 'hands');
+  const last = Object.keys(e).sort().pop();
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: last, windowDays: 90,
+  });
+  return data.background === null
+    && report.reportHtml(data).indexOf('<h2>Background</h2>') < 0;
 })());
 
 /* ── the guided note ────────────────────────────────────────── */

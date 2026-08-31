@@ -30,6 +30,7 @@ import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
+import BackgroundSheet from './src/BackgroundSheet';
 import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
@@ -195,6 +196,7 @@ export default function App() {
   const [recordAway, setRecordAway] = useState(false);
   const [profile, setProfile] = useState(false);
   const [appearance, setAppearance] = useState(false);
+  const [background, setBackgroundOpen] = useState(false);
   const [about, setAbout] = useState(false);
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* bumping this repaints every pain colour in the app after a theme pick */
@@ -351,6 +353,9 @@ export default function App() {
         entries, events, func: [], goalText: null,
         todayIso: todayISO(), windowDays: trendsSpan || 36500,
         includeNotes,
+        /* written FOR the report, so it rides every share — the sheet that
+           collects it says so in its first sentence */
+        background: db.getBackground(),
         /* the same health context Trends shows — one gate, two surfaces,
            so the preview and the PDF can never disagree about what the
            record supports */
@@ -841,6 +846,24 @@ export default function App() {
                 <RemindersSection />
               </View>
 
+              <Text style={styles.groupTitle}>Your report</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => setBackgroundOpen(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Background for your clinician report"
+                  accessibilityHint="Diagnoses, medications, history — printed on the report's first page, in your words"
+                >
+                  <RowIcon name="document-text-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Background</Text>
+                    <Text style={styles.rowValue}>{db.getBackground() ? 'Written' : ''}</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+
               <Text style={styles.groupTitle}>Appearance</Text>
               <View style={styles.group}>
                 <Pressable
@@ -982,6 +1005,10 @@ export default function App() {
                 which is why the first placement never opened */}
             <Modal visible={about} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAbout(false)}>
               <OnboardingScreen review onDone={() => setAbout(false)} />
+            </Modal>
+
+            <Modal visible={background} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setBackgroundOpen(false)}>
+              <BackgroundSheet onClose={() => setBackgroundOpen(false)} />
             </Modal>
 
             <Modal visible={appearance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAppearance(false)}>

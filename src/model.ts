@@ -1132,10 +1132,71 @@ export function migrateEntries(entries: Entries): { entries: Entries; corrected:
 /** v5 adds day context, hypotheses and protocols, and per-moment UTC.
  *  Every earlier version still restores: the new sections are simply
  *  absent, which is exactly what they were. */
-export const BACKUP_VERSION = 5;
+export const BACKUP_VERSION = 6;
+
+/* ── the background ──────────────────────────────────────────
+   What a clinician wants on page one of a pain history, provided ONCE,
+   in the patient's own words: free-text fields, each capped like a
+   note, each optional, none ever read by any engine. A static fact has
+   no comparison group — n of 1, forever — so the ONLY consumer is the
+   PDF, and a field is stored exactly as it will print. Sensitive on
+   purpose to hold nowhere else: local SQLite, the backup file, the
+   report the user themselves shares. */
+
+export const BACKGROUND_FIELD_MAX = 280;
+
+export interface Background {
+  v: 1;
+  /** age, height, weight, sex where relevant — one line, their words */
+  body?: string;
+  /** when the pain began, sudden or gradual, any injury behind it */
+  onset?: string;
+  diagnoses?: string;
+  medications?: string;
+  allergies?: string;
+  /** work, exercise, sleep pattern, alcohol, caffeine — the typicals */
+  lifestyle?: string;
+  /** the life-events question, asked the guarded way: around the time
+   *  it started or changed, did anything major change? Never an
+   *  inventory of griefs. */
+  changes?: string;
+  family?: string;
+  other?: string;
+}
+
+export const BACKGROUND_FIELDS: { key: keyof Omit<Background, 'v'>; label: string }[] = [
+  { key: 'body', label: 'About you' },
+  { key: 'onset', label: 'How this pain began' },
+  { key: 'diagnoses', label: 'Diagnoses' },
+  { key: 'medications', label: 'Medications' },
+  { key: 'allergies', label: 'Allergies' },
+  { key: 'lifestyle', label: 'Lifestyle' },
+  { key: 'changes', label: 'Around when it started or changed' },
+  { key: 'family', label: 'Family history' },
+  { key: 'other', label: 'Anything else' },
+];
+
+/** a raw background → a clean one, or null when nothing survives.
+ *  Junk keys drop, values trim and cap, and an object of empty strings
+ *  is the same as no background at all. */
+export function cleanBackground(raw: unknown): Background | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const out: Background = { v: 1 };
+  let any = false;
+  BACKGROUND_FIELDS.forEach(({ key }) => {
+    const v = (raw as Record<string, unknown>)[key];
+    if (typeof v !== 'string') return;
+    const t = v.trim().slice(0, BACKGROUND_FIELD_MAX);
+    if (!t) return;
+    out[key] = t;
+    any = true;
+  });
+  return any ? out : null;
+}
 
 export interface ValidBackup {
   version: number;
+  background: Background | null;
   entries: Entries;
   events: Omit<PainEvent, 'id'>[];
   func: FuncEntry[];
@@ -1249,6 +1310,7 @@ export function validateBackup(json: string): ValidBackup | null {
 
   return {
     version: typeof d.version === 'number' ? d.version : 1,
+    background: cleanBackground((d as { background?: unknown }).background),
     entries, events, func,
     goal: typeof d.goal === 'string' && d.goal.trim() ? d.goal.trim() : null,
     hypotheses, protocols,
