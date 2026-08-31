@@ -75,8 +75,8 @@ const MIN_SCALE = 0.94;
 const READABLE = 0.35;
 
 /** how far back the pager goes. Ninety days is a season — longer than
- *  anyone swipes, and the calendar behind Today's title is still the
- *  way to anything older. */
+ *  anyone swipes, and the calendar in Trends is still the way to
+ *  anything older. */
 const MAX_PAGES = 90;
 
 /** the plot's drawing height. Tall enough that a one-point difference is

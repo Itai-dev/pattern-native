@@ -28,6 +28,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
+import MapScreen from './MapScreen';
 import { Press } from './motion';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, Protocol,
@@ -50,6 +51,12 @@ const shortDate = (iso: string) => {
 
 export interface TrendsScreenProps {
   entries: Entries;
+  /** opening a day from the calendar at the foot of this screen. History
+   *  used to be its own tab; it is the last section here now — the
+   *  record and what the record adds up to are one subject, and two
+   *  tabs made the user decide which of them they wanted before they
+   *  could look at either. */
+  onOpenDay: (dateIso: string) => void;
   events: PainEvent[];
   func: FuncEntry[];
   goalText: string | null;
@@ -650,7 +657,7 @@ const digestStyles = StyleSheet.create({
 });
 
 export default function TrendsScreen({
-  entries, events, func, goalText, todayIso, onSpanChange,
+  entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
   healthNoticed, protocol,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
@@ -658,6 +665,10 @@ export default function TrendsScreen({
      reads as "nothing here", which is exactly the bug report it
      generated. Narrower ranges are for leaning in, not landing on. */
   const [rangeKey, setRangeKey] = useState('a');
+  /* trend or months — two drawings of the same days, never both at
+     once: a card holding a bar chart AND a stack of calendars is a
+     dashboard, and this screen is not one */
+  const [painView, setPainView] = useState<'trend' | 'months'>('trend');
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -768,6 +779,78 @@ export default function TrendsScreen({
           </Text>
         )}
       </Text>
+
+      {/* ── pain over time, FIRST ───────────────────────────
+          The record itself leads the screen that is named for it; the
+          sentences about it read underneath. Two views of the same
+          days: the trend (bars against the clock) and the months (the
+          calendar that used to be the History tab, then the foot of
+          this screen — a map of days, so it lives inside the card that
+          draws days, not as a section of its own). A calendar square
+          opens its day. */}
+      <Card title={data.limited ? 'Pain recorded so far' : 'Pain over time'}>
+      <View style={styles.segment}>
+        {(['trend', 'months'] as const).map((v) => {
+          const on = painView === v;
+          return (
+            <Pressable
+              key={v}
+              onPress={() => { setPainView(v); setPicked(null); }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={v === 'trend' ? 'Trend chart' : 'Month calendar'}
+              style={({ pressed }) => [
+                styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Text style={[styles.segText, on && styles.segTextOn]}
+                allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                {v === 'trend' ? 'Trend' : 'Months'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {painView === 'months' ? (
+        <MapScreen entries={entries} flat onDayPress={onOpenDay} />
+      ) : (
+      <>
+      {ranges.length > 1 && (
+      <View style={styles.segment}>
+        {ranges.map((r) => {
+          const on = r.key === rangeKey;
+          return (
+            <Pressable
+              key={r.key}
+              onPress={() => { setRangeKey(r.key); setPicked(null); }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={r.label}
+              style={({ pressed }) => [
+                styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Text style={[styles.segText, on && styles.segTextOn]}
+                allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                {r.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      )}
+      <MiniChart data={data} span={spanDays} selected={picked} onSelect={setPicked} />
+      <Text style={styles.noteLine}>
+        Days without check-ins stay blank — nothing is filled in for a day you
+        didn’t log.
+      </Text>
+      {!!data.halves && (
+        <Direction first={data.halves.first} second={data.halves.second} />
+      )}
+      </>
+      )}
+      </Card>
+
 
       {/* ── what Pattern noticed ─────────────────────────────
           Drawn only when the health engine has something that cleared
@@ -922,43 +1005,6 @@ export default function TrendsScreen({
             />
           )}
         </View>
-      </Card>
-
-      {/* ── pain over time ──────────────────────────────────── */}
-      <Card title={data.limited ? 'Pain recorded so far' : 'Pain over time'}>
-      {ranges.length > 1 && (
-      <View style={styles.segment}>
-        {ranges.map((r) => {
-          const on = r.key === rangeKey;
-          return (
-            <Pressable
-              key={r.key}
-              onPress={() => { setRangeKey(r.key); setPicked(null); }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={r.label}
-              style={({ pressed }) => [
-                styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={[styles.segText, on && styles.segTextOn]}
-                allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                {r.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      )}
-      <MiniChart data={data} span={spanDays} selected={picked} onSelect={setPicked} />
-      <Text style={styles.noteLine}>
-        Days without check-ins stay blank — nothing is filled in for a day you
-        didn’t log.
-      </Text>
-      {!!data.halves && (
-        <Direction first={data.halves.first} second={data.halves.second} />
-      )}
-
       </Card>
 
       {/* ── the two ends ────────────────────────────────────── */}

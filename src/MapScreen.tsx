@@ -44,6 +44,11 @@ const CARD_PAD = 16;
 export interface MapScreenProps {
   entries: Entries;
   onDayPress: (dateIso: string) => void;
+  /** rendered INSIDE another card — the month blocks drop their own
+   *  card chrome so the host's surface is the only surface. The cell
+   *  arithmetic is unchanged: the host's padding is the same cardPad
+   *  the month card used to spend. */
+  flat?: boolean;
 }
 
 /**
@@ -75,7 +80,7 @@ interface MonthBlock {
   days: (string | null)[];
 }
 
-export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
+export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps) {
   const t = todayISO();
   const brand = themeBrand();
   const { cell, radius, gridW } = useMemo(cellMetrics, []);
@@ -123,7 +128,10 @@ export default function MapScreen({ entries, onDayPress }: MapScreenProps) {
         const shown = month.days.filter((d): d is string => !!d && d <= t);
         const logged = shown.filter((d) => dailyAverage(entries[d]) != null).length;
         return (
-          <View key={month.key} style={[styles.card, mi > 0 && styles.cardGap]}>
+          <View
+            key={month.key}
+            style={flat ? [mi > 0 && styles.flatGap] : [styles.card, mi > 0 && styles.cardGap]}
+          >
             <View style={styles.monthHead}>
               <Text style={styles.monthName} allowFontScaling maxFontSizeMultiplier={1.3}>
                 {month.label}
@@ -259,6 +267,8 @@ const styles = StyleSheet.create({
     padding: CARD_PAD,
   },
   cardGap: { marginTop: 14 },
+  /* months inside a host card sit closer — the host owns the rhythm */
+  flatGap: { marginTop: 22 },
   monthHead: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     gap: 10, marginBottom: 12,
