@@ -618,6 +618,43 @@ ok('the ends describe the PAIN and never the factors', (() => {
   return keys.indexOf('factors') < 0 && keys.indexOf('ctx') < 0
     && JSON.stringify(he).indexOf('stress') < 0;
 })());
+
+/* ── what was different between the two ends ─────────────────
+   Places and words that sit mostly on one end, with day counts on both
+   sides. Still only the pain's own description; the gates are named in
+   thresholds.ts. */
+ok('a word carried only by the hard days is a contrast, with its counts', (() => {
+  // easy days: knees/aching; hard days: hands/burning — clean separation
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), (i) => (i < 20 ? 'knees' : 'hands'));
+  const he = report.harderEasierOf(e, d);
+  const burning = he.contrasts.filter((c) => c.id === 'burning')[0];
+  const hands = he.contrasts.filter((c) => c.id === 'hands')[0];
+  return burning && burning.kind === 'quality'
+    && burning.harderDays === 10 && burning.easierDays === 0
+    && hands && hands.kind === 'location'
+    && hands.harderDays === 10 && hands.easierDays === 0;
+})());
+ok('a place both ends share is not a difference', (() => {
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), () => 'hands');
+  const he = report.harderEasierOf(e, d);
+  return he.contrasts.every((c) => c.id !== 'hands');
+})());
+ok('two days of anything is an anecdote, not a contrast', (() => {
+  /* clears the share gap easily on the location — but the word rides
+     only two hard days, under TERCILE_CONTRAST_MIN_DAYS */
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), (i) => (i < 20 ? 'knees' : 'hands'));
+  Object.keys(e).sort().forEach((k, i) => {
+    e[k].logs[0].q = i >= 28 ? ['stabbing'] : [];
+  });
+  const he = report.harderEasierOf(e, d);
+  return he.contrasts.every((c) => c.id !== 'stabbing');
+})());
+ok('the contrasts are capped and carry both denominators', (() => {
+  const [e, d] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), (i) => (i < 20 ? 'knees' : 'hands'));
+  const he = report.harderEasierOf(e, d);
+  return he.contrasts.length <= 5
+    && he.harder.days === 10 && he.easier.days === 10;
+})());
 ok('a record with ends carries them into the report data', (() => {
   const [e] = record(30, (i) => (i < 10 ? 2 : i < 20 ? 5 : 9), () => 'hands');
   const last = Object.keys(e).sort().pop();

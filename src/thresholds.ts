@@ -67,6 +67,20 @@ export const TERCILE_MIN_DAYS = 21;
  *  does not render at all. */
 export const TERCILE_MIN_SPREAD = 1.5;
 
+/** A place or word is called DIFFERENT between the record's two ends
+ *  only when the share of days carrying it differs by at least half.
+ *  Half, because the smallest tercile this can run on is 7 days a side
+ *  (21-day gate above): a gap of 0.5 means at least 4 days of
+ *  separation there, which survives one oddball day either side. A
+ *  smaller gap prints coincidences with a heading over them. */
+export const TERCILE_CONTRAST_MIN_SHARE_GAP = 0.5;
+
+/** ...and the dominant end must carry it on at least this many days.
+ *  Three, so a word used twice on hard days and never on easy ones —
+ *  which clears the share gap easily — cannot be presented as a
+ *  difference between kinds of days. Two of anything is an anecdote. */
+export const TERCILE_CONTRAST_MIN_DAYS = 3;
+
 /* ── time of day ────────────────────────────────────────────── */
 
 /** check-ins a band needs before it may be compared with another band */

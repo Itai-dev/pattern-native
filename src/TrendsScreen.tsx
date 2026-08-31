@@ -1057,6 +1057,38 @@ export default function TrendsScreen({
             when={formatScore(data.harderEasier.boundaryLow) + ' and below'}
             e={data.harderEasier.easier}
           />
+
+          {/* ── what was different ─────────────────────────
+              Places and words that sit mostly on one end, with the day
+              counts on BOTH sides so the arithmetic is the claim. Still
+              only the pain's own description — the factors' version of
+              this comparison belongs to the engines, behind their
+              gates. Absent when nothing clears the named thresholds:
+              silence is a valid answer here. */}
+          {data.harderEasier.contrasts.length > 0 && (
+            <>
+              <Text style={styles.subhead}>What was different</Text>
+              {data.harderEasier.contrasts.map((c) => (
+                <View
+                  key={c.kind + c.id}
+                  style={styles.contrastRow}
+                  accessible
+                  accessibilityLabel={c.name + ': on ' + c.harderDays + ' of '
+                    + data.harderEasier!.harder.days + ' hardest days, '
+                    + c.easierDays + ' of ' + data.harderEasier!.easier.days
+                    + ' easiest'}
+                >
+                  <Text style={styles.contrastName} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {c.name}
+                  </Text>
+                  <Text style={styles.contrastCount} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {c.harderDays}/{data.harderEasier!.harder.days} hardest ·{' '}
+                    {c.easierDays}/{data.harderEasier!.easier.days} easiest
+                  </Text>
+                </View>
+              ))}
+            </>
+          )}
         </Card>
       )}
 
@@ -1414,6 +1446,15 @@ const styles = StyleSheet.create({
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   foldText: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
+  contrastRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 10, minHeight: 34,
+  },
+  contrastName: { flexShrink: 1, color: color.textPrimary, fontSize: font.subheadline },
+  contrastCount: {
+    color: color.textSecondary, fontSize: font.footnote,
+    fontVariant: ['tabular-nums'],
+  },
   subhead: {
     color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
     marginTop: 12, marginBottom: 2,

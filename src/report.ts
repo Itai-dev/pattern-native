@@ -24,6 +24,7 @@ import {
 import { BAND_AT, formatScore, painLabel } from './painScale';
 import {
   BAND_MIN_CHECKINS, BAND_MIN_DAYS, HALVES_MIN_DAYS, LIMITED_RECORD_DAYS,
+  TERCILE_CONTRAST_MIN_DAYS, TERCILE_CONTRAST_MIN_SHARE_GAP,
   TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
 } from './thresholds';
 import { Association, associationCopy } from './health/engine';
@@ -154,9 +155,26 @@ export interface EndOfRecord {
   qualities: { id: string; name: string; count: number }[];
 }
 
+/** one thing recorded ABOUT THE PAIN that sits mostly on one end of
+ *  the record — a place or a word, with the day counts on both sides,
+ *  so the reader sees the arithmetic and not just the adjective */
+export interface EndContrast {
+  id: string;
+  name: string;
+  kind: 'location' | 'quality';
+  /** days of each end that carried it */
+  harderDays: number;
+  easierDays: number;
+}
+
 export interface HarderEasier {
   harder: EndOfRecord;
   easier: EndOfRecord;
+  /** what was DIFFERENT between the two ends — still only the pain's
+   *  own description, never the factors (that comparison belongs to
+   *  the engines, behind their gates). Empty when nothing clears the
+   *  named thresholds, and silence is a valid answer. */
+  contrasts: EndContrast[];
   /** the daily averages the two groups are divided at */
   boundaryLow: number;
   boundaryHigh: number;
@@ -364,9 +382,58 @@ export function harderEasierOf(entries: Entries, days: ReportDay[]): HarderEasie
   return {
     harder: describeDays(entries, harderDays),
     easier: describeDays(entries, easierDays),
+    contrasts: contrastsOf(entries, harderDays, easierDays),
     boundaryLow, boundaryHigh,
     middleDays: byAvg.length - easierDays.length - harderDays.length,
   };
+}
+
+/** days of a group that carried each location and quality id — DAYS for
+ *  both, deliberately: a word said at every check-in of one bad evening
+ *  must count once, not five times, when two kinds of day are compared */
+function dayPresence(entries: Entries, days: ReportDay[]) {
+  const loc: Record<string, number> = {};
+  const q: Record<string, number> = {};
+  days.forEach((d) => {
+    const sl: Record<string, boolean> = {};
+    const sq: Record<string, boolean> = {};
+    logsOf(entries[d.date]).forEach((l) => {
+      (l.loc || []).forEach((id) => { sl[id] = true; });
+      (l.q || []).forEach((id) => { sq[id] = true; });
+    });
+    Object.keys(sl).forEach((id) => { loc[id] = (loc[id] || 0) + 1; });
+    Object.keys(sq).forEach((id) => { q[id] = (q[id] || 0) + 1; });
+  });
+  return { loc, q };
+}
+
+/** what was recorded about the pain mostly on ONE end. The thresholds
+ *  are named in thresholds.ts with their arithmetic; the cap keeps this
+ *  a highlight rather than a second table. */
+function contrastsOf(
+  entries: Entries, harderDays: ReportDay[], easierDays: ReportDay[]
+): EndContrast[] {
+  const h = dayPresence(entries, harderDays);
+  const e = dayPresence(entries, easierDays);
+  const out: (EndContrast & { gap: number })[] = [];
+  const scan = (kind: 'location' | 'quality', hm: Record<string, number>,
+    em: Record<string, number>, names: Record<string, string>) => {
+    const ids: Record<string, boolean> = {};
+    Object.keys(hm).forEach((id) => { ids[id] = true; });
+    Object.keys(em).forEach((id) => { ids[id] = true; });
+    Object.keys(ids).forEach((id) => {
+      const hd = hm[id] || 0, ed = em[id] || 0;
+      const gap = hd / harderDays.length - ed / easierDays.length;
+      if (Math.abs(gap) < TERCILE_CONTRAST_MIN_SHARE_GAP) return;
+      if (Math.max(hd, ed) < TERCILE_CONTRAST_MIN_DAYS) return;
+      out.push({ id, name: names[id] || id, kind, harderDays: hd, easierDays: ed, gap: Math.abs(gap) });
+    });
+  };
+  scan('location', h.loc, e.loc, LOC_NAMES);
+  scan('quality', h.q, e.q, QUALITY_NAMES);
+  /* widest separation first; five at most — a highlight, not a table */
+  return out.sort((a, b) => b.gap - a.gap).slice(0, 5)
+    .map(({ gap, ...c }) => c);
 }
 
 /* ── time of day ─────────────────────────────────────────────
@@ -756,6 +823,16 @@ export function reportHtml(data: ReportData): string {
     s.push(side('Hardest days', he.harder, formatScore(he.boundaryHigh) + '/10 and above'));
     s.push(side('Easiest days', he.easier, formatScore(he.boundaryLow) + '/10 and below'));
     s.push('</table>');
+    /* the contrasts, when any cleared the thresholds — day counts on
+       both sides, so the arithmetic is the claim */
+    if (he.contrasts.length) {
+      s.push('<div class="note" style="margin-top:8px"><b>Recorded mostly on one side:</b> '
+        + he.contrasts.map((c) =>
+          esc(c.name) + ' (' + c.harderDays + '/' + he.harder.days + ' hardest days, '
+          + c.easierDays + '/' + he.easier.days + ' easiest)').join(' · ')
+        + '. These are differences in what was recorded about the pain itself; '
+        + 'they do not identify a cause.</div>');
+    }
     s.push('<div class="note num" style="margin-top:6px">' + he.middleDays +
       ' day' + (he.middleDays === 1 ? '' : 's') + ' in the middle third were set aside.</div>');
     s.push('</section>');
