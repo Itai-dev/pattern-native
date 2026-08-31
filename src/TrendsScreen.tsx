@@ -28,7 +28,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
-import MapScreen from './MapScreen';
 import { Press } from './motion';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, Protocol,
@@ -112,12 +111,16 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 const PLOT_H = 76;
 
 function MiniChart({
-  data, span, selected, onSelect,
+  data, span, selected, onSelect, onOpenDay,
 }: {
   data: ReportData;
   span: number;
   selected: string | null;
   onSelect: (dateIso: string | null) => void;
+  /** the second tap: a bar answers in the readout, the readout opens
+   *  the day itself — which is how a specific day is reached from this
+   *  chart without a calendar standing around for the purpose */
+  onOpenDay: (dateIso: string) => void;
 }) {
   const byDate: Record<string, number> = {};
   data.days.forEach((d) => { byDate[d.date] = d.avg; });
@@ -154,17 +157,27 @@ function MiniChart({
           not anything is selected, so tapping never shifts the layout */}
       <View style={styles.readout}>
         {pick && pick.avg != null ? (
-          <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
-            <Text style={styles.readoutStrong}>{formatScore(pick.avg)}</Text>
-            {'  ' + painLabel(pick.avg) + '  ·  ' + shortDate(pick.date)}
-          </Text>
+          <Press
+            onPress={() => onOpenDay(pick.date)}
+            pressOpacity={0.7}
+            style={styles.readoutOpen}
+            accessibilityRole="button"
+            accessibilityLabel={shortDate(pick.date) + ', ' + formatScore(pick.avg)
+              + ', ' + painLabel(pick.avg) + '. Opens this day'}
+          >
+            <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              <Text style={styles.readoutStrong}>{formatScore(pick.avg)}</Text>
+              {'  ' + painLabel(pick.avg) + '  ·  ' + shortDate(pick.date)}
+            </Text>
+            <Text style={styles.readoutChev} allowFontScaling={false}>›</Text>
+          </Press>
         ) : pick ? (
           <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
             Nothing logged on {shortDate(pick.date)}
           </Text>
         ) : (
           <Text style={styles.readoutHint} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Tap a day to see it
+            Tap a day to see it — tap its reading to open it
           </Text>
         )}
       </View>
@@ -286,10 +299,12 @@ function Direction({ first, second }: { first: number; second: number }) {
 
 /** how much of the record to look at. "All" is the whole thing rather
  *  than a fixed number, so a long record is never silently cropped. */
+/* Week, Month, All — one control, three widths of the same bars.
+   3 months went: four options crowd the segment on a narrow phone, and
+   a quarter is All's job until the record is old enough to argue. */
 const RANGES: { key: string; label: string; days: number }[] = [
   { key: 'w', label: 'Week', days: 7 },
   { key: 'm', label: 'Month', days: 30 },
-  { key: 'q', label: '3 months', days: 90 },
   { key: 'a', label: 'All', days: 0 },
 ];
 
@@ -665,10 +680,6 @@ export default function TrendsScreen({
      reads as "nothing here", which is exactly the bug report it
      generated. Narrower ranges are for leaning in, not landing on. */
   const [rangeKey, setRangeKey] = useState('a');
-  /* trend or months — two drawings of the same days, never both at
-     once: a card holding a bar chart AND a stack of calendars is a
-     dashboard, and this screen is not one */
-  const [painView, setPainView] = useState<'trend' | 'months'>('trend');
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -789,32 +800,6 @@ export default function TrendsScreen({
           draws days, not as a section of its own). A calendar square
           opens its day. */}
       <Card title={data.limited ? 'Pain recorded so far' : 'Pain over time'}>
-      <View style={styles.segment}>
-        {(['trend', 'months'] as const).map((v) => {
-          const on = painView === v;
-          return (
-            <Pressable
-              key={v}
-              onPress={() => { setPainView(v); setPicked(null); }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={v === 'trend' ? 'Trend chart' : 'Month calendar'}
-              style={({ pressed }) => [
-                styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={[styles.segText, on && styles.segTextOn]}
-                allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                {v === 'trend' ? 'Trend' : 'Months'}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {painView === 'months' ? (
-        <MapScreen entries={entries} flat onDayPress={onOpenDay} />
-      ) : (
-      <>
       {ranges.length > 1 && (
       <View style={styles.segment}>
         {ranges.map((r) => {
@@ -839,15 +824,19 @@ export default function TrendsScreen({
         })}
       </View>
       )}
-      <MiniChart data={data} span={spanDays} selected={picked} onSelect={setPicked} />
+      <MiniChart
+        data={data}
+        span={spanDays}
+        selected={picked}
+        onSelect={setPicked}
+        onOpenDay={onOpenDay}
+      />
       <Text style={styles.noteLine}>
         Days without check-ins stay blank — nothing is filled in for a day you
         didn’t log.
       </Text>
       {!!data.halves && (
         <Direction first={data.halves.first} second={data.halves.second} />
-      )}
-      </>
       )}
       </Card>
 
@@ -1346,6 +1335,10 @@ const styles = StyleSheet.create({
     height: 3, borderRadius: 2, backgroundColor: color.borderDivider,
   },
   emptyColOn: { backgroundColor: color.textTertiary, height: 5 },
+  /* the readout as a button: the text it always showed, plus the
+     chevron that says it goes somewhere */
+  readoutOpen: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  readoutChev: { color: color.textTertiary, fontSize: 17, marginTop: -1 },
   readout: { height: 26, justifyContent: 'center' },
   readoutText: { color: color.textSecondary, fontSize: font.subheadline },
   readoutStrong: {
