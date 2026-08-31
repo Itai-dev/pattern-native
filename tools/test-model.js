@@ -347,6 +347,12 @@ const twenty = report.buildReportData({ entries: mk(20), ...base });
 ok('twenty days: not limited', twenty && twenty.limited === false);
 ok('day and check-in counts', twenty.loggedDays === 20 && twenty.totalCheckins === 40);
 ok('averages are daily averages, not peaks', twenty.avg === 6 && twenty.lowestDay === 4 && twenty.highestDay === 8, twenty);
+ok('each extreme names its day, ties going to the most recent', (() => {
+  /* the fixture's recent half all sits at 4 and its older half at 8, so
+     both extremes are ties — the dates must be the newest day of each */
+  return twenty.lowestDayDate === '2026-08-20'
+    && twenty.highestDayDate === '2026-08-10';
+})());
 ok('halves comparison present at 14+', twenty.halves !== null);
 ok('locations ranked by days', twenty.locations[0].name === 'Lower back' && twenty.locations[0].days === 20);
 ok('events are chronological',

@@ -64,6 +64,12 @@ export interface ReportData {
   avg: number;
   lowestDay: number;
   highestDay: number;
+  /** the day each extreme happened — the summary stops being a dead
+   *  end and becomes the door to the day it is about. Ties go to the
+   *  MOST RECENT day carrying the value: the one a person can still
+   *  remember is the one worth opening. */
+  lowestDayDate: string;
+  highestDayDate: string;
   /** only present with fourteen or more logged days */
   halves: { first: number; second: number } | null;
   days: ReportDay[]; // logged days only, ascending
@@ -233,6 +239,10 @@ export function buildReportData(inp: ReportInput): ReportData | null {
     avg: avgOf(avgs),
     lowestDay: Math.min.apply(null, avgs),
     highestDay: Math.max.apply(null, avgs),
+    /* days is ascending, so keeping the last match takes the most
+       recent tie */
+    lowestDayDate: days.reduce((k, d) => (d.avg <= Math.min.apply(null, avgs) ? d.date : k), days[0].date),
+    highestDayDate: days.reduce((k, d) => (d.avg >= Math.max.apply(null, avgs) ? d.date : k), days[0].date),
     halves,
     days,
     timeOfDay: limited ? [] : timeOfDayBands(entries, days),
@@ -602,8 +612,8 @@ export function reportHtml(data: ReportData): string {
   // ── key metrics ──
   s.push('<section><h2>Key metrics</h2><div class="metrics">');
   s.push(metricCell('Average pain', formatScore(data.avg) + '/10', painLabel(data.avg)));
-  s.push(metricCell('Lowest daily average', formatScore(data.lowestDay) + '/10'));
-  s.push(metricCell('Highest daily average', formatScore(data.highestDay) + '/10'));
+  s.push(metricCell('Lowest daily average', formatScore(data.lowestDay) + '/10', fmtShortDate(data.lowestDayDate)));
+  s.push(metricCell('Highest daily average', formatScore(data.highestDay) + '/10', fmtShortDate(data.highestDayDate)));
   s.push(metricCell('Logged days', String(data.loggedDays)));
   s.push(metricCell('Check-ins', String(data.totalCheckins)));
   if (data.goalText) {

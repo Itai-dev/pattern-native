@@ -79,16 +79,43 @@ export interface TrendsScreenProps {
   protocol?: Protocol | null;
 }
 
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Metric({ label, value, sub, onPress }: {
+  label: string; value: string; sub?: string;
+  /** a summary that names a day should open it — the figure stops being
+   *  a dead end and becomes the door to the day it is about */
+  onPress?: () => void;
+}) {
+  const body = (
+    <>
+      <Text style={styles.metricV} allowFontScaling maxFontSizeMultiplier={1.4}>{value}</Text>
+      <Text style={styles.metricL} allowFontScaling maxFontSizeMultiplier={1.4}>{label}</Text>
+      {!!sub && (
+        <Text style={[styles.metricS, !!onPress && styles.metricLink]} numberOfLines={2}>
+          {sub}{onPress ? ' ›' : ''}
+        </Text>
+      )}
+    </>
+  );
+  if (onPress) {
+    return (
+      <Press
+        onPress={onPress}
+        pressOpacity={0.7}
+        style={styles.metric}
+        accessibilityRole="button"
+        accessibilityLabel={label + ', ' + value + (sub ? ', ' + sub : '') + '. Opens this day'}
+      >
+        {body}
+      </Press>
+    );
+  }
   return (
     <View
       style={styles.metric}
       accessible
       accessibilityLabel={label + ', ' + value + (sub ? ', ' + sub : '')}
     >
-      <Text style={styles.metricV} allowFontScaling maxFontSizeMultiplier={1.4}>{value}</Text>
-      <Text style={styles.metricL} allowFontScaling maxFontSizeMultiplier={1.4}>{label}</Text>
-      {!!sub && <Text style={styles.metricS} numberOfLines={2}>{sub}</Text>}
+      {body}
     </View>
   );
 }
@@ -982,8 +1009,18 @@ export default function TrendsScreen({
         <Text style={styles.rangeLine}>Pain is 0–10, where 0 is no pain</Text>
         <View style={styles.metrics}>
           <Metric label="Average pain" value={formatScore(data.avg)} sub={painLabel(data.avg)} />
-          <Metric label="Lowest day" value={formatScore(data.lowestDay)} />
-          <Metric label="Highest day" value={formatScore(data.highestDay)} />
+          <Metric
+            label="Lowest day"
+            value={formatScore(data.lowestDay)}
+            sub={shortDate(data.lowestDayDate)}
+            onPress={() => onOpenDay(data.lowestDayDate)}
+          />
+          <Metric
+            label="Highest day"
+            value={formatScore(data.highestDay)}
+            sub={shortDate(data.highestDayDate)}
+            onPress={() => onOpenDay(data.highestDayDate)}
+          />
           <Metric label="Logged days" value={String(data.loggedDays)} />
           <Metric label="Check-ins" value={String(data.totalCheckins)} />
           {data.goalText != null && data.latestAbility != null && (
@@ -1265,6 +1302,9 @@ const styles = StyleSheet.create({
   },
   metricL: { color: color.textSecondary, fontSize: font.footnote },
   metricS: { color: color.textTertiary, fontSize: font.footnote },
+  /* the date under an openable figure wears the tint every other link
+     wears — it is the tappable part's own signal, not decoration */
+  metricLink: { color: color.tint, fontWeight: '600' },
   /* ── the drawn shapes ──────────────────────────────────── */
   barRow: { gap: 5, paddingVertical: 7 },
   barHead: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
