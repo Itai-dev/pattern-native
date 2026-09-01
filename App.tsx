@@ -157,6 +157,8 @@ export default function App() {
      live, and null the rest of the time, which is what keeps its pager
      unmounted and its sideways gesture off every other screen. */
   const [dayScreen, setDayScreen] = useState<string | null>(null);
+  /* the day a retro check-in is for; null = today, the normal case */
+  const [checkinDate, setCheckinDate] = useState<string | null>(null);
   /* every route into a day goes through here: Today's card, and any
      square on the calendar */
   const openDay = useCallback((d: string) => {
@@ -279,6 +281,7 @@ export default function App() {
   const closeSheet = useCallback(() => {
     setSheet(null);
     setEditEvent(null);
+    setCheckinDate(null);
     refresh();
   }, [refresh]);
 
@@ -762,7 +765,10 @@ export default function App() {
               entries={entries}
               dateIso={dayScreen}
               onChanged={refresh}
-              onAddLog={() => setSheet('checkin')}
+              onAddLog={(d) => {
+                setCheckinDate(d === todayISO() ? null : d);
+                setSheet('checkin');
+              }}
               onEditLog={() => setSheet('checkin')}
               onEditEvent={startEditEvent}
               onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
@@ -783,7 +789,7 @@ export default function App() {
 
         {/* a full-screen flow keeps its own ✕ */}
         <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
-          <CheckinScreen onDone={closeSheet} onClose={closeSheet} />
+          <CheckinScreen dateIso={checkinDate || undefined} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>

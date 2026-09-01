@@ -130,7 +130,7 @@ export interface DayScreenProps {
   /** the record changed under this screen — the app re-reads and the
    *  detail below re-renders from storage */
   onChanged: () => void;
-  onAddLog: () => void;
+  onAddLog: (dateIso: string) => void;
   onEditLog: (h: number) => void;
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: (dateIso: string) => void;
@@ -490,7 +490,7 @@ export default function DayScreen({
         key={onDate}
         dateIso={onDate}
         onChanged={onChanged}
-        onAddLog={onAddLog}
+        onAddLog={() => onAddLog(onDate)}
         onEditLog={onEditLog}
         onEditEvent={onEditEvent}
         onAddEvent={() => onAddEvent(onDate)}

@@ -64,7 +64,9 @@ import Animated, {
   withRepeat, withSpring, withTiming,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
+import { fmtDay } from './DayScreen';
 import Slider from './Slider';
 import PainShape from './PainShape';
 import * as db from './db';
@@ -82,7 +84,7 @@ import {
 } from './painScale';
 import {
   LOC_CHIP_IDS, LOC_NAMES, LOC_SECTIONS, QUALITYIDS, QUALITY_NAMES,
-  answerOf, collapseSidedLocs, defaultLocs, logsOf,
+  answerOf, collapseSidedLocs, defaultLocs, fmtTime, logsOf,
   minutesNow, nowMeta, todayISO,
 } from './model';
 
@@ -98,13 +100,19 @@ type Step = 'pain' | 'questions' | 'impact' | 'feel' | 'where' | 'done';
 type Side = 'worse' | 'better';
 
 export interface CheckinScreenProps {
+  /** the day being written. Absent = today, the normal case. A PAST day
+   *  makes this a RETROSPECTIVE check-in: the flow shrinks to pain and
+   *  where, and the user picks the time it describes. The day-scoped
+   *  questions stay in the present — a remembered attribution is recall
+   *  bias invited into the one place it hurts most. */
+  dateIso?: string;
   /** minutes since midnight; injectable so previews can fix the clock */
   now?: number;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenProps) {
+export default function CheckinScreen({ now, dateIso, onDone, onClose }: CheckinScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>('pain');
   /* the selected value is optional and starts unset: nothing is recorded
@@ -122,14 +130,23 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const landed = useSharedValue(0);
   const breath = useSharedValue(0);
 
-  const minutes = now != null ? now : minutesNow();
+  /* "today" is the day being WRITTEN — usually the calendar's today,
+     sometimes a remembered day inside the retro window */
+  const today = dateIso || todayISO();
+  const retro = today !== todayISO();
+
+  /* a retro entry describes a time the user names; midday is only the
+     picker's starting point, and the control is on screen the whole
+     step — the time is part of what they enter */
+  const [retroMinutes, setRetroMinutes] = useState(12 * 60);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const minutes = retro ? retroMinutes : (now != null ? now : minutesNow());
   const [showAllChips, setShowAllChips] = useState(false);
 
   /* ── today's questions ─────────────────────────────────────
      Resolved once, when the flow opens, from the active period and the
      clock. An empty list is the normal state before a protocol exists,
      and the step is skipped entirely rather than shown empty. */
-  const today = todayISO();
   const [askIds] = useState<string[]>(() => {
     const entry = db.getDay(today);
     const isFirstOfDay = logsOf(entry).length === 0;
@@ -277,7 +294,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
      less to a comparison than a place. The last two steps are both
      optional either way, so the only thing the order decides is which
      one a person answers before they stop. */
-  const order: Step[] = ['pain', 'questions', 'impact', 'where', 'feel'];
+  const order: Step[] = retro
+    ? ['pain', 'where']
+    : ['pain', 'questions', 'impact', 'where', 'feel'];
   const stepsShown = order.filter((s) => (
     s === 'questions' ? askIds.length > 0
       : s === 'impact' ? askImpact
@@ -341,6 +360,7 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
   const logOnly = () => {
     if (pain == null) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (writtenAt != null && writtenAt !== minutes) db.dropMoment(today, writtenAt);
     db.writeMoment(today, minutes, pain, null, null, nowMeta(SCALE_VERSION));
     setWrittenAt(minutes);
     setStep('done');
@@ -355,6 +375,10 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
     if (pain == null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (step === 'pain') {
+      /* the moment is keyed by its minute, so a changed time (the retro
+         picker, or the clock ticking past a minute between two visits to
+         this step) must MOVE the moment, not leave a duplicate behind */
+      if (writtenAt != null && writtenAt !== minutes) db.dropMoment(today, writtenAt);
       db.writeMoment(today, minutes, pain, null, null, nowMeta(SCALE_VERSION));
       setWrittenAt(minutes);
       setStep(nextAfter('pain'));
@@ -611,6 +635,9 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
         : step === 'feel' ? 'How does it feel?'
           : 'Where in your body?';
 
+  /* writing the past must never look like writing the present */
+  const retroLine = retro ? 'For ' + fmtDay(today) + ', from memory' : null;
+
   const hint = step === 'impact'
     ? 'Your read on the day — Pattern records it, it doesn’t test it'
     : step === 'questions' ? 'Optional — Skip if it doesn’t fit today'
@@ -681,11 +708,43 @@ export default function CheckinScreen({ now, onDone, onClose }: CheckinScreenPro
       </View>
 
       <Text style={styles.title}>{title}</Text>
+      {!!retroLine && (
+        <Text style={styles.retroLine} allowFontScaling maxFontSizeMultiplier={1.3}>
+          {retroLine}
+        </Text>
+      )}
       {hint && <Text style={styles.hint}>{hint}</Text>}
 
       <GestureDetector gesture={stepSwipe}>
       {step === 'pain' ? (
         <View style={styles.middle}>
+          {retro && (
+            <>
+              <Press
+                onPress={() => setShowTimePicker((v) => !v)}
+                pressOpacity={0.7}
+                style={styles.retroWhen}
+                accessibilityRole="button"
+                accessibilityLabel={'This check-in is for ' + fmtTime(minutes)
+                  + '. Changes the time'}
+              >
+                <Text style={styles.retroWhenText} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  At {fmtTime(minutes)} · change
+                </Text>
+              </Press>
+              {showTimePicker && (
+                <DateTimePicker
+                  value={new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60)}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  themeVariant="dark"
+                  onChange={(_, d) => {
+                    if (d) setRetroMinutes(d.getHours() * 60 + d.getMinutes());
+                  }}
+                />
+              )}
+            </>
+          )}
           <View
             accessible
             accessibilityRole="image"
@@ -928,6 +987,12 @@ const styles = StyleSheet.create({
   /* quiet position marker: neutral segments, filled up to here in
      white — never the pain palette, which would hand a hue a meaning
      this bar does not have */
+  retroLine: {
+    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    textAlign: 'center', marginTop: 4,
+  },
+  retroWhen: { minHeight: 36, justifyContent: 'center', marginBottom: 10 },
+  retroWhenText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   progressRow: {
     flexDirection: 'row', gap: 5, alignSelf: 'center',
     marginTop: 14, marginBottom: 2,

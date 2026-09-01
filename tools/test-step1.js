@@ -1056,6 +1056,34 @@ ok('a dead-battery clock is refused, not recorded', (() => {
     && model.momentFromEpoch(NaN, 180) === null;
 })());
 
+/* ── a check-in added after the fact ─────────────────────────
+   A retrospective entry carries no flag; being recalled is DERIVED
+   from the capture stamps every moment already has. Written on a later
+   day than it describes = added later, forever, through any backup. */
+group('added later');
+
+ok('written the same day it describes is not "added later"', (() => {
+  // captured 2026-08-30 14:00 UTC at +03:00 → local 2026-08-30
+  const m = { h: 540, pain: 4, ts: Date.UTC(2026, 7, 30, 14, 0), tz: 180 };
+  return model.momentAddedLater('2026-08-30', m) === false;
+})());
+ok('written the day after is', (() => {
+  const m = { h: 540, pain: 4, ts: Date.UTC(2026, 7, 31, 14, 0), tz: 180 };
+  return model.momentAddedLater('2026-08-30', m) === true;
+})());
+ok('the local date decides, not UTC', (() => {
+  // 22:30 UTC on the 30th at +03:00 is already the 31st where the user is
+  const m = { h: 540, pain: 4, ts: Date.UTC(2026, 7, 30, 22, 30), tz: 180 };
+  return model.momentAddedLater('2026-08-30', m) === true;
+})());
+ok('no stamps means no claim — unknown is not evidence of recall', (() => {
+  return model.momentAddedLater('2026-08-30', { h: 540, pain: 4 }) === false
+    && model.momentAddedLater('2026-08-30', { h: 540, pain: 4, ts: 0, tz: 180 }) === false;
+})());
+ok('the retro window is a fortnight and lives in thresholds', (() => {
+  return th.RETRO_CHECKIN_MAX_DAYS === 14;
+})());
+
 /* ── the background ──────────────────────────────────────────
    Page one of a pain history, in the patient's words. Free text, each
    field capped, none of it ever read by an engine — a static fact has

@@ -67,6 +67,15 @@ export const TERCILE_MIN_DAYS = 21;
  *  does not render at all. */
 export const TERCILE_MIN_SPREAD = 1.5;
 
+/** How far back a check-in may be added after the fact. A fortnight:
+ *  recalling yesterday or the weekend is memory doing its normal job;
+ *  recalling last month is reconstruction wearing memory's clothes, and
+ *  a record padded with reconstructions stops being the thing worth
+ *  showing a clinician. The capture timestamp on every moment keeps
+ *  even the fortnight honest — a recalled entry is permanently
+ *  distinguishable from one made in the moment. */
+export const RETRO_CHECKIN_MAX_DAYS = 14;
+
 /** A place or word is called DIFFERENT between the record's two ends
  *  only when the share of days carrying it differs by at least half.
  *  Half, because the smallest tercile this can run on is 7 days a side

@@ -23,10 +23,12 @@ import { Press, useReduceMotion } from './motion';
 import { getMetric, levelLabel } from './metrics';
 import {
   Answer, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES,
-  daySummary, fmtTime, logsOf, readLocParts, todayISO,
+  dateFromISO, daySummary, fmtTime, logsOf, momentAddedLater,
+  readLocParts, todayISO,
 } from './model';
 import { formatOutOf, formatScoreAndLabel, painColor, speakScore } from './painScale';
 import { healthDayTiles } from './health/context';
+import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
 import { color, font, radius, size } from './theme';
 
 function names(ids: string[] | undefined, map: Record<string, string>): string {
@@ -53,6 +55,12 @@ export default function DayDetail({
   const [, force] = useState(0);
   const rm = useReduceMotion();
   const isToday = dateIso === todayISO();
+  /* a past day inside the retro window can still receive a check-in —
+     see RETRO_CHECKIN_MAX_DAYS for where the line is and why */
+  const daysBack = Math.round(
+    (dateFromISO(todayISO()).getTime() - dateFromISO(dateIso).getTime()) / 86400000
+  );
+  const canAddCheckin = isToday || (daysBack > 0 && daysBack <= RETRO_CHECKIN_MAX_DAYS);
   const live = db.getDay(dateIso);            // always the current truth
   const logs = logsOf(live);
 
@@ -171,9 +179,19 @@ export default function DayDetail({
                 accessibilityHint="Opens this check-in to edit. Swipe left to delete."
               >
                 <View style={[styles.swatch, { backgroundColor: painColor(l.pain) }]} />
-                <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {fmtTime(l.h)}
-                </Text>
+                <View>
+                  <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {fmtTime(l.h)}
+                  </Text>
+                  {/* recalled, and permanently visible as such — read
+                      from the capture stamps, never from a flag that
+                      could be forgotten */}
+                  {momentAddedLater(dateIso, l) && (
+                    <Text style={styles.addedLater} allowFontScaling maxFontSizeMultiplier={1.2}>
+                      added later
+                    </Text>
+                  )}
+                </View>
                 <View style={styles.rowMid}>
                   <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
                     {formatOutOf(l.pain)} · {formatScoreAndLabel(l.pain).split(' · ')[1]}
@@ -483,15 +501,19 @@ export default function DayDetail({
         );
       })()}
 
-      {isToday && (
+      {canAddCheckin && (
         <Press
           onPress={onAddLog}
           pressScale={0.985}
           style={styles.primary}
           accessibilityRole="button"
-          accessibilityLabel="Add another check-in"
+          accessibilityLabel={isToday
+            ? 'Add another check-in'
+            : 'Add a check-in for this day, from memory'}
         >
-          <Text style={styles.primaryText}>Add a check-in</Text>
+          <Text style={styles.primaryText}>
+            {isToday ? 'Add a check-in' : 'Add a check-in for this day'}
+          </Text>
         </Press>
       )}
     </View>
@@ -535,6 +557,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   rowMid: { flex: 1 },
+  addedLater: { color: color.textTertiary, fontSize: 10, marginTop: 1 },
   rowScore: { color: color.textPrimary, fontSize: font.subheadline },
   rowSub: { color: color.textSecondary, fontSize: font.footnote, marginTop: 1 },
   rowNote: {

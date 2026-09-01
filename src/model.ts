@@ -781,6 +781,17 @@ export function momentFromEpoch(ts: unknown, tz: unknown): { date: string; h: nu
   return { date, h: local.getUTCHours() * 60 + local.getUTCMinutes() };
 }
 
+/** was this moment written on a LATER day than the one it describes?
+ *  Read from the capture stamps it already carries — a recalled entry
+ *  is distinguishable forever without any flag to forget. Moments
+ *  without stamps (legacy, offset-unknown) answer false: unknown is
+ *  not evidence of recall. */
+export function momentAddedLater(dateIso: string, m: Moment): boolean {
+  if (typeof m.ts !== 'number' || typeof m.tz !== 'number') return false;
+  const at = momentFromEpoch(m.ts, m.tz);
+  return at != null && at.date > dateIso;
+}
+
 /* ── the last places recorded ────────────────────────────────
    What the most recent day with an answer said, for the where step's
    "Same as last time" shortcut. It is OFFERED and never applied: a
