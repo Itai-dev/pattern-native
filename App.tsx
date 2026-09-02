@@ -161,8 +161,18 @@ export default function App() {
   const [checkinDate, setCheckinDate] = useState<string | null>(null);
   /* every route into a day goes through here: Today's card, and any
      square on the calendar */
+  /* Today's note shortcut: the same day screen, opened onto the note.
+     A flag beside the date rather than a second screen — the note is a
+     section of the day and has no surface of its own to open. */
+  const [dayNote, setDayNote] = useState(false);
   const openDay = useCallback((d: string) => {
     track('day_opened');
+    setDayNote(false);
+    setDayScreen(d);
+  }, []);
+  const openDayNote = useCallback((d: string) => {
+    track('day_opened');
+    setDayNote(true);
     setDayScreen(d);
   }, []);
 
@@ -717,6 +727,7 @@ export default function App() {
                 protocol={protocol}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
+                onAddNote={() => openDayNote(todayISO())}
                 onOpenToday={() => openDay(todayISO())}
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
@@ -773,6 +784,7 @@ export default function App() {
               onEditEvent={startEditEvent}
               onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
               onClose={() => setDayScreen(null)}
+              editNoteOnOpen={dayNote}
             />
           )}
 

@@ -49,6 +49,11 @@ const LINE_COLOR = 'rgba(255,255,255,0.5)';
  *  would be a grid; fewer and 5 stops being a landmark. */
 const GRID = [10, 5, 0];
 
+/** the ring around the newest dot: a gap so it reads as a ring and not
+ *  as a fatter dot, then a stroke at the thread's weight so the two
+ *  neutral marks on this chart agree with each other */
+const RING_GAP = 3, RING_W = 2;
+
 /** how many marks make a dotted rule at card width. Fixed rather than
  *  derived: a count that changed with width would make the same rule look
  *  denser on a bigger phone. */
@@ -77,10 +82,17 @@ export interface DayLineProps {
   grid?: boolean;
   /** Morning / Afternoon / Evening under the plot */
   axis?: boolean;
+  /** the moment (by its `h`) to ring as the newest. A neutral ring
+   *  around the dot, never a change to the others: the first draft
+   *  greyed every dot but the latest, and on a ramp that runs
+   *  near-black to near-white a grey dot IS a score — a mid one the
+   *  user never gave. Every dot keeps its own colour; the ring is
+   *  white because "this one is the latest" is not a pain value. */
+  highlightH?: number;
 }
 
 export default function DayLine({
-  logs, height, dot = 12, grid, axis,
+  logs, height, dot = 12, grid, axis, highlightH,
 }: DayLineProps) {
   /* measured rather than computed from window width: this draws inside
      two different cards at two different widths, and a chart that has to
@@ -107,7 +119,8 @@ export default function DayLine({
       : pts.length + ' check-ins between ' + fmtTime(pts[0].h) + ' and '
         + fmtTime(pts[pts.length - 1].h) + ', from '
         + formatScore(pts.reduce((m, p) => (p.pain < m ? p.pain : m), 10)) + ' to '
-        + formatScore(pts.reduce((m, p) => (p.pain > m ? p.pain : m), 0));
+        + formatScore(pts.reduce((m, p) => (p.pain > m ? p.pain : m), 0))
+        + (highlightH != null ? ', the latest at ' + fmtTime(highlightH) : '');
 
   return (
     <View accessible accessibilityLabel={spoken}>
@@ -158,6 +171,28 @@ export default function DayLine({
               />
             );
           })}
+
+          {/* the ring sits UNDER the dots, so the latest dot's own colour
+              stays whole on top of it and the ring never tints a value */}
+          {w > 0 && highlightH != null && pts.some((p) => p.h === highlightH) && (() => {
+            const p = pts.find((q) => q.h === highlightH)!;
+            const rr = r + RING_GAP + RING_W;
+            return (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.ring,
+                  {
+                    left: x(p.h) - rr,
+                    top: y(p.pain) - rr,
+                    width: rr * 2,
+                    height: rr * 2,
+                    borderRadius: rr,
+                  },
+                ]}
+              />
+            );
+          })()}
 
           {w > 0 && pts.map((p) => (
             <View
@@ -215,6 +250,10 @@ const styles = StyleSheet.create({
   dot: {
     position: 'absolute',
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)',
+  },
+  ring: {
+    position: 'absolute',
+    borderWidth: RING_W, borderColor: 'rgba(255,255,255,0.9)',
   },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   axisInset: { marginLeft: GUTTER_W },
