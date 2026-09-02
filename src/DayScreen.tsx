@@ -135,6 +135,11 @@ export interface DayScreenProps {
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: (dateIso: string) => void;
   onClose: () => void;
+  /** open with the day's note already being edited. Applies to the day
+   *  this screen opened on and to no other: the detail remounts as the
+   *  pager walks, and a note that sprang open on every swiped-to day
+   *  would be a trap, not a shortcut. */
+  editNoteOnOpen?: boolean;
 }
 
 /* ── one figure of three ────────────────────────────────────── */
@@ -250,6 +255,7 @@ function DayPage({
 }
 
 export default function DayScreen({
+  editNoteOnOpen,
   entries, dateIso, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, onClose,
 }: DayScreenProps) {
   const t = todayISO();
@@ -429,6 +435,10 @@ export default function DayScreen({
         contentContainerStyle={styles.page}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
+        /* the note can now open focused from Today, far down this page;
+           without the inset the keyboard covers the very field the
+           shortcut promised, and the user is left typing blind */
+        automaticallyAdjustKeyboardInsets
       >
       <Animated.FlatList
         ref={list}
@@ -494,6 +504,7 @@ export default function DayScreen({
         onEditLog={onEditLog}
         onEditEvent={onEditEvent}
         onAddEvent={() => onAddEvent(onDate)}
+        editNoteOnOpen={!!editNoteOnOpen && onDate === dateIso}
       />
       </ScrollView>
     </Animated.View>

@@ -6,9 +6,13 @@
  * TWO CARDS, AND EACH ANSWERS ONE QUESTION. "Last check-in" answers "what
  * did I say, and when" — the thing a person opening this app at four in
  * the afternoon actually wants and previously had to work out from a
- * daily average and a list. "Today so far" answers "what has the day
- * done", in the only comparison the record can make honestly before the
- * day is over: this against the first check-in of the same day.
+ * daily average and a list. It says all of it: every area, every
+ * quality word, the where in their own words, and a skip shown as the
+ * answer it is. "Today so far" answers "what has the day done", in the
+ * only comparison the record can make honestly before the day is over:
+ * this against the first check-in of the same day — and only once there
+ * is a second check-in to compare, because a chart of one dot is the
+ * card above it again.
  *
  * THE DAY PAGER IS GONE FROM HERE. Sideways used to walk this screen back
  * through the record, and it was in the wrong place: Today is where you
@@ -53,21 +57,57 @@ const SQUARE = 58, SQ_RADIUS = 15;
  *  made the first version unreadable. */
 const SPARK_H = 96;
 
-/** tags shown beside a check-in before the card gives up. Three fits the
- *  narrowest phone; the rest are in the day detail, one tap away. */
-const TAGS = 3;
-
 /* ── the moment's own words ─────────────────────────────────
    Quality and place, because both are recorded PER CHECK-IN and this card
    is about one check-in. The day's flagged factors are not here on
    purpose: they are the user's read of the whole day, and hanging them
    off a single moment would quietly turn an attribution into a property
-   of a number. */
-function tagsOf(l: Moment): string[] {
-  return [
-    ...(l.q || []).map((id) => QUALITY_NAMES[id] || id),
-    ...(l.loc || []).map((id) => LOC_NAMES[id] || id),
-  ].slice(0, TAGS);
+   of a number.
+
+   ALL OF IT, NOT THREE. The card used to stop at three chips and send
+   the rest to the day detail; it is the one card about this check-in,
+   and a card that shows some of an answer teaches the user that the
+   rest was not kept.
+
+   THREE STATES, TOLD APART. "Skipped" and "no areas" are different
+   answers to the same question — one is "I'd rather not", the other is
+   "nowhere in particular" — and the storage keeps them distinct on
+   purpose, so this card must not fold both back into a blank. Never
+   asked (older moments, a day-only record) is the third and shows
+   nothing, because nothing is what is known. */
+interface DetailRow {
+  label: string;
+  chips: string[];
+  /** the user's own words, shown quoted so their voice stays theirs */
+  quote?: string;
+  /** the answer when there are no chips: skipped, or nothing fit */
+  state?: string;
+}
+
+function detailsOf(l: Moment): DetailRow[] {
+  const rows: DetailRow[] = [];
+  const loc = (l.loc || []).map((id) => LOC_NAMES[id] || id);
+  if (loc.length || l.locNote) {
+    rows.push({ label: 'Where', chips: loc, quote: l.locNote || undefined });
+  } else if (l.locSkipped) {
+    rows.push({ label: 'Where', chips: [], state: 'Skipped' });
+  } else if (l.locAsked) {
+    rows.push({ label: 'Where', chips: [], state: 'No areas picked' });
+  }
+  const q = (l.q || []).map((id) => QUALITY_NAMES[id] || id);
+  if (q.length) {
+    rows.push({ label: 'Feels like', chips: q });
+  } else if (l.qAsked) {
+    rows.push({ label: 'Feels like', chips: [], state: 'Nothing fit' });
+  }
+  return rows;
+}
+
+/** the same rows, as one spoken sentence for the card's label */
+function speakDetails(rows: DetailRow[]): string {
+  return rows.map((r) =>
+    r.label + ': ' + [...r.chips, ...(r.quote ? ['“' + r.quote + '”'] : []), ...(r.state ? [r.state] : [])].join(', ')
+  ).join('. ');
 }
 
 export interface HomeScreenProps {
@@ -76,6 +116,11 @@ export interface HomeScreenProps {
   onLog: () => void;
   /** the day detail — where editing, deleting and events live */
   onOpenDay: (dateIso: string) => void;
+  /** the same day detail, opened onto today's note. One note per day,
+   *  not per check-in: a third kind of note would be one more thing to
+   *  store, back up and print, and "add a note" from here is the day's
+   *  note offered where the user already is. */
+  onAddNote: () => void;
   /** Pain through the day, opened on today */
   onOpenToday: () => void;
   onFocus: () => void;
@@ -92,7 +137,7 @@ export interface HomeScreenProps {
 }
 
 export default function HomeScreen({
-  entries, protocol, onLog, onOpenDay, onOpenToday, onFocus, onKeepFocus,
+  entries, protocol, onLog, onOpenDay, onAddNote, onOpenToday, onFocus, onKeepFocus,
   onTestFactor, onAddEvent, onOpenBackground,
 }: HomeScreenProps) {
   const t = todayISO();
@@ -108,6 +153,10 @@ export default function HomeScreen({
      day reads as "no check-ins yet today" over a day that has one. */
   const dayOnly = !latest && entry && typeof entry.pain === 'number' ? entry.pain : null;
   const value = latest ? latest.pain : dayOnly;
+  const details = latest ? detailsOf(latest) : [];
+  /* the day's note, read from the entry — shown as a line so the user
+     knows one exists before tapping to add another */
+  const note = entry && entry.note ? entry.note : '';
 
   /* the same slow, shallow breath the pain shape and the Logged square
      carry — presence, not decoration. ±2.5% over 2.6s; still under
@@ -160,7 +209,7 @@ export default function HomeScreen({
           accessibilityRole="button"
           accessibilityLabel={(latest ? 'Last check-in, ' + fmtTime(latest.h) + ', ' : 'Today, ')
             + speakScore(value)
-            + (latest && tagsOf(latest).length ? ', ' + tagsOf(latest).join(', ') : '')}
+            + (details.length ? '. ' + speakDetails(details) : '')}
           accessibilityHint="Opens the day’s detail, where you can edit or remove it"
         >
           <View style={styles.head}>
@@ -214,22 +263,85 @@ export default function HomeScreen({
                   {painLabel(value)}
                 </Text>
               </View>
-              {!!latest && tagsOf(latest).length > 0 && (
-                <View style={styles.tags}>
-                  {tagsOf(latest).map((tag) => (
-                    <View key={tag} style={styles.tag}>
-                      <Text
-                        style={styles.tagText} numberOfLines={1}
-                        allowFontScaling maxFontSizeMultiplier={1.2}
-                      >
-                        {tag}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
             </View>
           </View>
+
+          {/* everything else this check-in recorded, under the hero at
+              the card's full width rather than squeezed beside the
+              square — a list of five areas needs the room, and the
+              number above still wins by size */}
+          {details.length > 0 && (
+            <View style={styles.details}>
+              {details.map((row) => (
+                <View key={row.label} style={styles.detailRow}>
+                  <Text style={styles.detailLabel} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {row.label}
+                  </Text>
+                  <View style={styles.detailBody}>
+                    {row.chips.length > 0 && (
+                      <View style={styles.tags}>
+                        {row.chips.map((tag) => (
+                          <View key={tag} style={styles.tag}>
+                            <Text
+                              style={styles.tagText} numberOfLines={1}
+                              allowFontScaling maxFontSizeMultiplier={1.2}
+                            >
+                              {tag}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    {!!row.quote && (
+                      <Text style={styles.detailQuote} allowFontScaling maxFontSizeMultiplier={1.3}>
+                        “{row.quote}”
+                      </Text>
+                    )}
+                    {/* a skip or a "nothing fit" is an answer, written as
+                        one — in the quiet colour, because it is a fact
+                        about the question and not a value */}
+                    {!!row.state && (
+                      <Text style={styles.detailState} allowFontScaling maxFontSizeMultiplier={1.3}>
+                        {row.state}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* the day's note, or the way to start one. Its own press
+              inside the card's: the inner responder wins, so this row
+              opens the day ON the note and the rest of the card opens
+              the day as before. */}
+          <View style={styles.rule} />
+          <Press
+            onPress={onAddNote}
+            pressOpacity={0.7}
+            style={styles.foot}
+            accessibilityRole="button"
+            accessibilityLabel={note ? 'Your note: ' + note : 'Add a note about today'}
+            accessibilityHint={note ? 'Opens the note to edit' : 'Opens today with the note ready to write'}
+          >
+            {note ? (
+              <>
+                <Text
+                  style={styles.noteLine} numberOfLines={1}
+                  allowFontScaling maxFontSizeMultiplier={1.3}
+                >
+                  “{note}”
+                </Text>
+                <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  Edit
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Add a note about today
+              </Text>
+            )}
+          </Press>
         </Press>
       ) : (
         /* Nothing yet today. One card, one thing to do — and it says what
@@ -266,8 +378,13 @@ export default function HomeScreen({
         </Press>
       )}
 
-      {/* ── the day so far ────────────────────────────────── */}
-      {logs.length > 0 && (
+      {/* ── the day so far ──────────────────────────────────
+          From the SECOND check-in. With one, this card was the card
+          above it drawn again as a single dot, and a chart of one point
+          has no shape to show. It appears when there is a day to look
+          at, which is also when the sentence over it has something to
+          say. */}
+      {logs.length > 1 && (
         <Press
           onPress={onOpenToday}
           pressScale={0.985}
@@ -300,13 +417,14 @@ export default function HomeScreen({
               a cluster of dots in the middle of the card cannot be read at
               all — which is the whole complaint a bare sparkline earns. */}
           <View style={styles.spark}>
-            <DayLine logs={logs} height={SPARK_H} grid axis />
+            <DayLine logs={logs} height={SPARK_H} grid axis highlightH={latest ? latest.h : undefined} />
           </View>
 
           {/* what the drawing is NOT, inside the card it qualifies */}
           <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Each dot is a check-in, at the hour you made it. One day is not a
-            trend, and nothing here is being compared to another day.
+            Each dot is a check-in, at the hour you made it; the ringed one is
+            the latest. One day is not a trend, and nothing here is being
+            compared to another day.
           </Text>
 
           <View style={styles.rule} />
@@ -449,7 +567,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 14,
   },
-  heroText: { flex: 1, gap: 8 },
+  heroText: { flex: 1 },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   score: {
     color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
@@ -460,6 +578,17 @@ const styles = StyleSheet.create({
     flex: 1, color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
     letterSpacing: -0.2,
   },
+  details: { marginTop: 14, gap: 10 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  /* a fixed label column, so the two rows' answers start on one line */
+  detailLabel: {
+    width: 72, paddingTop: 4,
+    color: color.textTertiary, fontSize: font.footnote, fontWeight: '600',
+  },
+  detailBody: { flex: 1, gap: 6 },
+  detailQuote: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20 },
+  detailState: { color: color.textTertiary, fontSize: font.subheadline, paddingTop: 4 },
+  noteLine: { flex: 1, color: color.textSecondary, fontSize: font.subheadline, marginRight: 12 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: {
     borderRadius: 8, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack,

@@ -47,10 +47,14 @@ export interface DayDetailProps {
   onEditLog: (h: number) => void;
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: () => void;
+  /** open with the note already being edited — Today's "add a note"
+   *  lands here, and landing on a closed note would make the shortcut
+   *  a longer route than the one it replaces */
+  editNoteOnOpen?: boolean;
 }
 
 export default function DayDetail({
-  dateIso, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent,
+  dateIso, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, editNoteOnOpen,
 }: DayDetailProps) {
   const [, force] = useState(0);
   const rm = useReduceMotion();
@@ -66,8 +70,10 @@ export default function DayDetail({
 
   /* the note is drafted apart from the stored value, so Cancel is a real
      cancel — nothing touches the record until Save */
-  const [noteEditing, setNoteEditing] = useState(false);
-  const [noteDraft, setNoteDraft] = useState('');
+  const [noteEditing, setNoteEditing] = useState(!!editNoteOnOpen);
+  const [noteDraft, setNoteDraft] = useState(
+    () => (editNoteOnOpen ? (db.getDay(dateIso)?.note || '') : '')
+  );
   const startNote = useCallback(() => {
     setNoteDraft((db.getDay(dateIso)?.note) || '');
     setNoteEditing(true);
