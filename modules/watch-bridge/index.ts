@@ -10,6 +10,9 @@ export interface WatchBridgeNative {
   /** the queued check-ins, cleared atomically — the caller owns them */
   drain(): Record<string, unknown>[];
   pendingCount(): number;
+  /** the scale's presentation for the watch to wear — absent on the
+   *  first watch build, so callers test for it before calling */
+  setContext?(ctx: Record<string, unknown>): void;
 }
 
 export default requireNativeModule<WatchBridgeNative>('WatchBridge');

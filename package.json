@@ -39,7 +39,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:domain": "tsc src/model.ts src/painScale.ts src/report.ts src/metrics.ts src/protocol.ts src/thresholds.ts src/digest.ts src/widget.ts src/health/types.ts src/health/normalize.ts src/health/windows.ts src/health/engine.ts src/health/coverage.ts src/health/noticed.ts src/health/context.ts src/health/mock.ts --ignoreConfig --outDir .testbuild --module commonjs --target es2019 --skipLibCheck",
+    "build:domain": "tsc src/model.ts src/painScale.ts src/report.ts src/metrics.ts src/protocol.ts src/thresholds.ts src/digest.ts src/widget.ts src/watchContext.ts src/health/types.ts src/health/normalize.ts src/health/windows.ts src/health/engine.ts src/health/coverage.ts src/health/noticed.ts src/health/context.ts src/health/mock.ts --ignoreConfig --outDir .testbuild --module commonjs --target es2019 --skipLibCheck",
     "test": "node tools/test-runtime.js && npm run build:domain && node tools/test-model.js && node tools/test-step1.js && node tools/test-health.js && node tools/test-widget.js",
     "verify": "tsc --noEmit && npm test && expo export --platform all"
   },
