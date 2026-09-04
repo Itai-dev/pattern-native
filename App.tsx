@@ -35,7 +35,7 @@ import OnboardingScreen from './src/OnboardingScreen';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler } from './src/reminders';
-import { drainWatchCheckins } from './src/watch';
+import { drainWatchCheckins, pushWatchContext } from './src/watch';
 import { PainEvent, ValidBackup, iso, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { refreshWidget } from './src/widgetPush';
@@ -280,7 +280,13 @@ export default function App() {
      data that arrived while nobody was looking at this screen. On
      binaries without the watch build this is a no-op. */
   useEffect(() => {
-    const pull = () => { if (drainWatchCheckins() > 0) refresh(); };
+    const pull = () => {
+      if (drainWatchCheckins() > 0) refresh();
+      /* and tell the watch what the scale looks like — the same
+         rhythm, because a watch paired while the app was in the
+         background has never been told */
+      pushWatchContext();
+    };
     pull();
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') pull();
@@ -437,6 +443,9 @@ export default function App() {
        hex — a theme change has to push a fresh snapshot or the home
        screen keeps wearing the old palette until the next check-in */
     refreshWidget(db.getAll());
+    /* the watch's colours are computed here too, and pushed the
+       same way — see watchContext.ts */
+    pushWatchContext();
   }, []);
 
   /* Restore: the file is fully validated BEFORE anything is touched, then

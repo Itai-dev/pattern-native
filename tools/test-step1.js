@@ -1302,5 +1302,47 @@ ok('a fractional daily average still lands in a band', (() => {
   return [0.4, 3.4, 4.5, 6.6, 9.5].every((v) => words.indexOf(scale.painLabel(v)) >= 0);
 })());
 
+/* ── what the watch is given ────────────────────────────────
+   The watch draws the square in whatever colour the phone tells it a
+   score wears; it holds no ramp of its own. So this is the ONE place
+   the ramp is asserted to reach the wrist intact: eleven fills, eleven
+   inks and eleven words, each the value painScale would give the same
+   score on the phone — and the theme the user picked, not the default. */
+group('the watch context');
+
+const wctx = require(path.join(OUT, 'watchContext.js'));
+
+ok('one entry per whole score, 0 through 10', (() => {
+  const c = wctx.watchContext();
+  return c.ramp.length === 11 && c.ink.length === 11 && c.words.length === 11;
+})());
+ok('each fill is exactly painColor for that score', (() => {
+  const c = wctx.watchContext();
+  return c.ramp.every((hex, i) => hex === scale.painColor(i));
+})());
+ok('each ink is what inkOn would pick for that score', (() => {
+  const c = wctx.watchContext();
+  return c.ink.every((hex, i) => hex === scale.inkOn(i));
+})());
+ok('each word is painLabel for that score — one vocabulary', (() => {
+  const c = wctx.watchContext();
+  return c.words.every((w, i) => w === scale.painLabel(i));
+})());
+ok('every colour is a #RRGGBB the watch can parse', (() => {
+  const c = wctx.watchContext();
+  return c.ramp.concat(c.ink).every((h) => /^#[0-9A-F]{6}$/.test(h));
+})());
+ok('it is versioned, so an older watch can refuse a newer shape',
+  wctx.watchContext().v === 1 && wctx.WATCH_CONTEXT_VERSION === 1);
+ok('the theme rides along and the fills follow it', (() => {
+  const before = scale.getPainTheme();
+  try {
+    scale.setPainTheme('violet');
+    const c = wctx.watchContext();
+    return c.theme === 'violet' && c.ramp[5] === scale.painColor(5, 'violet')
+      && c.ramp[5] !== scale.painColor(5, 'blue');
+  } finally { scale.setPainTheme(before); }
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

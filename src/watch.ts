@@ -1,5 +1,6 @@
 /**
- * Draining the watch's mailbox into the record.
+ * Draining the watch's mailbox into the record — and telling the watch
+ * what the scale looks like.
  *
  * The watch sends {v, pain, ts, tz}; the native WatchBridge queues the
  * deliveries; this file is the ONE place they become check-ins — through
@@ -21,6 +22,7 @@
 import * as db from './db';
 import { momentFromEpoch, nowMeta } from './model';
 import { SCALE_VERSION } from './painScale';
+import { watchContext } from './watchContext';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const bridge = (() => {
@@ -57,4 +59,21 @@ export function drainWatchCheckins(): number {
     wrote++;
   });
   return wrote;
+}
+
+/**
+ * Hand the watch the scale's colours and words — see watchContext.ts.
+ *
+ * Safe to call often: application context is latest-wins, so a push
+ * that changes nothing costs nothing. TWO guards, not one: the bridge
+ * may be missing (a binary before the watch), or present but older
+ * than this function (the first watch build, which drains and nothing
+ * else, receiving this JS over the air). Either way the watch keeps
+ * its white number and the record is untouched.
+ */
+export function pushWatchContext(): void {
+  if (!bridge || typeof bridge.setContext !== 'function') return;
+  try { bridge.setContext(watchContext()); } catch {
+    /* the watch is a nicety; the record is the product */
+  }
 }
