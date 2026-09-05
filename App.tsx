@@ -226,6 +226,23 @@ export default function App() {
      row without a remount; the picker opens on mount when Today asked */
   const [appointment, setAppointment] = useState(() => db.getPref<string>(PREF_APPOINTMENT, ''));
   const [apptPickerOnOpen, setApptPickerOnOpen] = useState(false);
+  /* a date that has passed clears itself the day after — nobody wants
+     to be told the appointment was yesterday — and sets the next ask a
+     month out. On launch and on every foreground, so a phone left
+     open across midnight still catches up. */
+  useEffect(() => {
+    const sweep = () => {
+      const d = db.getPref<string>(PREF_APPOINTMENT, '');
+      if (d && d < todayISO()) {
+        db.setPref(PREF_APPOINTMENT, '');
+        db.setPref('appointment.askAfter', iso(new Date(new Date(d.replace(/-/g, '/')).getTime() + 30 * 86400000)));
+        setAppointment('');
+      }
+    };
+    sweep();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') sweep(); });
+    return () => sub.remove();
+  }, []);
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
 
@@ -777,6 +794,7 @@ export default function App() {
                 onOpenReminders={() => setProfile(true)}
                 onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
                 onShare={shareTrends}
+                appointment={appointment}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background
@@ -892,7 +910,7 @@ export default function App() {
 
         {/* the profile — grouped like the iOS Settings app: inset cards,
             uniform rows, a coloured icon leading each one */}
-        <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProfile(false)} onDismiss={runAfterDismiss}>
+        <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setProfile(false); setApptPickerOnOpen(false); }} onDismiss={runAfterDismiss}>
           <View style={styles.sheet}>
             <View style={styles.navBar}>
               <View style={styles.navSpacer} />

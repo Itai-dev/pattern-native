@@ -1094,7 +1094,7 @@ export default function CheckinScreen({
               {/* and a third screen left untouched says Skip, because that
                   is what the tap does — same door as Done, admitted */}
               {isLast
-                ? (step === 'today' && !anyAnswered ? 'Skip' : 'Done')
+                ? (step === 'today' && !anyAnswered && !editing ? 'Skip' : 'Done')
                 : 'Continue'}
             </Text>
           </Press>

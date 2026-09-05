@@ -41,7 +41,6 @@ import {
   todayISO,
 } from './model';
 import { fmtDay } from './DayScreen';
-import { PREF_APPOINTMENT } from './AppointmentRow';
 import { fmtClock } from './clock';
 import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
@@ -160,6 +159,8 @@ export interface HomeScreenProps {
   onOpenAppointment: () => void;
   /** the PDF, from the appointment card */
   onShare: () => void;
+  /** the next appointment as an ISO date, or '' — owned by App */
+  appointment: string;
   /** Profile, where the reminder times live — for "choose another time" */
   onOpenReminders: () => void;
   /** the binary can read Health and it has not been set up — the only
@@ -172,7 +173,7 @@ export interface HomeScreenProps {
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onAddNote, onOpenToday, onFocus, onKeepFocus,
   onTestFactor, onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
-  onOpenAppointment, onShare,
+  onOpenAppointment, onShare, appointment,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -274,10 +275,10 @@ export default function HomeScreen({
   };
 
   /* The appointment. Asked once a record exists to bring, and asked
-     again a fortnight after a date has passed — appointments recur.
-     "Not now" rests it for a month. The date itself is a preference
-     the Profile row owns; this screen only reads it. */
-  const appointment = db.getPref<string>(PREF_APPOINTMENT, '');
+     again a month after a date has passed — appointments recur.
+     "Not now" rests it for a month. The date arrives as a prop: App
+     owns it, clears it the day after it passes, and the Profile row
+     edits it, so this screen never writes a preference mid-render. */
   const askAfter = db.getPref<string>('appointment.askAfter', '');
   const offerAppointment = !appointment && loggedDays >= APPOINTMENT_OFFER_AFTER_DAYS
     && (!askAfter || t >= askAfter);
@@ -286,13 +287,7 @@ export default function HomeScreen({
     db.setPref('appointment.askAfter', addDays(t, APPOINTMENT_REASK_DAYS));
     bump((n) => n + 1);
   };
-  /* within the lead: the summary card. A date that has passed clears
-     itself and sets the next ask — the day after, nobody wants to be
-     told the appointment was yesterday. */
-  if (appointment && appointment < t) {
-    db.setPref(PREF_APPOINTMENT, '');
-    db.setPref('appointment.askAfter', addDays(appointment, APPOINTMENT_REASK_DAYS));
-  }
+  /* within the lead: the summary card */
   const apptSoon = !!appointment && appointment >= t
     && appointment <= addDays(t, APPOINTMENT_LEAD_DAYS);
 
