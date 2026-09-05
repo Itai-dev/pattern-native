@@ -36,6 +36,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import * as db from './db';
 import { Press } from './motion';
+import { track } from './analytics';
 import { MetricDef, matchFactors, matchedExclusions, protocolFactors } from './metrics';
 import { PROTOCOL_VERSION, todayISO } from './model';
 import {
@@ -123,6 +124,10 @@ export default function FocusSheet({ seedFactor, onDone, onClose }: FocusSheetPr
       if (hid) db.updateHypothesis(hid, { createdOn: existing!.createdOn, ...answers });
       else hid = db.addHypothesis({ createdOn: today, ...answers });
     }
+    /* whether the day-7 setup completes, and whether people change
+       their minds — counted before the write, so a replaced period is
+       told apart from a first one. The factors themselves stay here. */
+    track(db.activeProtocol() ? 'focus_changed' : 'focus_started');
     db.startProtocol({
       version: PROTOCOL_VERSION,
       startDate: today,

@@ -77,6 +77,9 @@ export interface OnboardingResult {
   /** protocol-eligible metric ids, in the order they were tapped —
    *  the first is what the week-later focus offer names */
   suspicions: string[];
+  /** the step (0-based) the person left from, when they took the
+   *  shortcut to the first check-in; undefined = walked the whole way */
+  skippedAt?: number;
 }
 
 export interface OnboardingScreenProps {
@@ -112,17 +115,34 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
      who answered it weeks ago is not what they tapped */
   const lastStep = review ? 1 : 5;
 
+  const result = (skippedAt?: number): OnboardingResult => ({
+    understand: understand.trim(),
+    where: collapseSidedLocs(mapSel),
+    duration, diagnosis,
+    diagnosisText: diagnosisText.trim(),
+    suspicions, connectHealth,
+    ...(skippedAt !== undefined ? { skippedAt } : {}),
+  });
+
   const advance = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (step < lastStep) setStep(step + 1);
-    else onDone({
-      understand: understand.trim(),
-      where: collapseSidedLocs(mapSel),
-      duration, diagnosis,
-      diagnosisText: diagnosisText.trim(),
-      suspicions, connectHealth,
-    });
+    else onDone(result());
   };
+
+  /* A WAY OUT, from the third screen on. Six screens is the longest
+     stretch between install and first check-in this app has had, and
+     someone who installed it during a flare should not have to finish a
+     questionnaire to reach the one thing it is for. Everything after
+     the boundaries screen is optional and stores as skipped either way;
+     this is the same door, earlier. The first two screens are not
+     skippable: the promise and the red flags are the two things a
+     person must have seen. */
+  const skipToCheckin = () => {
+    Haptics.selectionAsync().catch(() => {});
+    onDone(result(step));
+  };
+  const canSkip = !review && step >= 2 && step < lastStep;
 
   const toggleIn = (list: string[], set: (v: string[]) => void, id: string) => {
     Haptics.selectionAsync().catch(() => {});
@@ -391,9 +411,10 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
                 "find it later in Profile" was friction wearing a
                 privacy costume. Still a choice, defaulting to no. */}
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Connect Apple Health and sleep and activity sit beside your
-              check-ins automatically. You choose exactly what Pattern can
-              read, nothing is written back, and it all stays on this iPhone.
+              Connect Apple Health, and last night’s sleep and today’s activity
+              sit beside your check-ins on their own. You choose exactly what
+              Pattern can read, nothing is written back, and it all stays on
+              this iPhone.
             </Text>
             <View style={styles.chips}>
               {([[true, 'Connect Apple Health'], [false, 'Not now']] as const).map(([v, label]) => {
@@ -457,6 +478,21 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
           <Text style={styles.skipHint} allowFontScaling maxFontSizeMultiplier={1.3}>
             Leave it blank if you’d rather just start.
           </Text>
+        )}
+
+        {canSkip && (
+          <Press
+            onPress={skipToCheckin}
+            pressOpacity={0.7}
+            style={styles.skipBtn}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Skip the rest and start your first check-in"
+          >
+            <Text style={styles.skipText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Skip the rest and check in
+            </Text>
+          </Press>
         )}
 
         <View style={styles.dots}>
@@ -531,4 +567,7 @@ const styles = StyleSheet.create({
     color: color.textTertiary, fontSize: font.footnote,
     textAlign: 'center', marginTop: 12,
   },
+  /* the quiet door: tint, no chrome, a full-height tap target */
+  skipBtn: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  skipText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 });

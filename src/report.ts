@@ -13,13 +13,13 @@
  * handing to a physician.
  */
 import {
-  BANDS, IMPACT_BETTER, IMPACT_WORSE, TimeBandKey, bandOf, impactName,
+  BANDS, IMPACT_BETTER, IMPACT_WORSE, TimeBandKey, bandOf, getMetric, impactName,
 } from './metrics';
 import {
   BACKGROUND_FIELDS, Background,
-  Entries, EVENT_LABELS, EventKind, FuncEntry, LOC_NAMES, PainEvent,
-  DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, QUALITY_NAMES, RESPONSE_LABELS,
-  Response, checkinCount, dailyAverage,
+  Entries, EVENT_LABELS, EventKind, FuncEntry, Hypothesis, LOC_NAMES, PainEvent,
+  DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, Protocol, QUALITY_NAMES,
+  RESPONSE_LABELS, Response, checkinCount, dailyAverage,
   dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
 } from './model';
 import { BAND_AT, formatScore, painLabel } from './painScale';
@@ -54,9 +54,25 @@ export interface ReportInput {
    *  renders under. Absent = the section is not drawn. */
   healthDays?: Record<string, HealthDay>;
   healthAssociation?: Association | null;
+  /** the person's own question, in their words — printed verbatim.
+   *  The spec listed it first among the report's additions and it was
+   *  stored from day one; it never reached the page. Absent = no section. */
+  hypothesis?: Hypothesis | null;
+  /** every observation period, so a clinician can see WHAT was watched
+   *  and WHEN — dates, the two factors, whether it is still running */
+  protocols?: Protocol[];
 }
 
 export interface ReportDay { date: string; avg: number; count: number }
+
+/** one observation period as the report prints it */
+export interface ReportPeriod {
+  from: string;
+  /** null while still running */
+  to: string | null;
+  factors: string[];
+  status: Protocol['status'];
+}
 
 export interface ReportData {
   rangeStart: string;
@@ -115,6 +131,10 @@ export interface ReportData {
     coverage: { name: string; covered: number }[];
     association: Association | null;
   } | null;
+  /** what the patient wants to understand, verbatim. null = never written. */
+  hypothesis: Hypothesis | null;
+  /** the periods that overlap the window, oldest first. Empty = none. */
+  periods: ReportPeriod[];
 }
 
 /* ── what you flagged ────────────────────────────────────────
@@ -311,6 +331,22 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       .filter((n) => !!n.text),
     health: healthContext(inp.healthDays, inp.healthAssociation || null, days),
     background: inp.background || null,
+    hypothesis: inp.hypothesis && (inp.hypothesis.understand.trim()
+      || inp.hypothesis.harder.trim() || inp.hypothesis.helps.trim())
+      ? inp.hypothesis : null,
+    periods: (inp.protocols || [])
+      /* a period that ended before the window began is history the
+         window does not show; one still running always overlaps */
+      .filter((p) => (p.endDate || todayIso) >= startIso && p.startDate <= todayIso)
+      .slice()
+      .sort((a, b) => (a.startDate < b.startDate ? -1 : 1))
+      .map((p) => ({
+        from: p.startDate,
+        to: p.status === 'active' ? null : p.endDate,
+        factors: [p.chosenFactor, p.secondFactor]
+          .map((id) => { const m = getMetric(id); return m ? m.name : id; }),
+        status: p.status,
+      })),
   };
 }
 
@@ -668,9 +704,22 @@ export function reportHtml(data: ReportData): string {
   ].join(''));
   s.push('</style></head><body>');
 
+  /* ── the order ─────────────────────────────────────────────
+     SOCRATES, the mnemonic the room runs on, because RESEARCH.md's one
+     hard constraint on this page is that a clinician reads it in
+     thirty seconds and puts it down. Background and the patient's own
+     question first — the two things the room cannot get elsewhere —
+     then Severity, Site, Timing, Character, Exacerbating and relieving
+     (what was tried, what the patient points to), then the descriptive
+     ends of the record, sensor context and notes as the appendix.
+     "Described as" used to sit tenth; Character is asked at every
+     appointment. */
+
   // ── header ──
   s.push('<header><div class="brand">Pattern</div>');
-  s.push('<h1>Self-recorded pain and function summary</h1>');
+  /* "pain summary": the function goal is switched off, and a title that
+     promises a section the page does not carry is a small lie on line one */
+  s.push('<h1>Self-recorded pain summary</h1>');
   s.push('<div class="meta">');
   s.push('<span><b>' + esc(fmtReportDate(data.rangeStart)) + ' – ' + esc(fmtReportDate(data.rangeEnd)) + '</b></span>');
   s.push('<span>Exported ' + esc(fmtReportDate(data.exportDate)) + '</span>');
@@ -696,6 +745,41 @@ export function reportHtml(data: ReportData): string {
       const v = data.background![key];
       if (!v) return;
       s.push('<tr><td style="width:190px"><b>' + esc(label) + '</b></td><td>' + esc(v) + '</td></tr>');
+    });
+    s.push('</table></section>');
+  }
+
+  // ── what the patient wants to understand, verbatim ──
+  if (data.hypothesis) {
+    const h = data.hypothesis;
+    s.push('<section><h2>What the patient wants to understand</h2>');
+    s.push('<div class="note">In the patient’s own words, exactly as written' +
+      (h.createdOn ? ' on ' + esc(fmtReportDate(h.createdOn)) : '') +
+      '. Not read by any analysis.</div>');
+    s.push('<table style="margin-top:8px">');
+    if (h.understand.trim()) {
+      s.push('<tr><td style="width:190px"><b>Trying to understand</b></td><td>' + esc(h.understand.trim()) + '</td></tr>');
+    }
+    if (h.harder.trim()) {
+      s.push('<tr><td style="width:190px"><b>Thinks makes it harder</b></td><td>' + esc(h.harder.trim()) + '</td></tr>');
+    }
+    if (h.helps.trim()) {
+      s.push('<tr><td style="width:190px"><b>Thinks helps</b></td><td>' + esc(h.helps.trim()) + '</td></tr>');
+    }
+    s.push('</table></section>');
+  }
+
+  // ── observation periods: what was watched, and when ──
+  if (data.periods.length) {
+    s.push('<section><h2>Observation periods</h2>');
+    s.push('<div class="note">Two daily questions the patient chose to answer consistently, ' +
+      'asked the same way for the whole period. Their answers are recorded; no conclusion ' +
+      'about them is drawn here.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>From</th><th>To</th><th>Watched</th></tr>');
+    data.periods.forEach((p) => {
+      s.push('<tr><td class="num">' + esc(fmtShortDate(p.from)) + '</td>' +
+        '<td class="num">' + (p.to ? esc(fmtShortDate(p.to)) : 'still running') + '</td>' +
+        '<td>' + p.factors.map(esc).join(' · ') + '</td></tr>');
     });
     s.push('</table></section>');
   }
@@ -767,6 +851,20 @@ export function reportHtml(data: ReportData): string {
     '</div>');
   s.push('</section>');
 
+  // ── pain locations ──
+  if (data.locations.length) {
+    const maxDays = data.locations[0].days;
+    s.push('<section><h2>Pain locations</h2>');
+    s.push('<div class="note">Ranked by the number of days each location was recorded.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>Location</th><th>Days recorded</th></tr>');
+    data.locations.forEach((l) => {
+      s.push('<tr><td>' + esc(l.name) + '</td>' +
+        '<td class="num"><span class="bar" style="width:' +
+        Math.max(6, Math.round((l.days / maxDays) * 100)) + 'px"></span>' + l.days + '</td></tr>');
+    });
+    s.push('</table></section>');
+  }
+
   // ── time of day ──
   if (data.timeOfDay.length) {
     const timed = data.timeOfDay.reduce((s, b) => s + b.checkins, 0);
@@ -790,75 +888,11 @@ export function reportHtml(data: ReportData): string {
     s.push('</section>');
   }
 
-  // ── function over time ──
-  if (data.goalText) {
-    s.push('<section><h2>Function over time</h2>');
-    s.push('<div class="note">Activity: <b>' + esc(data.goalText) + '</b>. Self-rated ability, ' +
-      '0 = not able at all, 10 = fully able. Ability is a separate scale from pain — ' +
-      'a higher number is better.</div>');
-    if (data.func.length) {
-      s.push('<table style="margin-top:8px"><tr><th>Week of</th><th>Ability</th><th>Note</th></tr>');
-      data.func.forEach((f) => {
-        s.push('<tr><td class="num">' + esc(fmtShortDate(f.week)) + '</td>' +
-          '<td class="num"><span class="bar" style="width:' + (f.ability * 8) + 'px"></span>' +
-          f.ability + '/10</td>' +
-          '<td>' + esc(f.note || '') + '</td></tr>');
-      });
-      s.push('</table>');
-    } else {
-      s.push('<div class="note" style="margin-top:6px">Activity chosen; no weekly ratings recorded yet.</div>');
-    }
-    s.push('</section>');
-  }
-
-  // ── pain locations ──
-  if (data.locations.length) {
-    const maxDays = data.locations[0].days;
-    s.push('<section><h2>Pain locations</h2>');
-    s.push('<div class="note">Ranked by the number of days each location was recorded.</div>');
-    s.push('<table style="margin-top:8px"><tr><th>Location</th><th>Days recorded</th></tr>');
-    data.locations.forEach((l) => {
-      s.push('<tr><td>' + esc(l.name) + '</td>' +
-        '<td class="num"><span class="bar" style="width:' +
-        Math.max(6, Math.round((l.days / maxDays) * 100)) + 'px"></span>' + l.days + '</td></tr>');
-    });
-    s.push('</table></section>');
-  }
-
-  // ── the two ends of the record ──
-  if (data.harderEasier) {
-    const he = data.harderEasier;
-    const side = (title: string, e: typeof he.harder, cmp: string) => {
-      const locs = e.locations.slice(0, 5)
-        .map((l) => esc(l.name) + ' (' + l.days + ')').join(' · ') || '—';
-      const qs = e.qualities.slice(0, 5)
-        .map((q) => esc(q.name) + ' ×' + q.count).join(' · ') || '—';
-      return '<tr><td><b>' + esc(title) + '</b><br><span class="note num">' + e.days +
-        ' days, ' + cmp + ', averaging ' + formatScore(e.avg) + '/10</span></td>' +
-        '<td>' + locs + '</td><td>' + qs + '</td></tr>';
-    };
-    s.push('<section><h2>Hardest and easiest days</h2>');
-    s.push('<div class="note">The highest and lowest third of logged days by daily average, ' +
-      'with the middle third set aside. This describes where the pain was and how it was ' +
-      'described on each group of days. It is not a comparison of anything else that was ' +
-      'recorded, and it does not identify a cause.</div>');
-    s.push('<table style="margin-top:8px"><tr><th>Group</th><th>Locations (days)</th>' +
-      '<th>Described as</th></tr>');
-    s.push(side('Hardest days', he.harder, formatScore(he.boundaryHigh) + '/10 and above'));
-    s.push(side('Easiest days', he.easier, formatScore(he.boundaryLow) + '/10 and below'));
-    s.push('</table>');
-    /* the contrasts, when any cleared the thresholds — day counts on
-       both sides, so the arithmetic is the claim */
-    if (he.contrasts.length) {
-      s.push('<div class="note" style="margin-top:8px"><b>Recorded mostly on one side:</b> '
-        + he.contrasts.map((c) =>
-          esc(c.name) + ' (' + c.harderDays + '/' + he.harder.days + ' hardest days, '
-          + c.easierDays + '/' + he.easier.days + ' easiest)').join(' · ')
-        + '. These are differences in what was recorded about the pain itself; '
-        + 'they do not identify a cause.</div>');
-    }
-    s.push('<div class="note num" style="margin-top:6px">' + he.middleDays +
-      ' day' + (he.middleDays === 1 ? '' : 's') + ' in the middle third were set aside.</div>');
+  // ── described as ──
+  if (data.qualities.length) {
+    s.push('<section><h2>Described as</h2>');
+    s.push('<div class="note">' + data.qualities
+      .map((q) => esc(q.name) + ' ×' + q.count).join(' · ') + '</div>');
     s.push('</section>');
   }
 
@@ -882,14 +916,6 @@ export function reportHtml(data: ReportData): string {
         list(data.flagged.better) + '</td></tr>');
     }
     s.push('</table></section>');
-  }
-
-  // ── described as ──
-  if (data.qualities.length) {
-    s.push('<section><h2>Described as</h2>');
-    s.push('<div class="note">' + data.qualities
-      .map((q) => esc(q.name) + ' ×' + q.count).join(' · ') + '</div>');
-    s.push('</section>');
   }
 
   // ── events ──
@@ -931,6 +957,64 @@ export function reportHtml(data: ReportData): string {
         '<td>' + note + '</td></tr>');
     });
     s.push('</table></section>');
+  }
+
+  // ── the two ends of the record ──
+  if (data.harderEasier) {
+    const he = data.harderEasier;
+    const side = (title: string, e: typeof he.harder, cmp: string) => {
+      const locs = e.locations.slice(0, 5)
+        .map((l) => esc(l.name) + ' (' + l.days + ')').join(' · ') || '—';
+      const qs = e.qualities.slice(0, 5)
+        .map((q) => esc(q.name) + ' ×' + q.count).join(' · ') || '—';
+      return '<tr><td><b>' + esc(title) + '</b><br><span class="note num">' + e.days +
+        ' days, ' + cmp + ', averaging ' + formatScore(e.avg) + '/10</span></td>' +
+        '<td>' + locs + '</td><td>' + qs + '</td></tr>';
+    };
+    s.push('<section><h2>Hardest and easiest days</h2>');
+    s.push('<div class="note">The highest and lowest third of logged days by daily average, ' +
+      'with the middle third set aside. This describes where the pain was and how it was ' +
+      'described on each group of days. It is not a comparison of anything else that was ' +
+      'recorded, and it does not identify a cause.</div>');
+    s.push('<table style="margin-top:8px"><tr><th>Group</th><th>Locations (days)</th>' +
+      '<th>Described as</th></tr>');
+    s.push(side('Hardest days', he.harder, formatScore(he.boundaryHigh) + '/10 and above'));
+    s.push(side('Easiest days', he.easier, formatScore(he.boundaryLow) + '/10 and below'));
+    s.push('</table>');
+    /* the contrasts, when any cleared the thresholds — day counts on
+       both sides, so the arithmetic is the claim */
+    if (he.contrasts.length) {
+      s.push('<div class="note" style="margin-top:8px"><b>Recorded mostly on one side:</b> '
+        + he.contrasts.map((c) =>
+          esc(c.name) + ' (' + c.harderDays + '/' + he.harder.days + ' hardest days, '
+          + c.easierDays + '/' + he.easier.days + ' easiest)').join(' · ')
+        + '. These are differences in what was recorded about the pain itself; '
+        + 'they do not identify a cause.</div>');
+    }
+    s.push('<div class="note num" style="margin-top:6px">' + he.middleDays +
+      ' day' + (he.middleDays === 1 ? '' : 's') + ' in the middle third were set aside.</div>');
+    s.push('</section>');
+  }
+
+  // ── function over time ──
+  if (data.goalText) {
+    s.push('<section><h2>Function over time</h2>');
+    s.push('<div class="note">Activity: <b>' + esc(data.goalText) + '</b>. Self-rated ability, ' +
+      '0 = not able at all, 10 = fully able. Ability is a separate scale from pain — ' +
+      'a higher number is better.</div>');
+    if (data.func.length) {
+      s.push('<table style="margin-top:8px"><tr><th>Week of</th><th>Ability</th><th>Note</th></tr>');
+      data.func.forEach((f) => {
+        s.push('<tr><td class="num">' + esc(fmtShortDate(f.week)) + '</td>' +
+          '<td class="num"><span class="bar" style="width:' + (f.ability * 8) + 'px"></span>' +
+          f.ability + '/10</td>' +
+          '<td>' + esc(f.note || '') + '</td></tr>');
+      });
+      s.push('</table>');
+    } else {
+      s.push('<div class="note" style="margin-top:6px">Activity chosen; no weekly ratings recorded yet.</div>');
+    }
+    s.push('</section>');
   }
 
   /* ── Apple Health context ────────────────────────────────

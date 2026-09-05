@@ -22,7 +22,8 @@ import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import { getMetric, levelLabel } from './metrics';
 import {
-  Answer, EVENT_LABELS, LOC_NAMES, PainEvent, QUALITY_NAMES,
+  Answer, DURATION_LABELS, EVENT_LABELS, INTERVENTIONS, LOC_NAMES, Moment,
+  ONSET_LABELS, PainEvent, QUALITY_NAMES, RESPONSE_LABELS,
   dateFromISO, daySummary, fmtTime, logsOf, momentAddedLater,
   readLocParts, todayISO,
 } from './model';
@@ -44,7 +45,9 @@ export interface DayDetailProps {
   dateIso: string;
   onChanged: () => void;
   onAddLog: () => void;
-  onEditLog: (h: number) => void;
+  /** the whole moment, so the check-in can open ON it rather than
+   *  start a new one at the same minute */
+  onEditLog: (moment: Moment) => void;
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: () => void;
   /** open with the note already being edited — Today's "add a note"
@@ -176,7 +179,7 @@ export default function DayDetail({
               )}
             >
               <Press
-                onPress={() => onEditLog(l.h)}
+                onPress={() => onEditLog(l)}
                 pressOpacity={0.7}
                 style={styles.row}
                 accessibilityRole="button"
@@ -228,10 +231,10 @@ export default function DayDetail({
         pressOpacity={0.85}
         style={styles.addEvent}
         accessibilityRole="button"
-        accessibilityLabel="Note something that happened"
+        accessibilityLabel="Log a flare or treatment"
         accessibilityHint="Opens a short set of questions about a flare or a treatment"
       >
-        <Text style={styles.addEventText}>Note something that happened</Text>
+        <Text style={styles.addEventText}>Log a flare or treatment</Text>
       </Press>
 
       {/* what was asked that day, and what came back. A question that was
@@ -349,8 +352,28 @@ export default function DayDetail({
                 >
                   <Text style={styles.time}>{fmtTime(ev.h)}</Text>
                   <View style={styles.rowMid}>
-                    <Text style={styles.rowScore}>{EVENT_LABELS[ev.kind]}</Text>
+                    <Text style={styles.rowScore}>
+                      {EVENT_LABELS[ev.kind]}
+                      {ev.intervention ? ' · ' + (INTERVENTIONS[ev.intervention] || ev.intervention) : ''}
+                    </Text>
+                    {/* the guided answers, on the day they belong to —
+                        they were collected here and printed in the PDF,
+                        and never shown in between. Same labels as the
+                        report, in one line. */}
+                    {(() => {
+                      const parts: string[] = [];
+                      if (ev.onset) parts.push(ONSET_LABELS[ev.onset]);
+                      if (ev.doing) parts.push(ev.doing);
+                      if (ev.spread) parts.push('spreads ' + ev.spread);
+                      if (ev.duration) parts.push(DURATION_LABELS[ev.duration].toLowerCase());
+                      return parts.length
+                        ? <Text style={styles.rowSub}>{parts.join(' · ')}</Text>
+                        : null;
+                    })()}
                     {!!ev.text && <Text style={styles.rowSub}>{ev.text}</Text>}
+                    {!!ev.resp && (
+                      <Text style={styles.rowSub}>Afterwards: {RESPONSE_LABELS[ev.resp].toLowerCase()}</Text>
+                    )}
                     {ev.helped != null && (
                       <Text style={styles.rowSub}>Reported effect {ev.helped}/10</Text>
                     )}

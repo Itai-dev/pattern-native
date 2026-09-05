@@ -1344,5 +1344,116 @@ ok('the theme rides along and the fills follow it', (() => {
   } finally { scale.setPainTheme(before); }
 })());
 
+/* ── the patient's own question, and the periods, in the PDF ── */
+group('the report carries the patient\'s question');
+ok('the hypothesis prints verbatim, after the background and before the numbers', (() => {
+  const e = {};
+  for (let i = 1; i <= 10; i++) {
+    e['2026-08-' + String(i).padStart(2, '0')] = {
+      pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }],
+    };
+  }
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: '2026-08-10', windowDays: 90,
+    background: { v: 1, diagnoses: 'fibromyalgia' },
+    hypothesis: { id: 1, createdOn: '2026-08-01', understand: 'why <mornings> are worse', harder: 'stress', helps: '' },
+    protocols: [{
+      id: 1, version: 1, startDate: '2026-08-03', endDate: null, reviewOn: '2026-08-16',
+      chosenFactor: 'stress.level.v1', secondFactor: 'load.physical.v1',
+      hypothesisId: 1, status: 'active',
+    }],
+  });
+  const html = report.reportHtml(data);
+  const bg = html.indexOf('<h2>Background</h2>');
+  const q = html.indexOf('What the patient wants to understand');
+  const periods = html.indexOf('Observation periods');
+  const metrics = html.indexOf('Key metrics');
+  return data.hypothesis && data.hypothesis.understand === 'why <mornings> are worse'
+    && html.indexOf('why &lt;mornings&gt; are worse') > 0      // verbatim, escaped
+    && html.indexOf('Thinks helps') < 0                        // an empty answer prints no row
+    && bg < q && q < periods && periods < metrics
+    && data.periods.length === 1 && data.periods[0].to === null
+    && html.indexOf('Stress · Physical load') > 0 && html.indexOf('still running') > 0;
+})());
+ok('no hypothesis and no period print no such sections', (() => {
+  const e = { '2026-08-01': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] } };
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: '2026-08-01', windowDays: 90,
+    hypothesis: { id: 1, createdOn: '2026-08-01', understand: '  ', harder: '', helps: '' },
+    protocols: [],
+  });
+  const html = report.reportHtml(data);
+  return data.hypothesis === null && data.periods.length === 0
+    && html.indexOf('What the patient wants to understand') < 0
+    && html.indexOf('Observation periods') < 0;
+})());
+ok('a period that ended before the window stays out of it', (() => {
+  const e = { '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] } };
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: '2026-08-20', windowDays: 7,
+    protocols: [{
+      id: 1, version: 1, startDate: '2026-07-01', endDate: '2026-07-14', reviewOn: '2026-07-14',
+      chosenFactor: 'stress.level.v1', secondFactor: 'load.physical.v1',
+      hypothesisId: null, status: 'completed',
+    }],
+  });
+  return data.periods.length === 0;
+})());
+ok('SOCRATES: site, timing and character come before the descriptive ends', (() => {
+  const e = {};
+  for (let i = 1; i <= 30; i++) {
+    e['2026-08-' + String(Math.min(31, i)).padStart(2, '0')] = {
+      pain: 5, cap: null, note: '',
+      logs: [{ h: 540, pain: i < 10 ? 2 : i < 20 ? 5 : 9, loc: ['hands'], q: ['aching'] },
+        { h: 1200, pain: i < 10 ? 2 : i < 20 ? 5 : 9 }],
+    };
+  }
+  const data = report.buildReportData({
+    entries: e, events: [], func: [], goalText: null,
+    todayIso: '2026-08-30', windowDays: 90,
+  });
+  const html = report.reportHtml(data);
+  const at = (t) => html.indexOf('<h2>' + t + '</h2>');
+  return at('Pain over time') < at('Pain locations')
+    && at('Pain locations') < at('Time of day')
+    && at('Time of day') < at('Described as')
+    && at('Described as') < at('Hardest and easiest days');
+})());
+
+/* ── the widget timeline: today, and the first minute of tomorrow ── */
+group('the widget timeline');
+ok('two entries: now, and midnight tomorrow with today\'s number gone', (() => {
+  const e = {
+    '2026-08-10': { pain: 6, cap: null, note: '', logs: [{ h: 900, pain: 6 }] },
+  };
+  const now = new Date(2026, 7, 10, 15, 0);
+  const list = widget.widgetEntries(e, '2026-08-10', now);
+  const [today, tomorrow] = list;
+  return list.length === 2
+    && today.at === now && today.props.last === '6' && today.props.w6 === 'M'
+    && tomorrow.dateIso === '2026-08-11'
+    && tomorrow.at.getFullYear() === 2026 && tomorrow.at.getMonth() === 7
+    && tomorrow.at.getDate() === 11 && tomorrow.at.getHours() === 0 && tomorrow.at.getMinutes() === 0
+    && tomorrow.props.last === '' && tomorrow.props.at === ''
+    && tomorrow.props.w6 === 'T'                 // the strip has moved a day
+    && tomorrow.props.d5 === today.props.d6;    // today's colour is yesterday's square by then
+})());
+
+/* ── the impact chips ask in the evening ────────────────────── */
+group('the impact chips ask in the evening');
+ok('not at the morning\'s first check-in', (() => {
+  const rule = metrics.getMetric(metrics.IMPACT_WORSE).eligibility;
+  return rule === 'firstAfter1700'
+    && metrics.eligibleNow(rule, 8 * 60, true, false) === false;
+})());
+ok('at the first check-in from 17:00, once', (() => {
+  const rule = metrics.getMetric(metrics.IMPACT_WORSE).eligibility;
+  return metrics.eligibleNow(rule, 19 * 60, false, false) === true
+    && metrics.eligibleNow(rule, 21 * 60, false, true) === false;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

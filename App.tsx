@@ -4,8 +4,9 @@ import Constants from 'expo-constants';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, AppState, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent,
-  Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
+  Pressable, ScrollView, Share, StyleSheet, Switch, Text, View, useWindowDimensions,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -32,11 +33,13 @@ import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import BackgroundSheet from './src/BackgroundSheet';
 import OnboardingScreen from './src/OnboardingScreen';
+import PrivacySheet from './src/PrivacySheet';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
-import { cancelAll, configureHandler } from './src/reminders';
+import { cancelAll, configureHandler, isReminderId } from './src/reminders';
+import { syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, pushWatchContext } from './src/watch';
-import { PainEvent, ValidBackup, iso, todayISO } from './src/model';
+import { Moment, PainEvent, ValidBackup, iso, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { refreshWidget } from './src/widgetPush';
 import {
@@ -159,6 +162,10 @@ export default function App() {
   const [dayScreen, setDayScreen] = useState<string | null>(null);
   /* the day a retro check-in is for; null = today, the normal case */
   const [checkinDate, setCheckinDate] = useState<string | null>(null);
+  /* an existing check-in being EDITED — the flow opens on it and writes
+     it in place. null = a new one. Before this, "tap to edit" opened a
+     fresh check-in for today, whichever day the row was on. */
+  const [editMoment, setEditMoment] = useState<Moment | null>(null);
   /* every route into a day goes through here: Today's card, and any
      square on the calendar */
   /* Today's note shortcut: the same day screen, opened onto the note.
@@ -210,8 +217,7 @@ export default function App() {
   const [appearance, setAppearance] = useState(false);
   const [background, setBackgroundOpen] = useState(false);
   const [about, setAbout] = useState(false);
-  /* TEMPORARY — see the "Preview onboarding" row this drives */
-  const [previewOnboarding, setPreviewOnboarding] = useState(false);
+  const [privacy, setPrivacy] = useState(false);
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
@@ -273,6 +279,9 @@ export default function App() {
     setProtocol(db.activeProtocol());
     /* one place to feed the widget, so no screen has to remember to */
     refreshWidget(next);
+    /* and to rebuild the reminder queue — a check-in just made silences
+       today's slot in its part of the day. Never prompts. */
+    syncReminders().catch(() => {});
   }, []);
 
   /* Check-ins made on the watch, waiting in the bridge's mailbox — the
@@ -286,6 +295,9 @@ export default function App() {
          rhythm, because a watch paired while the app was in the
          background has never been told */
       pushWatchContext();
+      /* the reminder queue reaches a week ahead; every foreground
+         tops it up, so a phone unopened for days never runs dry */
+      syncReminders().catch(() => {});
     };
     pull();
     const sub = AppState.addEventListener('change', (s) => {
@@ -294,9 +306,29 @@ export default function App() {
     return () => sub.remove();
   }, [refresh]);
 
+  /* A TAPPED REMINDER OPENS THE QUESTION IT ASKED. The notification
+     says "How intense is your pain right now?"; landing on Today with
+     a Log button top-right was making the person find the question a
+     second time. Cold start and warm resume both come through here.
+     The last response is remembered by its date so a JS reload cannot
+     replay the launch that already opened one. */
+  useEffect(() => {
+    const open = (r: Notifications.NotificationResponse | null) => {
+      if (!r || !isReminderId(r.notification.request.identifier)) return;
+      const stamp = String(r.notification.date);
+      if (db.getPref<string>('reminders.lastOpened', '') === stamp) return;
+      db.setPref('reminders.lastOpened', stamp);
+      setSheet('checkin');
+    };
+    Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, []);
+
   const closeSheet = useCallback(() => {
     setSheet(null);
     setEditEvent(null);
+    setEditMoment(null);
     setCheckinDate(null);
     refresh();
   }, [refresh]);
@@ -377,6 +409,10 @@ export default function App() {
         /* written FOR the report, so it rides every share — the sheet that
            collects it says so in its first sentence */
         background: db.getBackground(),
+        /* the person's own question, verbatim, and the periods it was
+           watched over — the two things a clinician gets nowhere else */
+        hypothesis: db.latestHypothesis(),
+        protocols: db.getProtocols(),
         /* the same health context Trends shows — one gate, two surfaces,
            so the preview and the PDF can never disagree about what the
            record supports */
@@ -579,6 +615,8 @@ export default function App() {
                 suspicions: r.suspicions.length,
                 where: r.where.length,
               });
+              /* and from which screen they left early, when they did */
+              if (r.skippedAt !== undefined) track('onboarding_skipped', { step: r.skippedAt });
               db.setPref('onboarded', true);
               setOnboarded(true);
               /* their words, verbatim, from the moment they had the
@@ -743,6 +781,7 @@ export default function App() {
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
                 onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
+                onOpenReminders={() => setProfile(true)}
               />
             </ScrollView>
 
@@ -789,7 +828,11 @@ export default function App() {
                 setCheckinDate(d === todayISO() ? null : d);
                 setSheet('checkin');
               }}
-              onEditLog={() => setSheet('checkin')}
+              onEditLog={(d, m) => {
+                setCheckinDate(d === todayISO() ? null : d);
+                setEditMoment(m);
+                setSheet('checkin');
+              }}
               onEditEvent={startEditEvent}
               onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
               onClose={() => setDayScreen(null)}
@@ -805,12 +848,17 @@ export default function App() {
             />
           )}
 
-          <TabBar tab={tab} onChange={goToTab} />
+          <TabBar tab={tab} onChange={goToTab} onLog={() => setSheet('checkin')} />
         </SafeAreaView>
 
         {/* a full-screen flow keeps its own ✕ */}
         <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
-          <CheckinScreen dateIso={checkinDate || undefined} onDone={closeSheet} onClose={closeSheet} />
+          <CheckinScreen
+            dateIso={checkinDate || undefined}
+            edit={editMoment || undefined}
+            onDone={closeSheet}
+            onClose={closeSheet}
+          />
         </Modal>
 
         <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
@@ -979,40 +1027,32 @@ export default function App() {
                 </Pressable>
               </View>
 
-              {/* TEMPORARY — a look at the full onboarding flow without
-                  re-installing. Runs the real screens; onDone here just
-                  closes it and writes nothing, so previewing costs
-                  nothing to undo. Remove this row once the new steps
-                  have been seen. */}
-              <View style={styles.group}>
-                <Pressable
-                  onPress={() => setPreviewOnboarding(true)}
-                  style={[styles.row, styles.rowCentre]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Preview the onboarding flow"
-                >
-                  <Text style={{ color: color.tint, fontSize: font.body, fontWeight: '600' }}>
-                    Preview onboarding
-                  </Text>
-                </Pressable>
-              </View>
-
               <Text style={styles.groupTitle}>Your data</Text>
               <View style={styles.group}>
-                <Pressable
-                  onPress={() => {
-                    setAnalyticsEnabled(!analyticsOn);
-                    setAnalyticsOn(!analyticsOn);
-                  }}
-                  style={styles.row}
-                  accessibilityRole="switch"
+                {/* a switch, because it is one — the row with On/Off text
+                    and a chevron said "opens something" */}
+                <View style={styles.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: analyticsOn }}
-                  accessibilityLabel="Share anonymous usage counts"
-                >
+                  accessibilityLabel="Share anonymous usage counts">
                   <RowIcon name="stats-chart-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                  <View style={[styles.rowMain, styles.rowLine]}>
                     <Text style={styles.rowLabel}>Share anonymous usage counts</Text>
-                    <Text style={styles.rowValue}>{analyticsOn ? 'On' : 'Off'}</Text>
+                    <Switch
+                      value={analyticsOn}
+                      onValueChange={(on) => { setAnalyticsEnabled(on); setAnalyticsOn(on); }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
+                <Pressable
+                  onPress={() => setPrivacy(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Privacy policy"
+                >
+                  <RowIcon name="lock-closed-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Privacy policy</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
@@ -1020,7 +1060,9 @@ export default function App() {
               <Text style={styles.groupFooter}>
                 Counts that a thing happened — a check-in was completed, the app
                 was opened — never what you recorded. No pain scores, notes or
-                answers ever leave this phone.
+                answers ever leave this phone. The counts go to Aptabase, an
+                open-source service hosted in the EU, under a random id linked
+                to nothing.
               </Text>
 
               <View style={styles.group}>
@@ -1091,15 +1133,8 @@ export default function App() {
               <OnboardingScreen review onDone={() => setAbout(false)} />
             </Modal>
 
-            {/* TEMPORARY — see the row above. The full five-step flow,
-                writing nothing: onDone just closes it. */}
-            <Modal
-              visible={previewOnboarding}
-              animationType="slide"
-              presentationStyle="pageSheet"
-              onRequestClose={() => setPreviewOnboarding(false)}
-            >
-              <OnboardingScreen onDone={() => setPreviewOnboarding(false)} />
+            <Modal visible={privacy} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPrivacy(false)}>
+              <PrivacySheet onDone={() => setPrivacy(false)} contactEmail={FEEDBACK_EMAIL} />
             </Modal>
 
             <Modal visible={background} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setBackgroundOpen(false)}>

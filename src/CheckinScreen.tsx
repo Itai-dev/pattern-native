@@ -83,8 +83,8 @@ import {
   painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
-  LOC_CHIP_IDS, LOC_NAMES, LOC_SECTIONS, QUALITYIDS, QUALITY_NAMES,
-  answerOf, collapseSidedLocs, defaultLocs, fmtTime, logsOf,
+  LOC_CHIP_IDS, LOC_NAMES, LOC_SECTIONS, Moment, MomentMeta, QUALITYIDS,
+  QUALITY_NAMES, answerOf, collapseSidedLocs, defaultLocs, fmtTime, logsOf,
   minutesNow, nowMeta, todayISO,
 } from './model';
 
@@ -106,26 +106,38 @@ export interface CheckinScreenProps {
    *  questions stay in the present — a remembered attribution is recall
    *  bias invited into the one place it hurts most. */
   dateIso?: string;
+  /** An EXISTING moment of that day, to edit. The flow opens on the pain
+   *  step with its value set, its time shown and changeable, and the
+   *  where and feel steps prefilled from it; every write edits the same
+   *  moment in place, keeping its capture stamps. The day-scoped
+   *  questions are not re-asked — they belong to the day, not to this
+   *  moment, and the day screen already lets each be removed. Before
+   *  this existed "tap to edit" opened a fresh check-in for today. */
+  edit?: Moment;
   /** minutes since midnight; injectable so previews can fix the clock */
   now?: number;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function CheckinScreen({ now, dateIso, onDone, onClose }: CheckinScreenProps) {
+export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: CheckinScreenProps) {
   const insets = useSafeAreaInsets();
+  const editing = !!edit;
   const [step, setStep] = useState<Step>('pain');
   /* the selected value is optional and starts unset: nothing is recorded
      until the user actually moves or taps the slider. The shape needs a
      position to draw, so its internal 0-10 progress is kept separate. */
-  const [pain, setPain] = useState<number | null>(null);
-  const [quality, setQuality] = useState<string[]>([]);
-  const [loc, setLoc] = useState<string[]>([]);
-  const [writtenAt, setWrittenAt] = useState<number | null>(null);
+  const [pain, setPain] = useState<number | null>(edit ? edit.pain : null);
+  const [quality, setQuality] = useState<string[]>(edit && edit.q ? edit.q.slice() : []);
+  const [loc, setLoc] = useState<string[]>(edit && edit.loc ? edit.loc.slice() : []);
+  const [writtenAt, setWrittenAt] = useState<number | null>(edit ? edit.h : null);
   /* the shape starts at the middle of the ramp, where the thumb parks,
      so an untouched control and an untouched square agree with each other.
      Both are dimmed until a value is actually chosen. */
-  const progress = useSharedValue(5);
+  const progress = useSharedValue(edit ? edit.pain : 5);
+  /* when the flow opened, for the one number the funnel needs: seconds
+     to a finished check-in. The clock, never the content. */
+  const [openedAt] = useState(() => Date.now());
   /* the confirmation: arrival, then a slow breath under it */
   const landed = useSharedValue(0);
   const breath = useSharedValue(0);
@@ -137,17 +149,33 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
 
   /* a retro entry describes a time the user names; midday is only the
      picker's starting point, and the control is on screen the whole
-     step — the time is part of what they enter */
-  const [retroMinutes, setRetroMinutes] = useState(12 * 60);
+     step — the time is part of what they enter. An edit starts from the
+     moment's own time, and may move it. */
+  const [retroMinutes, setRetroMinutes] = useState(edit ? edit.h : 12 * 60);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const minutes = retro ? retroMinutes : (now != null ? now : minutesNow());
+  const timed = retro || editing;
+  const minutes = timed ? retroMinutes : (now != null ? now : minutesNow());
   const [showAllChips, setShowAllChips] = useState(false);
+
+  /* THE STAMPS ON A WRITE. A new moment is stamped now; an edit keeps
+     the stamps the moment already carries, so a check-in made on Tuesday
+     and corrected on Thursday still says Tuesday — and still says
+     "added later" if that is what it was. */
+  const meta = (extra?: Partial<MomentMeta>): MomentMeta => ({
+    ...(editing
+      ? { sv: SCALE_VERSION, ...(edit!.ts !== undefined ? { ts: edit!.ts } : {}),
+          ...(edit!.tz !== undefined ? { tz: edit!.tz } : {}) }
+      : nowMeta(SCALE_VERSION)),
+    ...(extra || {}),
+  });
 
   /* ── today's questions ─────────────────────────────────────
      Resolved once, when the flow opens, from the active period and the
      clock. An empty list is the normal state before a protocol exists,
-     and the step is skipped entirely rather than shown empty. */
+     and the step is skipped entirely rather than shown empty. Editing a
+     moment asks none of them: they are the day's, already answered. */
   const [askIds] = useState<string[]>(() => {
+    if (editing) return [];
     const entry = db.getDay(today);
     const isFirstOfDay = logsOf(entry).length === 0;
     /* interference is fixed core rather than part of a protocol, so it
@@ -172,11 +200,16 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({});
 
-  /* the chips. Asked once a day, like the other day-scoped questions. */
+  /* the chips. Asked once a day, in the window the registry declares
+     for them — the evening, since "what made today harder" cannot be
+     answered before the day has happened. The rule is read from the
+     metric rather than repeated here, so it cannot drift. */
   const [askImpact] = useState<boolean>(() => {
+    if (editing) return false;
     const entry = db.getDay(today);
     const first = logsOf(entry).length === 0;
-    return eligibleNow('firstOfDay', minutes, first, answerOf(entry, IMPACT_WORSE) != null);
+    const rule = (getMetric(IMPACT_WORSE) || { eligibility: undefined }).eligibility;
+    return eligibleNow(rule, minutes, first, answerOf(entry, IMPACT_WORSE) != null);
   });
   /* HOW IT FEELS IS ASKED ONCE A DAY, on the first check-in — the same
      rule the day's attributions already follow.
@@ -192,6 +225,9 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
      if that were the usual character. Data missing in step with the
      value being studied is worse than less data. */
   const [askFeel] = useState<boolean>(() => {
+    /* an edit re-offers the words whenever the moment was the one that
+       carried them, or was asked — its answer is the one being changed */
+    if (editing) return !!(edit!.qAsked || (edit!.q && edit!.q.length));
     const entry = db.getDay(today);
     const first = logsOf(entry).length === 0;
     const saidToday = logsOf(entry).some((l) => !!(l.q && l.q.length));
@@ -294,9 +330,11 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
      less to a comparison than a place. The last two steps are both
      optional either way, so the only thing the order decides is which
      one a person answers before they stop. */
-  const order: Step[] = retro
-    ? ['pain', 'where']
-    : ['pain', 'questions', 'impact', 'where', 'feel'];
+  const order: Step[] = editing
+    ? ['pain', 'where', 'feel']
+    : retro
+      ? ['pain', 'where']
+      : ['pain', 'questions', 'impact', 'where', 'feel'];
   const stepsShown = order.filter((s) => (
     s === 'questions' ? askIds.length > 0
       : s === 'impact' ? askImpact
@@ -327,10 +365,7 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
    *  the same moment rather than adding another. */
   const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean; qAsked?: boolean }) => {
     if (writtenAt == null || pain == null) return;
-    db.writeMoment(today, writtenAt, pain, loc, quality, {
-      ...nowMeta(SCALE_VERSION),
-      ...(opts || {}),
-    });
+    db.writeMoment(today, writtenAt, pain, loc, quality, meta(opts));
   };
 
   /** save the day-scoped answers, one per question that was actually put.
@@ -346,8 +381,17 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
     });
   };
 
+  /** the count the funnel is built on: seconds from opening to a finished
+   *  check-in, and whether any optional step was walked. An edit is not
+   *  a check-in and is not counted. */
+  const counted = (contextAdded: boolean) => {
+    if (editing) return;
+    trackCheckin(Math.round((Date.now() - openedAt) / 1000), contextAdded);
+  };
+
   const finish = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    counted(stepsShown.length > 1);
     setStep('done');
   };
 
@@ -356,13 +400,19 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
     return i >= 0 && i + 1 < stepsShown.length ? stepsShown[i + 1] : 'done';
   };
 
-  /** log the pain and stop there — a complete check-in */
+  /** log the pain and stop there — a complete check-in. In an edit it
+   *  saves the moment as it stands, places and words included: leaving
+   *  early must never strip what was already recorded. */
   const logOnly = () => {
     if (pain == null) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (writtenAt != null && writtenAt !== minutes) db.dropMoment(today, writtenAt);
-    db.writeMoment(today, minutes, pain, null, null, nowMeta(SCALE_VERSION));
+    db.writeMoment(
+      today, minutes, pain,
+      editing ? loc : null, editing ? quality : null, meta()
+    );
     setWrittenAt(minutes);
+    counted(false);
     setStep('done');
   };
 
@@ -377,13 +427,21 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
     if (step === 'pain') {
       /* the moment is keyed by its minute, so a changed time (the retro
          picker, or the clock ticking past a minute between two visits to
-         this step) must MOVE the moment, not leave a duplicate behind */
+         this step) must MOVE the moment, not leave a duplicate behind.
+         An edit writes its places and words along with the number, so
+         closing on the next step leaves the moment whole. */
       if (writtenAt != null && writtenAt !== minutes) db.dropMoment(today, writtenAt);
-      db.writeMoment(today, minutes, pain, null, null, nowMeta(SCALE_VERSION));
+      db.writeMoment(
+        today, minutes, pain,
+        editing ? loc : null, editing ? quality : null, meta()
+      );
       setWrittenAt(minutes);
       setStep(nextAfter('pain'));
       return;
     }
+    /* which optional steps get walked and which get skipped past — the
+       step's NAME, never what was chosen on it */
+    track('checkin_step_left', { step });
     if (step === 'questions') persistAnswers();
     else if (step === 'impact') {
       /* both lists are written even when empty — "I looked and nothing
@@ -625,7 +683,8 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
 
   /* "right now", not "today": reminders arrive several times a day, so each
      check-in is a moment, and the day is their average */
-  const title = step === 'pain' ? 'How intense is your pain\nright now?'
+  const title = step === 'pain'
+    ? (editing ? 'How intense was\nyour pain?' : 'How intense is your pain\nright now?')
     /* "A couple of questions" over a single question is a small lie that
        makes the whole screen read as broken — the user looks for the one
        that failed to load. The heading counts what is actually there. */
@@ -635,8 +694,11 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
         : step === 'feel' ? 'How does it feel?'
           : 'Where in your body?';
 
-  /* writing the past must never look like writing the present */
-  const retroLine = retro ? 'For ' + fmtDay(today) + ', from memory' : null;
+  /* writing the past must never look like writing the present — and
+     editing must never look like a new entry */
+  const retroLine = editing
+    ? 'Editing the ' + fmtTime(edit!.h) + ' check-in' + (retro ? ' on ' + fmtDay(today) : '')
+    : retro ? 'For ' + fmtDay(today) + ', from memory' : null;
 
   const hint = step === 'impact'
     ? 'Your read on the day — Pattern records it, it doesn’t test it'
@@ -673,7 +735,9 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
           </Press>
         ) : <View style={styles.close2} />}
         {/* the flow's name sits between the controls, the reference's way */}
-        <Text style={styles.navTitle} allowFontScaling={false}>Check-In</Text>
+        <Text style={styles.navTitle} allowFontScaling={false}>
+          {editing ? 'Edit check-in' : 'Check-in'}
+        </Text>
         <Press
           onPress={() => {
             /* opened, chose nothing, left — the funnel's quietest number
@@ -718,7 +782,7 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
       <GestureDetector gesture={stepSwipe}>
       {step === 'pain' ? (
         <View style={styles.middle}>
-          {retro && (
+          {timed && (
             <>
               <Press
                 onPress={() => setShowTimePicker((v) => !v)}
@@ -940,7 +1004,8 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
             </Press>
 
             {/* pain on its own is a finished check-in, and the flow says so
-                as plainly as it offers the rest */}
+                as plainly as it offers the rest. In an edit the same
+                button saves the number and keeps everything else. */}
             {step === 'pain' && (
               <Press
                 onPress={logOnly}
@@ -949,10 +1014,12 @@ export default function CheckinScreen({ now, dateIso, onDone, onClose }: Checkin
                 style={styles.secondary}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canAdvance }}
-                accessibilityLabel="Log the pain and finish"
+                accessibilityLabel={editing
+                  ? 'Save the number and keep the rest as it was'
+                  : 'Log the pain and finish'}
               >
                 <Text style={[styles.secondaryText, !canAdvance && styles.primaryTextOff]}>
-                  That’s it for now
+                  {editing ? 'Save, keep the rest' : 'That’s it for now'}
                 </Text>
               </Press>
             )}

@@ -51,7 +51,7 @@ import DayDetail from './DayDetail';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
-  Entries, Entry, PainEvent, checkinCount, dailyAverage,
+  Entries, Entry, Moment, PainEvent, checkinCount, dailyAverage,
   dateFromISO, iso, logsOf, todayISO,
 } from './model';
 import { formatRange, formatScore } from './painScale';
@@ -131,7 +131,10 @@ export interface DayScreenProps {
    *  detail below re-renders from storage */
   onChanged: () => void;
   onAddLog: (dateIso: string) => void;
-  onEditLog: (h: number) => void;
+  /** the day the pager is ON and the moment tapped — the day, because
+   *  the pager can be several days from the one this screen opened on,
+   *  and an edit that lost the day wrote to today */
+  onEditLog: (dateIso: string, moment: Moment) => void;
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: (dateIso: string) => void;
   onClose: () => void;
@@ -501,7 +504,7 @@ export default function DayScreen({
         dateIso={onDate}
         onChanged={onChanged}
         onAddLog={() => onAddLog(onDate)}
-        onEditLog={onEditLog}
+        onEditLog={(m) => onEditLog(onDate, m)}
         onEditEvent={onEditEvent}
         onAddEvent={() => onAddEvent(onDate)}
         editNoteOnOpen={!!editNoteOnOpen && onDate === dateIso}

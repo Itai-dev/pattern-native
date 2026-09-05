@@ -191,12 +191,19 @@ export const METRICS: MetricDef[] = [
     wordingVersion: 1, eligibility: 'onceAtProtocolStart', analysis: 'frequency',
     protocolEligible: false,
   },
+  /* EVENING, not first-of-day. "What made it harder today?" at the
+     morning's first check-in is a question about a day that has not
+     happened — the answer is yesterday's, or a guess — and the timing
+     rule above exists precisely so a question is never put when the
+     moment cannot honestly answer it. Asked at the first check-in from
+     17:00, once; a morning-only logger simply carries no chips for the
+     day, which is the honest outcome. */
   {
     id: IMPACT_WORSE_ID,
     name: 'Made it harder',
     question: 'What made it harder today?',
     type: 'set', scope: 'day', vocabulary: 'impact',
-    wordingVersion: 1, eligibility: 'firstOfDay', analysis: 'frequency',
+    wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'frequency',
     protocolEligible: false,
   },
   {
@@ -204,7 +211,7 @@ export const METRICS: MetricDef[] = [
     name: 'Helped',
     question: 'What helped today?',
     type: 'set', scope: 'day', vocabulary: 'impact',
-    wordingVersion: 1, eligibility: 'firstOfDay', analysis: 'frequency',
+    wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'frequency',
     protocolEligible: false,
   },
   {

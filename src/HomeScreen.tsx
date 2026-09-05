@@ -27,7 +27,7 @@
  * only thing that changes either of them is a check-in the user added.
  */
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
@@ -35,12 +35,30 @@ import DayLine from './DayLine';
 import DaySquare from './DaySquare';
 import FocusCard from './FocusCard';
 import { Press, useReduceMotion } from './motion';
+import { track } from './analytics';
 import {
   Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, checkinCount, fmtTime,
   logsOf, todayISO,
 } from './model';
 import * as db from './db';
+import { fmt as fmtSlot } from './reminders';
+import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
+
+/* ── when Today may ask for something ────────────────────────
+   Three offers live on this screen, and at most ONE shows at a time:
+   a screen that asks for three things is a form. They are ordered by
+   how much they pay back a new user, and each is shown once, on either
+   answer, forever.
+
+   The reminder comes first and right after the first check-in — the
+   moment it explains itself, and the strongest habit lever the app
+   has. The background waits: five minutes of history right after six
+   onboarding screens was the first thing every tester dismissed. The
+   widget waits longest, because a lock screen is worth explaining only
+   to someone who has come back. */
+const BACKGROUND_OFFER_AFTER_DAYS = 3;
+const WIDGET_OFFER_AFTER_DAYS = 3;
 import {
   dayShape, formatCheckins, formatScore, painColor, painLabel, speakScore,
 } from './painScale';
@@ -134,11 +152,13 @@ export interface HomeScreenProps {
   onAddEvent: () => void;
   /** the Background sheet, offered from here once a record exists */
   onOpenBackground: () => void;
+  /** Profile, where the reminder times live — for "choose another time" */
+  onOpenReminders: () => void;
 }
 
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onAddNote, onOpenToday, onFocus, onKeepFocus,
-  onTestFactor, onAddEvent, onOpenBackground,
+  onTestFactor, onAddEvent, onOpenBackground, onOpenReminders,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -184,9 +204,49 @@ export default function HomeScreen({
   const [bgDismissed, setBgDismissed] = useState(
     () => db.getPref<boolean>('background.offer.dismissed', false)
   );
+  const loggedDays = Object.keys(entries).length;
   const offerBackground = !bgDismissed
-    && Object.keys(entries).length > 0
+    && loggedDays >= BACKGROUND_OFFER_AFTER_DAYS
     && db.getBackground() == null;
+
+  /* The reminder offer: once, after the first check-in — the spec's
+     card, built. Taking it turns on the evening slot at its saved time
+     and asks iOS for permission right there, where the question
+     explains itself; "another time" opens Profile; "not now" is final.
+     Never shown to someone who already has one on. */
+  const [remDismissed, setRemDismissed] = useState(
+    () => db.getPref<boolean>('reminders.offer.dismissed', false)
+  );
+  const offerReminder = !remDismissed && loggedDays >= 1 && !anyReminderOn();
+  const dismissReminder = () => {
+    db.setPref('reminders.offer.dismissed', true);
+    setRemDismissed(true);
+  };
+  const takeReminder = () => {
+    dismissReminder();
+    enableEveningReminder().then((r) => {
+      if (r === 'on') track('reminder_enabled');
+      if (r === 'denied') {
+        Alert.alert(
+          'Notifications are off for Pattern',
+          'Turn them on in iPhone Settings and the reminder will start. Your choice is saved.'
+        );
+      }
+    }).catch(() => {});
+  };
+  const eveningAt = fmtSlot(savedSlots().filter((s) => s.key === 'e')[0] || { key: 'e', hour: 20, minute: 0, on: false });
+
+  /* The widget, told about once. It is the only surface that reaches
+     someone who was not already thinking about the app, and the only
+     way to find it otherwise is the iOS widget gallery. */
+  const [widgetDismissed, setWidgetDismissed] = useState(
+    () => db.getPref<boolean>('widget.offer.dismissed', false)
+  );
+  const offerWidget = !widgetDismissed && loggedDays >= WIDGET_OFFER_AFTER_DAYS;
+
+  /* one at a time, in the order they pay back */
+  const offer: null | 'reminder' | 'background' | 'widget' = offerReminder
+    ? 'reminder' : offerBackground ? 'background' : offerWidget ? 'widget' : null;
 
   /* the day's shape, from the two numbers on screen: the first check-in
      of today against the latest. Nothing is stored, nothing is derived
@@ -449,16 +509,93 @@ export default function HomeScreen({
         pressOpacity={0.85}
         style={styles.eventEntry}
         accessibilityRole="button"
-        accessibilityLabel="Note something that happened"
+        accessibilityLabel="Log a flare or treatment"
         accessibilityHint="Opens a short set of questions about a flare or a treatment"
       >
         <Text style={styles.eventEntryText} allowFontScaling maxFontSizeMultiplier={1.3}>
-          Note something that happened
+          Log a flare or treatment
         </Text>
       </Press>
 
+      {/* ── the reminder offer ────────────────────────────── */}
+      {offer === 'reminder' && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Want a daily reminder?
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Checking in around the same time makes your record more useful.
+            It stays quiet on a day you have already checked in around then,
+            and it never mentions a missed day.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={takeReminder}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={'Remind me at ' + eveningAt}
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Remind me at {eveningAt}
+              </Text>
+            </Press>
+            <Press
+              onPress={() => { dismissReminder(); onOpenReminders(); }}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Choose another time"
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Another time
+              </Text>
+            </Press>
+            <Press
+              onPress={dismissReminder}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Not now — reminders stay in Profile"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Not now
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
+      {/* ── the widget, mentioned once ────────────────────── */}
+      {offer === 'widget' && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Check in from your lock screen
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Pattern has a lock-screen widget that opens straight to the pain
+            question, and a home-screen one that shows your week. Hold the
+            lock screen, tap Customise, then add Pattern.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <View />
+            <Press
+              onPress={() => { db.setPref('widget.offer.dismissed', true); setWidgetDismissed(true); }}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Got it"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Got it
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
       {/* ── the background offer ──────────────────────────── */}
-      {offerBackground && (
+      {offer === 'background' && (
         <View style={[styles.card, styles.cardGap]}>
           <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
             Give Pattern some background
@@ -538,7 +675,7 @@ const styles = StyleSheet.create({
   },
   bgOfferActions: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 14,
+    flexWrap: 'wrap', gap: 12, marginTop: 14,
   },
   bgOfferGo: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   bgOfferLater: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },

@@ -8,6 +8,11 @@
  * Customise times unfolds the three slots for anyone who wants their
  * mornings too.
  *
+ * SWITCHES, NOT CHECKBOXES. This section sits in a sheet that copies the
+ * iOS Settings grammar to the pixel, and Settings says on-or-off with a
+ * switch. The drawn boxes were the one control here a person had to
+ * learn.
+ *
  * Every change still applies immediately: the phone's notification queue
  * is rewritten to match the saved settings, so what iOS holds and what
  * the screen shows can never drift apart. Tapping a time still opens the
@@ -15,40 +20,28 @@
  * users already know.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { EASE_OUT, reduceMotion } from './motion';
-import * as db from './db';
-import {
-  DEFAULT_SLOTS, Slot, ensurePermission, fmt, hasPermission, reschedule,
-} from './reminders';
+import { track } from './analytics';
+import { Slot, fmt } from './reminders';
+import { applySlots, savedSlots, syncReminders } from './reminderSchedule';
 import { color, font, radius } from './theme';
 
-const PREF = 'reminders.slots';
 const LABELS: Record<Slot['key'], string> = { m: 'Morning', d: 'Midday', e: 'Evening' };
+const DENIED = 'Notifications are off for Pattern — turn them on in iPhone Settings.';
 
 export default function RemindersSection() {
-  const [slots, setSlots] = useState<Slot[]>(() => db.getPref<Slot[]>(PREF, DEFAULT_SLOTS));
+  const [slots, setSlots] = useState<Slot[]>(() => savedSlots());
   const [status, setStatus] = useState('');
   const [picking, setPicking] = useState<Slot['key'] | null>(null);
   /* the slot rows start folded unless something beyond the default is
      already customised — then hiding them would hide live settings */
-  const [customising, setCustomising] = useState<boolean>(() => {
-    const saved = db.getPref<Slot[]>(PREF, DEFAULT_SLOTS);
-    return saved.some((sl) => sl.on && sl.key !== 'e');
-  });
+  const [customising, setCustomising] = useState<boolean>(() =>
+    savedSlots().some((sl) => sl.on && sl.key !== 'e'));
 
   const anyOn = slots.some((sl) => sl.on);
-
-  /* the master switch: on = the evening slot at its saved time, off = all
-     of them. It never forgets a customised schedule — the slot config
-     stays in prefs, and only the on-flags move. */
-  const toggleAll = () => {
-    Haptics.selectionAsync().catch(() => {});
-    if (anyOn) apply(slots.map((sl) => ({ ...sl, on: false })));
-    else apply(slots.map((sl) => ({ ...sl, on: sl.key === 'e' })));
-  };
 
   /* Restore the saved schedule once, on mount — but never prompt here: a
      permission sheet on launch is an ambush. Toggling a slot is what asks,
@@ -57,31 +50,36 @@ export default function RemindersSection() {
     let alive = true;
     (async () => {
       if (!slots.some((s) => s.on)) return;
-      if (!(await hasPermission())) {
-        if (alive) setStatus('Notifications are off for Pattern — turn them on in iPhone Settings.');
-        return;
-      }
-      await reschedule(slots);
+      await syncReminders();
       if (alive) setStatus('On ✓ ' + slots.filter((s) => s.on).map(fmt).join(' · '));
     })().catch(() => {});
     return () => { alive = false; };
   }, []);
 
   const apply = useCallback(async (next: Slot[]) => {
+    const wasOn = slots.some((s) => s.on);
     setSlots(next);
-    db.setPref(PREF, next); // the user's choices are stored before anything can fail
-    const wanted = next.filter((s) => s.on);
-    if (wanted.length && !(await ensurePermission())) {
-      setStatus('Notifications are off for Pattern — turn them on in iPhone Settings.');
-      return;
-    }
-    await reschedule(next);
-    setStatus(wanted.length ? 'On ✓ ' + wanted.map(fmt).join(' · ') : 'Off');
-  }, []);
+    const r = await applySlots(next);
+    const nowOn = next.some((s) => s.on);
+    /* the habit lever, counted: that it moved, never the hour */
+    if (nowOn && !wasOn) track('reminder_enabled');
+    if (!nowOn && wasOn) track('reminder_disabled');
+    if (r === 'denied') { setStatus(DENIED); return; }
+    setStatus(r === 'on' ? 'On ✓ ' + next.filter((s) => s.on).map(fmt).join(' · ') : 'Off');
+  }, [slots]);
 
-  const toggle = (key: Slot['key']) => {
+  /* the master switch: on = the evening slot at its saved time, off = all
+     of them. It never forgets a customised schedule — the slot config
+     stays in prefs, and only the on-flags move. */
+  const toggleAll = (on: boolean) => {
     Haptics.selectionAsync().catch(() => {});
-    apply(slots.map((s) => (s.key === key ? { ...s, on: !s.on } : s)));
+    if (!on) apply(slots.map((sl) => ({ ...sl, on: false })));
+    else apply(slots.map((sl) => ({ ...sl, on: sl.key === 'e' })));
+  };
+
+  const toggle = (key: Slot['key'], on: boolean) => {
+    Haptics.selectionAsync().catch(() => {});
+    apply(slots.map((s) => (s.key === key ? { ...s, on } : s)));
   };
 
   const setTime = (key: Slot['key'], date: Date) => {
@@ -113,19 +111,12 @@ export default function RemindersSection() {
     <View style={styles.root}>
       {/* the group's header names the section — in here only the status */}
       <Text style={styles.sub}>
-        {status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere.'}
+        {status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere, and a slot stays quiet on a day you have already checked in around then.'}
       </Text>
 
       {/* the one decision most people came for */}
       <View style={styles.row}>
-        <Pressable onPress={toggleAll} style={styles.left} hitSlop={6}
-          accessibilityRole="switch" accessibilityState={{ checked: anyOn }}
-          accessibilityLabel="Daily reminder">
-          <View style={[styles.box, anyOn && styles.boxOn]}>
-            {anyOn && <Text style={styles.tick}>✓</Text>}
-          </View>
-          <Text style={styles.label}>Daily reminder</Text>
-        </Pressable>
+        <Text style={styles.label}>Daily reminder</Text>
         <Pressable
           onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
           hitSlop={6}
@@ -135,19 +126,32 @@ export default function RemindersSection() {
         >
           <Text style={styles.customise}>{customising ? 'Done' : 'Customise'}</Text>
         </Pressable>
+        <Switch
+          value={anyOn}
+          onValueChange={toggleAll}
+          accessibilityLabel="Daily reminder"
+          trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+        />
       </View>
 
       {customising && slots.map((s) => (
         <View key={s.key} style={styles.row}>
-          <Pressable onPress={() => toggle(s.key)} style={styles.left} hitSlop={6}>
-            <View style={[styles.box, s.on && styles.boxOn]}>
-              {s.on && <Text style={styles.tick}>✓</Text>}
-            </View>
-            <Text style={styles.label}>{LABELS[s.key]}</Text>
-          </Pressable>
-          <Pressable onPress={() => setPicking(s.key)} style={styles.time} hitSlop={6}>
+          <Text style={styles.label}>{LABELS[s.key]}</Text>
+          <Pressable
+            onPress={() => setPicking(s.key)}
+            style={styles.time}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={LABELS[s.key] + ' reminder at ' + fmt(s) + '. Changes the time'}
+          >
             <Text style={styles.timeText}>{fmt(s)}</Text>
           </Pressable>
+          <Switch
+            value={s.on}
+            onValueChange={(on) => toggle(s.key, on)}
+            accessibilityLabel={LABELS[s.key] + ' reminder'}
+            trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+          />
         </View>
       ))}
 
@@ -192,20 +196,13 @@ const styles = StyleSheet.create({
   root: {},
   sub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginBottom: 4 },
   customise: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 10 },
-  left: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  box: {
-    width: 22, height: 22, borderRadius: 7, borderWidth: 1,
-    borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center',
-  },
-  boxOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
-  tick: { color: '#000000', fontSize: 13, fontWeight: '700', lineHeight: 16 },
-  label: { color: color.textPrimary, fontSize: 15 },
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 14 },
+  label: { flex: 1, color: color.textPrimary, fontSize: 15 },
   time: {
-    backgroundColor: '#323234', borderRadius: radius.segment, borderCurve: 'continuous',
+    backgroundColor: color.bgSegmentActive, borderRadius: radius.segment, borderCurve: 'continuous',
     paddingVertical: 7, paddingHorizontal: 12,
   },
-  timeText: { color: color.textPrimary, fontSize: 15 },
+  timeText: { color: color.textPrimary, fontSize: 15, fontVariant: ['tabular-nums'] },
   scrim: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',

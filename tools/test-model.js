@@ -462,7 +462,7 @@ const html20 = report.reportHtml(twenty);
 const html2 = report.reportHtml(two);
 ok('white paper, dark text', /background:#FFFFFF/.test(html20) && /color:#1A1D21/.test(html20));
 ok('header carries the required lines',
-  html20.indexOf('Self-recorded pain and function summary') > 0 &&
+  html20.indexOf('Self-recorded pain summary') > 0 &&
   html20.indexOf('Exported 20 Aug 2026') > 0 &&
   html20.indexOf('20 logged days') > 0 &&
   html20.indexOf('40 check-ins') > 0 &&

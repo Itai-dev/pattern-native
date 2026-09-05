@@ -29,6 +29,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
 import { Press } from './motion';
+import MapScreen from './MapScreen';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, Protocol,
   RESPONSE_LABELS, Response, dateFromISO, fmtTime,
@@ -297,10 +298,12 @@ function MiniChart({
  * numbers stay, because the sentence is a reading of them and a reading
  * should never replace the thing it read.
  *
- * The colour comes from the pain ramp itself rather than a green/red
- * palette invented for this one line — the app already has a scale whose
- * hues mean better and worse, and a second one would only be a chance for
- * the two to disagree.
+ * WHITE, not the ramp. This line used to be tinted painColor(2) or
+ * painColor(8) to say which way it went — and it is a DIFFERENCE between
+ * two halves, not a pain value. Colour on this screen carries a score
+ * or it is not a colour; a sentence wearing a hue nobody entered was
+ * the one place the app broke its own rule. The words already carry
+ * the direction.
  *
  * No arrow, no percentage, no comparison to last week. This screen holds
  * to being somewhere you go rather than something that reports at you,
@@ -312,10 +315,9 @@ function Direction({ first, second }: { first: number; second: number }) {
   const size = Math.abs(delta);
   const same = size < 0.25;
   const better = delta > 0;
-  const tint = same ? color.textSecondary : painColor(better ? 2 : 8);
   return (
     <View style={styles.direction}>
-      <Text style={[styles.directionText, { color: tint }]}
+      <Text style={[styles.directionText, { color: same ? color.textSecondary : color.textPrimary }]}
         allowFontScaling maxFontSizeMultiplier={1.4}>
         {same
           ? 'About the same across this period'
@@ -1016,8 +1018,10 @@ export default function TrendsScreen({
           comparisons the user set up themselves. Answers, never scores:
           this is the honest version of a reward, and it moves only when
           data does. */}
+      {/* "Still collecting", not "still learning": learning is the word
+          the engine has not earned yet, and this card is about counts */}
       {buys.length > 0 && (
-        <Card title="Pattern is still learning">
+        <Card title="Still collecting">
           {/* progress lives INSIDE the thing being investigated — a
               factor, its status, what it still needs — instead of a
               card about sampling mechanics */}
@@ -1295,6 +1299,17 @@ export default function TrendsScreen({
           />
         </Card>
       )}
+
+      {/* ── every day, as a calendar ───────────────────────
+          The months, newest first, inside one card at the foot of the
+          record. This is the way to ANY day: the bar chart above names
+          a day per tap and the day pager walks ninety days, and neither
+          reaches last spring. It went missing when History stopped being
+          a tab — the component stayed, complete and tested, rendered by
+          nothing. A square opens its day, exactly as it always did. */}
+      <Card title="Calendar">
+        <MapScreen entries={entries} onDayPress={onOpenDay} flat />
+      </Card>
 
       {/* ── the handoff ─────────────────────────────────
           The PDF's natural home: at the foot, as the destination of

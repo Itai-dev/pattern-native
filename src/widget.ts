@@ -82,6 +82,34 @@ export interface WidgetSnapshot {
   tint: string;
 }
 
+/**
+ * The timeline: now, and the first minute of tomorrow.
+ *
+ * The snapshot is pushed only when the app writes, and nothing ran at
+ * midnight — so from 00:00 until the app was next opened, the home
+ * screen showed yesterday's latest check-in labelled with yesterday's
+ * time as if it were today's, and the seven letters were a day stale.
+ * "TODAY ONLY" is a promise the extension cannot keep on its own; this
+ * hands it the second entry it needs. Both entries are the same pure
+ * function of the same record, one asked about tomorrow.
+ */
+export interface WidgetEntry {
+  /** the local calendar day this entry is FOR */
+  dateIso: string;
+  /** when the extension should switch to it */
+  at: Date;
+  props: WidgetSnapshot;
+}
+
+export function widgetEntries(entries: Entries, todayIso: string, now: Date): WidgetEntry[] {
+  const tomorrowIso = addDays(todayIso, 1);
+  const midnight = dateFromISO(tomorrowIso);   // local 00:00 of tomorrow
+  return [
+    { dateIso: todayIso, at: now, props: widgetSnapshot(entries, todayIso) },
+    { dateIso: tomorrowIso, at: midnight, props: widgetSnapshot(entries, tomorrowIso) },
+  ];
+}
+
 /** everything the extension is told, in one object */
 export function widgetSnapshot(entries: Entries, todayIso: string): WidgetSnapshot {
   const c = weekColors(entries, todayIso);

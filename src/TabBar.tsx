@@ -39,6 +39,9 @@ export const TAB_ORDER: Tab[] = ['today', 'trends'];
 export interface TabBarProps {
   tab: Tab;
   onChange: (tab: Tab) => void;
+  /** the check-in, from the one place a thumb always reaches. The Log
+   *  pill top-right stays for now; this is the same door, lower. */
+  onLog?: () => void;
 }
 
 /* Guarded, and the guard is load-bearing. On iOS this calls
@@ -97,8 +100,42 @@ function glyphFor(key: Tab, active: boolean) {
   return key === 'today' ? <TodayGlyph active={active} /> : <TrendsGlyph active={active} />;
 }
 
-export default function TabBar({ tab, onChange }: TabBarProps) {
+/** the day square with a plus in it — Today's empty card, at glyph
+ *  size. An ACTION in the bar, not a place: it never fills, because
+ *  you are never "on" it. */
+function LogGlyph() {
+  return (
+    <View style={[styles.dayGlyph, styles.logGlyph]}>
+      <View style={styles.plusH} />
+      <View style={styles.plusV} />
+    </View>
+  );
+}
+
+export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
   const insets = useSafeAreaInsets();
+
+  /* the action sits apart from the tabs behind a hairline, iOS 26's
+     accessory grammar: the same pill, a different kind of thing in it */
+  const logItem = onLog ? (
+    <React.Fragment key="log">
+      <View style={styles.divider} />
+      <Press
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {});
+          onLog();
+        }}
+        pressOpacity={0.7}
+        style={styles.item}
+        accessibilityRole="button"
+        accessibilityLabel="Check in"
+        accessibilityHint="Records how your pain is right now"
+      >
+        <LogGlyph />
+        <Text allowFontScaling={false} style={[styles.label, styles.labelActive]}>Log</Text>
+      </Press>
+    </React.Fragment>
+  ) : null;
 
   const items = TABS.map((t) => {
     const active = tab === t.key;
@@ -142,6 +179,7 @@ export default function TabBar({ tab, onChange }: TabBarProps) {
           style={[styles.pill, styles.liquid]}
         >
           {items}
+          {logItem}
         </GlassView>
       ) : (
         <BlurView
@@ -150,6 +188,7 @@ export default function TabBar({ tab, onChange }: TabBarProps) {
           style={[styles.pill, styles.blurFallback]}
         >
           {items}
+          {logItem}
         </BlurView>
       )}
     </View>
@@ -188,13 +227,26 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.16)',
   },
+  /* narrower than they were: three things share the pill now, and a
+     bar that grew to hold a third would read as a slab. The 96 the two
+     tabs had was air, not need. */
   item: {
-    minHeight: 50, minWidth: 96, borderRadius: 25, borderCurve: 'continuous',
+    minHeight: 50, minWidth: 82, borderRadius: 25, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', gap: 3,
     paddingHorizontal: 12, paddingVertical: 5,
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  divider: {
+    width: StyleSheet.hairlineWidth, height: 30, marginHorizontal: 3,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
   dayGlyph: { width: 21, height: 21, borderRadius: 6, borderWidth: 1.9 },
+  /* the plus, drawn: two bars in the square's own stroke weight */
+  logGlyph: {
+    borderColor: color.textPrimary, alignItems: 'center', justifyContent: 'center',
+  },
+  plusH: { position: 'absolute', width: 9, height: 1.9, backgroundColor: color.textPrimary },
+  plusV: { position: 'absolute', width: 1.9, height: 9, backgroundColor: color.textPrimary },
   /* outline until chosen: the border draws the shape either way, and the
      fill arrives only with selection — a colour swap alone never says it */
   barsGlyph: {
