@@ -898,7 +898,7 @@ export default function App() {
                   that is one swipe away, kept from when the summary was a
                   buried sheet. The tab and its Share button are the
                   feature now; a second entrance was furniture. */}
-              <Text style={styles.groupTitle}>Observation</Text>
+              <Text style={styles.groupTitle}>Focus</Text>
               <View style={styles.group}>
                 <Pressable
                   onPress={() => {

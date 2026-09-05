@@ -341,7 +341,11 @@ export const PROTOCOL_CONFIRM_BODY =
 export const PROTOCOL_CHOSEN_NOTE = 'the one you chose';
 export const PROTOCOL_SECOND_NOTE = 'one more, so there’s something to compare against';
 
-export const REVIEW_TITLE = 'Day 14 of your first observation period';
+/* "your focus", everywhere a person reads it — the sheet, the card, the
+   Profile row. "Observation period" is what it is called in the spec
+   and the PDF, and one thing with two names in the same app is a
+   thing the user has to translate. */
+export const REVIEW_TITLE = 'Day 14 of your focus';
 
 /** "You've flagged sleep on 9 days." — a count of what you thought, said
  *  as a count of what you thought. */

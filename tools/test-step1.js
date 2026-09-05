@@ -1455,5 +1455,42 @@ ok('at the first check-in from 17:00, once', (() => {
     && metrics.eligibleNow(rule, 21 * 60, false, true) === false;
 })());
 
+/* ── the chart's grain: days, then weeks ────────────────────── */
+group('the chart\'s grain');
+ok('under the threshold, one column per day, today last', (() => {
+  const days = [
+    { date: '2026-08-01', avg: 2, count: 1 },
+    { date: '2026-08-03', avg: 6, count: 1 },
+  ];
+  const cols = report.chartColumns(days, '2026-08-03', 7);
+  return report.chartGrain(7) === 'day' && cols.length === 7
+    && cols[6].from === '2026-08-03' && cols[6].to === '2026-08-03' && cols[6].avg === 6
+    && cols[5].avg === null && cols[4].avg === 2 && cols[0].from === '2026-07-28';
+})());
+ok('over the threshold, a column is a week ending today, averaging only its logged days', (() => {
+  const days = [];
+  for (let i = 0; i < 90; i++) {
+    const d = new Date(2026, 5, 3); d.setDate(d.getDate() + i);
+    const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (i % 3 === 0) days.push({ date: k, avg: i < 45 ? 3 : 7, count: 1 });
+  }
+  const cols = report.chartColumns(days, '2026-08-31', 90);
+  const last = cols[cols.length - 1];
+  const first = cols[0];
+  return report.chartGrain(90) === 'week'
+    && cols.length === 13                                  // 90 days: twelve whole weeks and a stub
+    && last.to === '2026-08-31' && last.from === '2026-08-25'
+    && last.logged >= 2 && last.avg === 7
+    && first.from === '2026-06-03' && first.to === '2026-06-08'   // the six-day stub is the OLDEST column
+    && cols.every((c) => c.avg === null || (c.avg >= 3 && c.avg <= 7))
+    && cols.every((c) => (c.avg == null) === (c.openDate == null));
+})());
+ok('a week with nothing logged is a gap, not a zero', (() => {
+  const days = [{ date: '2026-08-31', avg: 4, count: 1 }];
+  const cols = report.chartColumns(days, '2026-08-31', 70);
+  return cols[cols.length - 1].avg === 4 && cols.slice(0, -1).every((c) => c.avg === null);
+})());
+ok('the threshold is named, and sixty', th.CHART_WEEKLY_ABOVE_DAYS === 60);
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

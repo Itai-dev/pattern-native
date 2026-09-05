@@ -37,11 +37,10 @@ import FocusCard from './FocusCard';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
-  Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, checkinCount, fmtTime,
-  logsOf, todayISO,
+  Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, checkinCount, logsOf, todayISO,
 } from './model';
+import { fmtClock } from './clock';
 import * as db from './db';
-import { fmt as fmtSlot } from './reminders';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
 
@@ -234,7 +233,8 @@ export default function HomeScreen({
       }
     }).catch(() => {});
   };
-  const eveningAt = fmtSlot(savedSlots().filter((s) => s.key === 'e')[0] || { key: 'e', hour: 20, minute: 0, on: false });
+  const eveningSlot = savedSlots().filter((s) => s.key === 'e')[0] || { hour: 20, minute: 0 };
+  const eveningAt = fmtClock(eveningSlot.hour * 60 + eveningSlot.minute);
 
   /* The widget, told about once. It is the only surface that reaches
      someone who was not already thinking about the app, and the only
@@ -267,7 +267,7 @@ export default function HomeScreen({
           pressOpacity={0.92}
           style={styles.card}
           accessibilityRole="button"
-          accessibilityLabel={(latest ? 'Last check-in, ' + fmtTime(latest.h) + ', ' : 'Today, ')
+          accessibilityLabel={(latest ? 'Last check-in, ' + fmtClock(latest.h) + ', ' : 'Today, ')
             + speakScore(value)
             + (details.length ? '. ' + speakDetails(details) : '')}
           accessibilityHint="Opens the day’s detail, where you can edit or remove it"
@@ -279,7 +279,7 @@ export default function HomeScreen({
             <View style={styles.headRight}>
               {!!latest && (
                 <Text style={styles.headTime} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {fmtTime(latest.h)}
+                  {fmtClock(latest.h)}
                 </Text>
               )}
               <Text style={styles.chev} allowFontScaling={false}>›</Text>

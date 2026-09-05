@@ -17,8 +17,9 @@
  *                          which side you mean.
  *   4. How does it feel? — quality words (SOCRATES "Character", the answer
  *                          every clinician asks for).
- *   5. Where?            — the places you had last time, already ticked,
- *                          so the common case is one confirming tap.
+ *   5. Where?            — your usual places as chips, one tap each, and
+ *                          the body map behind "Show more" for anything
+ *                          sided or specific.
  *   6. Logged.           — the day you just made, arriving rather than
  *                          appearing, and then breathing while you look
  *                          at it. Out on one tap.
@@ -56,7 +57,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text,
-  TextInput, View,
+  TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -67,6 +68,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { fmtDay } from './DayScreen';
+import BodyMap from './BodyMap';
 import Slider from './Slider';
 import PainShape from './PainShape';
 import * as db from './db';
@@ -83,16 +85,32 @@ import {
   painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
-  LOC_CHIP_IDS, LOC_NAMES, LOC_SECTIONS, Moment, MomentMeta, QUALITYIDS,
-  QUALITY_NAMES, answerOf, collapseSidedLocs, defaultLocs, fmtTime, logsOf,
+  LOC_CHIP_IDS, LOC_NAMES, Moment, MomentMeta, QUALITYIDS,
+  QUALITY_NAMES, addDays, answerOf, collapseSidedLocs, defaultLocs, logsOf,
   minutesNow, nowMeta, todayISO,
 } from './model';
+import { fmtClock } from './clock';
 
 const IMPACT_LABELS: Record<string, string> = {};
 IMPACT_CHIPS.forEach((c) => { IMPACT_LABELS[c.id] = c.name; });
 
 const SQUARE = 150;
 const INTERFERENCE_ID = 'pain.interference.v1';
+
+/** the interference question is offered once a week: not if any day in
+ *  the previous seven carries an answer OR a skip to it. A skip counts —
+ *  "I'd rather not" a week ago is not an invitation to ask daily. */
+const INTERFERENCE_EVERY_DAYS = 7;
+function interferenceDue(todayIso: string): boolean {
+  for (let back = 1; back < INTERFERENCE_EVERY_DAYS; back++) {
+    if (answerOf(db.getDay(addDays(todayIso, -back)), INTERFERENCE_ID)) return false;
+  }
+  return true;
+}
+
+/** the body map's height inside the where step — the onboarding figure's
+ *  size, which was drawn for a take-your-time screen and reads at it */
+const MAP_H = 400;
 
 type Step = 'pain' | 'questions' | 'impact' | 'feel' | 'where' | 'done';
 
@@ -184,9 +202,10 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
     return questionsNow(
       db.activeProtocol(),
       { h: minutes, isFirstOfDay, entry },
-      [INTERFERENCE_ID]
+      interferenceDue(today) ? [INTERFERENCE_ID] : []
     );
   });
+  const { width: winW } = useWindowDimensions();
   const [pid] = useState<number | null>(() => {
     const p = db.activeProtocol();
     return p && p.id != null ? p.id : null;
@@ -697,7 +716,7 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
   /* writing the past must never look like writing the present — and
      editing must never look like a new entry */
   const retroLine = editing
-    ? 'Editing the ' + fmtTime(edit!.h) + ' check-in' + (retro ? ' on ' + fmtDay(today) : '')
+    ? 'Editing the ' + fmtClock(edit!.h) + ' check-in' + (retro ? ' on ' + fmtDay(today) : '')
     : retro ? 'For ' + fmtDay(today) + ', from memory' : null;
 
   const hint = step === 'impact'
@@ -789,11 +808,11 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
                 pressOpacity={0.7}
                 style={styles.retroWhen}
                 accessibilityRole="button"
-                accessibilityLabel={'This check-in is for ' + fmtTime(minutes)
+                accessibilityLabel={'This check-in is for ' + fmtClock(minutes)
                   + '. Changes the time'}
               >
                 <Text style={styles.retroWhenText} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  At {fmtTime(minutes)} · change
+                  At {fmtClock(minutes)} · change
                 </Text>
               </Press>
               {showTimePicker && (
@@ -917,6 +936,12 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
           <View style={styles.chipCloud}>
             {chipRow(ranked.loc, LOC_NAMES, loc, setLoc)}
           </View>
+          {/* "Show more" opens THE BODY MAP — the same figure onboarding
+              used to carry, speaking the sided vocabulary the record
+              stores. It replaces five sections of twenty-four chips,
+              which was the wall the map was built to spare people. The
+              coarse chips above stay; both levels share one selection,
+              and a mark wears the check-in's own pain colour. */}
           {!locExpanded ? (
             <Press
               onPress={() => {
@@ -926,21 +951,21 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
               style={styles.more}
               pressOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Show specific places, left and right"
+              accessibilityLabel="Show the body map, to mark specific places, left and right"
             >
-              <Text style={styles.moreText}>Show more ›</Text>
+              <Text style={styles.moreText}>Show the body map ›</Text>
             </Press>
           ) : (
-            LOC_SECTIONS.map((sec) => (
-              <View key={sec.title}>
-                <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {sec.title}
-                </Text>
-                <View style={styles.chipCloud}>
-                  {chipRow(sec.ids, LOC_NAMES, loc, setLoc)}
-                </View>
-              </View>
-            ))
+            <View style={{ height: MAP_H, marginTop: 10 }}>
+              <BodyMap
+                selected={loc}
+                onChange={setLoc}
+                tint={painColor(pain ?? 5)}
+                ink={inkOn(pain ?? 5)}
+                containerWidth={winW - 56}
+                containerHeight={MAP_H}
+              />
+            </View>
           )}
         </ScrollView>
       ) : (
@@ -974,7 +999,15 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
           </>
         )}
 
-        <>
+        {step === 'pain' ? (
+          /* TWO BUTTONS OF EQUAL WEIGHT. The first version made
+             "Continue" the filled primary and put "That's it for now"
+             underneath in grey — and the product's first principle is
+             that pain alone is a finished check-in. The weight said the
+             opposite. Now the finishing action is the filled one and the
+             longer path sits beside it at the same size: a real choice,
+             not a default and an escape hatch. */
+          <View style={styles.pairRow}>
             <Press
               onPress={advance}
               disabled={!canAdvance}
@@ -982,48 +1015,52 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
               accessibilityRole="button"
               accessibilityState={{ disabled: !canAdvance }}
               accessibilityHint={canAdvance ? undefined : 'Choose a pain level first'}
-              style={[
-                styles.primary,
-                /* the reference fills its Next button with its accent; ours is
-                   the theme's own hue, ink chosen by real luminance */
-                canAdvance ? styles.primaryOn : styles.primaryOff,
-              ]}
+              style={[styles.primary, styles.pairBtn, styles.outlined, !canAdvance && styles.outlinedOff]}
             >
-              <Text style={[
-                styles.primaryText,
-                canAdvance ? styles.primaryTextOn : styles.primaryTextOff,
-              ]}>
-                {/* DONE, not "Save": the check-in was written the moment
-                    you left the pain step, and every step since has been
-                    editing it. Nothing is pending here, so a Save button
-                    would be describing work that already happened. */}
-                {isLast ? 'Done'
-                  : step === 'questions' && !anyAnswered ? 'Skip'
-                    : 'Continue'}
+              <Text style={[styles.primaryText, styles.outlinedText, !canAdvance && styles.primaryTextOff]}>
+                {editing ? 'Change details' : 'Add details'}
               </Text>
             </Press>
-
-            {/* pain on its own is a finished check-in, and the flow says so
-                as plainly as it offers the rest. In an edit the same
-                button saves the number and keeps everything else. */}
-            {step === 'pain' && (
-              <Press
-                onPress={logOnly}
-                disabled={!canAdvance}
-                pressOpacity={0.75}
-                style={styles.secondary}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: !canAdvance }}
-                accessibilityLabel={editing
-                  ? 'Save the number and keep the rest as it was'
-                  : 'Log the pain and finish'}
-              >
-                <Text style={[styles.secondaryText, !canAdvance && styles.primaryTextOff]}>
-                  {editing ? 'Save, keep the rest' : 'That’s it for now'}
-                </Text>
-              </Press>
-            )}
-        </>
+            <Press
+              onPress={logOnly}
+              disabled={!canAdvance}
+              pressScale={canAdvance ? 0.985 : 1}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canAdvance }}
+              accessibilityHint={canAdvance ? undefined : 'Choose a pain level first'}
+              accessibilityLabel={editing
+                ? 'Save the number and keep the rest as it was'
+                : 'Log the pain and finish'}
+              style={[styles.primary, styles.pairBtn, canAdvance ? styles.primaryOn : styles.primaryOff]}
+            >
+              <Text style={[styles.primaryText, canAdvance ? styles.primaryTextOn : styles.primaryTextOff]}>
+                {editing ? 'Save' : 'Log it'}
+              </Text>
+            </Press>
+          </View>
+        ) : (
+          <Press
+            onPress={advance}
+            disabled={!canAdvance}
+            pressScale={canAdvance ? 0.985 : 1}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canAdvance }}
+            style={[styles.primary, canAdvance ? styles.primaryOn : styles.primaryOff]}
+          >
+            <Text style={[
+              styles.primaryText,
+              canAdvance ? styles.primaryTextOn : styles.primaryTextOff,
+            ]}>
+              {/* DONE, not "Save": the check-in was written the moment
+                  you left the pain step, and every step since has been
+                  editing it. Nothing is pending here, so a Save button
+                  would be describing work that already happened. */}
+              {isLast ? 'Done'
+                : step === 'questions' && !anyAnswered ? 'Skip'
+                  : 'Continue'}
+            </Text>
+          </Press>
+        )}
       </View>
       </View>
     </KeyboardAvoidingView>
@@ -1190,6 +1227,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,
   },
   primaryText: { fontSize: font.title3, fontWeight: '600' },
+  /* the pair: two pills, one row, the same height as the single one */
+  pairRow: { flexDirection: 'row', gap: 10 },
+  pairBtn: { flex: 1, marginTop: 26 },
+  outlined: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5, borderColor: color.textPrimary,
+  },
+  outlinedOff: { borderColor: color.bgSegmentActive },
+  outlinedText: { color: color.textPrimary },
   secondary: {
     minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6,
   },

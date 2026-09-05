@@ -24,9 +24,10 @@ import { getMetric, levelLabel } from './metrics';
 import {
   Answer, DURATION_LABELS, EVENT_LABELS, INTERVENTIONS, LOC_NAMES, Moment,
   ONSET_LABELS, PainEvent, QUALITY_NAMES, RESPONSE_LABELS,
-  dateFromISO, daySummary, fmtTime, logsOf, momentAddedLater,
+  dateFromISO, daySummary, logsOf, momentAddedLater,
   readLocParts, todayISO,
 } from './model';
+import { fmtClock } from './clock';
 import { formatOutOf, formatScoreAndLabel, painColor, speakScore } from './painScale';
 import { healthDayTiles } from './health/context';
 import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
@@ -172,7 +173,7 @@ export default function DayDetail({
                   onPress={() => deleteMoment(l.h)}
                   style={styles.deleteAction}
                   accessibilityRole="button"
-                  accessibilityLabel={'Delete the ' + fmtTime(l.h) + ' check-in'}
+                  accessibilityLabel={'Delete the ' + fmtClock(l.h) + ' check-in'}
                 >
                   <Text style={styles.deleteText}>Delete</Text>
                 </Press>
@@ -183,14 +184,14 @@ export default function DayDetail({
                 pressOpacity={0.7}
                 style={styles.row}
                 accessibilityRole="button"
-                accessibilityLabel={fmtTime(l.h) + ', ' + speakScore(l.pain) +
+                accessibilityLabel={fmtClock(l.h) + ', ' + speakScore(l.pain) +
                   (l.loc && l.loc.length ? ', ' + names(l.loc, LOC_NAMES) : '')}
                 accessibilityHint="Opens this check-in to edit. Swipe left to delete."
               >
                 <View style={[styles.swatch, { backgroundColor: painColor(l.pain) }]} />
                 <View>
                   <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.3}>
-                    {fmtTime(l.h)}
+                    {fmtClock(l.h)}
                   </Text>
                   {/* recalled, and permanently visible as such — read
                       from the capture stamps, never from a flag that
@@ -335,7 +336,7 @@ export default function DayDetail({
                     onPress={() => deleteEvent(ev)}
                     style={styles.deleteAction}
                     accessibilityRole="button"
-                    accessibilityLabel={'Delete the ' + fmtTime(ev.h) + ' event'}
+                    accessibilityLabel={'Delete the ' + fmtClock(ev.h) + ' event'}
                   >
                     <Text style={styles.deleteText}>Delete</Text>
                   </Press>
@@ -346,11 +347,11 @@ export default function DayDetail({
                   pressOpacity={0.7}
                   style={styles.row}
                   accessibilityRole="button"
-                  accessibilityLabel={fmtTime(ev.h) + ', ' + EVENT_LABELS[ev.kind] +
+                  accessibilityLabel={fmtClock(ev.h) + ', ' + EVENT_LABELS[ev.kind] +
                     (ev.text ? ', ' + ev.text : '')}
                   accessibilityHint="Opens this event to edit. Swipe left to delete."
                 >
-                  <Text style={styles.time}>{fmtTime(ev.h)}</Text>
+                  <Text style={styles.time}>{fmtClock(ev.h)}</Text>
                   <View style={styles.rowMid}>
                     <Text style={styles.rowScore}>
                       {EVENT_LABELS[ev.kind]}

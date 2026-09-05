@@ -32,10 +32,13 @@ import { Press } from './motion';
 import MapScreen from './MapScreen';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, Protocol,
-  RESPONSE_LABELS, Response, dateFromISO, fmtTime,
-} from './model';
+  RESPONSE_LABELS, Response, dateFromISO, } from './model';
+import { fmtClock } from './clock';
 import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
-import { EndOfRecord, ReportData, buildReportData, fmtReportDate } from './report';
+import {
+  ChartColumn, EndOfRecord, ReportData, buildReportData, chartColumns, chartGrain,
+  fmtReportDate,
+} from './report';
 import {
   Association as HealthAssociation, associationCopy, fadedCopy, factorLabel,
   groupLabels,
@@ -148,28 +151,26 @@ function MiniChart({
   data: ReportData;
   span: number;
   selected: string | null;
-  onSelect: (dateIso: string | null) => void;
+  onSelect: (key: string | null) => void;
   /** the second tap: a bar answers in the readout, the readout opens
    *  the day itself — which is how a specific day is reached from this
-   *  chart without a calendar standing around for the purpose */
+   *  chart without a calendar standing around for the purpose. A WEEK
+   *  opens its latest logged day. */
   onOpenDay: (dateIso: string) => void;
 }) {
-  const byDate: Record<string, number> = {};
-  data.days.forEach((d) => { byDate[d.date] = d.avg; });
-  const end = dateFromISO(data.rangeEnd);
-  const cols: { date: string; avg: number | null }[] = [];
-  for (let i = span - 1; i >= 0; i--) {
-    const d = new Date(end);
-    d.setDate(d.getDate() - i);
-    const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
-      + '-' + String(d.getDate()).padStart(2, '0');
-    cols.push({ date: k, avg: byDate[k] != null ? byDate[k] : null });
-  }
+  /* one column per day, or per week once the span is long enough that
+     a day would be a texture — the rule lives in report.ts and is
+     tested there, not decided here */
+  const cols = chartColumns(data.days, data.rangeEnd, span);
+  const weekly = chartGrain(span) === 'week';
   const logged = cols.filter((c) => c.avg != null).length;
-  const pick = cols.filter((c) => c.date === selected)[0];
+  const pick = cols.filter((c) => c.from === selected)[0];
   /* the top of the user's own easier third, or null when the record is
      too short for the split to mean anything */
   const easier = data.harderEasier ? data.harderEasier.boundaryLow : null;
+  const name = (c: ChartColumn) =>
+    weekly ? shortDate(c.from) + '–' + shortDate(c.to) : shortDate(c.from);
+  const unit = weekly ? 'week' : 'day';
 
   /* a window with nothing in it says so in words — a row of 3pt gap
      marks is indistinguishable from a chart that failed to render */
@@ -188,28 +189,33 @@ function MiniChart({
       {/* the readout sits ABOVE the bars and holds its height whether or
           not anything is selected, so tapping never shifts the layout */}
       <View style={styles.readout}>
-        {pick && pick.avg != null ? (
+        {pick && pick.avg != null && pick.openDate ? (
           <Press
-            onPress={() => onOpenDay(pick.date)}
+            onPress={() => onOpenDay(pick.openDate!)}
             pressOpacity={0.7}
             style={styles.readoutOpen}
             accessibilityRole="button"
-            accessibilityLabel={shortDate(pick.date) + ', ' + formatScore(pick.avg)
-              + ', ' + painLabel(pick.avg) + '. Opens this day'}
+            accessibilityLabel={name(pick) + ', ' + formatScore(pick.avg)
+              + ', ' + painLabel(pick.avg)
+              + (weekly ? ', ' + pick.logged + (pick.logged === 1 ? ' day' : ' days') : '')
+              + '. Opens ' + (weekly ? 'its latest day' : 'this day')}
           >
             <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
               <Text style={styles.readoutStrong}>{formatScore(pick.avg)}</Text>
-              {'  ' + painLabel(pick.avg) + '  ·  ' + shortDate(pick.date)}
+              {'  ' + painLabel(pick.avg) + '  ·  ' + name(pick)
+                + (weekly ? '  ·  ' + pick.logged + (pick.logged === 1 ? ' day' : ' days') : '')}
             </Text>
             <Text style={styles.readoutChev} allowFontScaling={false}>›</Text>
           </Press>
         ) : pick ? (
           <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Nothing logged on {shortDate(pick.date)}
+            Nothing logged {weekly ? 'in the week of ' : 'on '}{shortDate(pick.from)}
           </Text>
         ) : (
           <Text style={styles.readoutHint} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Tap a day to see it — tap its reading to open it
+            {weekly
+              ? 'Tap a week to see it — tap its reading to open its latest day'
+              : 'Tap a day to see it — tap its reading to open it'}
           </Text>
         )}
       </View>
@@ -240,19 +246,20 @@ function MiniChart({
         style={styles.chartRow}
         accessible={false}
         accessibilityLabel={
-          'Daily average pain. ' + logged + ' days logged, the rest are gaps.'
+          (weekly ? 'Weekly' : 'Daily') + ' average pain. ' + logged + ' '
+          + unit + 's logged, the rest are gaps.'
         }
       >
         {cols.map((c) => {
-          const on = c.date === selected;
+          const on = c.from === selected;
           return (
             <Pressable
-              key={c.date}
-              onPress={() => onSelect(on ? null : c.date)}
+              key={c.from}
+              onPress={() => onSelect(on ? null : c.from)}
               style={styles.chartSlot}
               accessibilityRole="button"
               accessibilityLabel={
-                shortDate(c.date) + (c.avg == null ? ', nothing logged'
+                name(c) + (c.avg == null ? ', nothing logged'
                   : ', average ' + formatScore(c.avg) + ' out of 10')
               }
             >
@@ -277,9 +284,15 @@ function MiniChart({
         </View>
       </View>
       <View style={styles.chartAxis}>
-        <Text style={styles.axisText}>{shortDate(cols[0].date)}</Text>
-        <Text style={styles.axisText}>{shortDate(cols[cols.length - 1].date)}</Text>
+        <Text style={styles.axisText}>{shortDate(cols[0].from)}</Text>
+        <Text style={styles.axisText}>{shortDate(cols[cols.length - 1].to)}</Text>
       </View>
+      {weekly && (
+        <Text style={styles.noteLine}>
+          Each bar is a week: the average of the days you logged in it. A
+          week with nothing logged stays blank.
+        </Text>
+      )}
       {easier != null && (
         <Text style={styles.noteLine}>
           The shaded band is your own easier third — {formatScore(easier)} and
@@ -332,12 +345,16 @@ function Direction({ first, second }: { first: number; second: number }) {
 
 /** how much of the record to look at. "All" is the whole thing rather
  *  than a fixed number, so a long record is never silently cropped. */
-/* Week, Month, All — one control, three widths of the same bars.
-   3 months went: four options crowd the segment on a narrow phone, and
-   a quarter is All's job until the record is old enough to argue. */
+/* Week, Month, 3 months, All — one control, four widths of the same
+   record. 3 months went once for crowding the segment; it is back
+   because a record past two months draws WEEKS at All, and a person
+   who wants their days back needs a range that still shows them. It is
+   offered only once the record is longer than it (see `ranges`), so a
+   short record never sees a fourth segment. */
 const RANGES: { key: string; label: string; days: number }[] = [
   { key: 'w', label: 'Week', days: 7 },
   { key: 'm', label: 'Month', days: 30 },
+  { key: 'q', label: '3 months', days: 90 },
   { key: 'a', label: 'All', days: 0 },
 ];
 
@@ -933,7 +950,7 @@ export default function TrendsScreen({
         const c = healthNoticed.best ? associationCopy(healthNoticed.best) : null;
         if (!c && !healthNoticed.fading.length) return null;
         return (
-          <Card title="Patterns worth watching">
+          <Card title="Worth watching">
             {c && healthNoticed.best ? (
               <>
                 <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -1289,7 +1306,7 @@ export default function TrendsScreen({
             label="events"
             items={data.events.slice().reverse().map((ev, i) => ({
               key: ev.id != null ? 'e' + ev.id : 'ei' + i,
-              left: shortDate(ev.date) + ' ' + fmtTime(ev.h) + ' · '
+              left: shortDate(ev.date) + ' ' + fmtClock(ev.h) + ' · '
                 + (ev.intervention
                   ? INTERVENTIONS[ev.intervention] || ev.intervention
                   : EVENT_LABELS[ev.kind])

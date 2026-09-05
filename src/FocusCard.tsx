@@ -185,7 +185,7 @@ export default function FocusCard({
       </Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Day {PROTOCOL_REVIEW_DAYS} of your observation period
+          Day {PROTOCOL_REVIEW_DAYS} of your focus
         </Text>
         <Text style={styles.cardSub} allowFontScaling maxFontSizeMultiplier={1.4}>
           You logged {prog.loggedDays} {prog.loggedDays === 1 ? 'day' : 'days'} so far.

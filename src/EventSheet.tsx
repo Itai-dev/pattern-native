@@ -22,9 +22,9 @@ import { track } from './analytics';
 import {
   DURATIONS, DURATION_LABELS, Duration, EVENT_KINDS_OFFERED, EVENT_LABELS,
   EventKind, INTERVENTIONIDS, INTERVENTIONS, ONSETS, ONSET_LABELS, Onset,
-  PainEvent, RESPONSES, RESPONSE_LABELS, Response, checkinCount, fmtTime,
-  minutesNow, todayISO,
+  PainEvent, RESPONSES, RESPONSE_LABELS, Response, checkinCount, minutesNow, todayISO,
 } from './model';
+import { fmtClock } from './clock';
 import { color, font, size } from './theme';
 
 export interface EventSheetProps {
@@ -124,7 +124,7 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
   const confirmDelete = () => {
     Alert.alert(
       'Delete this event?',
-      'The ' + fmtTime(event!.h) + ' ' + EVENT_LABELS[event!.kind].toLowerCase() +
+      'The ' + fmtClock(event!.h) + ' ' + EVENT_LABELS[event!.kind].toLowerCase() +
         ' event will be removed. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -219,10 +219,10 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
           pressOpacity={0.8}
           style={styles.timeRow}
           accessibilityRole="button"
-          accessibilityLabel={'Time, ' + fmtTime(minutes)}
+          accessibilityLabel={'Time, ' + fmtClock(minutes)}
           accessibilityHint="Opens a time picker"
         >
-          <Text style={styles.timeText}>{fmtTime(minutes)}</Text>
+          <Text style={styles.timeText}>{fmtClock(minutes)}</Text>
           <Text style={styles.timeHint}>{showPicker ? 'Done' : 'Change'}</Text>
         </Press>
         {showPicker && (

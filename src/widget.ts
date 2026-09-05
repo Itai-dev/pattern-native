@@ -101,17 +101,23 @@ export interface WidgetEntry {
   props: WidgetSnapshot;
 }
 
-export function widgetEntries(entries: Entries, todayIso: string, now: Date): WidgetEntry[] {
+export function widgetEntries(
+  entries: Entries, todayIso: string, now: Date, clock: (h: number) => string = fmtTime
+): WidgetEntry[] {
   const tomorrowIso = addDays(todayIso, 1);
   const midnight = dateFromISO(tomorrowIso);   // local 00:00 of tomorrow
   return [
-    { dateIso: todayIso, at: now, props: widgetSnapshot(entries, todayIso) },
-    { dateIso: tomorrowIso, at: midnight, props: widgetSnapshot(entries, tomorrowIso) },
+    { dateIso: todayIso, at: now, props: widgetSnapshot(entries, todayIso, clock) },
+    { dateIso: tomorrowIso, at: midnight, props: widgetSnapshot(entries, tomorrowIso, clock) },
   ];
 }
 
-/** everything the extension is told, in one object */
-export function widgetSnapshot(entries: Entries, todayIso: string): WidgetSnapshot {
+/** everything the extension is told, in one object. `clock` writes the
+ *  time: the fixed form by default (so this stays testable), the
+ *  phone's own convention when the app pushes it. */
+export function widgetSnapshot(
+  entries: Entries, todayIso: string, clock: (h: number) => string = fmtTime
+): WidgetSnapshot {
   const c = weekColors(entries, todayIso);
   const w = weekLetters(todayIso);
   /* the LATEST moment of today, by clock time — the same "what did I
@@ -124,7 +130,7 @@ export function widgetSnapshot(entries: Entries, todayIso: string): WidgetSnapsh
     caption: weekCaption(entries, todayIso),
     last: last ? formatScore(last.pain) : '',
     word: last ? painLabel(last.pain) : '',
-    at: last ? fmtTime(last.h) : '',
+    at: last ? clock(last.h) : '',
     tint: last ? painColor(last.pain) : WIDGET_EMPTY,
   };
 }

@@ -25,11 +25,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { EASE_OUT, reduceMotion } from './motion';
 import { track } from './analytics';
-import { Slot, fmt } from './reminders';
+import { Slot } from './reminders';
 import { applySlots, savedSlots, syncReminders } from './reminderSchedule';
+import { fmtClock } from './clock';
 import { color, font, radius } from './theme';
 
 const LABELS: Record<Slot['key'], string> = { m: 'Morning', d: 'Midday', e: 'Evening' };
+/** a slot's time as the phone writes times */
+const fmt = (s: Slot) => fmtClock(s.hour * 60 + s.minute);
 const DENIED = 'Notifications are off for Pattern — turn them on in iPhone Settings.';
 
 export default function RemindersSection() {

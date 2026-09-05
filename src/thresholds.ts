@@ -90,6 +90,17 @@ export const TERCILE_CONTRAST_MIN_SHARE_GAP = 0.5;
  *  difference between kinds of days. Two of anything is an anecdote. */
 export const TERCILE_CONTRAST_MIN_DAYS = 3;
 
+/* ── the chart's grain ──────────────────────────────────────── */
+
+/** Above this many days in view, the pain chart draws weeks rather
+ *  than days. One column per day at 180 days is about 1.5 points wide
+ *  on a phone — a texture, not a bar, and a tap target nobody can hit.
+ *  Sixty: two months of daily bars still read, and the first record to
+ *  outgrow it is a quarter old, which is when a week is the honest
+ *  unit anyway. A week's bar is the MEAN of its logged days only, and a
+ *  week with none stays a gap. */
+export const CHART_WEEKLY_ABOVE_DAYS = 60;
+
 /* ── time of day ────────────────────────────────────────────── */
 
 /** check-ins a band needs before it may be compared with another band */

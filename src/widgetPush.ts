@@ -14,6 +14,7 @@
 import { Platform } from 'react-native';
 import WeekWidget from './WeekWidget';
 import { Entries, todayISO } from './model';
+import { fmtClock } from './clock';
 import { widgetEntries } from './widget';
 
 /**
@@ -24,7 +25,7 @@ import { widgetEntries } from './widget';
 export function refreshWidget(entries: Entries, todayIso?: string): void {
   if (Platform.OS !== 'ios') return;
   try {
-    const list = widgetEntries(entries, todayIso || todayISO(), new Date());
+    const list = widgetEntries(entries, todayIso || todayISO(), new Date(), fmtClock);
     /* the first widget build knew only updateSnapshot; that JS reaches
        it over the air, so the older call stays as the fallback */
     if (typeof WeekWidget.updateTimeline === 'function') {

@@ -159,12 +159,19 @@ export const METRICS: MetricDef[] = [
     wordingVersion: 1, eligibility: 'everyMoment', analysis: 'trend',
     protocolEligible: false,
   },
+  /* WEEKLY, since 2026-09. A second 0–10 slider at every first check-in
+     of the day was the heaviest single addition to the daily loop, and
+     the spec flagged it as the first thing to cut if the twenty-second
+     target slipped. The question now asks about the week, is offered
+     once every seven days (the check-in decides when, see
+     interferenceDue), and its wording moved with it — so wordingVersion
+     is 2 and the old daily answers never pool with the weekly ones. */
   {
     id: 'pain.interference.v1',
     name: 'Interference',
-    question: 'How much is pain getting in the way right now?',
+    question: 'Over the past week, how much has pain got in the way?',
     type: 'numeric', scope: 'day', range: [0, 10], ends: ['Not at all', 'Completely'],
-    wordingVersion: 1, eligibility: 'firstOfDay', analysis: 'trend',
+    wordingVersion: 2, eligibility: 'firstOfDay', analysis: 'trend',
     protocolEligible: false,
   },
   {

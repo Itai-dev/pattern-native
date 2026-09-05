@@ -24,8 +24,8 @@ import {
 } from './model';
 import { BAND_AT, formatScore, painLabel } from './painScale';
 import {
-  BAND_MIN_CHECKINS, BAND_MIN_DAYS, HALVES_MIN_DAYS, LIMITED_RECORD_DAYS,
-  TERCILE_CONTRAST_MIN_DAYS, TERCILE_CONTRAST_MIN_SHARE_GAP,
+  BAND_MIN_CHECKINS, BAND_MIN_DAYS, CHART_WEEKLY_ABOVE_DAYS, HALVES_MIN_DAYS,
+  LIMITED_RECORD_DAYS, TERCILE_CONTRAST_MIN_DAYS, TERCILE_CONTRAST_MIN_SHARE_GAP,
   TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
 } from './thresholds';
 import { Association, associationCopy } from './health/engine';
@@ -554,6 +554,62 @@ export function timeOfDayBands(entries: Entries, days: ReportDay[]): TimeBand[] 
 /* ── the chart ───────────────────────────────────────────────
    Days without data are GAPS: the line breaks rather than bridging a day
    that was never logged, so the chart never invents data. */
+
+/* ── the on-screen columns ───────────────────────────────────
+   What the Patterns chart draws, computed here rather than in the
+   screen so the grain rule is one tested function. A column is a day
+   until the span passes CHART_WEEKLY_ABOVE_DAYS; then it is a week,
+   ending on the last day in view so today is always the last column's
+   last day. A week's value is the mean of its LOGGED days' averages —
+   an unlogged day is left out of the mean, never counted as anything,
+   and a week with no logged day is a gap exactly as a day is. */
+
+export interface ChartColumn {
+  /** the column's first day — its identity for selection */
+  from: string;
+  /** its last day; equal to `from` for a daily column */
+  to: string;
+  /** null = nothing logged in it */
+  avg: number | null;
+  /** logged days inside it */
+  logged: number;
+  /** the day a tap should open: the most recent logged one, or null */
+  openDate: string | null;
+}
+
+export function chartGrain(span: number): 'day' | 'week' {
+  return span > CHART_WEEKLY_ABOVE_DAYS ? 'week' : 'day';
+}
+
+export function chartColumns(days: ReportDay[], rangeEnd: string, span: number): ChartColumn[] {
+  const byDate: Record<string, number> = {};
+  days.forEach((d) => { byDate[d.date] = d.avg; });
+  const end = dateFromISO(rangeEnd);
+  const step = chartGrain(span) === 'week' ? 7 : 1;
+  const out: ChartColumn[] = [];
+  /* walk back from the end in whole steps, so the last column is the
+     current one and any partial column is the OLDEST, not today's */
+  for (let back = 0; back < span; back += step) {
+    const toD = new Date(end);
+    toD.setDate(toD.getDate() - back);
+    const fromD = new Date(toD);
+    fromD.setDate(fromD.getDate() - Math.min(step, span - back) + 1);
+    const from = iso(fromD), to = iso(toD);
+    const vals: number[] = [];
+    let openDate: string | null = null;
+    for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate() + 1)) {
+      const k = iso(d);
+      if (byDate[k] != null) { vals.push(byDate[k]); openDate = k; }
+    }
+    out.unshift({
+      from, to,
+      avg: vals.length ? round1(vals.reduce((s, v) => s + v, 0) / vals.length) : null,
+      logged: vals.length,
+      openDate,
+    });
+  }
+  return out;
+}
 
 /** consecutive-day runs of logged days — each run becomes one line */
 export function chartSegments(days: ReportDay[]): ReportDay[][] {

@@ -29,7 +29,8 @@
  */
 import React, { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
-import { Moment, fmtTime } from './model';
+import { Moment } from './model';
+import { fmtClock } from './clock';
 import { formatScore, painColor, speakScore } from './painScale';
 import { color, font } from './theme';
 
@@ -115,12 +116,12 @@ export default function DayLine({
   const spoken = pts.length === 0
     ? 'No check-ins to draw'
     : pts.length === 1
-      ? 'One check-in, ' + speakScore(pts[0].pain) + ' at ' + fmtTime(pts[0].h)
-      : pts.length + ' check-ins between ' + fmtTime(pts[0].h) + ' and '
-        + fmtTime(pts[pts.length - 1].h) + ', from '
+      ? 'One check-in, ' + speakScore(pts[0].pain) + ' at ' + fmtClock(pts[0].h)
+      : pts.length + ' check-ins between ' + fmtClock(pts[0].h) + ' and '
+        + fmtClock(pts[pts.length - 1].h) + ', from '
         + formatScore(pts.reduce((m, p) => (p.pain < m ? p.pain : m), 10)) + ' to '
         + formatScore(pts.reduce((m, p) => (p.pain > m ? p.pain : m), 0))
-        + (highlightH != null ? ', the latest at ' + fmtTime(highlightH) : '');
+        + (highlightH != null ? ', the latest at ' + fmtClock(highlightH) : '');
 
   return (
     <View accessible accessibilityLabel={spoken}>

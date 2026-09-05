@@ -50,14 +50,12 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
-import BodyMap from './BodyMap';
 import { protocolFactors } from './metrics';
-import { collapseSidedLocs } from './model';
+import { LOC_CHIP_IDS, LOC_NAMES, collapseSidedLocs } from './model';
 import { themeBrand } from './painScale';
 import { color, font, radius, size } from './theme';
 
@@ -101,10 +99,10 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
   const [suspicions, setSuspicions] = useState<string[]>([]);
   const [diagnosisText, setDiagnosisText] = useState('');
   const [connectHealth, setConnectHealth] = useState(false);
-  /* the body map speaks the sided vocabulary; onboarding stores the
-     coarse words the first check-in's offer uses */
+  /* the usual places, in the coarse words the first check-in's offer
+     speaks. collapseSidedLocs is a no-op on these and stays, so a sided
+     answer from any future source still stores as the chips read it. */
   const [mapSel, setMapSel] = useState<string[]>([]);
-  const { width: winW } = useWindowDimensions();
   const brand = themeBrand();
   /* the pool the focus flow itself draws from — one vocabulary, so a
      suspicion marked here IS a factor the offer can test later */
@@ -235,24 +233,34 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               Where does it{'\n'}usually hurt?
             </Text>
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Tap or sweep across the body — one or more places, or none. It
-              seeds your first check-in, nothing else.
+              Tap any that apply — one or more places, or none. It seeds your
+              first check-in, nothing else.
             </Text>
-            {/* the body map, in the setting it was shelved FOR: the daily
-                flow needed five seconds and the figures crowded it, but
-                onboarding is the one take-your-time screen. Marks wear
-                the theme accent — there is no pain value yet for them to
-                wear. Selections store as the coarse words the check-in
-                offer speaks, via the same collapse the chips used. */}
-            <View style={{ height: 400, marginTop: 4 }}>
-              <BodyMap
-                selected={mapSel}
-                onChange={setMapSel}
-                tint={brand}
-                ink="#FFFFFF"
-                containerWidth={winW - 56}
-                containerHeight={400}
-              />
+            {/* the coarse chips, not the body map. The map lived here for
+                a while; it made this the heaviest screen a person in pain
+                met in the whole app, and it now lives in the check-in's
+                where step, where it does daily work. Day zero needs the
+                usual places in one tap each, and nothing more precise. */}
+            <View style={styles.chips}>
+              {LOC_CHIP_IDS.map((id) => {
+                const on = mapSel.indexOf(id) >= 0;
+                return (
+                  <Press
+                    key={id}
+                    onPress={() => toggleIn(mapSel, setMapSel, id)}
+                    pressOpacity={0.8}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={LOC_NAMES[id]}
+                    style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}>
+                      {LOC_NAMES[id]}
+                    </Text>
+                  </Press>
+                );
+              })}
             </View>
 
             <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
