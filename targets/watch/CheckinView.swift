@@ -1,5 +1,6 @@
 /**
- * Turn the crown, watch the square take its colour, tap the check.
+ * Turn the crown — or tap the square — watch it take its colour, tap
+ * the check, and three seconds later it is sent.
  *
  * THE SQUARE IS THE APP'S OWN. On the phone, PainShape is "one solid
  * rounded square" whose fill rides the brightness ramp under the
@@ -12,16 +13,34 @@
  * THE VALUE STARTS UNSET — the same rule the phone's slider holds:
  * nothing is recorded until the user actually chooses, because a
  * pre-selected 5 that gets a reflexive Done is a number nobody entered.
- * Until the crown moves the square is empty and there is nothing to
- * confirm.
+ * Until the crown moves or the square is tapped it is empty and there
+ * is nothing to confirm.
  *
- * THE CHECK APPEARS, IT DOES NOT ACT. When the crown has been still for
+ * HANDS HURT. "Hands" and "Right wrist" are in this app's vocabulary,
+ * and a fine crown rotation is a pinch and a roll. So the square is
+ * also a control: its left half is one step down, its right half one
+ * step up, with the same settle-then-check as the crown. Two ways to
+ * choose, one rule about confirming.
+ *
+ * THE CHECK APPEARS, IT DOES NOT ACT. When the value has been still for
  * a beat, a check button fades into a slot below; committing on
  * crown-stop alone was considered and rejected — a sleeve brushing the
  * crown, or a user pausing to think, would write a number nobody
  * confirmed, and the record's whole claim is that the number is what
  * the user entered. The pause earns the check; the tap is the entry.
- * Turning again dismisses it and goes back to choosing.
+ *
+ * AND THE ENTRY CAN BE TAKEN BACK, FOR THREE SECONDS. The check-tap
+ * itself can be a brushed sleeve, and there was no way back from the
+ * wrist once it had gone. Now the send is held behind an Undo for a
+ * short count, then goes; Undo returns to choosing with the value
+ * intact. Three seconds: long enough to notice, short enough that the
+ * arm is not held up waiting.
+ *
+ * WHAT HAPPENS NEXT IS SAID. The phone's app writes the record, and it
+ * does that when it next opens — a check-in made on a walk does not
+ * exist on the phone until then. The confirmation says so in a line,
+ * because a watch that says "done" about something the phone has not
+ * yet done is a watch that lied about it.
  *
  * COLOUR AND WORDS ARE RECEIVED, NOT HELD. The ramp and the five words
  * live in painScale.ts, once; the phone pushes them here as strings
@@ -34,6 +53,15 @@
 import SwiftUI
 import WatchKit
 
+/** how long an Undo is offered before the check-in is sent */
+private let UNDO_SECONDS: Double = 3.0
+/** how long the sent confirmation stays before the view resets */
+private let SENT_SECONDS: Double = 1.8
+/** stillness that earns the check — long enough that mid-turn
+ *  hesitation does not flash it, short enough that it never feels
+ *  withheld */
+private let SETTLE_SECONDS: Double = 0.9
+
 struct CheckinView: View {
   @ObservedObject private var sync = WatchSync.shared
 
@@ -42,36 +70,90 @@ struct CheckinView: View {
      the VALUE is unset until the user has actually moved something. */
   @State private var crown: Double = 5
   @State private var touched = false
-  @State private var sent = false
 
-  /* true once the crown has been still long enough to mean "that's my
-     answer"; any further turn cancels it. Held as a work item so a new
-     turn can revoke the pending settle instead of racing it. */
+  /* true once the value has been still long enough to mean "that's my
+     answer"; any further change cancels it. Held as a work item so a
+     new change can revoke the pending settle instead of racing it. */
   @State private var settled = false
   @State private var settleTask: DispatchWorkItem?
+
+  /* the check has been tapped and the send is counting down */
+  @State private var pending = false
+  @State private var sendTask: DispatchWorkItem?
+  /* the send happened; the confirmation is showing */
+  @State private var sent = false
 
   private var value: Int { min(10, max(0, Int(crown.rounded()))) }
 
   private var caption: String {
-    if !touched { return "turn to choose" }
+    if !touched { return "turn or tap to choose" }
     return sync.palette?.wordFor(value) ?? "pain right now"
+  }
+
+  /* a change of value from either hand: mark it, and start the settle
+     over — the check is earned by stillness, whichever control moved */
+  private func changed() {
+    touched = true
+    settled = false
+    settleTask?.cancel()
+    let task = DispatchWorkItem { settled = true }
+    settleTask = task
+    DispatchQueue.main.asyncAfter(deadline: .now() + SETTLE_SECONDS, execute: task)
+  }
+
+  private func step(_ by: Int) {
+    let next = min(10, max(0, value + by))
+    if !touched || next != value {
+      WKInterfaceDevice.current().play(.click)
+      crown = Double(next)
+      changed()
+    }
+  }
+
+  private func confirm() {
+    pending = true
+    WKInterfaceDevice.current().play(.click)
+    let task = DispatchWorkItem {
+      WatchSync.shared.send(pain: value)
+      WKInterfaceDevice.current().play(.success)
+      pending = false
+      sent = true
+    }
+    sendTask = task
+    DispatchQueue.main.asyncAfter(deadline: .now() + UNDO_SECONDS, execute: task)
+  }
+
+  private func undo() {
+    sendTask?.cancel()
+    sendTask = nil
+    pending = false
+    WKInterfaceDevice.current().play(.click)
+  }
+
+  private func reset() {
+    sent = false
+    pending = false
+    touched = false
+    settled = false
+    crown = 5
   }
 
   var body: some View {
     if sent {
-      /* the phone's done screen, shrunk: a check mark and nothing else —
-         no score echo, no colour, no words, gone on its own */
-      Image(systemName: "checkmark")
-        .font(.system(size: 44, weight: .semibold))
-        .foregroundStyle(.white)
-        .onAppear {
-          DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            sent = false
-            touched = false
-            settled = false
-            crown = 5
-          }
-        }
+      /* the phone's done screen, shrunk: a check mark, and the one line
+         that says where the number is now — no score echo, no colour */
+      VStack(spacing: 10) {
+        Image(systemName: "checkmark")
+          .font(.system(size: 40, weight: .semibold))
+          .foregroundStyle(.white)
+        Text("Lands in Pattern when your iPhone next opens it.")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+      }
+      .onAppear {
+        DispatchQueue.main.asyncAfter(deadline: .now() + SENT_SECONDS) { reset() }
+      }
     } else {
       GeometryReader { geo in
         /* the square takes what height the caption and the check slot
@@ -99,24 +181,41 @@ struct CheckinView: View {
                 touched ? (sync.palette?.inkFor(value) ?? .white) : Color.secondary
               )
               .contentTransition(.numericText())
+
+            /* the two halves: down on the left, up on the right. Clear
+               and shaped so the whole half is the target; no glyphs,
+               because the square is not a stepper to look at, only one
+               to use. */
+            HStack(spacing: 0) {
+              Color.clear.contentShape(Rectangle())
+                .onTapGesture { if !pending { step(-1) } }
+                .accessibilityLabel("One less")
+              Color.clear.contentShape(Rectangle())
+                .onTapGesture { if !pending { step(1) } }
+                .accessibilityLabel("One more")
+            }
           }
           .frame(width: side, height: side)
           .animation(.easeOut(duration: 0.15), value: value)
 
-          Text(caption)
+          Text(pending ? "sending…" : caption)
             .font(.footnote)
             .foregroundStyle(.secondary)
             .frame(height: 18)
 
-          /* a fixed slot for the check, so the square never moves when
-             the check arrives or leaves */
+          /* a fixed slot for the check — or the Undo — so the square
+             never moves when either arrives or leaves */
           ZStack {
-            if settled && touched {
-              Button {
-                WatchSync.shared.send(pain: value)
-                WKInterfaceDevice.current().play(.success)
-                sent = true
-              } label: {
+            if pending {
+              Button(action: undo) {
+                Text("Undo")
+                  .font(.system(size: 15, weight: .semibold))
+              }
+              .buttonStyle(.bordered)
+              .tint(.white)
+              .transition(.opacity)
+            } else if settled && touched {
+              Button(action: confirm) {
                 Image(systemName: "checkmark")
                   .font(.system(size: 20, weight: .semibold))
               }
@@ -128,6 +227,7 @@ struct CheckinView: View {
           }
           .frame(height: 44)
           .animation(.easeInOut(duration: 0.2), value: settled)
+          .animation(.easeInOut(duration: 0.2), value: pending)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
@@ -137,15 +237,10 @@ struct CheckinView: View {
         sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true
       )
       .onChange(of: crown) {
-        touched = true
-        settled = false
-        settleTask?.cancel()
-        /* 0.9s of stillness: long enough that mid-turn hesitation does
-           not flash the check, short enough that the confirm never feels
-           withheld */
-        let task = DispatchWorkItem { settled = true }
-        settleTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9, execute: task)
+        /* a turn during the countdown is a change of mind: take the
+           send back and go on choosing from where the crown is now */
+        if pending { undo() }
+        changed()
       }
     }
   }

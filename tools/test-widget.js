@@ -115,7 +115,12 @@ const walk = (node, out) => {
 /** every family the widget declares in app.json. Each one is a separate
  *  branch of the same serialized function, so each one is a separate
  *  chance to reference something that does not exist in the sandbox. */
-const FAMILIES = ['systemSmall', 'systemMedium', 'accessoryCircular', 'accessoryRectangular'];
+const FAMILIES = [
+  'systemSmall', 'systemMedium', 'systemLarge',
+  'accessoryCircular', 'accessoryRectangular', 'accessoryInline',
+];
+/** rows of seven: one, two, five */
+const SQUARES = { systemSmall: 7, systemMedium: 14, systemLarge: 35 };
 const textOf = (nodes) => nodes.filter((n) => n.type === 'Text')
   .map((n) => n.props.children).join(' | ');
 
@@ -138,7 +143,7 @@ if (render) {
       textOf(nodes).indexOf('0') < 0, textOf(nodes));
     if (fam.indexOf('system') === 0) {
       const shapes = nodes.filter((n) => n.type === 'RoundedRectangle');
-      ok(fam + ' draws seven squares', shapes.length === 7, shapes.length);
+      ok(fam + ' draws ' + SQUARES[fam] + ' squares', shapes.length === SQUARES[fam], shapes.length);
       ok(fam + ' falls back to the empty-day outline', shapes.every((s) =>
         s.props.modifiers.some((m) =>
           m.modifier === 'foregroundStyle' && m.args[0] === '#2E2E30')));
@@ -151,7 +156,10 @@ if (render) {
     d4: '#555555', d5: '#666666', d6: '#777777',
     w0: 'M', w1: 'T', w2: 'W', w3: 'T', w4: 'F', w5: 'S', w6: 'S',
     caption: 'Checked in today', last: '7', word: 'Severe', at: '19:29', tint: '#AAAAAA',
+    lock: 'number',
   };
+  /* g0 oldest … g34 today; the last seven agree with d0…d6 */
+  for (let i = 0; i < 35; i++) snap['g' + i] = i >= 28 ? snap['d' + (i - 28)] : '#0' + String(i).padStart(5, '0');
   FAMILIES.forEach((fam) => {
     let full = null, fullErr = null;
     try { full = render(snap, { widgetFamily: fam }); } catch (e) { fullErr = e; }
@@ -166,8 +174,10 @@ if (render) {
     if (fam.indexOf('system') === 0) {
       const fills = nodes.filter((n) => n.type === 'RoundedRectangle').map((s) =>
         s.props.modifiers.filter((m) => m.modifier === 'foregroundStyle')[0].args[0]);
-      ok(fam + ' lands the seven colours oldest-first', JSON.stringify(fills) === JSON.stringify(
-        ['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777']), fills);
+      ok(fam + ' draws ' + SQUARES[fam] + ' squares from the snapshot', fills.length === SQUARES[fam], fills.length);
+      ok(fam + ' lands the last seven colours oldest-first, today last', JSON.stringify(fills.slice(-7)) === JSON.stringify(
+        ['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777']), fills.slice(-7));
+      if (fam === 'systemLarge') ok('the large grid starts at the oldest cell', fills[0] === snap.g0, fills[0]);
       ok(fam + ' labels the days', words.indexOf('M') >= 0 && words.indexOf('W') >= 0, words);
     }
     /* the calm-surface rule, enforced rather than remembered: nothing
@@ -177,6 +187,25 @@ if (render) {
       && words.toLowerCase().indexOf('week') < 0
       && words.indexOf('%') < 0
       && words.indexOf('↑') < 0 && words.indexOf('↓') < 0, words);
+  });
+
+  console.log('\n' + 'the discreet lock screen');
+  ['accessoryCircular', 'accessoryRectangular', 'accessoryInline'].forEach((fam) => {
+    const quiet = { ...snap, lock: 'discreet' };
+    let out = null, err = null;
+    try { out = render(quiet, { widgetFamily: fam }); } catch (e) { err = e; }
+    ok(fam + ' renders discreet without throwing', !err, err && err.message);
+    if (!out) return;
+    const words = textOf(walk(out, []));
+    ok(fam + ' keeps the number off the lock screen by default', words.indexOf('7') < 0 && words.indexOf('Severe') < 0, words);
+    ok(fam + ' still says a check-in happened', /logged|checked in/i.test(words), words);
+    ok(fam + ' is still a link into the check-in', walk(out, []).some((n) =>
+      n.props && n.props.modifiers && n.props.modifiers.some((m) => m.modifier === 'widgetURL')));
+  });
+  /* home-screen families are behind the passcode and keep the number either way */
+  ['systemSmall', 'systemMedium', 'systemLarge'].forEach((fam) => {
+    const words = textOf(walk(render({ ...snap, lock: 'discreet' }, { widgetFamily: fam }), []));
+    ok(fam + ' keeps the number on the home screen', words.indexOf('7') >= 0, words);
   });
 }
 

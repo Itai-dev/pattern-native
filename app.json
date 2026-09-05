@@ -55,8 +55,10 @@
               "supportedFamilies": [
                 "systemSmall",
                 "systemMedium",
+                "systemLarge",
                 "accessoryCircular",
-                "accessoryRectangular"
+                "accessoryRectangular",
+                "accessoryInline"
               ]
             }
           ]

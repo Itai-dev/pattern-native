@@ -13,9 +13,18 @@
  */
 import { Platform } from 'react-native';
 import WeekWidget from './WeekWidget';
+import * as db from './db';
 import { Entries, todayISO } from './model';
 import { fmtClock } from './clock';
-import { widgetEntries } from './widget';
+import { LockMode, widgetEntries } from './widget';
+
+/** the one widget preference: may the lock screen carry the number.
+ *  Off until the person says otherwise — see LockMode. */
+export const PREF_LOCK_NUMBER = 'widget.lockNumber';
+
+export function lockMode(): LockMode {
+  return db.getPref<boolean>(PREF_LOCK_NUMBER, false) ? 'number' : 'discreet';
+}
 
 /**
  * Safe to call often and safe to call anywhere. On Android, on a build
@@ -25,7 +34,7 @@ import { widgetEntries } from './widget';
 export function refreshWidget(entries: Entries, todayIso?: string): void {
   if (Platform.OS !== 'ios') return;
   try {
-    const list = widgetEntries(entries, todayIso || todayISO(), new Date(), fmtClock);
+    const list = widgetEntries(entries, todayIso || todayISO(), new Date(), fmtClock, lockMode());
     /* the first widget build knew only updateSnapshot; that JS reaches
        it over the air, so the older call stays as the fallback */
     if (typeof WeekWidget.updateTimeline === 'function') {

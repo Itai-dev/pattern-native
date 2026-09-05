@@ -36,18 +36,44 @@ export const WIDGET_EMPTY = '#2E2E30';
 
 export const WIDGET_DAYS = 7;
 
+/** the medium and large families draw more days: two rows of seven and
+ *  five rows of seven, each row a week ending on today's weekday, so
+ *  the letters under the last row name every column above them. Still
+ *  only colours the user entered — a grid of days is the calendar, and
+ *  the calendar is the one derived-nothing surface the calm rule allows. */
+export const WIDGET_GRID_DAYS = 35;
+
 /** initials, Sunday-first to match Date.getDay() */
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-/** the last seven local days, oldest first, as fills */
-export function weekColors(entries: Entries, todayIso: string): string[] {
+/** the last N local days, oldest first, as fills */
+function fillsBack(entries: Entries, todayIso: string, n: number): string[] {
   const out: string[] = [];
-  for (let back = WIDGET_DAYS - 1; back >= 0; back--) {
+  for (let back = n - 1; back >= 0; back--) {
     const avg = dailyAverage(entries[addDays(todayIso, -back)]);
     out.push(avg == null ? WIDGET_EMPTY : painColor(avg));
   }
   return out;
 }
+
+/** the last seven local days, oldest first, as fills */
+export function weekColors(entries: Entries, todayIso: string): string[] {
+  return fillsBack(entries, todayIso, WIDGET_DAYS);
+}
+
+/** the last thirty-five, oldest first — the last seven of these are
+ *  exactly weekColors, so the small widget and the big one agree */
+export function gridColors(entries: Entries, todayIso: string): string[] {
+  return fillsBack(entries, todayIso, WIDGET_GRID_DAYS);
+}
+
+/** what the accessory families may say. 'number' puts the score on the
+ *  lock screen; anything else keeps it to a square and a word. Off by
+ *  default: a lock screen is read by whoever lifts the phone, and the
+ *  spec's rule for notifications — no pain scores on the lock screen —
+ *  was written before the widget existed and applies to it just as
+ *  well. The person turns the number on in Profile if they want it. */
+export type LockMode = 'number' | 'discreet';
 
 /** the same seven days as letters, so the strip can be read as days
  *  rather than as decoration. The last one is always today. */
@@ -80,6 +106,12 @@ export interface WidgetSnapshot {
   /** its colour. A pain value, so it may wear the ramp; every other
    *  figure a widget could show may not, which is why there are none. */
   tint: string;
+  /** whether the lock screen may carry the number — see LockMode */
+  lock: LockMode;
+  /** the thirty-five-day grid, g0 oldest … g34 today, for the medium
+   *  and large families. Flat keys, because the snapshot crosses the
+   *  App Group as a plist and the layout reads props by name. */
+  [k: `g${number}`]: string;
 }
 
 /**
@@ -102,13 +134,14 @@ export interface WidgetEntry {
 }
 
 export function widgetEntries(
-  entries: Entries, todayIso: string, now: Date, clock: (h: number) => string = fmtTime
+  entries: Entries, todayIso: string, now: Date,
+  clock: (h: number) => string = fmtTime, lock: LockMode = 'discreet'
 ): WidgetEntry[] {
   const tomorrowIso = addDays(todayIso, 1);
   const midnight = dateFromISO(tomorrowIso);   // local 00:00 of tomorrow
   return [
-    { dateIso: todayIso, at: now, props: widgetSnapshot(entries, todayIso, clock) },
-    { dateIso: tomorrowIso, at: midnight, props: widgetSnapshot(entries, tomorrowIso, clock) },
+    { dateIso: todayIso, at: now, props: widgetSnapshot(entries, todayIso, clock, lock) },
+    { dateIso: tomorrowIso, at: midnight, props: widgetSnapshot(entries, tomorrowIso, clock, lock) },
   ];
 }
 
@@ -116,7 +149,8 @@ export function widgetEntries(
  *  time: the fixed form by default (so this stays testable), the
  *  phone's own convention when the app pushes it. */
 export function widgetSnapshot(
-  entries: Entries, todayIso: string, clock: (h: number) => string = fmtTime
+  entries: Entries, todayIso: string,
+  clock: (h: number) => string = fmtTime, lock: LockMode = 'discreet'
 ): WidgetSnapshot {
   const c = weekColors(entries, todayIso);
   const w = weekLetters(todayIso);
@@ -124,7 +158,7 @@ export function widgetSnapshot(
      last say" the Today card leads with */
   const logs = logsOf(entries[todayIso] || null).slice().sort((a, b) => a.h - b.h);
   const last = logs.length ? logs[logs.length - 1] : null;
-  return {
+  const snap: WidgetSnapshot = {
     d0: c[0], d1: c[1], d2: c[2], d3: c[3], d4: c[4], d5: c[5], d6: c[6],
     w0: w[0], w1: w[1], w2: w[2], w3: w[3], w4: w[4], w5: w[5], w6: w[6],
     caption: weekCaption(entries, todayIso),
@@ -132,5 +166,8 @@ export function widgetSnapshot(
     word: last ? painLabel(last.pain) : '',
     at: last ? clock(last.h) : '',
     tint: last ? painColor(last.pain) : WIDGET_EMPTY,
+    lock,
   };
+  gridColors(entries, todayIso).forEach((fill, i) => { snap[`g${i}`] = fill; });
+  return snap;
 }

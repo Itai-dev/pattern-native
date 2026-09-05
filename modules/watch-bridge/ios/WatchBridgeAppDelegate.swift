@@ -24,6 +24,9 @@ import WatchConnectivity
 enum WatchQueue {
   static let key = "pattern.watch.queue"
   static let lock = DispatchQueue(label: "pattern.watch.queue")
+  /** posted after every append, so a running app can drain at once
+   *  instead of on its next foreground — see WatchBridgeModule */
+  static let arrived = Notification.Name("pattern.watch.arrived")
 
   static func append(_ item: [String: Any]) {
     lock.sync {
@@ -34,6 +37,10 @@ enum WatchQueue {
          and the oldest are the ones a record misses least */
       if q.count > 200 { q.removeFirst(q.count - 200) }
       UserDefaults.standard.set(q, forKey: key)
+    }
+    /* outside the lock, on main: observers may touch the JS runtime */
+    DispatchQueue.main.async {
+      NotificationCenter.default.post(name: arrived, object: nil)
     }
   }
 

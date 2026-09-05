@@ -62,6 +62,23 @@ export function drainWatchCheckins(): number {
 }
 
 /**
+ * Be told the moment a watch check-in lands, while the app is running.
+ *
+ * Returns the way off. On binaries without the event — or without the
+ * watch at all — it subscribes to nothing and returns a no-op, and the
+ * foreground drain carries on doing the whole job as before.
+ */
+export function onWatchCheckin(listener: () => void): () => void {
+  if (!bridge || typeof bridge.addListener !== 'function') return () => {};
+  try {
+    const sub = bridge.addListener('onWatchCheckin', listener);
+    return () => { try { sub.remove(); } catch { /* already gone */ } };
+  } catch {
+    return () => {};
+  }
+}
+
+/**
  * Hand the watch the scale's colours and words — see watchContext.ts.
  *
  * Safe to call often: application context is latest-wins, so a push

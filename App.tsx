@@ -38,10 +38,10 @@ import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler, isReminderId } from './src/reminders';
 import { syncReminders } from './src/reminderSchedule';
-import { drainWatchCheckins, pushWatchContext } from './src/watch';
+import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
 import { Moment, PainEvent, ValidBackup, iso, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
-import { refreshWidget } from './src/widgetPush';
+import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
@@ -219,6 +219,8 @@ export default function App() {
   const [about, setAbout] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
+  /* may the lock screen carry the number — off until asked, see widget.ts */
+  const [lockNumber, setLockNumber] = useState(() => db.getPref<boolean>(PREF_LOCK_NUMBER, false));
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
 
@@ -303,7 +305,11 @@ export default function App() {
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') pull();
     });
-    return () => sub.remove();
+    /* and while the app is up, a watch check-in lands the moment it
+       arrives rather than on the next foreground — the widget and the
+       reminder queue follow through refresh() */
+    const off = onWatchCheckin(() => { if (drainWatchCheckins() > 0) refresh(); });
+    return () => { sub.remove(); off(); };
   }, [refresh]);
 
   /* A TAPPED REMINDER OPENS THE QUESTION IT ASKED. The notification
@@ -959,6 +965,36 @@ export default function App() {
               <View style={[styles.group, styles.groupPad]}>
                 <RemindersSection />
               </View>
+
+              <Text style={styles.groupTitle}>Lock screen and watch</Text>
+              <View style={styles.group}>
+                <View style={styles.row} accessible accessibilityRole="switch"
+                  accessibilityState={{ checked: lockNumber }}
+                  accessibilityLabel="Show the number on the lock screen">
+                  <RowIcon name="phone-portrait-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Show the number on the lock screen</Text>
+                    <Switch
+                      value={lockNumber}
+                      onValueChange={(on) => {
+                        db.setPref(PREF_LOCK_NUMBER, on);
+                        setLockNumber(on);
+                        /* the lock screen wears the change at once */
+                        refreshWidget(db.getAll());
+                      }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.groupFooter}>
+                Off, the lock-screen widget shows only that you checked in, and
+                a tap opens the pain question. On, it shows today’s latest
+                number to anyone who lifts the phone. The home-screen widget
+                always shows it — that one is behind your passcode. The Apple
+                Watch app records a pain-only check-in and hands it to this
+                iPhone the next time Pattern is open.
+              </Text>
 
               <Text style={styles.groupTitle}>Your report</Text>
               <View style={styles.group}>

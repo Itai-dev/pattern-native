@@ -13,6 +13,10 @@ export interface WatchBridgeNative {
   /** the scale's presentation for the watch to wear — absent on the
    *  first watch build, so callers test for it before calling */
   setContext?(ctx: Record<string, unknown>): void;
+  /** "something arrived in the mailbox" — an event with no payload,
+   *  absent on builds before the third watch build; callers test for
+   *  it. The subscription's `remove` is the way off. */
+  addListener?(event: 'onWatchCheckin', listener: () => void): { remove(): void };
 }
 
 export default requireNativeModule<WatchBridgeNative>('WatchBridge');
