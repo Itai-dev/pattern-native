@@ -44,7 +44,10 @@ struct WatchPalette {
      build does not know is ignored, never half-read. Eleven of each or
      nothing — a ten-entry ramp would put a 10 out of bounds. */
   init?(_ ctx: [String: Any]) {
-    guard let v = ctx["v"] as? Int, v == 1,
+    /* NSNumber, not Int: the value crosses JS → Expo → plist → watch, and
+       arrives as whatever number type that chain chose. `as? Int` on a
+       Double 1.0 is nil; intValue on the NSNumber is 1 either way. */
+    guard let v = (ctx["v"] as? NSNumber)?.intValue, v == 1,
           let ramp = ctx["ramp"] as? [String], ramp.count == 11,
           let ink = ctx["ink"] as? [String], ink.count == 11,
           let words = ctx["words"] as? [String], words.count == 11
@@ -57,9 +60,13 @@ struct WatchPalette {
     self.words = words
   }
 
-  func fill(_ score: Int) -> Color { ramp[min(10, max(0, score))] }
-  func ink(_ score: Int) -> Color { ink[min(10, max(0, score))] }
-  func word(_ score: Int) -> String { words[min(10, max(0, score))] }
+  /* named apart from the stored arrays on purpose: a method `ink(_:)`
+     beside a property `ink` is legal Swift but reads the property inside
+     its own body through an ambiguous name, and this file cannot be
+     compiled on the machine that writes it */
+  func fillFor(_ score: Int) -> Color { ramp[min(10, max(0, score))] }
+  func inkFor(_ score: Int) -> Color { ink[min(10, max(0, score))] }
+  func wordFor(_ score: Int) -> String { words[min(10, max(0, score))] }
 }
 
 extension Color {

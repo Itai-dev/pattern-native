@@ -54,7 +54,7 @@ struct CheckinView: View {
 
   private var caption: String {
     if !touched { return "turn to choose" }
-    return sync.palette?.word(value) ?? "pain right now"
+    return sync.palette?.wordFor(value) ?? "pain right now"
   }
 
   var body: some View {
@@ -78,7 +78,7 @@ struct CheckinView: View {
            leave; capped so a 45mm does not draw a billboard, floored so
            a 40mm still reads as a square and not a chip */
         let side = max(84, min(112, geo.size.height - 82))
-        let fill = touched ? sync.palette?.fill(value) : nil
+        let fill = touched ? sync.palette?.fillFor(value) : nil
 
         VStack(spacing: 6) {
           ZStack {
@@ -96,7 +96,7 @@ struct CheckinView: View {
             Text(touched ? "\(value)" : "–")
               .font(.system(size: side * 0.45, weight: .bold, design: .rounded))
               .foregroundStyle(
-                touched ? (sync.palette?.ink(value) ?? .white) : Color.secondary
+                touched ? (sync.palette?.inkFor(value) ?? .white) : Color.secondary
               )
               .contentTransition(.numericText())
           }
