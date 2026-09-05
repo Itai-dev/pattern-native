@@ -27,7 +27,7 @@ profile:
 | Target | Bundle id | What it is |
 | --- | --- | --- |
 | PatternWatch | `com.itaiagami.pattern.watch` | the watch app: the pain-only check-in, worn |
-| PatternComplication | `com.itaiagami.pattern.watch.complication` | the face complication: one tap from the face into it |
+| PatternComplication | `com.itaiagami.pattern.watch.face` | the face complication: one tap from the face into it |
 
 Creating a profile is the single step `eas-cli` refuses to do without an
 interactive terminal, and it needs your Apple ID password, which no

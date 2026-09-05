@@ -14,7 +14,10 @@
  * also what keeps it honest under the calm-surface rule: nothing on a
  * watch face can differ between two glances.
  *
- * Its bundle id nests under the watch app's, as watchOS requires. It is
+ * Its bundle id nests under the watch app's, as watchOS requires —
+ * and it is '.face', not '.complication': Apple's App ID registry
+ * refused the longer one as not available to this team, with no reason
+ * given, and the build stopped there. It is
  * one more target that needs the owner's interactive build once — the
  * same step the watch app itself is waiting on, and the same build.
  */
@@ -23,7 +26,7 @@ module.exports = {
   type: 'watch-widget',
   name: 'PatternComplication',
   displayName: 'Pattern',
-  bundleIdentifier: '.watch.complication',
+  bundleIdentifier: '.watch.face',
   deploymentTarget: '10.0',
   frameworks: ['WidgetKit', 'SwiftUI'],
 };
