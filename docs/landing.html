@@ -86,6 +86,18 @@
   .btn:hover { opacity: 0.88; }
   .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 
+  /* ── the integrations, as badges: outline glyphs in the app's own
+     stroke weight, never Apple's artwork — the icons are theirs and
+     the app draws its own for the same reason */
+  .with { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .with span {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px 8px 11px; border-radius: 20px;
+    border: 1px solid var(--control); color: var(--ink-2); font-size: 14px; font-weight: 500;
+  }
+  .with svg { width: 18px; height: 18px; stroke: var(--ink); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .with.inline { margin: 0 0 18px; }
+
   /* ── the squares ── */
   .strip { display: flex; gap: 8px; margin-top: 44px; }
   .strip .d { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -214,6 +226,7 @@
       <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20beta">Join the beta</a>
       <a class="btn" href="#refuses">See what it refuses to do</a>
     </div>
+    <div class="with" aria-label="Works with Apple Health and Apple Watch"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6" width="11" height="12" rx="3.2"/><path d="M9 6V3.5h6V6M9 18v2.5h6V18M18 10.5h1.2"/></svg>Apple Watch</span></div>
     <div class="strip" aria-label="A week of check-ins: seven squares, darker is less pain, brighter is more, one is a day with nothing logged">
       <div class="d"><i class="c" style="background:#0f2447"></i><span class="l">S</span></div>
       <div class="d"><i class="c" style="background:#152C52"></i><span class="l">M</span></div>
@@ -279,7 +292,7 @@
         <div class="check" aria-hidden="true">✓</div>
       </div>
       <div>
-        <div class="eyebrow">Apple Watch</div>
+        <div class="with inline"><span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6" width="11" height="12" rx="3.2"/><path d="M9 6V3.5h6V6M9 18v2.5h6V18M18 10.5h1.2"/></svg>Apple Watch</span></div>
         <h2>From your wrist, without your phone.</h2>
         <p class="muted">A complication on the face opens the check-in. Turn the crown, or tap the square's halves if turning hurts your hands. When the value has been still for a beat, a check appears. Tap it, and you have three seconds to take it back.</p>
         <p class="muted">The watch records the number only. Everything else is what the phone is for, and a 40mm screen is the strongest argument that principle will ever get.</p>
@@ -291,7 +304,7 @@
   <section id="health">
     <div class="grid2">
       <div>
-        <div class="eyebrow">Apple Health</div>
+        <div class="with inline"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span></div>
         <h2>Sleep and movement, beside the number.</h2>
         <p class="muted">Connect the categories you choose. Last night's sleep, yesterday's steps, a workout, time upright: each sits on the day it belongs to, next to the pain you recorded. Read-only. Never written back. Never sent anywhere.</p>
         <p class="muted">A comparison is drawn only when it is lawful: mornings against the night before, evenings against the hours before the check-in, split at your own lowest and highest third. It needs fourteen paired days, five in each group, and a point and a half of difference before it says anything. Then it says "possible", with the numbers, and the sentence that it is not proof of cause.</p>
