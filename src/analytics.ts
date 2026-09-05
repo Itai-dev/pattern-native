@@ -69,6 +69,10 @@ export type EventName =
   | 'health_connected'
   | 'health_disconnected'
   | 'pdf_shared'
+  /* a next-appointment date was set, or the summary was opened from
+     the card that appears before it. That a date exists, never which. */
+  | 'appointment_set'
+  | 'appointment_pdf'
   | 'backup_exported'
   | 'backup_restored'
   | 'widget_tap';

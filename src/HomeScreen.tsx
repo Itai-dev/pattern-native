@@ -37,8 +37,11 @@ import FocusCard from './FocusCard';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
-  Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, checkinCount, logsOf, todayISO,
+  Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, addDays, checkinCount, logsOf,
+  todayISO,
 } from './model';
+import { fmtDay } from './DayScreen';
+import { PREF_APPOINTMENT } from './AppointmentRow';
 import { fmtClock } from './clock';
 import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
@@ -58,7 +61,14 @@ import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
    to someone who has come back. */
 const HEALTH_OFFER_AFTER_DAYS = 2;
 const BACKGROUND_OFFER_AFTER_DAYS = 3;
+const APPOINTMENT_OFFER_AFTER_DAYS = 4;
 const WIDGET_OFFER_AFTER_DAYS = 5;
+/** how many days before an appointment the summary is offered — two:
+ *  enough to read it, not enough to forget it */
+const APPOINTMENT_LEAD_DAYS = 2;
+/** how long after a date passes, or after "not now", before asking
+ *  again — appointments recur, and a month is not nagging */
+const APPOINTMENT_REASK_DAYS = 30;
 import {
   dayShape, formatCheckins, formatScore, painColor, painLabel, speakScore,
 } from './painScale';
@@ -144,14 +154,12 @@ export interface HomeScreenProps {
   onFocus: () => void;
   onKeepFocus: () => void;
   onTestFactor: (metricId: string) => void;
-  /** a flare, a treatment, anything that happened — captured from HERE,
-   *  because an event happens now and its button must not live at the
-   *  bottom of a screen you have to walk into. It was moved off Today
-   *  once for clutter; burying the capture turned out to be the worse
-   *  trade, and one quiet row is not clutter. */
-  onAddEvent: () => void;
   /** the Background sheet, offered from here once a record exists */
   onOpenBackground: () => void;
+  /** the appointment date picker, in Profile */
+  onOpenAppointment: () => void;
+  /** the PDF, from the appointment card */
+  onShare: () => void;
   /** Profile, where the reminder times live — for "choose another time" */
   onOpenReminders: () => void;
   /** the binary can read Health and it has not been set up — the only
@@ -163,7 +171,8 @@ export interface HomeScreenProps {
 
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onAddNote, onOpenToday, onFocus, onKeepFocus,
-  onTestFactor, onAddEvent, onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
+  onTestFactor, onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
+  onOpenAppointment, onShare,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -264,10 +273,33 @@ export default function HomeScreen({
     setHealthDismissed(true);
   };
 
+  /* The appointment. Asked once a record exists to bring, and asked
+     again a fortnight after a date has passed — appointments recur.
+     "Not now" rests it for a month. The date itself is a preference
+     the Profile row owns; this screen only reads it. */
+  const appointment = db.getPref<string>(PREF_APPOINTMENT, '');
+  const askAfter = db.getPref<string>('appointment.askAfter', '');
+  const offerAppointment = !appointment && loggedDays >= APPOINTMENT_OFFER_AFTER_DAYS
+    && (!askAfter || t >= askAfter);
+  const [, bump] = useState(0);
+  const dismissAppointment = () => {
+    db.setPref('appointment.askAfter', addDays(t, APPOINTMENT_REASK_DAYS));
+    bump((n) => n + 1);
+  };
+  /* within the lead: the summary card. A date that has passed clears
+     itself and sets the next ask — the day after, nobody wants to be
+     told the appointment was yesterday. */
+  if (appointment && appointment < t) {
+    db.setPref(PREF_APPOINTMENT, '');
+    db.setPref('appointment.askAfter', addDays(appointment, APPOINTMENT_REASK_DAYS));
+  }
+  const apptSoon = !!appointment && appointment >= t
+    && appointment <= addDays(t, APPOINTMENT_LEAD_DAYS);
+
   /* one at a time, in the order they pay back */
-  const offer: null | 'reminder' | 'health' | 'background' | 'widget' = offerReminder
+  const offer: null | 'reminder' | 'health' | 'background' | 'appointment' | 'widget' = offerReminder
     ? 'reminder' : offerHealth ? 'health' : offerBackground ? 'background'
-      : offerWidget ? 'widget' : null;
+      : offerAppointment ? 'appointment' : offerWidget ? 'widget' : null;
 
   /* the day's shape, from the two numbers on screen: the first check-in
      of today against the latest. Nothing is stored, nothing is derived
@@ -520,23 +552,52 @@ export default function HomeScreen({
         </Press>
       )}
 
-      {/* ── something happened ──────────────────────────────
-          The event capture, one tap from where you land. Reading events
-          back stays on the day screen; this is only the way IN, which is
-          the part that must be near the thumb when something is
-          happening. */}
-      <Press
-        onPress={onAddEvent}
-        pressOpacity={0.85}
-        style={styles.eventEntry}
-        accessibilityRole="button"
-        accessibilityLabel="Log a flare or treatment"
-        accessibilityHint="Opens a short set of questions about a flare or a treatment"
-      >
-        <Text style={styles.eventEntryText} allowFontScaling maxFontSizeMultiplier={1.3}>
-          Log a flare or treatment
-        </Text>
-      </Press>
+      {/* the event capture used to be a button here. It lives in the
+          check-in now — a flare happens on the same occasion as the
+          number — and on the day screen, where events are read back.
+          Today keeps to the two cards and one offer. */}
+
+      {/* ── the appointment, when one is near ──────────────
+          THE ONE MOMENT WITH EXTERNAL STAKES. Two days before the date
+          the person gave, the summary is offered here — the record is
+          ready when it matters and there is time to read it. A fact
+          card, not an offer: it shows regardless of the offers below,
+          and clears itself the day after. */}
+      {apptSoon && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)}
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Your summary is ready whenever you want it — the numbers, your
+            background, your own question, and what they do and don’t mean.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={() => { track('appointment_pdf'); onShare(); }}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Create the PDF for your appointment"
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Create the PDF
+              </Text>
+            </Press>
+            <Press
+              onPress={onOpenAppointment}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Change the appointment date"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Change date
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
 
       {/* ── the reminder offer ────────────────────────────── */}
       {offer === 'reminder' && (
@@ -617,6 +678,44 @@ export default function HomeScreen({
               hitSlop={6}
               accessibilityRole="button"
               accessibilityLabel="Not now — Apple Health stays in Profile"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Not now
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
+      {/* ── the appointment ask ───────────────────────────── */}
+      {offer === 'appointment' && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Got an appointment coming up?
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Tell Pattern the date and it will offer your summary two days
+            before, so the record is ready when it matters. Nothing else is
+            done with the date.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={onOpenAppointment}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Pick the appointment date"
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Pick a date
+              </Text>
+            </Press>
+            <Press
+              onPress={dismissAppointment}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Not now — the date can be set in Profile"
             >
               <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Not now
@@ -739,15 +838,6 @@ const styles = StyleSheet.create({
   },
   bgOfferGo: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   bgOfferLater: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },
-  /* the day-detail event button's spec, at the page's own gutter: an
-     outlined action, deliberately quieter than the two cards above it */
-  eventEntry: {
-    marginHorizontal: size.pageX, marginTop: 14, minHeight: 48,
-    borderRadius: radius.button, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
-  },
-  eventEntryText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   headTime: {

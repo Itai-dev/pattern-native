@@ -80,7 +80,7 @@ import {
 } from './painScale';
 import {
   LOC_CHIP_IDS, LOC_NAMES, Moment, MomentMeta, QUALITYIDS,
-  QUALITY_NAMES, addDays, answerOf, collapseSidedLocs, defaultLocs, logsOf,
+  QUALITY_NAMES, answerOf, collapseSidedLocs, defaultLocs, logsOf,
   minutesNow, nowMeta, todayISO,
 } from './model';
 import { fmtClock } from './clock';
@@ -89,18 +89,6 @@ const IMPACT_LABELS: Record<string, string> = {};
 IMPACT_CHIPS.forEach((c) => { IMPACT_LABELS[c.id] = c.name; });
 
 const SQUARE = 150;
-const INTERFERENCE_ID = 'pain.interference.v1';
-
-/** the interference question is offered once a week: not if any day in
- *  the previous seven carries an answer OR a skip to it. A skip counts —
- *  "I'd rather not" a week ago is not an invitation to ask daily. */
-const INTERFERENCE_EVERY_DAYS = 7;
-function interferenceDue(todayIso: string): boolean {
-  for (let back = 1; back < INTERFERENCE_EVERY_DAYS; back++) {
-    if (answerOf(db.getDay(addDays(todayIso, -back)), INTERFERENCE_ID)) return false;
-  }
-  return true;
-}
 
 /** the body map's height inside the where step — the onboarding figure's
  *  size, which was drawn for a take-your-time screen and reads at it */
@@ -139,9 +127,16 @@ export interface CheckinScreenProps {
   now?: number;
   onDone: () => void;
   onClose: () => void;
+  /** "something happened": finish the check-in as it stands and open
+   *  the flare-or-treatment sheet. The event's door lives inside the
+   *  check-in now — it happens on the same occasion, and a second
+   *  button for it on Today was one button too many there. */
+  onEvent?: () => void;
 }
 
-export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: CheckinScreenProps) {
+export default function CheckinScreen({
+  now, dateIso, edit, onDone, onClose, onEvent,
+}: CheckinScreenProps) {
   const insets = useSafeAreaInsets();
   const editing = !!edit;
   const [step, setStep] = useState<Step>('pain');
@@ -205,7 +200,9 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
     return questionsNow(
       db.activeProtocol(),
       { h: minutes, isFirstOfDay, entry },
-      interferenceDue(today) ? [INTERFERENCE_ID] : []
+      /* interference is out of the daily loop — see metrics.ts; the
+         registry keeps the id for the answers already recorded */
+      []
     );
   });
   const { width: winW } = useWindowDimensions();
@@ -441,6 +438,30 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
      two are optional and either can be last depending on what today
      asked, and a hardcoded 'where' meant reordering them silently
      dropped the final write. */
+  /** write what the current step owns, without moving — the part of
+   *  advance() that is about the record rather than the screen */
+  const writeStep = () => {
+    if (step === 'where') persist({ locAsked: true });
+    else if (step === 'today') {
+      if (askIds.length) persistAnswers();
+      if (askImpact) {
+        db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
+        db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
+      }
+      if (askFeel) persist({ qAsked: true });
+    }
+  };
+
+  /** the event door: this check-in ends as it stands, counted like any
+   *  other, and the flare-or-treatment sheet opens in its place */
+  const toEvent = () => {
+    if (pain == null || !onEvent) return;
+    Haptics.selectionAsync().catch(() => {});
+    writeStep();
+    counted(loc.length > 0 || anyAnswered);
+    onEvent();
+  };
+
   const advance = () => {
     if (pain == null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -462,21 +483,13 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
     /* which optional steps get walked and which get skipped past — the
        step's NAME, never what was chosen on it */
     track('checkin_step_left', { step });
-    if (step === 'where') persist({ locAsked: true });
-    else if (step === 'today') {
-      /* each part of the screen writes what it owns, and only the parts
-         that were actually put — a question not on screen today is not
-         a question the user declined */
-      if (askIds.length) persistAnswers();
-      if (askImpact) {
-        /* both lists are written even when empty — "I looked and
-           nothing applied" is an answer, and an ordinary day is exactly
-           the kind this record is worst at keeping */
-        db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
-        db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
-      }
-      if (askFeel) persist({ qAsked: true });
-    }
+    /* each part of the third screen writes what it owns, and only the
+       parts that were actually put — a question not on screen today is
+       not a question the user declined. The chips' both lists are
+       written even when empty: "I looked and nothing applied" is an
+       answer, and an ordinary day is exactly the kind this record is
+       worst at keeping. */
+    writeStep();
     if (isLast) finish(); else setStep(nextAfter(step));
   };
 
@@ -1086,6 +1099,24 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
             </Text>
           </Press>
         )}
+
+        {/* the event door, on the last step of a check-in about today:
+            a flare or a treatment happens on the same occasion as the
+            number, so its door is here rather than a button of its own
+            on Today. Quiet, and after the primary. */}
+        {!!onEvent && !editing && !retro && step !== 'pain' && isLast && (
+          <Press
+            onPress={toEvent}
+            pressOpacity={0.7}
+            style={styles.secondary}
+            accessibilityRole="button"
+            accessibilityLabel="Something happened: finish this check-in and log a flare or treatment"
+          >
+            <Text style={styles.eventLink} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Something happened? Log a flare or treatment ›
+            </Text>
+          </Press>
+        )}
       </View>
       </View>
     </KeyboardAvoidingView>
@@ -1272,4 +1303,5 @@ const styles = StyleSheet.create({
     minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6,
   },
   secondaryText: { color: color.textSecondary, fontSize: font.body, fontWeight: '600' },
+  eventLink: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 });

@@ -159,13 +159,15 @@ export const METRICS: MetricDef[] = [
     wordingVersion: 1, eligibility: 'everyMoment', analysis: 'trend',
     protocolEligible: false,
   },
-  /* WEEKLY, since 2026-09. A second 0–10 slider at every first check-in
-     of the day was the heaviest single addition to the daily loop, and
-     the spec flagged it as the first thing to cut if the twenty-second
-     target slipped. The question now asks about the week, is offered
-     once every seven days (the check-in decides when, see
-     interferenceDue), and its wording moved with it — so wordingVersion
-     is 2 and the old daily answers never pool with the weekly ones. */
+  /* NOT ASKED, since 2026-09. A second 0–10 slider at every first
+     check-in of the day was the heaviest single addition to the daily
+     loop; the spec flagged it as the first thing to cut, and it went
+     weekly, then out. It duplicated the function goal's question with
+     no goal to anchor it and nothing in the report that could use the
+     answer. The metric STAYS in the registry: answers already recorded
+     read back on their days and in backups, and if function returns
+     this is the id it returns under. wordingVersion 2 is the weekly
+     wording those last answers were given under. */
   {
     id: 'pain.interference.v1',
     name: 'Interference',

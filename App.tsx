@@ -34,6 +34,7 @@ import AppearanceSheet from './src/AppearanceSheet';
 import BackgroundSheet from './src/BackgroundSheet';
 import OnboardingScreen from './src/OnboardingScreen';
 import PrivacySheet from './src/PrivacySheet';
+import AppointmentRow, { PREF_APPOINTMENT } from './src/AppointmentRow';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler, isReminderId } from './src/reminders';
@@ -221,6 +222,10 @@ export default function App() {
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* may the lock screen carry the number — off until asked, see widget.ts */
   const [lockNumber, setLockNumber] = useState(() => db.getPref<boolean>(PREF_LOCK_NUMBER, false));
+  /* the next appointment, as state so Today's card follows the Profile
+     row without a remount; the picker opens on mount when Today asked */
+  const [appointment, setAppointment] = useState(() => db.getPref<string>(PREF_APPOINTMENT, ''));
+  const [apptPickerOnOpen, setApptPickerOnOpen] = useState(false);
   /* bumping this repaints every pain colour in the app after a theme pick */
   const [, setThemeTick] = useState(0);
 
@@ -768,9 +773,10 @@ export default function App() {
                 onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
                 onKeepFocus={keepFocus}
                 onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
-                onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
+                onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
+                onShare={shareTrends}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background
@@ -850,12 +856,23 @@ export default function App() {
         </SafeAreaView>
 
         {/* a full-screen flow keeps its own ✕ */}
-        <Modal visible={sheet === 'checkin'} animationType="fade" presentationStyle="fullScreen">
+        <Modal
+          visible={sheet === 'checkin'}
+          animationType="fade"
+          presentationStyle="fullScreen"
+          onDismiss={runAfterDismiss}
+        >
           <CheckinScreen
             dateIso={checkinDate || undefined}
             edit={editMoment || undefined}
             onDone={closeSheet}
             onClose={closeSheet}
+            /* the event sheet presents after this one has gone, the same
+               sequencing every sheet swap in this app uses */
+            onEvent={() => {
+              afterDismiss.current = () => { setEditEvent(null); setSheet('event'); };
+              closeSheet();
+            }}
           />
         </Modal>
 
@@ -881,7 +898,9 @@ export default function App() {
               <View style={styles.navSpacer} />
               <Text style={styles.navTitle}>Profile</Text>
               <Pressable
-                onPress={() => setProfile(false)}
+                /* leaving Profile also forgets that Today asked for the
+                   date picker, so the next visit opens on the rows */
+                onPress={() => { setProfile(false); setApptPickerOnOpen(false); }}
                 style={styles.navBtn}
                 hitSlop={10}
                 accessibilityRole="button"
@@ -998,13 +1017,27 @@ export default function App() {
                   accessibilityHint="Diagnoses, medications, history — printed on the report's first page, in your words"
                 >
                   <RowIcon name="document-text-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                  <View style={[styles.rowMain, styles.rowLine]}>
                     <Text style={styles.rowLabel}>Background</Text>
                     <Text style={styles.rowValue}>{db.getBackground() ? 'Written' : ''}</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
+                <AppointmentRow
+                  value={appointment}
+                  openOnMount={apptPickerOnOpen}
+                  onChange={(d) => {
+                    db.setPref(PREF_APPOINTMENT, d);
+                    setAppointment(d);
+                    setApptPickerOnOpen(false);
+                    if (d) track('appointment_set');
+                  }}
+                />
               </View>
+              <Text style={styles.groupFooter}>
+                Two days before the appointment, Today offers the PDF. The date is
+                a reminder to the app, nothing more.
+              </Text>
 
               <Text style={styles.groupTitle}>Appearance</Text>
               <View style={styles.group}>

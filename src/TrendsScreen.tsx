@@ -732,7 +732,11 @@ export default function TrendsScreen({
   const [rangeKey, setRangeKey] = useState('a');
   /* the descriptive tail, folded — counts of places, words and times
      are the record's appendix, not its findings */
-  const [profileOpen, setProfileOpen] = useState(false);
+  /* the two folds: the calendar inside Your pain, and the tables
+     inside Your record. Session state, not a preference — a person who
+     opened the tables yesterday has not asked to see them every day. */
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -831,6 +835,19 @@ export default function TrendsScreen({
       .filter((o) => o.n > 0);
   }, [tried]);
 
+  /* FOUR CARDS. Eleven surfaces at one radius carried the hierarchy by
+     order alone, and the record's appendix — counts of places, words
+     and times — sat at the same weight as the record itself. Now: the
+     record (Your pain, with the sentences that read it and the calendar
+     behind a fold), the one place a claim may appear (Worth watching),
+     the appendix (Your record, face and details), and the handoff.
+     Nothing was removed; the tables are one tap further in. */
+  const he = data.harderEasier;
+  const otherGroups = (healthNoticed?.groups || []).filter((a) => a !== healthNoticed?.best);
+  const bestCopy = healthNoticed?.best ? associationCopy(healthNoticed.best) : null;
+  const watching = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
+    || otherGroups.length > 0 || buys.length > 0;
+
   return (
     <View style={styles.page}>
       <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.5}>
@@ -844,494 +861,428 @@ export default function TrendsScreen({
         )}
       </Text>
 
-      {/* ── pain over time, FIRST ───────────────────────────
-          The record itself leads the screen that is named for it; the
-          sentences about it read underneath. Two views of the same
-          days: the trend (bars against the clock) and the months (the
-          calendar that used to be the History tab, then the foot of
-          this screen — a map of days, so it lives inside the card that
-          draws days, not as a section of its own). A calendar square
-          opens its day. */}
+      {/* ── 1. your pain ─────────────────────────────────────
+          The record itself leads: the chart, the two figures, the
+          sentences that read it, and every day as a calendar behind a
+          fold. A calendar square opens its day. */}
       <Card title={data.limited ? 'Pain recorded so far' : 'Your pain'}>
-      {/* the two figures a reader wants before any drawing — and only
-          those two. The tally of check-ins is the appendix's business:
-          nobody needs to be told how productive they were at feeding
-          the app. */}
-      <View style={styles.painHead}>
-        <Text style={styles.painAvg} allowFontScaling maxFontSizeMultiplier={1.3}>
-          {formatScore(data.avg)}
-          <Text style={styles.painAvgUnit}>  average · {painLabel(data.avg)}</Text>
-        </Text>
-        <Text style={styles.painDays} allowFontScaling maxFontSizeMultiplier={1.3}>
-          {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} recorded
-        </Text>
-      </View>
-      {ranges.length > 1 && (
-      <View style={styles.segment}>
-        {ranges.map((r) => {
-          const on = r.key === rangeKey;
-          return (
-            <Pressable
-              key={r.key}
-              onPress={() => { setRangeKey(r.key); setPicked(null); }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={r.label}
-              style={({ pressed }) => [
-                styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={[styles.segText, on && styles.segTextOn]}
-                allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                {r.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      )}
-      <MiniChart
-        data={data}
-        span={spanDays}
-        selected={picked}
-        onSelect={setPicked}
-        onOpenDay={onOpenDay}
-      />
-      <Text style={styles.noteLine}>
-        Days without check-ins stay blank — nothing is filled in for a day you
-        didn’t log.
-      </Text>
-      {!!data.halves && (
-        <Direction first={data.halves.first} second={data.halves.second} />
-      )}
-
-      {/* the extremes, as doors — a summary that names a day opens it */}
-      <View style={styles.extremes}>
-        <Press
-          onPress={() => onOpenDay(data.lowestDayDate)}
-          pressOpacity={0.7}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={'Lowest day, ' + formatScore(data.lowestDay)
-            + ', ' + shortDate(data.lowestDayDate) + '. Opens this day'}
-        >
-          <Text style={styles.extremeText} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Lowest {formatScore(data.lowestDay)} · {shortDate(data.lowestDayDate)} ›
+        <View style={styles.painHead}>
+          <Text style={styles.painAvg} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {formatScore(data.avg)}
+            <Text style={styles.painAvgUnit}>  average · {painLabel(data.avg)}</Text>
           </Text>
-        </Press>
-        <Press
-          onPress={() => onOpenDay(data.highestDayDate)}
-          pressOpacity={0.7}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={'Highest day, ' + formatScore(data.highestDay)
-            + ', ' + shortDate(data.highestDayDate) + '. Opens this day'}
-        >
-          <Text style={styles.extremeText} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Highest {formatScore(data.highestDay)} · {shortDate(data.highestDayDate)} ›
+          <Text style={styles.painDays} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} recorded
           </Text>
-        </Press>
-      </View>
-      </Card>
-
-
-      {/* ── what Pattern noticed ─────────────────────────────
-          Drawn only when the health engine has something that cleared
-          every gate — never manufactured, never a list (one card,
-          the strongest), and never without its sample sizes and its
-          non-causation line. A previously shown association that
-          stopped holding gets a quiet sentence rather than silence:
-          watching a pattern fade is as informative as watching one
-          appear, and hiding it would quietly overstate what was said
-          before. No raw Health charts anywhere — Apple Health already
-          draws those. */}
-      {(() => {
-        if (!healthNoticed) return null;
-        const c = healthNoticed.best ? associationCopy(healthNoticed.best) : null;
-        if (!c && !healthNoticed.fading.length) return null;
-        return (
-          <Card title="Worth watching">
-            {c && healthNoticed.best ? (
-              <>
-                <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.title}
-                </Text>
-                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.body}
-                </Text>
-                {/* the comparison behind the sentence, drawn — same
-                    groups, same numbers, so the words and the picture
-                    cannot drift apart */}
-                <GroupBars a={healthNoticed.best} />
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.sample}
-                  {healthNoticed.best.from && healthNoticed.best.to
-                    ? ' ' + fmtReportDate(healthNoticed.best.from) + ' – '
-                      + fmtReportDate(healthNoticed.best.to) + '.'
-                    : ''}
-                </Text>
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.timing} Days without Health data are left out, never counted
-                  as anything.
-                </Text>
-                <Text style={styles.noteLine}>{c.disclaimer}</Text>
-              </>
-            ) : (
-              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {fadedCopy(healthNoticed.fading[0])}
-              </Text>
-            )}
-          </Card>
-        );
-      })()}
-
-      {/* ── the groups, drawn, claim or no claim ─────────────
-          A comparison whose tercile groups formed is drawable the
-          moment they exist; what stays gated is the CLAIM. Below the
-          delta or the spread floor, the bars appear under a sentence
-          that says plainly nothing meaningful separates them — showing
-          a small difference honestly is better than hiding the data
-          until it grows one, and it teaches what the bar means before
-          the day it matters. The best association's bars live in its
-          own card above, not repeated here. */}
-      {(healthNoticed?.groups || [])
-        .filter((a) => a !== healthNoticed?.best)
-        .map((a) => {
-          const w = groupLabels(a.kind);
-          return (
-            <Card key={a.kind} title={w.factor + ', against your record'}>
-              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                No meaningful difference in {w.outcome} between these groups so
-                far — that is a finding about these {a.pairedDays} days, not a
-                failure of them.
-              </Text>
-              <GroupBars a={a} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {w.timing}
-              </Text>
-              <Text style={styles.noteLine}>
-                Groups are your own lowest and highest third — the middle third
-                isn’t counted. An association here would still not be proof of
-                cause.
-              </Text>
-            </Card>
-          );
-        })}
-
-      {/* ── the record, as sentences ─────────────────────────
-          Apple Health's card grammar, held to this app's rules: the
-          sentence IS the card and the numbers only back it up — but no
-          sentence rates today, nothing compares this open with the
-          last, and there is no flame. Every sentence reads a statistic
-          that already cleared its named gate; when none has, the
-          section is simply absent. */}
-      {says.length > 0 && (
-        <Card title="What your record says">
-          {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
-        </Card>
-      )}
-
-      {/* what a check-in is currently buying — progress toward the
-          comparisons the user set up themselves. Answers, never scores:
-          this is the honest version of a reward, and it moves only when
-          data does. */}
-      {/* "Still collecting", not "still learning": learning is the word
-          the engine has not earned yet, and this card is about counts */}
-      {buys.length > 0 && (
-        <Card title="Still collecting">
-          {/* progress lives INSIDE the thing being investigated — a
-              factor, its status, what it still needs — instead of a
-              card about sampling mechanics */}
-          <Text style={styles.noteLine}>
-            You’re building enough comparable days to test what you suspect.
-            Nothing is claimed until a comparison actually holds.
-          </Text>
-          {buys.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
-          <Text style={styles.noteLine}>
-            Counts move only when you add a check-in — nothing here changes on
-            its own.
-          </Text>
-        </Card>
-      )}
-
-      {/* ── what you noticed ─────────────────────────────────
-          The user's own reads, and NEVER blended with findings: these
-          are hypotheses, and the engines test them. The two kinds of
-          evidence stay visually and verbally apart. */}
-      {(data.flagged.worse.length > 0 || data.flagged.better.length > 0) && (
-        <Card
-          title="What you noticed"
-          note="Things you felt affected your pain, counted — not a comparison. A thing only lands here on days you already suspected it, so there are no days without it to weigh against. Pattern tests what you notice against your record — a noticing becomes a finding only after its fourteen days of being asked properly."
-        >
-          {data.flagged.worse.length > 0 && (
-            <>
-              <Text style={styles.subhead}>Made it harder</Text>
-              <FoldedList
-                bars
-                label="things"
-                items={data.flagged.worse.map((f) => ({
-                  key: 'w' + f.id,
-                  left: f.name,
-                  right: f.days + (f.days === 1 ? ' day' : ' days'),
-                  frac: f.days / Math.max(1, data.flagged.worse[0].days),
-                  tint: color.textPrimary,
-                }))}
-              />
-            </>
-          )}
-          {data.flagged.better.length > 0 && (
-            <>
-              <Text style={styles.subhead}>Helped</Text>
-              <FoldedList
-                bars
-                label="things"
-                items={data.flagged.better.map((f) => ({
-                  key: 'b' + f.id,
-                  left: f.name,
-                  right: f.days + (f.days === 1 ? ' day' : ' days'),
-                  frac: f.days / Math.max(1, data.flagged.better[0].days),
-                  tint: color.textPrimary,
-                }))}
-              />
-            </>
-          )}
-        </Card>
-      )}
-
-
-      {/* THE COUNT THAT GOES UP as things get better — promoted to the
-          top of the charts, above the falling line, so the screen's
-          first data view is the one whose direction cannot be misread.
-
-          Every other figure here falls when the record improves, which
-          is the right shape for pain and a discouraging shape to look
-          at daily. This one counts how many of your logged days landed
-          in each band, and the easier end grows. It is a COUNT, not a
-          second scale: pain stays the number you entered, on every
-          screen and in the clinician's summary, and this counts those
-          days rather than restating them upside down. */}
-      {feltBands.length > 0 && (
-        <Card title="Days like this">
-          <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
-          <Key items={feltBands} />
-          <Text style={styles.noteLine}>
-            Your {data.days.length} logged {data.days.length === 1 ? 'day' : 'days'},
-            grouped by how they averaged. This is the figure here that rises as
-            things get easier — nothing is compared to last week, and it changes
-            only when you log.
-          </Text>
-        </Card>
-      )}
-
-      {/* ── the numbers ─────────────────────────────────────── */}
-      {/* ── the two ends ────────────────────────────────────── */}
-      {!!data.harderEasier && (
-        <Card
-          title="Hardest and easiest days"
-          note={'The highest and lowest third of your logged days, with the middle third ('
-            + data.harderEasier.middleDays
-            + (data.harderEasier.middleDays === 1 ? ' day' : ' days')
-            + ') set aside. This describes where the pain was and how you '
-            + 'described it — not what caused it.'}
-        >
-          <Split
-            low={data.harderEasier.boundaryLow}
-            high={data.harderEasier.boundaryHigh}
-          />
-          <End
-            title="Hardest days"
-            when={formatScore(data.harderEasier.boundaryHigh) + ' and above'}
-            e={data.harderEasier.harder}
-          />
-          <End
-            title="Easiest days"
-            when={formatScore(data.harderEasier.boundaryLow) + ' and below'}
-            e={data.harderEasier.easier}
-          />
-
-          {/* ── what was different ─────────────────────────
-              Places and words that sit mostly on one end, with the day
-              counts on BOTH sides so the arithmetic is the claim. Still
-              only the pain's own description — the factors' version of
-              this comparison belongs to the engines, behind their
-              gates. Absent when nothing clears the named thresholds:
-              silence is a valid answer here. */}
-          {data.harderEasier.contrasts.length > 0 && (
-            <>
-              <Text style={styles.subhead}>What was different</Text>
-              {data.harderEasier.contrasts.map((c) => (
-                <View
-                  key={c.kind + c.id}
-                  style={styles.contrastRow}
-                  accessible
-                  accessibilityLabel={c.name + ': on ' + c.harderDays + ' of '
-                    + data.harderEasier!.harder.days + ' hardest days, '
-                    + c.easierDays + ' of ' + data.harderEasier!.easier.days
-                    + ' easiest'}
+        </View>
+        {ranges.length > 1 && (
+          <View style={styles.segment}>
+            {ranges.map((r) => {
+              const on = r.key === rangeKey;
+              return (
+                <Pressable
+                  key={r.key}
+                  onPress={() => { setRangeKey(r.key); setPicked(null); }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={r.label}
+                  style={({ pressed }) => [
+                    styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
+                  ]}
                 >
-                  <Text style={styles.contrastName} allowFontScaling maxFontSizeMultiplier={1.3}>
-                    {c.name}
+                  <Text style={[styles.segText, on && styles.segTextOn]}
+                    allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                    {r.label}
                   </Text>
-                  <Text style={styles.contrastCount} allowFontScaling maxFontSizeMultiplier={1.3}>
-                    {c.harderDays}/{data.harderEasier!.harder.days} hardest ·{' '}
-                    {c.easierDays}/{data.harderEasier!.easier.days} easiest
-                  </Text>
-                </View>
-              ))}
-            </>
-          )}
-        </Card>
-      )}
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+        <MiniChart
+          data={data}
+          span={spanDays}
+          selected={picked}
+          onSelect={setPicked}
+          onOpenDay={onOpenDay}
+        />
+        <Text style={styles.noteLine}>
+          Days without check-ins stay blank — nothing is filled in for a day you
+          didn’t log.
+        </Text>
+        {!!data.halves && (
+          <Direction first={data.halves.first} second={data.halves.second} />
+        )}
 
-      {/* ── your pain profile ───────────────────────────
-          The descriptive tail in one compact card: the counts of
-          places, words and times are the appendix of a record, not its
-          findings, and five stat boxes were letting them dress as
-          insight. The face says the most common few; details unfold for
-          anyone who wants the full tables. */}
-      {(data.locations.length > 0 || data.qualities.length > 0 || data.timeOfDay.length > 0) && (
-        <Card title="Your pain profile">
-          {data.locations.length > 0 && (
-            <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              <Text style={styles.profileKey}>Most recorded areas   </Text>
-              {data.locations.slice(0, 3).map((l) => l.name).join(' · ')}
+        {/* the extremes, as doors — a summary that names a day opens it */}
+        <View style={styles.extremes}>
+          <Press
+            onPress={() => onOpenDay(data.lowestDayDate)}
+            pressOpacity={0.7}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={'Lowest day, ' + formatScore(data.lowestDay)
+              + ', ' + shortDate(data.lowestDayDate) + '. Opens this day'}
+          >
+            <Text style={styles.extremeText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Lowest {formatScore(data.lowestDay)} · {shortDate(data.lowestDayDate)} ›
             </Text>
-          )}
-          {data.qualities.length > 0 && (
-            <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              <Text style={styles.profileKey}>Most used words   </Text>
-              {data.qualities.slice(0, 3).map((q) => q.name).join(' · ')}
+          </Press>
+          <Press
+            onPress={() => onOpenDay(data.highestDayDate)}
+            pressOpacity={0.7}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={'Highest day, ' + formatScore(data.highestDay)
+              + ', ' + shortDate(data.highestDayDate) + '. Opens this day'}
+          >
+            <Text style={styles.extremeText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Highest {formatScore(data.highestDay)} · {shortDate(data.highestDayDate)} ›
             </Text>
-          )}
-          <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            <Text style={styles.profileKey}>The record   </Text>
-            {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} · {data.totalCheckins}{' '}
-            {data.totalCheckins === 1 ? 'check-in' : 'check-ins'}
-          </Text>
-          {!profileOpen ? (
+          </Press>
+        </View>
+
+        {/* the record as sentences — each one a statistic that already
+            cleared its named gate; none rates today or compares opens */}
+        {says.length > 0 && (
+          <View style={styles.subBlock}>
+            {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+          </View>
+        )}
+
+        {/* every day, as a calendar, behind a fold — the way to any day,
+            one tap further in so the chart stays the first thing read */}
+        <View style={styles.subBlock}>
+          {!calendarOpen ? (
             <Press
-              onPress={() => setProfileOpen(true)}
+              onPress={() => setCalendarOpen(true)}
               pressOpacity={0.7}
               style={styles.more}
               accessibilityRole="button"
-              accessibilityLabel="Show the full tables of areas, words and times of day"
+              accessibilityLabel="Show the calendar of every day"
             >
-              <Text style={styles.moreText}>Show details ›</Text>
+              <Text style={styles.moreText}>Show the calendar ›</Text>
             </Press>
           ) : (
-            <>
-              {data.locations.length > 0 && (
-                <>
-                  <Text style={styles.subhead}>Where</Text>
-                  <FoldedList
-                    bars
-                    label="body areas"
-                    items={data.locations.map((l) => ({
-                      key: l.id,
-                      left: l.name,
-                      right: l.days + (l.days === 1 ? ' day' : ' days'),
-                      frac: l.days / Math.max(1, data.locations[0].days),
-                      tint: color.textPrimary,
-                    }))}
-                  />
-                </>
-              )}
-              {data.qualities.length > 0 && (
-                <>
-                  <Text style={styles.subhead}>Described as</Text>
-                  <FoldedList
-                    bars
-                    label="words"
-                    items={data.qualities.map((q) => ({
-                      key: q.id,
-                      left: q.name,
-                      right: '×' + q.count,
-                      frac: q.count / Math.max(1, data.qualities[0].count),
-                      tint: color.textPrimary,
-                    }))}
-                  />
-                </>
-              )}
-              {data.timeOfDay.length > 0 && (
-                <>
-                  <Text style={styles.subhead}>Time of day</Text>
-                  {data.timeOfDay.map((b) => (
-                    <BarRow
-                      key={b.key}
-                      label={b.label}
-                      sub={b.range + ' · ' + b.checkins
-                        + (b.checkins === 1 ? ' check-in' : ' check-ins')}
-                      right={formatScore(b.avg)}
-                      frac={b.avg / 10}
-                      tint={painColor(b.avg)}
-                    />
-                  ))}
-                  {/* looks like an insight, is a logging schedule — the
-                      sentence lives beside the numbers it qualifies */}
-                  <Text style={styles.noteLine}>
-                    These are the averages of when you happened to check in — not
-                    a claim about when your pain is worst.
-                  </Text>
-                </>
-              )}
-            </>
+            <MapScreen entries={entries} onDayPress={onOpenDay} flat />
           )}
-        </Card>
-      )}
-
-      {/* ── events ──────────────────────────────────────────
-          ONE list. "What you tried" was a filtered copy of this one:
-          every event carrying an impression appeared in both cards, the
-          same evening printed twice a screen apart. The counted
-          impressions stay — that summary is the only place a run of
-          "About the same" can be seen at once — and the list under them
-          is every event, with its impression on the right where it has
-          one. */}
-      {data.events.length > 0 && (
-        <Card
-          title="Events"
-          note={'Events sit alongside your check-ins. Their timing doesn’t prove they caused a change.'
-            + (tried.length > 0
-              ? ' Impressions are your own, afterwards, recorded as you gave them —'
-                + ' Pattern doesn’t assess whether anything worked.'
-              : '')}
-        >
-          {outcomes.length > 0 && (
-            <>
-              <Stack segments={outcomes.map((o) => ({ key: o.key, n: o.n, tint: o.tint }))} />
-              <Key items={outcomes} />
-            </>
-          )}
-          <FoldedList
-            label="events"
-            items={data.events.slice().reverse().map((ev, i) => ({
-              key: ev.id != null ? 'e' + ev.id : 'ei' + i,
-              left: shortDate(ev.date) + ' ' + fmtClock(ev.h) + ' · '
-                + (ev.intervention
-                  ? INTERVENTIONS[ev.intervention] || ev.intervention
-                  : EVENT_LABELS[ev.kind])
-                + (ev.text ? ' — ' + ev.text : ''),
-              right: outcomeOf(ev),
-            }))}
-          />
-        </Card>
-      )}
-
-      {/* ── every day, as a calendar ───────────────────────
-          The months, newest first, inside one card at the foot of the
-          record. This is the way to ANY day: the bar chart above names
-          a day per tap and the day pager walks ninety days, and neither
-          reaches last spring. It went missing when History stopped being
-          a tab — the component stayed, complete and tested, rendered by
-          nothing. A square opens its day, exactly as it always did. */}
-      <Card title="Calendar">
-        <MapScreen entries={entries} onDayPress={onOpenDay} flat />
+        </View>
       </Card>
 
-      {/* ── the handoff ─────────────────────────────────
+      {/* ── 2. worth watching ───────────────────────────────
+          The one card on which anything like a claim may appear, and
+          only after the gates: the strongest Health association, a
+          faded one said out loud, comparisons whose groups formed but
+          did not differ, and what the focus is still collecting. Absent
+          when none of that exists — silence is a valid card. */}
+      {watching && (
+        <Card
+          title="Worth watching"
+          note="An association here is a pattern in what you recorded, not proof of what caused what. Groups are your own lowest and highest third, the middle third left out. Nothing on this card moves on its own — only when you add a check-in."
+        >
+          {bestCopy && healthNoticed && healthNoticed.best ? (
+            <>
+              <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {bestCopy.title}
+              </Text>
+              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {bestCopy.body}
+              </Text>
+              <GroupBars a={healthNoticed.best} />
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {bestCopy.sample}
+                {healthNoticed.best.from && healthNoticed.best.to
+                  ? ' ' + fmtReportDate(healthNoticed.best.from) + ' – '
+                    + fmtReportDate(healthNoticed.best.to) + '.'
+                  : ''}
+              </Text>
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {bestCopy.timing} Days without Health data are left out, never counted
+                as anything.
+              </Text>
+            </>
+          ) : healthNoticed && healthNoticed.fading.length > 0 ? (
+            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {fadedCopy(healthNoticed.fading[0])}
+            </Text>
+          ) : null}
+
+          {otherGroups.map((a) => {
+            const w = groupLabels(a.kind);
+            return (
+              <View key={a.kind} style={styles.subBlock}>
+                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {w.factor}, against your record
+                </Text>
+                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  No meaningful difference in {w.outcome} between these groups so
+                  far — that is a finding about these {a.pairedDays} days, not a
+                  failure of them.
+                </Text>
+                <GroupBars a={a} />
+                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {w.timing}
+                </Text>
+              </View>
+            );
+          })}
+
+          {buys.length > 0 && (
+            <View style={styles.subBlock}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                Still collecting
+              </Text>
+              {buys.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+            </View>
+          )}
+        </Card>
+      )}
+
+      {/* ── 3. your record ──────────────────────────────────
+          The appendix: how the days split by band, the most recorded
+          places and words, and behind a fold the whole of it — what you
+          noticed, the two ends, the tables, the events. Counts, never
+          findings, and the card says so inside itself. */}
+      <Card
+        title="Your record"
+        note="Counts of what you recorded — where, which words, when, what you noticed — and nothing compared to last week. What you noticed is your own read of a day: a thing only lands there on days you already suspected it, so there are no days without it to weigh against."
+      >
+        {feltBands.length > 0 && (
+          <>
+            <Text style={styles.subhead}>Days like this</Text>
+            <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
+            <Key items={feltBands} />
+            <Text style={styles.noteLine}>
+              Your {data.days.length} logged {data.days.length === 1 ? 'day' : 'days'},
+              grouped by how they averaged. This is the figure here that rises as
+              things get easier.
+            </Text>
+          </>
+        )}
+        {data.locations.length > 0 && (
+          <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+            <Text style={styles.profileKey}>Most recorded areas   </Text>
+            {data.locations.slice(0, 3).map((l) => l.name).join(' · ')}
+          </Text>
+        )}
+        {data.qualities.length > 0 && (
+          <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+            <Text style={styles.profileKey}>Most used words   </Text>
+            {data.qualities.slice(0, 3).map((q) => q.name).join(' · ')}
+          </Text>
+        )}
+        <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+          <Text style={styles.profileKey}>The record   </Text>
+          {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} · {data.totalCheckins}{' '}
+          {data.totalCheckins === 1 ? 'check-in' : 'check-ins'}
+        </Text>
+
+        {!recordOpen ? (
+          <Press
+            onPress={() => setRecordOpen(true)}
+            pressOpacity={0.7}
+            style={styles.more}
+            accessibilityRole="button"
+            accessibilityLabel="Show everything: what you noticed, the hardest and easiest days, the tables and the events"
+          >
+            <Text style={styles.moreText}>Show details ›</Text>
+          </Press>
+        ) : (
+          <>
+            {(data.flagged.worse.length > 0 || data.flagged.better.length > 0) && (
+              <View style={styles.subBlock}>
+                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  What you noticed
+                </Text>
+                {data.flagged.worse.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>Made it harder</Text>
+                    <FoldedList
+                      bars
+                      label="things"
+                      items={data.flagged.worse.map((f) => ({
+                        key: 'w' + f.id,
+                        left: f.name,
+                        right: f.days + (f.days === 1 ? ' day' : ' days'),
+                        frac: f.days / Math.max(1, data.flagged.worse[0].days),
+                        tint: color.textPrimary,
+                      }))}
+                    />
+                  </>
+                )}
+                {data.flagged.better.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>Helped</Text>
+                    <FoldedList
+                      bars
+                      label="things"
+                      items={data.flagged.better.map((f) => ({
+                        key: 'b' + f.id,
+                        left: f.name,
+                        right: f.days + (f.days === 1 ? ' day' : ' days'),
+                        frac: f.days / Math.max(1, data.flagged.better[0].days),
+                        tint: color.textPrimary,
+                      }))}
+                    />
+                  </>
+                )}
+              </View>
+            )}
+
+            {!!he && (
+              <View style={styles.subBlock}>
+                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  Hardest and easiest days
+                </Text>
+                <Split low={he.boundaryLow} high={he.boundaryHigh} />
+                <End
+                  title="Hardest days"
+                  when={formatScore(he.boundaryHigh) + ' and above'}
+                  e={he.harder}
+                />
+                <End
+                  title="Easiest days"
+                  when={formatScore(he.boundaryLow) + ' and below'}
+                  e={he.easier}
+                />
+                {he.contrasts.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>What was different</Text>
+                    {he.contrasts.map((c) => (
+                      <View
+                        key={c.kind + c.id}
+                        style={styles.contrastRow}
+                        accessible
+                        accessibilityLabel={c.name + ': on ' + c.harderDays + ' of '
+                          + he.harder.days + ' hardest days, '
+                          + c.easierDays + ' of ' + he.easier.days + ' easiest'}
+                      >
+                        <Text style={styles.contrastName} allowFontScaling maxFontSizeMultiplier={1.3}>
+                          {c.name}
+                        </Text>
+                        <Text style={styles.contrastCount} allowFontScaling maxFontSizeMultiplier={1.3}>
+                          {c.harderDays}/{he.harder.days} hardest ·{' '}
+                          {c.easierDays}/{he.easier.days} easiest
+                        </Text>
+                      </View>
+                    ))}
+                  </>
+                )}
+                <Text style={styles.noteLine}>
+                  The highest and lowest third of your logged days, with the middle
+                  third ({he.middleDays}{he.middleDays === 1 ? ' day' : ' days'}) set
+                  aside. This describes where the pain was and how you described it
+                  — not what caused it.
+                </Text>
+              </View>
+            )}
+
+            {(data.locations.length > 0 || data.qualities.length > 0 || data.timeOfDay.length > 0) && (
+              <View style={styles.subBlock}>
+                {data.locations.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>Where</Text>
+                    <FoldedList
+                      bars
+                      label="body areas"
+                      items={data.locations.map((l) => ({
+                        key: l.id,
+                        left: l.name,
+                        right: l.days + (l.days === 1 ? ' day' : ' days'),
+                        frac: l.days / Math.max(1, data.locations[0].days),
+                        tint: color.textPrimary,
+                      }))}
+                    />
+                  </>
+                )}
+                {data.qualities.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>Described as</Text>
+                    <FoldedList
+                      bars
+                      label="words"
+                      items={data.qualities.map((q) => ({
+                        key: q.id,
+                        left: q.name,
+                        right: '×' + q.count,
+                        frac: q.count / Math.max(1, data.qualities[0].count),
+                        tint: color.textPrimary,
+                      }))}
+                    />
+                  </>
+                )}
+                {data.timeOfDay.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>Time of day</Text>
+                    {data.timeOfDay.map((b) => (
+                      <BarRow
+                        key={b.key}
+                        label={b.label}
+                        sub={b.range + ' · ' + b.checkins
+                          + (b.checkins === 1 ? ' check-in' : ' check-ins')}
+                        right={formatScore(b.avg)}
+                        frac={b.avg / 10}
+                        tint={painColor(b.avg)}
+                      />
+                    ))}
+                    <Text style={styles.noteLine}>
+                      These are the averages of when you happened to check in — not
+                      a claim about when your pain is worst.
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
+
+            {data.events.length > 0 && (
+              <View style={styles.subBlock}>
+                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  Events
+                </Text>
+                {outcomes.length > 0 && (
+                  <>
+                    <Stack segments={outcomes.map((o) => ({ key: o.key, n: o.n, tint: o.tint }))} />
+                    <Key items={outcomes} />
+                  </>
+                )}
+                <FoldedList
+                  label="events"
+                  items={data.events.slice().reverse().map((ev, i) => ({
+                    key: ev.id != null ? 'e' + ev.id : 'ei' + i,
+                    left: shortDate(ev.date) + ' ' + fmtClock(ev.h) + ' · '
+                      + (ev.intervention
+                        ? INTERVENTIONS[ev.intervention] || ev.intervention
+                        : EVENT_LABELS[ev.kind])
+                      + (ev.text ? ' — ' + ev.text : ''),
+                    right: outcomeOf(ev),
+                  }))}
+                />
+                <Text style={styles.noteLine}>
+                  Events sit alongside your check-ins. Their timing doesn’t prove
+                  they caused a change
+                  {tried.length > 0
+                    ? '; impressions are your own, afterwards, recorded as you gave them.'
+                    : '.'}
+                </Text>
+              </View>
+            )}
+
+            <Press
+              onPress={() => setRecordOpen(false)}
+              pressOpacity={0.7}
+              style={styles.more}
+              accessibilityRole="button"
+              accessibilityLabel="Hide the details"
+            >
+              <Text style={styles.moreText}>Show less</Text>
+            </Press>
+          </>
+        )}
+      </Card>
+
+      {/* ── 4. the handoff ──────────────────────────────────
           The PDF's natural home: at the foot, as the destination of
-          everything above it, rather than the whole screen dressing as
-          a medical report. */}
+          everything above it. */}
       {!!onShare && (
         <Card title="Share with your clinician">
           <Text style={styles.bodyText} allowFontScaling maxFontSizeMultiplier={1.4}>
