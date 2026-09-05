@@ -106,7 +106,8 @@ export function healthDayTiles(
     }
     out.push({
       key: 'sleep', icon: 'moon-outline',
-      value: fmtDuration(day.sleepMinutes), label: 'Asleep, night before', sub,
+      value: fmtDuration(day.sleepMinutes),
+      label: (day.sleepKind === 'inBed' ? 'In bed' : 'Asleep') + ', night before', sub,
     });
   }
 
@@ -186,6 +187,45 @@ export function healthDayTiles(
 }
 
 /**
+ * What Health already knows about a question the check-in is about to
+ * ask — shown above the manual answer, never in place of it.
+ *
+ * "How was your sleep last night?" under a line that says "Apple
+ * Health: 6h 40m asleep" is one question with two answers, and the
+ * person still chooses the word. The manual level is what the focus
+ * compares; the Health number is what makes choosing it honest rather
+ * than a guess at 9pm. State of Mind does the same for the stress and
+ * fatigue questions: a mood the person logged in Health this morning,
+ * said back, before they rate the day. Pain is never compared with a
+ * mood — that association runs backwards at least as often as forwards
+ * — which is why this is a hint on a question and not a comparison.
+ */
+export function healthHintFor(metricId: string, day: HealthDay | null | undefined): string | null {
+  if (!day) return null;
+  if (metricId === 'sleep.quality.v1' && day.sleepMinutes != null) {
+    return 'Apple Health: ' + fmtDuration(day.sleepMinutes)
+      + (day.sleepKind === 'inBed' ? ' in bed' : ' asleep') + ' last night';
+  }
+  if ((metricId === 'stress.level.v1' || metricId === 'fatigue.level.v1')
+    && day.stateOfMind && day.stateOfMind.length) {
+    const latest = day.stateOfMind[day.stateOfMind.length - 1];
+    return 'Apple Health: you logged “' + valenceWord(latest.valence) + '” today';
+  }
+  return null;
+}
+
+/** the one line Today may carry from Health: last night, which is over
+ *  by the time anyone reads it. Steps are not here on purpose — they
+ *  climb between two opens, and Today is the one surface that must not. */
+export function lastNightLine(
+  day: HealthDay | null | undefined, all?: Record<string, HealthDay>
+): string | null {
+  if (!day || day.sleepMinutes == null) return null;
+  const lines = healthDayLines(day, all).filter((l) => l.key === 'sleep');
+  return lines.length ? lines[0].text : null;
+}
+
+/**
  * The lines for one day, in a fixed order, only where data exists — an
  * uncovered category is simply not a line, never a zero.
  *
@@ -203,7 +243,8 @@ export function healthDayLines(
   if (!day) return [];
   const out: HealthLine[] = [];
   if (day.sleepMinutes != null) {
-    let text = fmtDuration(day.sleepMinutes) + ' asleep the night before';
+    let text = fmtDuration(day.sleepMinutes)
+      + (day.sleepKind === 'inBed' ? ' in bed the night before' : ' asleep the night before');
     const usual = usualOf(all, day.date, (d) => d.sleepMinutes);
     if (usual != null) {
       const delta = day.sleepMinutes - usual;

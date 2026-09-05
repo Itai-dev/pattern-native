@@ -58,6 +58,20 @@ export interface PairedDay {
   date: string;      // the date the PAIN was recorded on
   factor: number;
   pain: number;
+  /** for sleep pairs: which quantity the factor is. One kind per
+   *  record, never mixed — see buildPairs. */
+  basis?: 'asleep' | 'inBed';
+}
+
+/** The one sleep quantity a record is compared on. Asleep when any
+ *  night has it; in-bed only for a record that never saw an asleep
+ *  interval (a phone with a schedule and no watch). Mixing the two
+ *  would compare minutes in bed against minutes asleep as if they were
+ *  the same number, and they are not. */
+export function sleepBasis(health: Record<string, HealthDay>): 'asleep' | 'inBed' {
+  const anyAsleep = Object.keys(health).some((k) =>
+    health[k].sleepMinutes != null && (health[k].sleepKind || 'asleep') === 'asleep');
+  return anyAsleep ? 'asleep' : 'inBed';
 }
 
 /** the first check-in in the morning band, or null — the fixed outcome
@@ -108,6 +122,7 @@ export function buildPairs(
   kind: PairKind, entries: Entries, health: Record<string, HealthDay>
 ): PairedDay[] {
   const out: PairedDay[] = [];
+  const basis = kind === 'sleepVsMorning' ? sleepBasis(health) : undefined;
   Object.keys(entries).sort().forEach((date) => {
     const logs = logsOf(entries[date]);
     if (!logs.length) return;
@@ -116,9 +131,14 @@ export function buildPairs(
       const pain = morningPain(logs);
       const h = health[date];
       if (!pain || !h || h.sleepMinutes == null) return;
+      if ((h.sleepKind || 'asleep') !== basis) return;
       /* the night must have ENDED before the check-in — a sleep record
-         still open past the morning log would be future data */
-      out.push({ date, factor: h.sleepMinutes, pain: pain.pain });
+         still open past the morning log would be future data. Checked
+         on the moment's own instant when it carries one; a legacy
+         moment without a stamp is kept, since unknown is not evidence
+         of anything. */
+      if (typeof pain.ts === 'number' && h.sleepEnd != null && h.sleepEnd > pain.ts) return;
+      out.push({ date, factor: h.sleepMinutes, pain: pain.pain, basis });
       return;
     }
 

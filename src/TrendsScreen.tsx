@@ -40,9 +40,10 @@ import {
   fmtReportDate,
 } from './report';
 import {
-  Association as HealthAssociation, associationCopy, fadedCopy, factorLabel,
-  groupLabels,
+  Association as HealthAssociation, IN_BED_NOTE, associationCopy, fadedCopy, factorLabel,
+  groupLabels, progressCopy,
 } from './health/engine';
+import { HealthProgress } from './health/noticed';
 import { DigestCard, checkinBuys, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
 
@@ -77,6 +78,10 @@ export interface TrendsScreenProps {
      *  comparison is drawable the moment the groups exist; the CLAIM
      *  stays gated exactly as before */
     groups: HealthAssociation[];
+    /** the comparisons still short of their gate, with the count and
+     *  the instruction — what a connected person sees before anything
+     *  has cleared, so the wait is never silent */
+    progress: HealthProgress[];
   };
   /** the active observation period, for the progress cards — what a
    *  check-in is currently buying */
@@ -845,8 +850,9 @@ export default function TrendsScreen({
   const he = data.harderEasier;
   const otherGroups = (healthNoticed?.groups || []).filter((a) => a !== healthNoticed?.best);
   const bestCopy = healthNoticed?.best ? associationCopy(healthNoticed.best) : null;
+  const healthWaiting = healthNoticed ? healthNoticed.progress : [];
   const watching = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
-    || otherGroups.length > 0 || buys.length > 0;
+    || otherGroups.length > 0 || buys.length > 0 || healthWaiting.length > 0;
 
   return (
     <View style={styles.page}>
@@ -1000,6 +1006,11 @@ export default function TrendsScreen({
                 {bestCopy.timing} Days without Health data are left out, never counted
                 as anything.
               </Text>
+              {healthNoticed.best.basis === 'inBed' && (
+                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {IN_BED_NOTE}
+                </Text>
+              )}
             </>
           ) : healthNoticed && healthNoticed.fading.length > 0 ? (
             <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -1027,12 +1038,26 @@ export default function TrendsScreen({
             );
           })}
 
-          {buys.length > 0 && (
+          {(buys.length > 0 || healthWaiting.length > 0) && (
             <View style={styles.subBlock}>
               <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
                 Still collecting
               </Text>
               {buys.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+              {/* the Health comparisons short of their gate: the count,
+                  and what one more paired day takes — so a person who
+                  logs at lunch learns that a morning check-in is what
+                  sleep is waiting for, instead of waiting forever */}
+              {healthWaiting.map((p, i) => {
+                const c = progressCopy(p);
+                return (
+                  <DigestRow
+                    key={'h.' + p.kind}
+                    card={{ key: 'h.' + p.kind, title: c.title, evidence: c.evidence, caveat: c.caveat }}
+                    first={i === 0 && buys.length === 0}
+                  />
+                );
+              })}
             </View>
           )}
         </Card>

@@ -23,7 +23,7 @@ import { Press } from './motion';
 import { track } from './analytics';
 import { addDays, todayISO } from './model';
 import {
-  HEALTH_CATEGORIES, HealthCategory, HealthService,
+  HealthCategory, HealthService, offeredCategories,
 } from './health/types';
 import {
   disconnectHealth, healthCategories, healthRequestedOn, markHealthRequested,
@@ -121,7 +121,7 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
             </Text>
 
             <View style={styles.group}>
-              {HEALTH_CATEGORIES.map((c, i) => {
+              {offeredCategories(already).map((c, i) => {
                 const on = picked.indexOf(c.id) >= 0;
                 return (
                   <Press

@@ -634,6 +634,122 @@ group('the mock service');
   ok('the mock only returns categories that were asked for',
     asked.steps.length === 1 && asked.sleep.length === 0);
 
+
+/* ═══ in-bed fallback, one kind per record, the night must end ═══ */
+group('sleep without a watch: in bed stands in, said as such');
+ok('a night with only in-bed intervals is measured in bed, and says so', (() => {
+  const n = normalize.nightSleep([
+    { start: at('2026-08-19', 23 * 60), end: at(D, 7 * 60), stage: 'inBed', source: 'phone' },
+  ], D, clock);
+  return n && n.kind === 'inBed' && n.minutes === 8 * 60;
+})());
+ok('any asleep interval wins over in-bed, and in-bed time is not added to it', (() => {
+  const n = normalize.nightSleep([
+    { start: at('2026-08-19', 23 * 60), end: at(D, 7 * 60), stage: 'inBed', source: 'phone' },
+    { start: at('2026-08-19', 23 * 60 + 30), end: at(D, 6 * 60), stage: 'asleep', source: 'watch' },
+  ], D, clock);
+  return n && n.kind === 'asleep' && n.minutes === 6 * 60 + 30;
+})());
+ok('the normalized day carries sleepKind only for in-bed nights', (() => {
+  const inBed = normalize.normalizeDay(bundle(D, { sleep: [
+    { start: at('2026-08-19', 23 * 60), end: at(D, 7 * 60), stage: 'inBed', source: 'phone' },
+  ] }), clock);
+  const asleep = normalize.normalizeDay(bundle(D, { sleep: [
+    { start: at('2026-08-19', 23 * 60), end: at(D, 7 * 60), stage: 'asleep', source: 'watch' },
+  ] }), clock);
+  return inBed.sleepKind === 'inBed' && asleep.sleepKind === undefined;
+})());
+ok('sleep pairs use one kind: asleep when any night has it, else in bed — never both', (() => {
+  const entries = {
+    '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 5 }] },
+    '2026-08-21': { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 6 }] },
+    '2026-08-22': { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 4 }] },
+  };
+  const mixed = {
+    '2026-08-20': { date: '2026-08-20', sleepMinutes: 400, coverage: { sleep: true } },
+    '2026-08-21': { date: '2026-08-21', sleepMinutes: 480, sleepKind: 'inBed', coverage: { sleep: true } },
+    '2026-08-22': { date: '2026-08-22', sleepMinutes: 420, coverage: { sleep: true } },
+  };
+  const bedOnly = {
+    '2026-08-20': { date: '2026-08-20', sleepMinutes: 400, sleepKind: 'inBed', coverage: { sleep: true } },
+    '2026-08-21': { date: '2026-08-21', sleepMinutes: 480, sleepKind: 'inBed', coverage: { sleep: true } },
+  };
+  const a = windows.buildPairs('sleepVsMorning', entries, mixed);
+  const b = windows.buildPairs('sleepVsMorning', entries, bedOnly);
+  return windows.sleepBasis(mixed) === 'asleep' && a.length === 2 && a.every((x) => x.basis === 'asleep')
+    && windows.sleepBasis(bedOnly) === 'inBed' && b.length === 2 && b.every((x) => x.basis === 'inBed');
+})());
+ok('a night still running past the check-in is not paired with it', (() => {
+  const entries = {
+    '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 5 * 60 + 30, pain: 5, ts: at('2026-08-20', 5 * 60 + 30), tz: 120 }] },
+    '2026-08-21': { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 6, ts: at('2026-08-21', 8 * 60), tz: 120 }] },
+  };
+  const health = {
+    '2026-08-20': { date: '2026-08-20', sleepMinutes: 420, sleepEnd: at('2026-08-20', 6 * 60 + 10), coverage: { sleep: true } },
+    '2026-08-21': { date: '2026-08-21', sleepMinutes: 420, sleepEnd: at('2026-08-21', 6 * 60 + 10), coverage: { sleep: true } },
+  };
+  const pairs = windows.buildPairs('sleepVsMorning', entries, health);
+  return pairs.length === 1 && pairs[0].date === '2026-08-21';
+})());
+ok('the association carries the basis, and the in-bed note exists for it', (() => {
+  const pairs = [];
+  for (let i = 0; i < 16; i++) {
+    pairs.push({ date: '2026-08-' + String(i + 1).padStart(2, '0'), factor: 300 + i * 20, pain: i < 8 ? 6 : 3, basis: 'inBed' });
+  }
+  const a = engine.evaluate('sleepVsMorning', pairs);
+  return a.basis === 'inBed' && typeof engine.IN_BED_NOTE === 'string' && /in bed/.test(engine.IN_BED_NOTE);
+})());
+
+group('still collecting: what Health is waiting for');
+ok('a connected comparison short of its gate reports the count and what one more takes', (() => {
+  const entries = {
+    '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 13 * 60, pain: 5 }] },   // lunch: no morning pair
+    '2026-08-21': { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 6 }] },
+  };
+  const health = {
+    '2026-08-20': { date: '2026-08-20', sleepMinutes: 400, coverage: { sleep: true } },
+    '2026-08-21': { date: '2026-08-21', sleepMinutes: 480, coverage: { sleep: true } },
+  };
+  const prog = noticed.healthProgress(entries, health, ['sleep']);
+  const c = engine.progressCopy(prog[0]);
+  return prog.length === 1 && prog[0].kind === 'sleepVsMorning'
+    && prog[0].pairedDays === 1 && prog[0].needed === th.HEALTH_MIN_PAIRED_DAYS
+    && /1 of 14/.test(c.evidence) && /before noon/.test(c.caveat)
+    && !/pain averaged|higher|lower/.test(c.title + c.evidence + c.caveat);
+})());
+ok('a comparison past its gate is not listed as waiting', (() => {
+  const entries = {}, health = {};
+  for (let i = 1; i <= 16; i++) {
+    const d = '2026-08-' + String(i).padStart(2, '0');
+    entries[d] = { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 5 }] };
+    health[d] = { date: d, sleepMinutes: 400 + i, coverage: { sleep: true } };
+  }
+  return noticed.healthProgress(entries, health, ['sleep']).length === 0;
+})());
+
+group('the check-in hint: Health above the question, never instead of it');
+const ctx2 = require(path.join(OUT, 'health', 'context.js'));
+ok('sleep: the night, in hours and minutes, asleep or in bed', (() => {
+  const a = ctx2.healthHintFor('sleep.quality.v1', { date: D, sleepMinutes: 400, coverage: { sleep: true } });
+  const b = ctx2.healthHintFor('sleep.quality.v1', { date: D, sleepMinutes: 400, sleepKind: 'inBed', coverage: { sleep: true } });
+  return a === 'Apple Health: 6h 40m asleep last night' && b === 'Apple Health: 6h 40m in bed last night';
+})());
+ok('stress and fatigue: the mood logged in Health, in Pattern’s five words', (() => {
+  const day = { date: D, stateOfMind: [{ h: 8 * 60, valence: -0.4, kind: 'momentaryEmotion' }], coverage: { mind: true } };
+  return ctx2.healthHintFor('stress.level.v1', day) === 'Apple Health: you logged “Unpleasant” today'
+    && ctx2.healthHintFor('fatigue.level.v1', day) === 'Apple Health: you logged “Unpleasant” today';
+})());
+ok('no hint for a question Health cannot answer, or a day it has nothing for', (() => {
+  return ctx2.healthHintFor('weather.felt.v1', { date: D, sleepMinutes: 400, coverage: { sleep: true } }) === null
+    && ctx2.healthHintFor('sleep.quality.v1', null) === null
+    && ctx2.healthHintFor('sleep.quality.v1', { date: D, coverage: {} }) === null;
+})());
+ok('Today’s one Health line is last night, and nothing else', (() => {
+  const day = { date: D, sleepMinutes: 400, steps: 9000, coverage: { sleep: true, movement: true } };
+  const line = ctx2.lastNightLine(day);
+  return /6h 40m asleep the night before/.test(line) && !/steps/.test(line)
+    && ctx2.lastNightLine({ date: D, steps: 9000, coverage: { movement: true } }) === null;
+})());
   console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
   process.exit(fail ? 1 : 0);
 })();

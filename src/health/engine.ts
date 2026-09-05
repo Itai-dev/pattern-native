@@ -59,6 +59,9 @@ export interface Association {
   /** first and last paired date, for the detail view */
   from?: string;
   to?: string;
+  /** for sleep: what the nights were measured by. 'inBed' means the
+   *  store never had an asleep record and the card must say so. */
+  basis?: 'asleep' | 'inBed';
 }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
@@ -84,6 +87,7 @@ export function evaluate(
   kind: PairKind, pairs: PairedDay[], previouslyShown = false
 ): Association {
   const base: Association = { kind, verdict: 'insufficient', pairedDays: pairs.length };
+  if (pairs.length && pairs[0].basis) base.basis = pairs[0].basis;
   const fade = (a: Association): Association =>
     previouslyShown && a.verdict !== 'possible' ? { ...a, verdict: 'fading' } : a;
 
@@ -123,6 +127,7 @@ export function evaluate(
     kind, pairedDays: pairs.length, low, high, delta,
     from: dates[0], to: dates[dates.length - 1],
     verdict: 'observation',
+    ...(base.basis ? { basis: base.basis } : {}),
   };
 
   /* the factor must genuinely vary between the groups */
@@ -152,25 +157,32 @@ export const HEALTH_NON_CAUSATION =
 const KIND_WORDS: Record<PairKind, {
   factor: string; timing: string; join: 'after' | 'on';
   lowWord: string; highWord: string; groupNoun: string;
+  /** what one paired day takes — the instruction a person can act on
+   *  while the comparison is still collecting */
+  needs: string;
 }> = {
   sleepVsMorning: {
     factor: 'Sleep', timing: 'Each morning is compared with the night before it.',
     join: 'after', lowWord: 'shorter-sleep', highWord: 'longer-sleep', groupNoun: 'nights',
+    needs: 'a check-in before noon, on a morning Health has a night for',
   },
   prevDayStepsVsMorning: {
     factor: 'The previous day’s movement',
     timing: 'Each morning is compared with the day before it, never with the same day.',
     join: 'after', lowWord: 'quieter', highWord: 'more active', groupNoun: 'days',
+    needs: 'a check-in before noon, the day after Health counted steps',
   },
   stepsBeforeVsEvening: {
     factor: 'Movement through the day',
     timing: 'Each evening is compared only with the hours before that check-in.',
     join: 'on', lowWord: 'quieter', highWord: 'more active', groupNoun: 'days',
+    needs: 'a check-in in the evening, from five, on a day Health counted steps',
   },
   workoutVsNextMorning: {
     factor: 'A workout',
     timing: 'Each morning is compared with the day before it, never with the same day.',
     join: 'after', lowWord: 'no-workout', highWord: 'workout', groupNoun: 'days',
+    needs: 'a check-in before noon, the day after Health saw movement',
   },
   standBeforeVsEvening: {
     factor: 'Time upright',
@@ -178,14 +190,37 @@ const KIND_WORDS: Record<PairKind, {
       + 'Upright time comes from an Apple Watch — it measures standing, not sitting, '
       + 'and an unworn watch is a missing day, never a still one.',
     join: 'on', lowWord: 'less-upright', highWord: 'more-upright', groupNoun: 'days',
+    needs: 'an evening check-in on a day the watch was worn',
   },
   workoutLoadVsNextMorning: {
     factor: 'Workout load',
     timing: 'Each morning is compared with the previous day’s workouts. Load is total '
       + 'workout time, split at your own usual — not a universal bar.',
     join: 'after', lowWord: 'lighter-workout', highWord: 'harder-workout', groupNoun: 'days',
+    needs: 'a check-in before noon, the day after a workout',
   },
 };
+
+/** the "still collecting" sentence for a health comparison that has not
+ *  reached its gate: how many paired days, how many it takes, and what
+ *  one more takes — an instruction, never a number about pain */
+export function progressCopy(p: { kind: PairKind; pairedDays: number; needed: number }): {
+  title: string; evidence: string; caveat: string;
+} {
+  const w = KIND_WORDS[p.kind];
+  const outcome = EVENING_KINDS.indexOf(p.kind) >= 0 ? 'evening pain' : 'morning pain';
+  return {
+    title: w.factor + ' and ' + outcome,
+    evidence: p.pairedDays + ' of ' + p.needed + ' paired '
+      + (p.pairedDays === 1 && p.needed === 1 ? 'day' : 'days') + ' so far.',
+    caveat: 'Each one takes ' + w.needs + '.',
+  };
+}
+
+/** the one line a sleep card adds when the nights were measured in bed
+ *  rather than asleep */
+export const IN_BED_NOTE =
+  'Sleep here is time in bed, from a sleep schedule — Health had no record of time asleep.';
 
 /** the group vocabulary for a kind, for surfaces that draw the groups
  *  themselves — the same words the sentences use, never a second set */

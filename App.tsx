@@ -25,7 +25,7 @@ import { HealthKitService, deviceClock } from './src/health/healthkit';
 import {
   healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
 } from './src/health/sync';
-import { noticedAssociations, strongestPossible } from './src/health/noticed';
+import { healthProgress, noticedAssociations, strongestPossible } from './src/health/noticed';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
@@ -288,7 +288,10 @@ export default function App() {
        comparison itself, claim or no claim; the claim stays gated */
     const groups = all.filter((a) =>
       (a.verdict === 'possible' || a.verdict === 'observation') && a.low && a.high);
-    return { best, fading, groups };
+    /* and what each connected comparison is still waiting for — the
+       instruction a person can act on while nothing has cleared */
+    const progress = healthProgress(entries, healthDays, healthCategories());
+    return { best, fading, groups, progress };
   }, [entries, healthDays, protocol]);
   /* an event being edited. Nothing has to be closed to reach it any more:
      the day is a LAYER, not a modal, so the event sheet presents on top
@@ -795,6 +798,7 @@ export default function App() {
                 onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
                 onShare={shareTrends}
                 appointment={appointment}
+                healthDays={healthDays}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background

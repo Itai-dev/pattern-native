@@ -44,6 +44,8 @@ import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
 import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
+import { lastNightLine } from './health/context';
+import { HealthDay } from './health/types';
 import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
 
 /* ── when Today may ask for something ────────────────────────
@@ -161,6 +163,8 @@ export interface HomeScreenProps {
   onShare: () => void;
   /** the next appointment as an ISO date, or '' — owned by App */
   appointment: string;
+  /** the stored Health days, for the one line Today may carry: last night */
+  healthDays: Record<string, HealthDay>;
   /** Profile, where the reminder times live — for "choose another time" */
   onOpenReminders: () => void;
   /** the binary can read Health and it has not been set up — the only
@@ -173,9 +177,15 @@ export interface HomeScreenProps {
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onAddNote, onOpenToday, onFocus, onKeepFocus,
   onTestFactor, onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
-  onOpenAppointment, onShare, appointment,
+  onOpenAppointment, onShare, appointment, healthDays,
 }: HomeScreenProps) {
   const t = todayISO();
+  /* LAST NIGHT, ON TODAY. The calm rule keeps Health off this screen
+     because steps climb between two opens; sleep does not — by the
+     time anyone reads this card the night is over and the number is
+     fixed. It is the first morning's whole reason to have connected
+     Health, and it was two taps away on the day screen. */
+  const lastNight = lastNightLine(healthDays[t], healthDays);
   const entry = entries[t] || null;
   /* newest first: this screen leads with the latest thing said */
   const logs = logsOf(entry).slice().sort((a, b) => b.h - a.h);
@@ -547,6 +557,14 @@ export default function HomeScreen({
         </Press>
       )}
 
+      {/* ── last night, from Health ────────────────────────── */}
+      {!!lastNight && (
+        <Text style={styles.lastNight} allowFontScaling maxFontSizeMultiplier={1.4}
+          accessibilityLabel={'From Apple Health: ' + lastNight}>
+          {lastNight}
+        </Text>
+      )}
+
       {/* the event capture used to be a button here. It lives in the
           check-in now — a flare happens on the same occasion as the
           number — and on the day screen, where events are read back.
@@ -824,6 +842,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardGap: { marginTop: 14 },
+  /* a line, not a card: it is context beside the record, at the page's
+     reading edge, in the quiet colour — and it never wears the ramp */
+  lastNight: {
+    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18,
+    marginTop: 10, marginHorizontal: size.contentX,
+  },
   bgOfferBody: {
     color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8,
   },

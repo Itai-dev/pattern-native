@@ -72,6 +72,8 @@ import {
   eligibleNow, getMetric,
 } from './metrics';
 import { questionsNow } from './protocol';
+import { healthHintFor } from './health/context';
+import { HealthDay } from './health/types';
 import { track, trackCheckin } from './analytics';
 import { color, font, size } from './theme';
 import {
@@ -206,6 +208,9 @@ export default function CheckinScreen({
     );
   });
   const { width: winW } = useWindowDimensions();
+  /* what Health already has for today, read once — a hint above a
+     question, never an answer to it */
+  const [healthToday] = useState<HealthDay | null>(() => db.getHealthDay<HealthDay>(today));
   const [pid] = useState<number | null>(() => {
     const p = db.activeProtocol();
     return p && p.id != null ? p.id : null;
@@ -576,6 +581,14 @@ export default function CheckinScreen({
       <Text style={styles.qLabel} allowFontScaling maxFontSizeMultiplier={1.4}>
         {m.question}
       </Text>
+      {/* Health's answer to the same question, above yours — so the
+          word chosen at nine is the night that happened, not the night
+          remembered. The levels stay: the comparison needs the word. */}
+      {!!healthHintFor(m.id, healthToday) && (
+        <Text style={styles.qHealth} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {healthHintFor(m.id, healthToday)}
+        </Text>
+      )}
       <View style={styles.options}>
         {(m.levels || []).map((l) => {
           const on = answers[m.id] === l.id;
@@ -1205,6 +1218,12 @@ const styles = StyleSheet.create({
   qValue: {
     color: color.textSecondary, fontSize: font.subheadline,
     fontVariant: ['tabular-nums'], marginTop: -4,
+  },
+  /* the Health line under a question: the quiet colour, because it is
+     context for an answer and not the answer */
+  qHealth: {
+    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: -4,
+    fontVariant: ['tabular-nums'],
   },
   /* stacked, so a level is never abbreviated into ambiguity */
   options: { gap: 8 },

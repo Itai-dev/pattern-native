@@ -58,20 +58,29 @@ export function mergedMinutes(iv: { start: number; end: number }[]): number {
   return Math.round(total / 60000);
 }
 
-/** the asleep union for the night ending on `date`'s morning */
+/** the asleep union for the night ending on `date`'s morning — or,
+ *  when the night holds no asleep interval at all, the in-bed union,
+ *  said as such. Never both: a night with any asleep record is measured
+ *  by sleep, and in-bed time is the fallback for stores that only ever
+ *  wrote a schedule. */
 export function nightSleep(
   samples: SleepSample[], date: string, clock: LocalClock
-): { minutes: number; start: number; end: number } | null {
+): { minutes: number; start: number; end: number; kind: 'asleep' | 'inBed' } | null {
   const dayStart = clock.startOf(date);
   /* the window in instants: yesterday 18:00 local to today noon local.
      Built from local midnights rather than fixed 24h offsets, so a
      daylight-saving night is 23 or 25 hours long and still correct. */
   const winFrom = dayStart - (24 * 60 - NIGHT_FROM_PREV_MIN) * 60000;
   const winTo = dayStart + NIGHT_UNTIL_MIN * 60000;
-  const asleep = samples.filter((s) =>
-    s.stage === 'asleep' && s.end > winFrom && s.start < winTo);
-  if (!asleep.length) return null;
-  const clipped = asleep.map((s) => ({
+  const inWindow = (s: SleepSample) => s.end > winFrom && s.start < winTo;
+  let kind: 'asleep' | 'inBed' = 'asleep';
+  let picked = samples.filter((s) => s.stage === 'asleep' && inWindow(s));
+  if (!picked.length) {
+    picked = samples.filter((s) => s.stage === 'inBed' && inWindow(s));
+    kind = 'inBed';
+  }
+  if (!picked.length) return null;
+  const clipped = picked.map((s) => ({
     start: Math.max(s.start, winFrom),
     end: Math.min(s.end, winTo),
   }));
@@ -79,6 +88,7 @@ export function nightSleep(
     minutes: mergedMinutes(clipped),
     start: Math.min.apply(null, clipped.map((s) => s.start)),
     end: Math.max.apply(null, clipped.map((s) => s.end)),
+    kind,
   };
 }
 
@@ -157,6 +167,7 @@ export function normalizeDay(raw: DayRawBundle, clock: LocalClock): HealthDay {
     day.sleepMinutes = night.minutes;
     day.sleepStart = night.start;
     day.sleepEnd = night.end;
+    if (night.kind === 'inBed') day.sleepKind = 'inBed';
     day.coverage.sleep = true;
   }
 

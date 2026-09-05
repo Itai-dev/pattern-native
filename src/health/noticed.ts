@@ -19,6 +19,7 @@
  * out as data — the caller owns remembering it.
  */
 import { Entries } from '../model';
+import { HEALTH_MIN_PAIRED_DAYS } from '../thresholds';
 import { Association, evaluate } from './engine';
 import { HealthCategory, HealthDay } from './types';
 import { PairKind, buildPairs } from './windows';
@@ -54,6 +55,30 @@ export function noticedAssociations(
 ): Association[] {
   return licensedKinds(categories).map((kind) =>
     evaluate(kind, buildPairs(kind, entries, health), previouslyShown.indexOf(kind) >= 0));
+}
+
+/** what each licensed comparison is still waiting for — the ones short
+ *  of the paired-days gate, with the count. A person who logs at lunch
+ *  never produces a morning pair and was never told; this is how they
+ *  are told. */
+export interface HealthProgress {
+  kind: PairKind;
+  pairedDays: number;
+  needed: number;
+}
+
+export function healthProgress(
+  entries: Entries,
+  health: Record<string, HealthDay>,
+  categories: HealthCategory[]
+): HealthProgress[] {
+  return licensedKinds(categories)
+    .map((kind) => ({
+      kind,
+      pairedDays: buildPairs(kind, entries, health).length,
+      needed: HEALTH_MIN_PAIRED_DAYS,
+    }))
+    .filter((p) => p.pairedDays < p.needed);
 }
 
 /** The single strongest `possible`, or null — PATTERN_MAX_CARDS is a

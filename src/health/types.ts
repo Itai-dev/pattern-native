@@ -21,9 +21,18 @@
  */
 
 /* ── categories, as the user chooses them ────────────────────
-   The setup screen offers these five; each expands to concrete sample
-   kinds below. The user picks categories; the adapter requests only the
-   underlying types those categories name. */
+   Each expands to concrete sample kinds below. The user picks
+   categories; the adapter requests only the underlying types those
+   categories name.
+
+   THE SHEET OFFERS THREE OF THE FIVE. Heart and State of Mind are
+   imported and normalised and license no association by design — they
+   were a tile on the day screen and nothing else, which made the
+   setup sheet the one place the app asked for more than it used. A
+   permission sheet is where trust is decided, so they are off the
+   sheet. The code paths stay: a person who connected them before this
+   change keeps their tiles, and if either ever earns a comparison the
+   flag below is one word to flip. */
 
 export type HealthCategory =
   | 'sleep'
@@ -32,28 +41,41 @@ export type HealthCategory =
   | 'heart'      // resting HR, HRV (SDNN) — imported, never analysed in v1
   | 'mind';      // State of Mind — imported, never analysed in v1
 
-export const HEALTH_CATEGORIES: { id: HealthCategory; name: string; blurb: string }[] = [
+export const HEALTH_CATEGORIES: {
+  id: HealthCategory; name: string; blurb: string;
+  /** may the setup sheet offer it — false keeps the category readable
+   *  for anyone who already connected it, and asks nobody new */
+  offered: boolean;
+}[] = [
   {
-    id: 'sleep', name: 'Sleep',
+    id: 'sleep', name: 'Sleep', offered: true,
     blurb: 'How long you slept, from the Health app’s sleep record.',
   },
   {
-    id: 'movement', name: 'Daily movement',
+    id: 'movement', name: 'Daily movement', offered: true,
     blurb: 'Steps, walking distance, active energy — and time upright, from an Apple Watch, for how much of the day was spent sitting still.',
   },
   {
-    id: 'workouts', name: 'Workouts',
+    id: 'workouts', name: 'Workouts', offered: true,
     blurb: 'Workouts you or your watch recorded, with their time and length.',
   },
   {
-    id: 'heart', name: 'Heart and recovery',
+    id: 'heart', name: 'Heart and recovery', offered: false,
     blurb: 'Resting heart rate and heart-rate variability. Kept as context — Pattern draws no conclusions from them.',
   },
   {
-    id: 'mind', name: 'State of Mind',
-    blurb: 'Moments you logged in Health, where your iOS version supports it. Context only.',
+    id: 'mind', name: 'State of Mind', offered: true,
+    blurb: 'Moods you logged in Health, where your iOS version supports it. Stands in for the stress and fatigue questions on days you logged one; never compared with pain.',
   },
 ];
+
+/** what the setup sheet shows: the offered categories, plus any the
+ *  person already connected before a category stopped being offered —
+ *  a row that vanished while still granted would be a switch they can
+ *  no longer turn off */
+export function offeredCategories(already: HealthCategory[]): typeof HEALTH_CATEGORIES {
+  return HEALTH_CATEGORIES.filter((c) => c.offered || already.indexOf(c.id) >= 0);
+}
 
 /* ── setup state ─────────────────────────────────────────────
    HealthKit deliberately hides read denials: an app cannot tell "denied"
@@ -126,8 +148,16 @@ export interface NormalizedWorkout {
 export interface HealthDay {
   /** local date this context describes */
   date: string;
-  /** total asleep minutes of the night ENDING this morning */
+  /** total asleep minutes of the night ENDING this morning — or, when
+   *  the store holds no asleep interval at all, time in bed (see
+   *  sleepKind). An iPhone with a sleep schedule and no watch writes
+   *  only in-bed intervals; without the fallback those people have no
+   *  sleep in Pattern at all. */
   sleepMinutes?: number;
+  /** what sleepMinutes measures. Absent reads as 'asleep'. A record is
+   *  compared on ONE kind only — see windows.ts — because minutes in
+   *  bed and minutes asleep are not the same quantity. */
+  sleepKind?: 'asleep' | 'inBed';
   /** epoch ms of that night's first and last asleep interval */
   sleepStart?: number;
   sleepEnd?: number;
