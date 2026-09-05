@@ -55,7 +55,7 @@
     letter-spacing: -0.015em; margin: 0 0 8px;
   }
   p { margin: 0 0 14px; }
-  .lede { font-size: 20px; line-height: 1.5; color: var(--ink-2); }
+  .lede { font-size: 22px; line-height: 1.5; color: var(--ink-2); }
   .muted { color: var(--ink-2); }
   .fine { color: var(--ink-3); font-size: 14px; line-height: 1.5; }
   .caveat {
@@ -108,7 +108,7 @@
   @media (max-width: 480px) { .strip .c { width: 36px; height: 36px; border-radius: 9px; } .strip { gap: 6px; } }
 
   /* ── sections ── */
-  section { padding: 84px 0; border-top: 1px solid var(--rule); }
+  section { padding: 112px 0; border-top: 1px solid var(--rule); }
   section.hero { border-top: 0; padding: 48px 0 84px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
   .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
@@ -210,24 +210,26 @@
   <nav class="top" aria-label="Site">
     <a class="wordmark" href="#top"><span class="sq" aria-hidden="true"></span>Pattern</a>
     <div class="links">
-      <a href="#checkin">The check-in</a>
-      <a href="#watch">Apple Watch</a>
-      <a href="#health">Apple Health</a>
-      <a href="#refuses">What it refuses</a>
-      <a href="#hood">Under the hood</a>
+      <a href="#checkin">Check-in</a>
+      <a href="#watch">Watch</a>
+      <a href="#health">Health</a>
+      <a href="#refuses">Refusals</a>
+      <a href="#beta">Beta</a>
     </div>
   </nav>
 
   <section class="hero" id="top">
-    <div class="eyebrow">For iPhone and Apple Watch · beta on TestFlight</div>
+    <div class="eyebrow">iPhone · Apple Watch · beta</div>
     <h1>Make pain feel<br>less random.</h1>
-    <p class="lede measure">A ten-second check-in builds the record memory can't. Your watch logs it from your wrist. Apple Health sits beside it. And when a comparison actually holds, Pattern says so with the sample size. When it doesn't, it says nothing.</p>
+    <p class="lede measure">A ten-second check-in. A record memory can’t keep. A page your doctor reads in thirty seconds.</p>
     <div class="cta">
       <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20beta">Join the beta</a>
-      <a class="btn" href="#refuses">See what it refuses to do</a>
     </div>
-    <div class="with" aria-label="Works with Apple Health and Apple Watch"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6" width="11" height="12" rx="3.2"/><path d="M9 6V3.5h6V6M9 18v2.5h6V18M18 10.5h1.2"/></svg>Apple Watch</span></div>
-    <div class="strip" aria-label="A week of check-ins: seven squares, darker is less pain, brighter is more, one is a day with nothing logged">
+    <div class="with" aria-label="Works with Apple Health and Apple Watch">
+      <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span>
+      <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6" width="11" height="12" rx="3.2"/><path d="M9 6V3.5h6V6M9 18v2.5h6V18M18 10.5h1.2"/></svg>Apple Watch</span>
+    </div>
+    <div class="strip" aria-label="A week of check-ins as squares. Darker is less pain, brighter is more. One day has nothing logged.">
       <div class="d"><i class="c" style="background:#0f2447"></i><span class="l">S</span></div>
       <div class="d"><i class="c" style="background:#152C52"></i><span class="l">M</span></div>
       <div class="d"><i class="c" style="background:#0A84FF"></i><span class="l">T</span></div>
@@ -236,27 +238,25 @@
       <div class="d"><i class="c" style="background:#5FBEFF"></i><span class="l">F</span></div>
       <div class="d"><i class="c" style="background:#1a55a8"></i><span class="l">S</span></div>
     </div>
-    <p class="fine" style="margin-top:14px">Darker is less. Brighter is more. The gap stays a gap. Nothing is filled in for a day you didn't log.</p>
+    <p class="fine" style="margin-top:14px">Darker is less. Brighter is more. A gap stays a gap.</p>
   </section>
 
   <section id="why">
-    <h2>Pain feels random because memory is the wrong instrument.</h2>
-    <p class="lede measure">Memory keeps the worst day and the latest one and loses the rest. It cannot tell you whether this month is worse than last, and it cannot explain the last three months to anyone in twelve minutes. A record can. Pattern is that record, with three things it does for you.</p>
-    <div class="grid3" style="margin-top:44px">
+    <div class="grid3">
       <div class="leg">
         <div class="eyebrow">Understand</div>
         <h3>See your own days.</h3>
-        <p class="muted">Ninety squares. Which end of your own range a day sat in. Where it hurt, the words you used, whether mornings really are worse. Your days shown back without memory's editing.</p>
+        <p class="muted">Ninety squares. Where it hurt. Which words you used.</p>
       </div>
       <div class="leg">
         <div class="eyebrow">Manage</div>
         <h3>Test what you suspect.</h3>
-        <p class="muted">Name one thing. Pattern asks about it the same way every day, alongside one thing you didn't suspect, so the answer is checkable rather than a hunch. Sleep and movement arrive from Apple Health without being asked for.</p>
+        <p class="muted">One question, asked the same way every day. Checkable, not a hunch.</p>
       </div>
       <div class="leg">
         <div class="eyebrow">Explain</div>
         <h3>Hand over one page.</h3>
-        <p class="muted">The same record becomes a summary a clinician reads in thirty seconds, in the order they ask, with your own question at the top. The appointment stops being an improvisation.</p>
+        <p class="muted">In the order your doctor asks. Your own question at the top.</p>
       </div>
     </div>
   </section>
@@ -264,13 +264,10 @@
   <section id="checkin">
     <div class="grid2">
       <div>
-        <div class="eyebrow">The check-in</div>
-        <h2>One number. That's the whole check-in.</h2>
-        <p class="muted">How intense is your pain right now, zero to ten. Move the slider, tap Log it, done. Pain is the only mandatory answer and a pain-only entry is never called incomplete, anywhere.</p>
-        <p class="muted">Where it hurts, how it feels and what moved it are offered, never demanded, asked at most once a day, and never more than three screens deep. A morning question is asked in the morning. An evening question waits for the evening. A question outside its window isn't asked at all, because an answer given at the wrong time is worse than a gap.</p>
-        <p class="caveat">Nothing rewards opening the app. No streaks, no rings, no percentages. The record changes only when you add to it.</p>
+        <h2>One number.<br>That’s the check-in.</h2>
+        <p class="lede muted">Everything else is optional. Never more than three screens. Nothing rewards opening the app.</p>
       </div>
-      <div class="phone" aria-label="The pain step: How intense is your pain right now? A blue square, the number 6, Moderate, a slider, and two buttons: Add details and Log it">
+      <div class="phone" aria-label="The pain step: a blue square, the number 6, Moderate, a slider, and two buttons">
         <div class="bar"><span>✕</span>Check-in<span>›</span></div>
         <div class="prog" aria-hidden="true"><i></i><i></i><i></i></div>
         <p class="q">How intense is your pain right now?</p>
@@ -286,17 +283,15 @@
 
   <section id="watch">
     <div class="grid2">
-      <div class="watch" aria-label="The Apple Watch app: a bright blue square with the number 6, the word Moderate, and a check button">
+      <div class="watch" aria-label="The Apple Watch app: a blue square with the number 6 and a check button">
         <div class="sq">6</div>
         <div class="cap">Moderate</div>
         <div class="check" aria-hidden="true">✓</div>
       </div>
       <div>
         <div class="with inline"><span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6" width="11" height="12" rx="3.2"/><path d="M9 6V3.5h6V6M9 18v2.5h6V18M18 10.5h1.2"/></svg>Apple Watch</span></div>
-        <h2>From your wrist, without your phone.</h2>
-        <p class="muted">A complication on the face opens the check-in. Turn the crown, or tap the square's halves if turning hurts your hands. When the value has been still for a beat, a check appears. Tap it, and you have three seconds to take it back.</p>
-        <p class="muted">The watch records the number only. Everything else is what the phone is for, and a 40mm screen is the strongest argument that principle will ever get.</p>
-        <p class="caveat">The watch never writes the record. It hands the number to your iPhone, which writes it through the same path as every other check-in, the next time Pattern opens. The watch says so, on its own screen.</p>
+        <h2>From your wrist.<br>Phone in your pocket.</h2>
+        <p class="lede muted">Turn the crown, or tap. Three seconds to undo. The number only.</p>
       </div>
     </div>
   </section>
@@ -305,56 +300,52 @@
     <div class="grid2">
       <div>
         <div class="with inline"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span></div>
-        <h2>Sleep and movement, beside the number.</h2>
-        <p class="muted">Connect the categories you choose. Last night's sleep, yesterday's steps, a workout, time upright: each sits on the day it belongs to, next to the pain you recorded. Read-only. Never written back. Never sent anywhere.</p>
-        <p class="muted">A comparison is drawn only when it is lawful: mornings against the night before, evenings against the hours before the check-in, split at your own lowest and highest third. It needs fourteen paired days, five in each group, and a point and a half of difference before it says anything. Then it says "possible", with the numbers, and the sentence that it is not proof of cause.</p>
-        <p class="caveat">If a pattern stops holding as more days arrive, Pattern says that too. Watching a pattern fade is as informative as watching one appear.</p>
+        <h2>Sleep and movement,<br>beside the number.</h2>
+        <p class="lede muted">Read-only. Stays on your phone. A comparison appears only when it holds, with its sample size. Or not at all.</p>
       </div>
       <div>
-        <div class="tiles" aria-label="Three Apple Health tiles beside a day: 6 hours 40 minutes asleep, 8,210 steps, a 45-minute workout">
-          <div class="tile"><div class="k">Asleep, night before</div><div class="v">6h 40m</div><div class="s">1h less than usual</div></div>
+        <div class="tiles" aria-label="Three Apple Health tiles: 6 hours 40 minutes asleep, 8,210 steps, a 45-minute workout">
+          <div class="tile"><div class="k">Asleep</div><div class="v">6h 40m</div><div class="s">1h less than usual</div></div>
           <div class="tile"><div class="k">Steps</div><div class="v">8,210</div><div class="s">&nbsp;</div></div>
           <div class="tile"><div class="k">Workout</div><div class="v">45 min</div><div class="s">&nbsp;</div></div>
         </div>
-        <div class="cmp" aria-label="A possible association: sleep may be worth watching. Morning pain averaged 1.8 points higher after shorter-sleep nights than after longer-sleep ones, based on 9 shorter-sleep and 7 longer-sleep nights">
+        <div class="cmp" aria-label="A possible association: sleep may be worth watching, based on 9 shorter-sleep and 7 longer-sleep nights">
           <div class="t">Sleep may be worth watching</div>
-          <div class="b">Your morning pain averaged 1.8 points higher after your shorter-sleep nights than after your longer-sleep ones.</div>
-          <div class="row"><span>Shorter-sleep nights · avg 5h 50m</span><span>9 nights</span><div class="bar"><i style="width:62%;background:#3d9dff"></i></div></div>
-          <div class="row"><span>Longer-sleep nights · avg 7h 30m</span><span>7 nights</span><div class="bar"><i style="width:44%;background:#1c4f9a"></i></div></div>
-          <p class="fine" style="margin:12px 0 0">Each morning is compared with the night before it. This is an association in what you recorded, not proof of what caused what.</p>
+          <div class="b">Morning pain averaged 1.8 points higher after shorter-sleep nights.</div>
+          <div class="row"><span>Shorter sleep · 5h 50m</span><span>9 nights</span><div class="bar"><i style="width:62%;background:#3d9dff"></i></div></div>
+          <div class="row"><span>Longer sleep · 7h 30m</span><span>7 nights</span><div class="bar"><i style="width:44%;background:#1c4f9a"></i></div></div>
+          <p class="fine" style="margin:12px 0 0">An association, not a cause.</p>
         </div>
       </div>
     </div>
   </section>
 
   <section id="refuses">
-    <div class="eyebrow">The point</div>
-    <h2>A pain tracker that refuses to tell you what's causing your pain.</h2>
-    <p class="lede measure">Every item below would raise engagement. Each is refused, and the refusals are the product.</p>
-    <ul class="refuse" style="margin-top:36px">
-      <li><b>No streaks, rings or badges.</b><span>A person in a flare who feels judged deletes the app. A missed day is just a missed day.</span></li>
-      <li><b>No invented scores.</b><span>The number is what you entered. No composite, no "wellness index", no rolling average that improves by the calendar.</span></li>
-      <li><b>No causes before the evidence.</b><span>Nothing is called a trigger. An association shows with its sample size or not at all, and never as a list.</span></li>
-      <li><b>No week-over-week.</b><span>No arrows, no "down 12%". Nothing on any screen differs between two opens of the same day except what you added.</span></li>
-      <li><b>No medication advice. Ever.</b><span>Medication is recorded because leaving it out would be dishonest. It is never analysed.</span></li>
-      <li><b>No account, no upload.</b><span>Nothing you tell it about your body leaves the phone. There is no server that could receive it.</span></li>
-      <li><b>No colour without meaning.</b><span>A hue on any screen carries a pain score. Buttons are white. Counts are white. Nothing is tinted for decoration.</span></li>
-      <li><b>No AI.</b><span>Every number you see comes from deterministic code with its thresholds in one file, argued in comments you can read.</span></li>
+    <h2>What it refuses to do.</h2>
+    <ul class="refuse" style="margin-top:28px">
+      <li><b>No streaks.</b><span>A missed day is just a missed day.</span></li>
+      <li><b>No invented scores.</b><span>The number is what you entered.</span></li>
+      <li><b>No causes before the evidence.</b><span>Nothing is called a trigger.</span></li>
+      <li><b>No week-over-week.</b><span>Nothing changes unless you add to it.</span></li>
+      <li><b>No medication advice.</b><span>Ever.</span></li>
+      <li><b>No account. No upload.</b><span>Nothing about your body leaves the phone.</span></li>
+      <li><b>No decorative colour.</b><span>A hue means a pain score.</span></li>
+      <li><b>No AI.</b><span>Deterministic code, thresholds in one file.</span></li>
     </ul>
   </section>
 
   <section id="page">
     <div class="grid2">
-      <div class="page" aria-label="The clinician page: a white PDF with background, the patient's question, key metrics and a pain-over-time chart">
+      <div class="page" aria-label="The clinician page: background, the patient's question, key metrics and a pain-over-time chart">
         <div class="brand">Pattern</div>
         <div><b>Self-recorded pain summary</b></div>
-        <div class="g">4 Aug – 5 Sep 2026 · 29 logged days · 61 check-ins · Pain scale 0–10</div>
+        <div class="g">4 Aug – 5 Sep 2026 · 29 logged days · 61 check-ins</div>
         <h4>Background</h4>
         <div><b>Diagnoses</b> &nbsp;Fibromyalgia, 2024 · <b>Medications</b> &nbsp;Naproxen 500mg twice daily</div>
         <h4>What the patient wants to understand</h4>
-        <div class="g">"Why some mornings are so much worse than others."</div>
+        <div class="g">“Why some mornings are so much worse than others.”</div>
         <h4>Key metrics</h4>
-        <div class="m"><div><b>4.6/10</b><span class="g">Average pain</span></div><div><b>2/10</b><span class="g">Lowest day</span></div><div><b>8/10</b><span class="g">Highest day</span></div></div>
+        <div class="m"><div><b>4.6/10</b><span class="g">Average</span></div><div><b>2/10</b><span class="g">Lowest day</span></div><div><b>8/10</b><span class="g">Highest day</span></div></div>
         <h4>Pain over time</h4>
         <svg viewBox="0 0 300 70" role="img" aria-label="Daily average pain over a month, with gaps on unlogged days">
           <rect x="0" y="45" width="300" height="25" fill="#F0F6EF"/>
@@ -364,49 +355,41 @@
           <polyline points="244,42 264,46 284,38" fill="none" stroke="#0A84FF" stroke-width="2"/>
           <g fill="#0A84FF"><circle cx="4" cy="44" r="2.5"/><circle cx="24" cy="40" r="2.5"/><circle cx="44" cy="32" r="2.5"/><circle cx="64" cy="36" r="2.5"/><circle cx="104" cy="20" r="2.5"/><circle cx="124" cy="26" r="2.5"/><circle cx="144" cy="18" r="2.5"/><circle cx="164" cy="30" r="2.5"/><circle cx="184" cy="34" r="2.5"/><circle cx="204" cy="28" r="2.5"/><circle cx="244" cy="42" r="2.5"/><circle cx="264" cy="46" r="2.5"/><circle cx="284" cy="38" r="2.5"/></g>
         </svg>
-        <div class="g">Days without check-ins are gaps. Lower is better; the shaded band is the patient's own easier third.</div>
       </div>
       <div>
-        <div class="eyebrow">The clinician page</div>
-        <h2>One page. Thirty seconds. In the order they ask.</h2>
-        <p class="muted">Severity, site, timing, character, what makes it better or worse, what was tried and how it went. Your background and your own question at the top, in your words. Sample sizes beside every figure. Gaps left as gaps.</p>
-        <p class="muted">Made on the phone, handed to the share sheet, sent only where you send it. It says on its face that it is self-recorded and not a diagnosis.</p>
-        <p class="caveat">Two days before an appointment you've told it about, Pattern offers the page on the home screen. That is the one thing it will ever bring up on its own.</p>
+        <h2>One page.<br>Thirty seconds.</h2>
+        <p class="lede muted">In the order your doctor asks. Offered two days before the appointment.</p>
       </div>
     </div>
   </section>
 
   <section id="hood">
-    <div class="eyebrow">Under the hood</div>
-    <h2>For people who read the spec.</h2>
+    <h2>Under the hood.</h2>
     <div class="spec" style="margin-top:28px">
-      <div><span>Storage</span><span>Local SQLite on the phone. No account, no login, no sync, no server. Deleting the app deletes the record.</span></div>
-      <div><span>Data model</span><span>Every optional answer has three states that survive storage, backup and migration: never asked, asked and skipped, answered. A skip is never read as a negative.</span></div>
-      <div><span>Timestamps</span><span>Local minute, UTC instant and offset at capture. Never backfilled. A check-in recalled later is marked as such forever.</span></div>
-      <div><span>Thresholds</span><span>One file, named constants, each with the arithmetic that argues for it. Eight observations per group, 1.5 points, direction stable across both halves of the record.</span></div>
-      <div><span>Engine</span><span>Deterministic and local. Outer terciles of your own distribution, middle third discarded. Four verdicts: insufficient, observation, possible, fading. Runs dark on the focus questions until a noise harness passes.</span></div>
-      <div><span>Apple Health</span><span>Read-only, per-category consent through Apple's own sheet. Sleep merged to its asleep-union and filed under the morning it ends on. Steps from the one source that saw the most, never summed across devices. Excluded from backups.</span></div>
-      <div><span>Apple Watch</span><span>WatchConnectivity user-info transfers, queued through reboots. The phone is the only writer. The complication shows no data.</span></div>
-      <div><span>Widgets</span><span>Lock screen (circular, rectangular, inline) and home screen (small, medium, large). Only colours and the number you entered. Discreet on the lock screen unless you turn the number on. Rolls over at midnight.</span></div>
-      <div><span>Backup</span><span>JSON export and restore, validated fully before anything is touched, with replace or merge. Row ids are not trusted across devices; merges deduplicate on content.</span></div>
-      <div><span>Analytics</span><span>Counts only, to Aptabase in the EU, under a random id linked to nothing: that a check-in happened and how long it took, never what it said. Event names from a closed list, values capped at 24 characters. Off in Profile.</span></div>
-      <div><span>Stack</span><span>Expo SDK 57, React Native, TypeScript. SwiftUI for the watch and the complication. Updates over the air; native targets through TestFlight.</span></div>
+      <div><span>Storage</span><span>Local SQLite. No account, no server.</span></div>
+      <div><span>Answers</span><span>Three states: never asked, skipped, answered.</span></div>
+      <div><span>Thresholds</span><span>Named, in one file, with the arithmetic.</span></div>
+      <div><span>Engine</span><span>Deterministic, on device. Your own terciles.</span></div>
+      <div><span>Health</span><span>Read-only. Per-category consent. Not in backups.</span></div>
+      <div><span>Watch</span><span>The phone is the only writer.</span></div>
+      <div><span>Analytics</span><span>Counts only. EU. Off in Profile.</span></div>
+      <div><span>Stack</span><span>Expo · React Native · SwiftUI</span></div>
     </div>
   </section>
 
   <section id="beta">
-    <h2>In beta, on TestFlight.</h2>
-    <p class="lede measure">iPhone required. Apple Watch and Apple Health optional. English only for now. If you have persistent pain and an opinion about tracking apps, I would like to hear both.</p>
+    <h2>In beta.</h2>
+    <p class="lede muted measure">iPhone required. Watch and Health optional.</p>
     <div class="cta">
-      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20beta">Ask for a TestFlight invite</a>
+      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20beta">Ask for an invite</a>
     </div>
-    <p class="fine" style="margin-top:18px">Pattern is a record-keeping tool, not a medical device. It does not diagnose, treat or give medical advice. Sudden severe pain, chest pain, a serious injury, or pain with numbness, weakness, fever or loss of bladder or bowel control needs medical attention now, not a check-in.</p>
+    <p class="fine" style="margin-top:22px">Not a medical device. Sudden severe pain, chest pain, a serious injury, or pain with numbness, weakness, fever or loss of bladder or bowel control needs a doctor now, not a check-in.</p>
   </section>
 </div>
 
 <footer>
   <div class="wrap row">
-    <span>Pattern is made by one person, who has the pain too.</span>
-    <span><a href="mailto:itaiagami@gmail.com" style="color:inherit">Privacy and contact</a></span>
+    <span>Made by one person, who has the pain too.</span>
+    <span><a href="mailto:itaiagami@gmail.com" style="color:inherit">Privacy · Contact</a></span>
   </div>
 </footer>
