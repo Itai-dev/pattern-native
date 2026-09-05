@@ -699,26 +699,9 @@ export default function App() {
               {tab === 'today' ? fmtDay(todayISO()) : 'Patterns'}
             </Text>
             <View style={styles.topActions}>
-              {tab === 'today' && (
-                <Pressable
-                  onPress={() => setSheet('checkin')}
-                  style={({ pressed }) => [
-                    styles.logPill, pressed && { opacity: 0.85 },
-                  ]}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Check in"
-                  accessibilityHint="Records how your pain is right now"
-                >
-                  <Text
-                    style={styles.logPillText}
-                    allowFontScaling maxFontSizeMultiplier={1.2}
-                    numberOfLines={1}
-                  >
-                    Log
-                  </Text>
-                </Pressable>
-              )}
+              {/* the Log pill that lived here is gone: the floating bar
+                  carries the same door in thumb reach, and two buttons
+                  for one action on one screen was one too many */}
               {tab === 'trends' && (
                 <Pressable
                   onPress={shareTrends}
@@ -788,6 +771,15 @@ export default function App() {
                 onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
+                healthOfferable={health.available() && !healthRequestedOn()}
+                /* the Health sheet is nested in the Profile sheet, so the
+                   two open together — the same route the Background
+                   offer takes */
+                onOpenHealth={() => {
+                  track('health_setup_opened');
+                  setProfile(true);
+                  setHealthSheet(true);
+                }}
               />
             </ScrollView>
 
@@ -1226,14 +1218,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logPill: {
-    minHeight: 38, borderRadius: 19, borderCurve: 'continuous', paddingHorizontal: 18,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: color.textPrimary,
-  },
-  logPillText: {
-    color: '#000000', fontSize: font.body, fontWeight: '700', letterSpacing: -0.2,
-  },
   profileBtnBusy: { opacity: 0.5 },
   profileBtn: {
     width: 44, height: 44, borderRadius: 22, borderCurve: 'continuous',

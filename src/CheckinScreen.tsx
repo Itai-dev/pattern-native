@@ -6,23 +6,17 @@
  *   1. How intense?      — slider; the shape moves with the finger, the
  *                          word snaps. The moment is WRITTEN when this
  *                          step ends, so nothing later can lose it, and
- *                          the screen then offers Done as plainly as it
- *                          offers Add context.
- *   2. Today's questions — the active protocol's two factors, and how
- *                          much pain is getting in the way. Only the
- *                          ones this moment can honestly answer, only
- *                          once a day, each one skippable.
- *   3. What moved it?    — the chips: what made today harder, and what
- *                          helped. One grid, a segmented control to say
- *                          which side you mean.
- *   4. How does it feel? — quality words (SOCRATES "Character", the answer
- *                          every clinician asks for).
- *   5. Where?            — your usual places as chips, one tap each, and
+ *                          the screen then offers Log it as plainly as
+ *                          it offers Add details.
+ *   2. Where?            — your usual places as chips, one tap each, and
  *                          the body map behind "Show more" for anything
  *                          sided or specific.
- *   6. Logged.           — the day you just made, arriving rather than
- *                          appearing, and then breathing while you look
- *                          at it. Out on one tap.
+ *   3. About today       — one scrollable screen, only when something is
+ *                          due: the focus's questions (only the ones
+ *                          this moment can honestly answer), how it
+ *                          feels (SOCRATES "Character", once a day), and
+ *                          what moved it (the chips, evenings only).
+ *   4. Logged.           — a check mark, and out.
  *
  * PAIN IS THE ONLY MANDATORY ANSWER, and after step 1 the flow says so
  * out loud. Steps 2–4 are offered, never demanded, and a pain-only entry
@@ -112,7 +106,16 @@ function interferenceDue(todayIso: string): boolean {
  *  size, which was drawn for a take-your-time screen and reads at it */
 const MAP_H = 400;
 
-type Step = 'pain' | 'questions' | 'impact' | 'feel' | 'where' | 'done';
+/* THREE SCREENS, NEVER MORE. Pain, where, and "About today" — one
+   scrollable screen holding whatever the day still asks: the period's
+   questions, how it feels, what moved it. Each of those used to be its
+   own screen, so a first check-in with a focus running was five screens
+   deep; the count was the burden, not the questions. Everything on the
+   third screen is optional, asked at most once a day, and each item
+   keeps its own time window — sleep still only in the morning, the
+   chips still only in the evening — so the screen is short when little
+   is due and absent when nothing is. */
+type Step = 'pain' | 'where' | 'today' | 'done';
 
 /** which side of the chip grid is showing */
 type Side = 'worse' | 'better';
@@ -349,17 +352,12 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
      less to a comparison than a place. The last two steps are both
      optional either way, so the only thing the order decides is which
      one a person answers before they stop. */
-  const order: Step[] = editing
-    ? ['pain', 'where', 'feel']
-    : retro
-      ? ['pain', 'where']
-      : ['pain', 'questions', 'impact', 'where', 'feel'];
-  const stepsShown = order.filter((s) => (
-    s === 'questions' ? askIds.length > 0
-      : s === 'impact' ? askImpact
-        : s === 'feel' ? askFeel
-          : true
-  ));
+  /* the third screen exists only when something is due on it. A retro
+     check-in never has one: the day-scoped questions stay in the
+     present. An edit has one only for the moment's own words. */
+  const askToday = askIds.length > 0 || askImpact || askFeel;
+  const order: Step[] = retro && !editing ? ['pain', 'where'] : ['pain', 'where', 'today'];
+  const stepsShown = order.filter((s) => s !== 'today' || askToday);
   const isLast = stepsShown.indexOf(step) === stepsShown.length - 1;
 
   const back = () => {
@@ -377,7 +375,8 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
      blank form rather than declining. Same tap, same stored skip — but
      now the button admits it, which is the difference between an
      optional question and one the user could not get past. */
-  const anyAnswered = askIds.some((id) => answers[id] !== undefined);
+  const anyAnswered = askIds.some((id) => answers[id] !== undefined)
+    || quality.length > 0 || worse.length > 0 || better.length > 0;
 
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
@@ -410,7 +409,9 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
 
   const finish = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    counted(stepsShown.length > 1);
+    /* "context added" means something beyond the number was actually
+       chosen, not that a screen was walked through */
+    counted(loc.length > 0 || anyAnswered);
     setStep('done');
   };
 
@@ -461,15 +462,21 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
     /* which optional steps get walked and which get skipped past — the
        step's NAME, never what was chosen on it */
     track('checkin_step_left', { step });
-    if (step === 'questions') persistAnswers();
-    else if (step === 'impact') {
-      /* both lists are written even when empty — "I looked and nothing
-         applied" is an answer, and an ordinary day is exactly the kind
-         this record is worst at keeping */
-      db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
-      db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
-    } else if (step === 'where') persist({ locAsked: true });
-    else persist({ qAsked: true });
+    if (step === 'where') persist({ locAsked: true });
+    else if (step === 'today') {
+      /* each part of the screen writes what it owns, and only the parts
+         that were actually put — a question not on screen today is not
+         a question the user declined */
+      if (askIds.length) persistAnswers();
+      if (askImpact) {
+        /* both lists are written even when empty — "I looked and
+           nothing applied" is an answer, and an ordinary day is exactly
+           the kind this record is worst at keeping */
+        db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
+        db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
+      }
+      if (askFeel) persist({ qAsked: true });
+    }
     if (isLast) finish(); else setStep(nextAfter(step));
   };
 
@@ -483,7 +490,7 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
      save stays on the button alone: finishing a day's record should
      never be a flick. */
   const swipeEnabled = step !== 'pain'
-    && !(step === 'questions'
+    && !(step === 'today'
       && askIds.some((id) => (getMetric(id) || { type: '' }).type === 'numeric'));
   const swipeNext = () => {
     /* the last step is not swipeable: finishing a day's record should
@@ -704,14 +711,10 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
      check-in is a moment, and the day is their average */
   const title = step === 'pain'
     ? (editing ? 'How intense was\nyour pain?' : 'How intense is your pain\nright now?')
-    /* "A couple of questions" over a single question is a small lie that
-       makes the whole screen read as broken — the user looks for the one
-       that failed to load. The heading counts what is actually there. */
-    : step === 'questions'
-      ? (askIds.length === 1 ? 'One question\nabout today' : 'A couple of questions\nabout today')
-      : step === 'impact' ? 'What moved it today?'
-        : step === 'feel' ? 'How does it feel?'
-          : 'Where in your body?';
+    : step === 'today'
+      /* an edit's third screen holds only the moment's own words */
+      ? (editing ? 'How does it feel?' : 'About today')
+      : 'Where in your body?';
 
   /* writing the past must never look like writing the present — and
      editing must never look like a new entry */
@@ -719,12 +722,10 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
     ? 'Editing the ' + fmtClock(edit!.h) + ' check-in' + (retro ? ' on ' + fmtDay(today) : '')
     : retro ? 'For ' + fmtDay(today) + ', from memory' : null;
 
-  const hint = step === 'impact'
-    ? 'Your read on the day — Pattern records it, it doesn’t test it'
-    : step === 'questions' ? 'Optional — Skip if it doesn’t fit today'
-    : step === 'feel' ? 'Optional — tap any that fit'
-      : step === 'where' ? 'Optional — only where it hurts today'
-        : null;
+  const hint = step === 'today'
+    ? (editing ? 'Optional — tap any that fit' : 'Optional — answer what fits, skip the rest')
+    : step === 'where' ? 'Optional — only where it hurts today'
+      : null;
 
   /* collapsed chips: the six you use most, plus anything already selected;
      "Show more" reveals the rest */
@@ -855,7 +856,11 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
             </>
           )}
         </View>
-      ) : step === 'questions' ? (
+      ) : step === 'today' ? (
+        /* the one scrollable screen: the period's questions first (they
+           are the ones with something to compare against), then the
+           words for the pain, then the day's attributions. Each block
+           appears only when it is due today. */
         <ScrollView
           contentContainerStyle={styles.qWrap}
           showsVerticalScrollIndicator={false}
@@ -867,10 +872,35 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
             if (!m) return null;
             return m.type === 'numeric' ? numericRow(m) : ordinalRow(m);
           })}
-        </ScrollView>
-      ) : step === 'impact' ? (
-        <ScrollView contentContainerStyle={styles.impactWrap} showsVerticalScrollIndicator={false}>
-          <View style={styles.sideSwitch}>
+
+          {askFeel && (
+            <View style={styles.todayBlock}>
+              {!editing && (
+                <Text style={styles.todayTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  How does it feel?
+                </Text>
+              )}
+              <View style={styles.chipCloud}>
+                {chipRow(visibleIds(ranked.q, quality), QUALITY_NAMES, quality, setQuality)}
+              </View>
+              {!showAllChips && (
+                <Press onPress={() => setShowAllChips(true)} style={styles.more} pressOpacity={0.7}
+                  accessibilityRole="button" accessibilityLabel="Show every word">
+                  <Text style={styles.moreText}>Show more ›</Text>
+                </Press>
+              )}
+            </View>
+          )}
+
+          {askImpact && (
+            <View style={styles.todayBlock}>
+              <Text style={styles.todayTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                What moved it today?
+              </Text>
+              <Text style={styles.todayHint} allowFontScaling maxFontSizeMultiplier={1.4}>
+                Your read on the day — Pattern records it, it doesn’t test it.
+              </Text>
+              <View style={styles.sideSwitch}>
             {(['worse', 'better'] as Side[]).map((sd) => {
               const on = side === sd;
               const n = (sd === 'worse' ? worse : better).length;
@@ -893,16 +923,18 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
               );
             })}
           </View>
-          <View style={styles.chipGrid}>
-            {chipRow(
-              IMPACT_IDS,
-              IMPACT_LABELS,
-              side === 'worse' ? worse : better,
-              side === 'worse' ? setWorse : setBetter
-            )}
-          </View>
+              <View style={styles.chipGrid}>
+                {chipRow(
+                  IMPACT_IDS,
+                  IMPACT_LABELS,
+                  side === 'worse' ? worse : better,
+                  side === 'worse' ? setWorse : setBetter
+                )}
+              </View>
+            </View>
+          )}
         </ScrollView>
-      ) : step === 'where' ? (
+      ) : (
         /* The main places, your usual ones first — the daily answer in
            a couple of taps. "Show more" ADDS the specific sided
            vocabulary below in anatomical sections; the main chips stay
@@ -966,15 +998,6 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
                 containerHeight={MAP_H}
               />
             </View>
-          )}
-        </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={styles.chipWrap} showsVerticalScrollIndicator={false}>
-          {chipRow(visibleIds(ranked.q, quality), QUALITY_NAMES, quality, setQuality)}
-          {!showAllChips && (
-            <Press onPress={() => setShowAllChips(true)} style={styles.more} pressOpacity={0.7}>
-              <Text style={styles.moreText}>Show more ›</Text>
-            </Press>
           )}
         </ScrollView>
       )}
@@ -1055,9 +1078,11 @@ export default function CheckinScreen({ now, dateIso, edit, onDone, onClose }: C
                   you left the pain step, and every step since has been
                   editing it. Nothing is pending here, so a Save button
                   would be describing work that already happened. */}
-              {isLast ? 'Done'
-                : step === 'questions' && !anyAnswered ? 'Skip'
-                  : 'Continue'}
+              {/* and a third screen left untouched says Skip, because that
+                  is what the tap does — same door as Done, admitted */}
+              {isLast
+                ? (step === 'today' && !anyAnswered ? 'Skip' : 'Done')
+                : 'Continue'}
             </Text>
           </Press>
         )}
@@ -1195,7 +1220,14 @@ const styles = StyleSheet.create({
   chipCloud: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9, justifyContent: 'center',
   },
-  impactWrap: { paddingVertical: 20 },
+  /* the third screen's blocks: a titled section each, ruled off from
+     the questions above so three optional things read as three */
+  todayBlock: {
+    paddingTop: 22, borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.borderDivider, gap: 10,
+  },
+  todayTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22 },
+  todayHint: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: -4 },
   chipGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 9,
     justifyContent: 'center', marginTop: 20,

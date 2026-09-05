@@ -56,8 +56,9 @@ import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
    onboarding screens was the first thing every tester dismissed. The
    widget waits longest, because a lock screen is worth explaining only
    to someone who has come back. */
+const HEALTH_OFFER_AFTER_DAYS = 2;
 const BACKGROUND_OFFER_AFTER_DAYS = 3;
-const WIDGET_OFFER_AFTER_DAYS = 3;
+const WIDGET_OFFER_AFTER_DAYS = 5;
 import {
   dayShape, formatCheckins, formatScore, painColor, painLabel, speakScore,
 } from './painScale';
@@ -153,11 +154,16 @@ export interface HomeScreenProps {
   onOpenBackground: () => void;
   /** Profile, where the reminder times live — for "choose another time" */
   onOpenReminders: () => void;
+  /** the binary can read Health and it has not been set up — the only
+   *  state in which offering it is not a broken promise */
+  healthOfferable: boolean;
+  /** the Health setup sheet */
+  onOpenHealth: () => void;
 }
 
 export default function HomeScreen({
   entries, protocol, onLog, onOpenDay, onAddNote, onOpenToday, onFocus, onKeepFocus,
-  onTestFactor, onAddEvent, onOpenBackground, onOpenReminders,
+  onTestFactor, onAddEvent, onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -244,9 +250,24 @@ export default function HomeScreen({
   );
   const offerWidget = !widgetDismissed && loggedDays >= WIDGET_OFFER_AFTER_DAYS;
 
+  /* Apple Health, offered once a record exists to sit beside. It left
+     onboarding with the other day-zero asks: a permission request
+     before the first check-in was friction wearing a privacy costume,
+     and a card on day two arrives when there is a night's sleep to
+     show next to a morning's number. */
+  const [healthDismissed, setHealthDismissed] = useState(
+    () => db.getPref<boolean>('health.offer.dismissed', false)
+  );
+  const offerHealth = healthOfferable && !healthDismissed && loggedDays >= HEALTH_OFFER_AFTER_DAYS;
+  const dismissHealth = () => {
+    db.setPref('health.offer.dismissed', true);
+    setHealthDismissed(true);
+  };
+
   /* one at a time, in the order they pay back */
-  const offer: null | 'reminder' | 'background' | 'widget' = offerReminder
-    ? 'reminder' : offerBackground ? 'background' : offerWidget ? 'widget' : null;
+  const offer: null | 'reminder' | 'health' | 'background' | 'widget' = offerReminder
+    ? 'reminder' : offerHealth ? 'health' : offerBackground ? 'background'
+      : offerWidget ? 'widget' : null;
 
   /* the day's shape, from the two numbers on screen: the first check-in
      of today against the latest. Nothing is stored, nothing is derived
@@ -557,6 +578,45 @@ export default function HomeScreen({
               hitSlop={6}
               accessibilityRole="button"
               accessibilityLabel="Not now — reminders stay in Profile"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Not now
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
+      {/* ── Apple Health, offered once ────────────────────── */}
+      {offer === 'health' && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Some of this can arrive on its own
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Connect Apple Health, and last night’s sleep and today’s activity
+            sit beside your check-ins without being asked for. You choose what
+            Pattern can read, nothing is written back, and it stays on this
+            iPhone.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={() => { dismissHealth(); onOpenHealth(); }}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Connect Apple Health"
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Connect Apple Health
+              </Text>
+            </Press>
+            <Press
+              onPress={dismissHealth}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Not now — Apple Health stays in Profile"
             >
               <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Not now
