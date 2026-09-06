@@ -24,8 +24,8 @@ import {
   CONTEXT_SLEEP_USUAL_DELTA_MIN, CONTEXT_STAND_USUAL_DELTA_MIN,
   CONTEXT_STEPS_USUAL_RATIO, CONTEXT_USUAL_MIN_DAYS, CONTEXT_USUAL_WINDOW_DAYS,
 } from '../thresholds';
-import { addDays } from '../model';
-import { HealthDay } from './types';
+import { addDays, fmtTime } from '../model';
+import { HealthDay, NormalizedDose } from './types';
 
 function fmtDuration(min: number): string {
   const h = Math.floor(min / 60), m = Math.round(min % 60);
@@ -186,6 +186,26 @@ export function healthDayTiles(
   return out;
 }
 
+/** one dose as a person reads it: the name, how much when Health had
+ *  it, and "skipped" said plainly. The TIME is left to the caller — a
+ *  screen writes it the phone's way, the record the fixed way. */
+export function doseText(d: NormalizedDose): string {
+  let t = d.med;
+  if (d.qty != null) {
+    const q = Math.round(d.qty * 100) / 100;
+    t += ' ' + q + (d.unit ? ' ' + d.unit : '');
+  }
+  if (d.status === 'skipped') t += ' — skipped';
+  return t;
+}
+
+/** the day's doses, in time order, for the day screen's own list —
+ *  taken and skipped both, because both are what the person logged */
+export function doseLines(day: HealthDay | null | undefined): { key: string; h: number; text: string }[] {
+  if (!day || !day.doses) return [];
+  return day.doses.map((d, i) => ({ key: 'dose.' + i, h: d.h, text: doseText(d) }));
+}
+
 /**
  * What Health already knows about a question the check-in is about to
  * ask — shown above the manual answer, never in place of it.
@@ -303,5 +323,9 @@ export function healthDayLines(
   if (day.hrvSDNN != null) {
     out.push({ key: 'hrv', text: 'HRV ' + Math.round(day.hrvSDNN) + ' ms' });
   }
+  /* doses, one line each, in the record's fixed clock form */
+  (day.doses || []).forEach((d, i) => {
+    out.push({ key: 'dose.' + i, text: doseText(d) + ' at ' + fmtTime(d.h) });
+  });
   return out;
 }

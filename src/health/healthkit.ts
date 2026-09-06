@@ -29,6 +29,10 @@
  *   queryCategorySamples('HKCategoryTypeIdentifierSleepAnalysis', …)
  *   queryWorkoutSamples({ filter, limit })      → proxies with uuid
  *   queryStateOfMindSamples({ filter, limit })  → iOS 18+; guarded
+ *   requestPerObjectReadAuthorization('HKUserAnnotatedMedicationTypeIdentifier')
+ *                                               → iOS 26+; Apple's own
+ *                                                 per-medication picker
+ *   queryMedicationEvents({ filter, limit })    → dose events; guarded
  * Values are read tolerantly (quantity ?? value, Date ?? ISO string):
  * one device pass on TestFlight is still required, and this file says
  * so rather than pretending a Windows build box can prove an iPhone.
@@ -36,8 +40,8 @@
 import { Platform } from 'react-native';
 import { addDays, iso } from '../model';
 import {
-  DayRawBundle, HealthCategory, HealthService, LocalClock, QuantitySample,
-  SleepSample, SleepStage, StateOfMindSample, WorkoutSample,
+  DayRawBundle, DoseSample, HealthCategory, HealthService, LocalClock,
+  QuantitySample, SleepSample, SleepStage, StateOfMindSample, WorkoutSample,
 } from './types';
 import { emptyBundle } from './mock';
 
@@ -50,6 +54,8 @@ type HK = {
   queryCategorySamples: (id: string, opts: unknown) => Promise<unknown[]>;
   queryWorkoutSamples: (opts: unknown) => Promise<unknown[]>;
   queryStateOfMindSamples?: (opts: unknown) => Promise<unknown[]>;
+  requestPerObjectReadAuthorization?: (id: string) => Promise<void>;
+  queryMedicationEvents?: (opts: unknown) => Promise<unknown[]>;
 };
 
 const LIB: HK | null = (() => {
@@ -86,12 +92,40 @@ const TYPES: Record<HealthCategory, string[]> = {
     'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
   ],
   mind: ['HKStateOfMindTypeIdentifier'],
+  /* medications are not a type on Apple's read sheet. They go through
+     per-object authorization — Apple's own picker, one medication at a
+     time — so there is nothing to list here; see requestAuthorization */
+  medications: [],
 };
+
+/** the per-object type the medication picker authorizes */
+const MEDICATION_TYPE = 'HKUserAnnotatedMedicationTypeIdentifier';
 
 /** does this OS/library actually offer State of Mind — iOS 18's type,
  *  absent from older stores and older library builds alike */
 function mindSupported(): boolean {
   return !!LIB && typeof LIB.queryStateOfMindSamples === 'function';
+}
+
+/** the medication log is iOS 26's; older phones have no such store,
+ *  and the library's query on them warns and returns nothing. Checked
+ *  on the OS version and the library's surface both, so an old phone
+ *  is never offered a row it cannot honour. */
+function medicationsSupported(): boolean {
+  if (!LIB || typeof LIB.queryMedicationEvents !== 'function'
+    || typeof LIB.requestPerObjectReadAuthorization !== 'function') return false;
+  const major = parseInt(String(Platform.Version), 10);
+  return isFinite(major) && major >= 26;
+}
+
+/** Health's dose log status → what the person did. Taken and skipped
+ *  are theirs; everything else (never interacted, snoozed, not logged,
+ *  no notification) is a reminder's state, not a person's act. The
+ *  bridge may hand the enum as its number or its name; both read. */
+function doseStatus(v: unknown): DoseSample['status'] {
+  if (v === 4 || v === 'taken') return 'taken';
+  if (v === 5 || v === 'skipped') return 'skipped';
+  return 'other';
 }
 
 /* ── tolerant readers — the store's Dates may arrive as Date objects
@@ -149,6 +183,13 @@ export class HealthKitService implements HealthService {
     try { return !!LIB && LIB.isHealthDataAvailable(); } catch { return false; }
   }
 
+  supports(category: HealthCategory): boolean {
+    if (!this.available()) return false;
+    if (category === 'mind') return mindSupported();
+    if (category === 'medications') return medicationsSupported();
+    return true;
+  }
+
   async requestAuthorization(categories: HealthCategory[]): Promise<void> {
     if (!LIB) throw new Error('HealthKit is not available on this device');
     const toRead: string[] = [];
@@ -156,8 +197,14 @@ export class HealthKitService implements HealthService {
       if (c === 'mind' && !mindSupported()) return; // older iOS: not offered, not requested
       TYPES[c].forEach((t) => toRead.push(t));
     });
-    if (!toRead.length) return;
-    await LIB.requestAuthorization({ toRead });
+    if (toRead.length) await LIB.requestAuthorization({ toRead });
+    /* medications: Apple's second sheet, the per-medication picker. Its
+       own try/catch, because a cancelled picker after a granted sleep
+       sheet must not unwind the whole setup — the failure mode is "no
+       dose data", which the pipeline already treats as absent. */
+    if (categories.indexOf('medications') >= 0 && medicationsSupported()) {
+      try { await LIB.requestPerObjectReadAuthorization!(MEDICATION_TYPE); } catch { /* absent */ }
+    }
   }
 
   /** raw samples for one local date. Every query is independent and
@@ -239,6 +286,29 @@ export class HealthKitService implements HealthService {
           return { ts: t, valence, kind: String(r.kind || 'momentaryEmotion') } as StateOfMindSample;
         }).filter((s): s is StateOfMindSample => s != null);
       } catch { /* state of mind stays empty */ }
+    }
+
+    if (categories.indexOf('medications') >= 0 && medicationsSupported()) {
+      try {
+        const rows = await LIB.queryMedicationEvents!(opts(dayStart, dayEnd));
+        out.doses = rows.map((s) => {
+          const r = s as Record<string, unknown>;
+          const t = ts(r.startDate);
+          const medId = typeof r.medicationConceptIdentifier === 'string'
+            ? r.medicationConceptIdentifier : null;
+          if (t == null || !medId) return null;
+          const med = typeof r.medicationDisplayText === 'string' && r.medicationDisplayText
+            ? r.medicationDisplayText : 'A medication';
+          const qty = num(r.doseQuantity);
+          const d: DoseSample = {
+            ts: t, medId, med, status: doseStatus(r.logStatus),
+            scheduled: r.scheduleType === 2 || r.scheduleType === 'schedule',
+          };
+          if (qty != null) d.qty = qty;
+          if (typeof r.unit === 'string' && r.unit) d.unit = r.unit;
+          return d;
+        }).filter((d): d is DoseSample => d != null);
+      } catch { /* doses stay empty — absent, not "none taken" */ }
     }
 
     return out;

@@ -39,7 +39,12 @@ export type HealthCategory =
   | 'movement'   // steps, distance, active energy
   | 'workouts'
   | 'heart'      // resting HR, HRV (SDNN) — imported, never analysed in v1
-  | 'mind';      // State of Mind — imported, never analysed in v1
+  | 'mind'       // State of Mind — imported, never analysed in v1
+  /* Doses logged in the Health app (iOS 26's medication log). Read
+   * through Apple's per-medication picker, so the person chooses which
+   * medications Pattern may see, one by one. Compared before-and-after
+   * a dose, never day against day — see doses.ts. */
+  | 'medications';
 
 export const HEALTH_CATEGORIES: {
   id: HealthCategory; name: string; blurb: string;
@@ -62,6 +67,10 @@ export const HEALTH_CATEGORIES: {
   {
     id: 'heart', name: 'Heart and recovery', offered: false,
     blurb: 'Resting heart rate and heart-rate variability. Kept as context — Pattern draws no conclusions from them.',
+  },
+  {
+    id: 'medications', name: 'Medications', offered: true,
+    blurb: 'Doses you log in the Health app — which medication, and when. You pick which ones to share. Shown beside the day, and compared with your check-ins before and after a dose. Needs iOS 26.',
   },
   {
     id: 'mind', name: 'State of Mind', offered: true,
@@ -122,6 +131,23 @@ export interface WorkoutSample {
   source: string;
 }
 
+/** one dose event from the Health app's medication log. `status` is
+ *  what the person logged: taken, skipped, or a reminder they never
+ *  answered ('other'), which is silence and never a value. */
+export interface DoseSample {
+  ts: number;
+  /** HealthKit's stable medication concept identifier — the grouping key */
+  medId: string;
+  /** the medication's name as Health shows it */
+  med: string;
+  status: 'taken' | 'skipped' | 'other';
+  /** how much, in the medication's own unit, when Health had it */
+  qty?: number;
+  unit?: string;
+  /** part of a schedule, or taken as needed */
+  scheduled: boolean;
+}
+
 export interface StateOfMindSample {
   ts: number;
   /** -1..1 valence as Health reports it */
@@ -143,6 +169,17 @@ export interface NormalizedWorkout {
   minutes: number;
   activity: string;
   energy?: number;
+}
+
+/** a dose as the day carries it: filed at its local minute, taken or
+ *  skipped only — an unanswered reminder is not on the day */
+export interface NormalizedDose {
+  h: number;
+  medId: string;
+  med: string;
+  status: 'taken' | 'skipped';
+  qty?: number;
+  unit?: string;
 }
 
 export interface HealthDay {
@@ -180,6 +217,10 @@ export interface HealthDay {
   restingHeartRate?: number;
   hrvSDNN?: number;
   stateOfMind?: { h: number; valence: number; kind: string }[];
+  /** doses logged in Health this day, in time order. Present only on a
+   *  day with at least one taken or skipped dose — an empty list would
+   *  claim "nothing taken", and an unlogged dose is not that. */
+  doses?: NormalizedDose[];
   /** which categories actually produced data for this day — coverage is
    *  per-day and per-category, and a day outside coverage never joins a
    *  comparison group */
@@ -198,6 +239,7 @@ export interface DayRawBundle {
   restingHeartRate: QuantitySample[];
   hrvSDNN: QuantitySample[];
   stateOfMind: StateOfMindSample[];
+  doses: DoseSample[];
 }
 
 /* ── the clock ───────────────────────────────────────────────
@@ -224,6 +266,10 @@ export interface LocalClock {
 export interface HealthService {
   /** is a health store present at all on this device and binary */
   available(): boolean;
+  /** can this device and binary read the category at all — iOS 26's
+   *  medication log is absent from older phones, and a row the phone
+   *  cannot honour must not be offered */
+  supports(category: HealthCategory): boolean;
   /** Present the system authorization sheet for the given categories.
    *  Resolves when the sheet completes — which says nothing about what
    *  was granted, and callers must not pretend otherwise. */

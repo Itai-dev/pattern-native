@@ -17,7 +17,7 @@ export type MockFixture = Record<string, Partial<Omit<DayRawBundle, 'date'>>>;
 export function emptyBundle(date: string): DayRawBundle {
   return {
     date, sleep: [], steps: [], distance: [], activeEnergy: [], stand: [],
-    workouts: [], restingHeartRate: [], hrvSDNN: [], stateOfMind: [],
+    workouts: [], restingHeartRate: [], hrvSDNN: [], stateOfMind: [], doses: [],
   };
 }
 
@@ -26,6 +26,7 @@ export class MockHealthService implements HealthService {
   constructor(private fixture: MockFixture, private isAvailable = true) {}
 
   available(): boolean { return this.isAvailable; }
+  supports(): boolean { return this.isAvailable; }
 
   requestAuthorization(categories: HealthCategory[]): Promise<void> {
     this.requested.push(categories.slice());
@@ -51,6 +52,7 @@ export class MockHealthService implements HealthService {
       if (f.hrvSDNN) out.hrvSDNN = f.hrvSDNN;
     }
     if (categories.indexOf('mind') >= 0 && f.stateOfMind) out.stateOfMind = f.stateOfMind;
+    if (categories.indexOf('medications') >= 0 && f.doses) out.doses = f.doses;
     return Promise.resolve(out);
   }
 }
@@ -60,6 +62,7 @@ export class MockHealthService implements HealthService {
  *  null-check — unavailability is just a service with nothing in it. */
 export class UnavailableHealthService implements HealthService {
   available(): boolean { return false; }
+  supports(): boolean { return false; }
   requestAuthorization(): Promise<void> {
     return Promise.reject(new Error('HealthKit is not available on this device'));
   }

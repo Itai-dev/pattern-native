@@ -29,6 +29,7 @@ import {
   TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
 } from './thresholds';
 import { Association, associationCopy } from './health/engine';
+import { DOSE_NON_CAUSATION, DOSE_TIMING, DoseAssociation, doseCopy } from './health/doses';
 import { HEALTH_CATEGORIES, HealthDay } from './health/types';
 
 export interface ReportInput {
@@ -54,6 +55,10 @@ export interface ReportInput {
    *  renders under. Absent = the section is not drawn. */
   healthDays?: Record<string, HealthDay>;
   healthAssociation?: Association | null;
+  /** every dose comparison whose pairs formed, claim or no claim — a
+   *  clinician reads "no change across ten doses" as readily as the
+   *  other kind, and the gate that decides a CLAIM stays upstream */
+  healthDoses?: DoseAssociation[];
   /** the person's own question, in their words — printed verbatim.
    *  The spec listed it first among the report's additions and it was
    *  stored from day one; it never reached the page. Absent = no section. */
@@ -130,6 +135,12 @@ export interface ReportData {
   health: {
     coverage: { name: string; covered: number }[];
     association: Association | null;
+    /** medications with a logged dose in the window: how many doses
+     *  were taken, how many skipped, on how many days. Counts of what
+     *  the patient logged in Health — an unlogged dose is not here. */
+    medications: { name: string; taken: number; skipped: number; days: number }[];
+    /** dose comparisons whose pairs formed, in name order */
+    doses: DoseAssociation[];
   } | null;
   /** what the patient wants to understand, verbatim. null = never written. */
   hypothesis: Hypothesis | null;
@@ -329,7 +340,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
         return { date: k, text: parts.join('\n') };
       })
       .filter((n) => !!n.text),
-    health: healthContext(inp.healthDays, inp.healthAssociation || null, days),
+    health: healthContext(inp.healthDays, inp.healthAssociation || null, inp.healthDoses || [], days),
     background: inp.background || null,
     hypothesis: inp.hypothesis && (inp.hypothesis.understand.trim()
       || inp.hypothesis.harder.trim() || inp.hypothesis.helps.trim())
@@ -357,20 +368,36 @@ export function buildReportData(inp: ReportInput): ReportData | null {
 function healthContext(
   healthDays: Record<string, HealthDay> | undefined,
   association: Association | null,
+  doses: DoseAssociation[],
   days: ReportDay[]
 ): ReportData['health'] {
   if (!healthDays) return null;
   const counts: Record<string, number> = {};
+  const meds: Record<string, { name: string; taken: number; skipped: number; dayset: Record<string, true> }> = {};
   days.forEach((d) => {
     const h = healthDays[d.date];
     if (!h) return;
     Object.keys(h.coverage).forEach((c) => { counts[c] = (counts[c] || 0) + 1; });
+    (h.doses || []).forEach((x) => {
+      const m = meds[x.medId] || (meds[x.medId] = { name: x.med, taken: 0, skipped: 0, dayset: {} });
+      if (x.status === 'taken') { m.taken++; m.dayset[d.date] = true; } else m.skipped++;
+    });
   });
   const coverage = HEALTH_CATEGORIES
     .filter((c) => counts[c.id])
     .map((c) => ({ name: c.name, covered: counts[c.id] }));
   if (!coverage.length) return null;
-  return { coverage, association };
+  const medications = Object.keys(meds)
+    .map((id) => ({
+      name: meds[id].name, taken: meds[id].taken, skipped: meds[id].skipped,
+      days: Object.keys(meds[id].dayset).length,
+    }))
+    .sort((a, b) => b.taken - a.taken || a.name.localeCompare(b.name));
+  /* only comparisons whose pairs formed, and only for medications that
+     appear in this window — a dose from outside it is not this report's */
+  const inWindow = doses.filter((a) =>
+    (a.verdict === 'possible' || a.verdict === 'observation') && !!meds[a.medId]);
+  return { coverage, association, medications, doses: inWindow };
 }
 
 /** how many days each chip was ticked on one side */
@@ -1108,6 +1135,39 @@ export function reportHtml(data: ReportData): string {
       s.push('<div class="note" style="margin-top:10px">No association between ' +
         'this context and the pain record has met Pattern’s reporting bar in ' +
         'this window (paired days, group sizes, and effect size are all gated).</div>');
+    }
+
+    /* medications: what the patient logged in the Health app, as
+       counts, then what their own check-ins read around a dose. The
+       regression line is printed in bold beside the numbers — on paper
+       it is the one sentence that stops "lower after" being read as a
+       verdict on the prescription. Never a recommendation, never a
+       dose: names and counts, and the patient's own numbers. */
+    if (data.health.medications.length) {
+      s.push('<h3 style="margin-top:14px">Medications logged in Health</h3>');
+      s.push('<div class="note">Doses the patient logged in the Health app during this window. ' +
+        'A dose not logged there does not appear here; counts are of the log, not of intake.</div>');
+      s.push('<table><tr><th>Medication</th><th>Doses taken</th><th>Skipped</th><th>Days with a dose</th></tr>');
+      data.health.medications.forEach((m) => {
+        s.push('<tr><td>' + esc(m.name) + '</td><td class="num">' + m.taken
+          + '</td><td class="num">' + m.skipped + '</td><td class="num">' + m.days
+          + ' of ' + data.loggedDays + '</td></tr>');
+      });
+      s.push('</table>');
+      if (data.health.doses.length) {
+        s.push('<div class="note" style="margin-top:8px">' + esc(DOSE_TIMING) + '</div>');
+        s.push('<table><tr><th>Around a dose of</th><th>Before, mean</th><th>After, mean</th><th>Change</th><th>Doses</th></tr>');
+        data.health.doses.forEach((a) => {
+          const dc = doseCopy(a);
+          s.push('<tr><td>' + esc(a.med) + (dc ? ' <span class="note">(' + esc(dc.title.replace(a.med + ' ', '')) + ')</span>' : '')
+            + '</td><td class="num">' + formatScore(a.before as number)
+            + '</td><td class="num">' + formatScore(a.after as number)
+            + '</td><td class="num">' + ((a.delta as number) > 0 ? '+' : '') + a.delta
+            + '</td><td class="num">' + a.pairs + '</td></tr>');
+        });
+        s.push('</table>');
+        s.push('<div class="note" style="margin-top:6px"><b>' + esc(DOSE_NON_CAUSATION) + '</b></div>');
+      }
     }
     s.push('</section>');
   }

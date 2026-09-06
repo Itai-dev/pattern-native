@@ -44,6 +44,10 @@ import {
   groupLabels, progressCopy,
 } from './health/engine';
 import { HealthProgress } from './health/noticed';
+import {
+  DOSE_TIMING, DoseAssociation, DoseProgress, doseCopy, doseObservationCopy,
+  doseProgressCopy, fadedDoseCopy,
+} from './health/doses';
 import { DigestCard, checkinBuys, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
 
@@ -82,6 +86,14 @@ export interface TrendsScreenProps {
      *  the instruction — what a connected person sees before anything
      *  has cleared, so the wait is never silent */
     progress: HealthProgress[];
+    /** the same four, for doses logged in Health — before-and-after a
+     *  dose rather than groups of days, gated in doses.ts */
+    doses: {
+      best: DoseAssociation | null;
+      fading: DoseAssociation[];
+      groups: DoseAssociation[];
+      progress: DoseProgress[];
+    };
   };
   /** the active observation period, for the progress cards — what a
    *  check-in is currently buying */
@@ -664,6 +676,57 @@ function GroupBars({ a }: { a: HealthAssociation }) {
   );
 }
 
+/**
+ * Before and after a dose, drawn the same way: bar length and colour
+ * are the mean pain, the medication lives in the text. Each bar carries
+ * its n — the same n, because these are pairs.
+ */
+function DoseBars({ a }: { a: DoseAssociation }) {
+  if (a.before == null || a.after == null) return null;
+  const rows = [
+    { word: 'Before a dose', v: a.before },
+    { word: 'After a dose', v: a.after },
+  ];
+  return (
+    <View style={cmpStyles.wrap}>
+      {rows.map((r) => (
+        <View
+          key={r.word}
+          style={cmpStyles.row}
+          accessible
+          accessibilityLabel={r.word + ' of ' + a.med + ', pain averaged '
+            + formatScore(r.v) + ' across ' + a.pairs + ' doses'}
+        >
+          <View style={cmpStyles.head}>
+            <Text style={cmpStyles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {r.word}
+            </Text>
+            <Text style={cmpStyles.n} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {a.pairs} doses
+            </Text>
+          </View>
+          <View style={cmpStyles.barRow}>
+            <View style={cmpStyles.track}>
+              <View
+                style={[
+                  cmpStyles.fill,
+                  {
+                    width: `${Math.max(3, (r.v / 10) * 100)}%` as const,
+                    backgroundColor: painColor(r.v),
+                  },
+                ]}
+              />
+            </View>
+            <Text style={cmpStyles.value} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {formatScore(r.v)}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const cmpStyles = StyleSheet.create({
   wrap: { marginTop: 12, gap: 12 },
   row: { gap: 4 },
@@ -851,8 +914,21 @@ export default function TrendsScreen({
   const otherGroups = (healthNoticed?.groups || []).filter((a) => a !== healthNoticed?.best);
   const bestCopy = healthNoticed?.best ? associationCopy(healthNoticed.best) : null;
   const healthWaiting = healthNoticed ? healthNoticed.progress : [];
+  /* ONE HEADLINE. A dose comparison and a day comparison may both have
+     cleared; the card still carries one sentence, the larger change,
+     and the other keeps its bars further down with no claim attached.
+     Same house rule as PATTERN_MAX_CARDS, applied across the two. */
+  const dz = healthNoticed?.doses;
+  const doseBestCopy = dz?.best ? doseCopy(dz.best) : null;
+  const doseLeads = !!doseBestCopy && !!dz?.best
+    && (!healthNoticed?.best || healthNoticed.best.delta == null
+      || Math.abs(dz.best.delta as number) > Math.abs(healthNoticed.best.delta));
+  const doseGroups = (dz?.groups || []).filter((a) => !(doseLeads && a === dz?.best));
+  const doseWaiting = dz ? dz.progress : [];
   const watching = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
-    || otherGroups.length > 0 || buys.length > 0 || healthWaiting.length > 0;
+    || otherGroups.length > 0 || buys.length > 0 || healthWaiting.length > 0
+    || !!doseBestCopy || !!(dz && dz.fading.length) || doseGroups.length > 0
+    || doseWaiting.length > 0;
 
   return (
     <View style={styles.page}>
@@ -986,7 +1062,31 @@ export default function TrendsScreen({
           title="Worth watching"
           note="An association here is a pattern in what you recorded, not proof of what caused what. Groups are your own lowest and highest third, the middle third left out. Nothing on this card moves on its own — only when you add a check-in."
         >
-          {bestCopy && healthNoticed && healthNoticed.best ? (
+          {doseLeads && doseBestCopy && dz && dz.best ? (
+            <>
+              <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {doseBestCopy.title}
+              </Text>
+              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {doseBestCopy.body}
+              </Text>
+              <DoseBars a={dz.best} />
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {doseBestCopy.sample}
+                {dz.best.from && dz.best.to
+                  ? ' ' + fmtReportDate(dz.best.from) + ' – ' + fmtReportDate(dz.best.to) + '.'
+                  : ''}
+              </Text>
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {doseBestCopy.timing}
+              </Text>
+              {/* the regression line is the card, not a footnote: without
+                  it "lower after a dose" reads as a verdict on the tablet */}
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {doseBestCopy.disclaimer}
+              </Text>
+            </>
+          ) : bestCopy && healthNoticed && healthNoticed.best ? (
             <>
               <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
                 {bestCopy.title}
@@ -1016,7 +1116,31 @@ export default function TrendsScreen({
             <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
               {fadedCopy(healthNoticed.fading[0])}
             </Text>
+          ) : dz && dz.fading.length > 0 ? (
+            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {fadedDoseCopy(dz.fading[0])}
+            </Text>
           ) : null}
+
+          {/* doses whose pairs formed: the bars, with the observation's
+              words or — for a change that did not lead the card — no
+              words at all beyond the timing and the regression line */}
+          {doseGroups.map((a) => (
+            <View key={'d.' + a.medId} style={styles.subBlock}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {a.med}, around your doses
+              </Text>
+              {a.verdict === 'observation' && (
+                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {doseObservationCopy(a)}
+                </Text>
+              )}
+              <DoseBars a={a} />
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {DOSE_TIMING}
+              </Text>
+            </View>
+          ))}
 
           {otherGroups.map((a) => {
             const w = groupLabels(a.kind);
@@ -1038,7 +1162,7 @@ export default function TrendsScreen({
             );
           })}
 
-          {(buys.length > 0 || healthWaiting.length > 0) && (
+          {(buys.length > 0 || healthWaiting.length > 0 || doseWaiting.length > 0) && (
             <View style={styles.subBlock}>
               <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
                 Still collecting
@@ -1055,6 +1179,16 @@ export default function TrendsScreen({
                     key={'h.' + p.kind}
                     card={{ key: 'h.' + p.kind, title: c.title, evidence: c.evidence, caveat: c.caveat }}
                     first={i === 0 && buys.length === 0}
+                  />
+                );
+              })}
+              {doseWaiting.map((p, i) => {
+                const c = doseProgressCopy(p);
+                return (
+                  <DigestRow
+                    key={'d.' + p.medId}
+                    card={{ key: 'd.' + p.medId, title: c.title, evidence: c.evidence, caveat: c.caveat }}
+                    first={i === 0 && buys.length === 0 && healthWaiting.length === 0}
                   />
                 );
               })}

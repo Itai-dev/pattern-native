@@ -116,12 +116,15 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
             </Text>
             <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
               Connect Apple Health to let Pattern quietly compare your pain with
-              sleep and activity. You choose what to share, and the data stays
-              on this iPhone.
+              sleep, activity and the doses you log. You choose what to share,
+              and the data stays on this iPhone.
             </Text>
 
             <View style={styles.group}>
-              {offeredCategories(already).map((c, i) => {
+              {/* a row the phone cannot honour is not a row: iOS 26's
+                  medication log is absent from older phones, and
+                  offering it there would be a switch that does nothing */}
+              {offeredCategories(already).filter((c) => service.supports(c.id)).map((c, i) => {
                 const on = picked.indexOf(c.id) >= 0;
                 return (
                   <Press
@@ -170,7 +173,8 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
             </Press>
 
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Apple will show its own screen where you decide, type by type.
+              Apple will show its own screen where you decide, type by type —
+              and for medications, a second one where you pick which ones.
               Pattern only reads — it never writes to Health — and you can
               change or withdraw access any time in Health ▸ Profile ▸ Apps.
               Pattern can’t see what you allowed there; it only sees what

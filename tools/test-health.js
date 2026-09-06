@@ -21,6 +21,7 @@ const mock = require(path.join(OUT, 'health', 'mock.js'));
 const th = require(path.join(OUT, 'thresholds.js'));
 
 let pass = 0, fail = 0;
+const pendingChecks = [];
 const ok = (name, cond, extra) => {
   if (cond) { pass++; return; }
   fail++;
@@ -725,6 +726,181 @@ ok('a comparison past its gate is not listed as waiting', (() => {
     health[d] = { date: d, sleepMinutes: 400 + i, coverage: { sleep: true } };
   }
   return noticed.healthProgress(entries, health, ['sleep']).length === 0;
+})());
+
+
+/* ═══ medication doses ════════════════════════════════════════ */
+group('doses: normalization');
+const doses = require(path.join(OUT, 'health', 'doses.js'));
+const dose = (date, minutes, extra) => Object.assign({
+  ts: at(date, minutes), medId: 'ibu', med: 'Ibuprofen', status: 'taken', scheduled: false,
+}, extra || {});
+
+ok('taken and skipped doses land on the day at their local minute; an unanswered reminder does not', (() => {
+  const day = normalize.normalizeDay(bundle(D, { doses: [
+    dose(D, 14 * 60 + 10, { qty: 400, unit: 'mg' }),
+    dose(D, 21 * 60, { status: 'skipped' }),
+    dose(D, 8 * 60, { status: 'other' }),
+  ] }), clock);
+  return day.doses && day.doses.length === 2 && day.doses[0].h === 14 * 60 + 10
+    && day.doses[0].qty === 400 && day.doses[0].unit === 'mg'
+    && day.doses[1].status === 'skipped' && day.coverage.medications === true;
+})());
+ok('a day whose only dose events were never answered is not covered — silence is not "none taken"', (() => {
+  const day = normalize.normalizeDay(bundle(D, { doses: [dose(D, 8 * 60, { status: 'other' })] }), clock);
+  return !day.doses && !day.coverage.medications;
+})());
+ok('the mock hands doses back only when medications were asked for', (() => {
+  const svc = new mock.MockHealthService({ [D]: { doses: [dose(D, 600)] } });
+  let a = -1, b = -1;
+  svc.fetchDay(D, ['medications']).then((r) => { a = r.doses.length; });
+  svc.fetchDay(D, ['sleep']).then((r) => { b = r.doses.length; });
+  pendingChecks.push(() => a === 1 && b === 0);
+  return svc.supports('medications') === true;
+})());
+
+group('doses: the pairing windows');
+const ENTRY = (logs) => ({ pain: 5, cap: null, note: '', logs });
+const HD = (date, ds) => ({ date, doses: ds, coverage: { medications: true } });
+ok('a check-in shortly before and one 45 min to 6 h after make one pair', (() => {
+  const entries = { [D]: ENTRY([{ h: 13 * 60, pain: 7 }, { h: 16 * 60, pain: 4 }]) };
+  const health = { [D]: HD(D, [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }]) };
+  const p = doses.dosePairs(entries, health);
+  return p.length === 1 && p[0].before === 7 && p[0].after === 4 && p[0].medId === 'ibu';
+})());
+ok('a check-in five minutes after a dose is not "after" — the tablet has done nothing yet', (() => {
+  const entries = { [D]: ENTRY([{ h: 13 * 60, pain: 7 }, { h: 14 * 60 + 5, pain: 7 }]) };
+  const health = { [D]: HD(D, [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }]) };
+  return doses.dosePairs(entries, health).length === 0;
+})());
+ok('a check-in from the morning is not "before" a lunchtime dose, and one seven hours later is not "after"', (() => {
+  const entries = { [D]: ENTRY([{ h: 8 * 60, pain: 7 }, { h: 21 * 60 + 30, pain: 4 }]) };
+  const health = { [D]: HD(D, [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }]) };
+  return doses.dosePairs(entries, health).length === 0;
+})());
+ok('the last check-in before and the FIRST lawful one after are the pair', (() => {
+  const entries = { [D]: ENTRY([
+    { h: 12 * 60, pain: 8 }, { h: 13 * 60 + 30, pain: 6 },
+    { h: 15 * 60, pain: 5 }, { h: 18 * 60, pain: 3 },
+  ]) };
+  const health = { [D]: HD(D, [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }]) };
+  const p = doses.dosePairs(entries, health);
+  return p.length === 1 && p[0].before === 6 && p[0].after === 5;
+})());
+ok('one pair per day per medication, however many doses; two medications are two pairs', (() => {
+  const entries = { [D]: ENTRY([{ h: 9 * 60, pain: 7 }, { h: 11 * 60, pain: 5 }, { h: 15 * 60, pain: 6 }, { h: 17 * 60, pain: 4 }]) };
+  const health = { [D]: HD(D, [
+    { h: 10 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' },
+    { h: 16 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' },
+    { h: 16 * 60, medId: 'par', med: 'Paracetamol', status: 'taken' },
+  ]) };
+  const p = doses.dosePairs(entries, health);
+  return p.length === 2 && p[0].medId === 'ibu' && p[0].before === 7 && p[1].medId === 'par';
+})());
+ok('a skipped dose is never an exposure', (() => {
+  const entries = { [D]: ENTRY([{ h: 13 * 60, pain: 7 }, { h: 16 * 60, pain: 4 }]) };
+  const health = { [D]: HD(D, [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'skipped' }]) };
+  return doses.dosePairs(entries, health).length === 0;
+})());
+
+group('doses: the gates and the words');
+const mkPairs = (n, before, after) => {
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    out.push({ date: '2026-08-' + String(i).padStart(2, '0'), medId: 'ibu', med: 'Ibuprofen', before: before(i), after: after(i) });
+  }
+  return out;
+};
+ok('under DOSE_MIN_PAIRS the verdict is insufficient and no numbers exist', (() => {
+  const a = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(th.DOSE_MIN_PAIRS - 1, () => 7, () => 4));
+  return a.verdict === 'insufficient' && a.delta == null && a.pairs === th.DOSE_MIN_PAIRS - 1;
+})());
+ok('pairs that formed but did not change are an observation, never a claim', (() => {
+  const a = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(10, () => 6, (i) => (i % 2 ? 6 : 7)));
+  return a.verdict === 'observation' && Math.abs(a.delta) < th.HEALTH_MIN_DELTA
+    && doses.doseCopy(a) === null && /No meaningful change/.test(doses.doseObservationCopy(a));
+})());
+ok('a change past HEALTH_MIN_DELTA across enough pairs is possible, and its copy carries n, direction and the regression line', (() => {
+  const a = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(12, () => 7, () => 4.5));
+  const c = doses.doseCopy(a);
+  return a.verdict === 'possible' && a.delta === -2.5 && a.before === 7 && a.after === 4.5
+    && a.from === '2026-08-01' && a.to === '2026-08-12'
+    && c.title === 'Ibuprofen may be worth watching'
+    && /2\.5 points lower at the first check-in after a dose of Ibuprofen/.test(c.body)
+    && /Based on 12 doses/.test(c.sample) && /3 hours before/.test(c.sample) && /45 minutes to 6 hours/.test(c.sample)
+    && c.disclaimer === doses.DOSE_NON_CAUSATION && /come down on its own/.test(c.disclaimer);
+})());
+ok('the delta is the mean of paired differences, not the difference of means rounded twice', (() => {
+  const a = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(8, (i) => 4 + (i % 3), (i) => 2 + (i % 3)));
+  return a.delta === -2 && a.verdict === 'possible';
+})());
+ok('higher after reads as higher, and the sentence never says "worked" or "helped"', (() => {
+  const a = doses.evaluateDoses('x', 'Nortriptyline', mkPairs(9, () => 3, () => 5));
+  const c = doses.doseCopy(a);
+  return a.delta === 2 && /2 points higher/.test(c.body)
+    && !/work|help|effect|because/i.test(c.title + c.body + c.sample + c.timing);
+})());
+ok('a previously shown medication that no longer clears fades out loud', (() => {
+  const a = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(10, () => 6, () => 6), true);
+  const b = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(10, () => 6, () => 6), false);
+  return a.verdict === 'fading' && b.verdict === 'observation'
+    && /Ibuprofen/.test(doses.fadedDoseCopy(a)) && /hasn’t stayed consistent/.test(doses.fadedDoseCopy(a));
+})());
+ok('doseAssociations groups by medication, in name order; strongestDose picks the larger change', (() => {
+  const entries = {}, health = {};
+  for (let i = 1; i <= 10; i++) {
+    const d = '2026-08-' + String(i).padStart(2, '0');
+    entries[d] = ENTRY([{ h: 9 * 60, pain: 8 }, { h: 11 * 60, pain: 5 }, { h: 15 * 60, pain: 6 }, { h: 17 * 60, pain: 4 }]);
+    health[d] = HD(d, [
+      { h: 10 * 60, medId: 'z', med: 'Zolmitriptan', status: 'taken' },
+      { h: 16 * 60, medId: 'a', med: 'Amitriptyline', status: 'taken' },
+    ]);
+  }
+  const all = doses.doseAssociations(entries, health, []);
+  const best = doses.strongestDose(all);
+  return all.length === 2 && all[0].med === 'Amitriptyline' && all[1].med === 'Zolmitriptan'
+    && all[0].delta === -2 && all[1].delta === -3 && best && best.medId === 'z';
+})());
+
+group('doses: still collecting');
+ok('a medication with doses but no lawful pair is listed with 0 of the gate, and the caveat says what a pair takes', (() => {
+  const entries = { [D]: ENTRY([{ h: 8 * 60, pain: 6 }]) };
+  const health = { [D]: HD(D, [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }]) };
+  const p = doses.doseProgress(entries, health);
+  const c = doses.doseProgressCopy(p[0]);
+  return p.length === 1 && p[0].pairs === 0 && p[0].needed === th.DOSE_MIN_PAIRS
+    && c.title === 'Ibuprofen and pain around a dose' && /0 of 8 doses/.test(c.evidence)
+    && /within 3 hours before a dose/.test(c.caveat);
+})());
+ok('a medication past its gate is not listed as waiting; one with only skipped doses is not listed at all', (() => {
+  const entries = {}, health = {};
+  for (let i = 1; i <= 9; i++) {
+    const d = '2026-08-' + String(i).padStart(2, '0');
+    entries[d] = ENTRY([{ h: 13 * 60, pain: 7 }, { h: 16 * 60, pain: 4 }]);
+    health[d] = HD(d, [
+      { h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' },
+      { h: 20 * 60, medId: 'q', med: 'Quetiapine', status: 'skipped' },
+    ]);
+  }
+  return doses.doseProgress(entries, health).length === 0;
+})());
+
+group('doses: the day\'s lines');
+const ctx3 = require(path.join(OUT, 'health', 'context.js'));
+ok('a dose reads as name, amount and unit, "skipped" said plainly, the time left to the screen', (() => {
+  const day = HD(D, [
+    { h: 14 * 60 + 10, medId: 'ibu', med: 'Ibuprofen', status: 'taken', qty: 400, unit: 'mg' },
+    { h: 21 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'skipped' },
+  ]);
+  const l = ctx3.doseLines(day);
+  const lines = ctx3.healthDayLines(day);
+  return l.length === 2 && l[0].text === 'Ibuprofen 400 mg' && l[0].h === 14 * 60 + 10
+    && l[1].text === 'Ibuprofen — skipped'
+    && lines.some((x) => x.text === 'Ibuprofen 400 mg at 14:10')
+    && ctx3.doseLines(null).length === 0 && ctx3.lastNightLine(day) === null;
+})());
+ok('the day tiles are untouched by doses — a dose is a row, not a tile', (() => {
+  return ctx3.healthDayTiles(HD(D, [{ h: 600, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }])).length === 0;
 })());
 
 group('the check-in hint: Health above the question, never instead of it');

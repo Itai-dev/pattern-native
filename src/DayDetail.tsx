@@ -29,7 +29,8 @@ import {
 } from './model';
 import { fmtClock } from './clock';
 import { formatOutOf, formatScoreAndLabel, painColor, speakScore } from './painScale';
-import { healthDayTiles } from './health/context';
+import { doseLines, healthDayTiles } from './health/context';
+import { HealthDay } from './health/types';
 import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
 import { color, font, radius, size } from './theme';
 
@@ -480,12 +481,38 @@ export default function DayDetail({
           values. Missing categories are missing tiles, never zeros; the
           caveat lives inside the block it qualifies. */}
       {(() => {
-        const tiles = healthDayTiles(db.getHealthDay(dateIso), db.getHealthDays());
-        if (!tiles.length) return null;
+        const healthDay = db.getHealthDay<HealthDay>(dateIso);
+        const tiles = healthDayTiles(healthDay, db.getHealthDays<HealthDay>());
+        const doses = doseLines(healthDay);
+        if (!tiles.length && !doses.length) return null;
         return (
           <View style={styles.list}>
             <Text style={styles.listTitle}>From Apple Health</Text>
-            <View style={styles.tileGrid}>
+            {/* doses as rows, not tiles: a dose is a time and a name,
+                the same shape as a check-in, and it reads beside the
+                check-ins above in the same column of times. Taken and
+                skipped both — what the person logged, nothing inferred. */}
+            {doses.map((d) => (
+              <View
+                key={d.key}
+                style={styles.row}
+                accessible
+                accessibilityLabel={fmtClock(d.h) + ', ' + d.text + ', logged in Health'}
+              >
+                <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {fmtClock(d.h)}
+                </Text>
+                <View style={styles.rowMid}>
+                  <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.4}>
+                    {d.text}
+                  </Text>
+                  <Text style={styles.rowSub} allowFontScaling maxFontSizeMultiplier={1.4}>
+                    Dose, logged in Health
+                  </Text>
+                </View>
+              </View>
+            ))}
+            {tiles.length > 0 && <View style={styles.tileGrid}>
               {tiles.map((t) => (
                 <View
                   key={t.key}
@@ -522,10 +549,11 @@ export default function DayDetail({
                   )}
                 </View>
               ))}
-            </View>
+            </View>}
             <Text style={styles.swipeHint}>
               Read from Health for context beside what you recorded. Sitting
-              next to each other is not a claim that one caused the other.
+              next to each other is not a claim that one caused the other
+              {doses.length ? ', and a dose beside a number is not a claim about the dose' : ''}.
             </Text>
           </View>
         );

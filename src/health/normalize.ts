@@ -33,8 +33,8 @@
  *    reader distinguishes "not measured" from "measured nothing".
  */
 import {
-  DayRawBundle, HealthDay, LocalClock, NormalizedWorkout, QuantitySample,
-  SleepSample,
+  DayRawBundle, HealthDay, LocalClock, NormalizedDose, NormalizedWorkout,
+  QuantitySample, SleepSample,
 } from './types';
 
 /** the night window: asleep intervals touching [D-1 18:00, D 12:00) */
@@ -213,6 +213,25 @@ export function normalizeDay(raw: DayRawBundle, clock: LocalClock): HealthDay {
       .map((s) => ({ h: clock.minutesOf(s.ts), valence: s.valence, kind: s.kind }))
       .sort((a, b) => a.h - b.h);
     day.coverage.mind = true;
+  }
+
+  /* doses: taken and skipped are what the person logged; a reminder
+     they never answered is not on the day. Coverage follows the same
+     rule as everything else — a day with no logged dose is not a day
+     without medication, so it is simply not covered. */
+  const doses: NormalizedDose[] = [];
+  raw.doses.forEach((d) => {
+    if (d.status !== 'taken' && d.status !== 'skipped') return;
+    const nd: NormalizedDose = {
+      h: clock.minutesOf(d.ts), medId: d.medId, med: d.med, status: d.status,
+    };
+    if (d.qty != null) nd.qty = d.qty;
+    if (d.unit) nd.unit = d.unit;
+    doses.push(nd);
+  });
+  if (doses.length) {
+    day.doses = doses.sort((a, b) => a.h - b.h);
+    day.coverage.medications = true;
   }
 
   return day;

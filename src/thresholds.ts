@@ -242,3 +242,35 @@ export const HEALTH_RESYNC_DAYS = 10;
  *  is History, and a full-history HealthKit query is cost without a
  *  question to answer. */
 export const HEALTH_BACKFILL_DAYS = 90;
+
+/* ── medication doses, from the Health app ───────────────────
+   A dose is an instant, so it is not split into groups of days: each
+   dose is paired with the check-in shortly before it and the first
+   one a while after, and the comparison is the mean of those paired
+   differences. The control for a dose is the person's own number an
+   hour earlier — which is also why the result is expected to read
+   "lower after" for almost anything, and why the card says so. */
+
+/** how long before a dose the "before" check-in may be. Three hours:
+ *  a number from the morning says nothing about the state a lunchtime
+ *  tablet was taken in. */
+export const DOSE_BEFORE_WINDOW_MIN = 180;
+
+/** the earliest an "after" check-in counts. Forty-five minutes: an
+ *  oral analgesic takes thirty to sixty minutes to do anything, and a
+ *  check-in five minutes after a tablet measures the tablet's absence. */
+export const DOSE_AFTER_MIN_MIN = 45;
+
+/** the latest an "after" check-in counts. Six hours: past that the day
+ *  has moved on, and a second dose or a night's sleep is the better
+ *  explanation of whatever the number is. */
+export const DOSE_AFTER_MAX_MIN = 360;
+
+/** paired doses before any sentence. Eight, the protocol's minimum: a
+ *  before/after pair is a within-person difference that carries its
+ *  own control, so the paired-difference SD is well under the daily
+ *  SD (about 1.2 against 1.5–2.0) and eight pairs put the 1.5-point
+ *  bar at z ≈ 3.5 — the gate is far stricter than the tercile one
+ *  and cheap in days, since each pair is one afternoon. What it does
+ *  not buy is causation; see DOSE_NON_CAUSATION. */
+export const DOSE_MIN_PAIRS = PATTERN_MIN_N;

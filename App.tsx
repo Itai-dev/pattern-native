@@ -26,6 +26,7 @@ import {
   healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
 } from './src/health/sync';
 import { healthProgress, noticedAssociations, strongestPossible } from './src/health/noticed';
+import { doseAssociations, doseProgress, strongestDose } from './src/health/doses';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
@@ -291,7 +292,24 @@ export default function App() {
     /* and what each connected comparison is still waiting for — the
        instruction a person can act on while nothing has cleared */
     const progress = healthProgress(entries, healthDays, healthCategories());
-    return { best, fading, groups, progress };
+    /* doses, the same way: licensed by the medications category,
+       remembered by medication so a shown change fades out loud. The
+       identifiers remembered are HealthKit's opaque concept ids — a
+       key, never a name, and local like everything else. */
+    const meds = healthCategories().indexOf('medications') >= 0;
+    const shownDoses = db.getPref<string[]>('health.shownDoses', []);
+    const doseAll = meds ? doseAssociations(entries, healthDays, shownDoses) : [];
+    const doseBest = strongestDose(doseAll);
+    if (doseBest && shownDoses.indexOf(doseBest.medId) < 0) {
+      db.setPref('health.shownDoses', shownDoses.concat(doseBest.medId));
+    }
+    const doses = {
+      best: doseBest,
+      fading: doseAll.filter((a) => a.verdict === 'fading'),
+      groups: doseAll.filter((a) => a.verdict === 'possible' || a.verdict === 'observation'),
+      progress: meds ? doseProgress(entries, healthDays) : [],
+    };
+    return { best, fading, groups, progress, doses };
   }, [entries, healthDays, protocol]);
   /* an event being edited. Nothing has to be closed to reach it any more:
      the day is a LAYER, not a modal, so the event sheet presents on top
@@ -449,6 +467,7 @@ export default function App() {
            record supports */
         healthDays: storedHealthDays(),
         healthAssociation: healthNoticed.best,
+        healthDoses: healthNoticed.doses.groups,
       });
       if (!data) {
         Alert.alert('Nothing to share yet', 'Check in once and there will be a record to send.');
