@@ -138,8 +138,11 @@ export function trackLaunch(todayIso: string): void {
 }
 
 /** checkin_completed, and first_checkin exactly once per install */
-export function trackCheckin(seconds: number, contextAdded: boolean): void {
-  track('checkin_completed', { seconds, context: contextAdded });
+/** `moved`: whether the slider was touched before Log it. The check-in
+ *  starts live at 5; this is how a rubber-stamped middle stays a
+ *  number rather than a fear. That it moved, never where to. */
+export function trackCheckin(seconds: number, contextAdded: boolean, moved: boolean): void {
+  track('checkin_completed', { seconds, context: contextAdded, moved });
   if (!db.getPref<boolean>(PREF_FIRSTSENT, false)) {
     db.setPref(PREF_FIRSTSENT, true);
     track('first_checkin');

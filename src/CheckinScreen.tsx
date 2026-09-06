@@ -142,10 +142,18 @@ export default function CheckinScreen({
   const insets = useSafeAreaInsets();
   const editing = !!edit;
   const [step, setStep] = useState<Step>('pain');
-  /* the selected value is optional and starts unset: nothing is recorded
-     until the user actually moves or taps the slider. The shape needs a
-     position to draw, so its internal 0-10 progress is kept separate. */
-  const [pain, setPain] = useState<number | null>(edit ? edit.pain : null);
+  /* THE SLIDER STARTS AT FIVE, LIVE. It used to start unset — dimmed
+     square, "Move the slider to choose", both buttons dead — on the
+     argument that a pre-selected 5 rubber-stamped by a reflexive tap is
+     a number nobody entered. The founder's call, on seeing it, was that
+     a dead screen is the worse first impression: it reads as broken, and
+     the honesty it buys is bought again more cheaply below. The middle
+     is where it starts, everything is enabled, and whether the slider
+     was actually moved travels with the check-in's own count, so the
+     rubber-stamp rate is a number rather than a fear. */
+  const [pain, setPain] = useState<number>(edit ? edit.pain : 5);
+  const [moved, setMoved] = useState<boolean>(editing);
+  const choose = (v: number) => { setPain(v); setMoved(true); };
   const [quality, setQuality] = useState<string[]>(edit && edit.q ? edit.q.slice() : []);
   const [loc, setLoc] = useState<string[]>(edit && edit.loc ? edit.loc.slice() : []);
   const [writtenAt, setWrittenAt] = useState<number | null>(edit ? edit.h : null);
@@ -368,9 +376,6 @@ export default function CheckinScreen({
     setStep(stepsShown[Math.max(0, i - 1)]);
   };
 
-  /* nothing may be written until a value has actually been chosen — closing
-     the flow before that records no check-in at all */
-  const canAdvance = pain != null;
   /* Whether the questions step would record a value or a decline. The
      hint said the step was skippable and nothing on screen agreed: the
      only control read "Continue", so continuing looked like submitting a
@@ -384,7 +389,7 @@ export default function CheckinScreen({
    *  the record is durable from the first one and each later step edits
    *  the same moment rather than adding another. */
   const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean; qAsked?: boolean }) => {
-    if (writtenAt == null || pain == null) return;
+    if (writtenAt == null) return;
     db.writeMoment(today, writtenAt, pain, loc, quality, meta(opts));
   };
 
@@ -406,7 +411,7 @@ export default function CheckinScreen({
    *  a check-in and is not counted. */
   const counted = (contextAdded: boolean) => {
     if (editing) return;
-    trackCheckin(Math.round((Date.now() - openedAt) / 1000), contextAdded);
+    trackCheckin(Math.round((Date.now() - openedAt) / 1000), contextAdded, moved);
   };
 
   const finish = () => {
@@ -426,7 +431,6 @@ export default function CheckinScreen({
    *  saves the moment as it stands, places and words included: leaving
    *  early must never strip what was already recorded. */
   const logOnly = () => {
-    if (pain == null) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (writtenAt != null && writtenAt !== minutes) db.dropMoment(today, writtenAt);
     db.writeMoment(
@@ -460,7 +464,7 @@ export default function CheckinScreen({
   /** the event door: this check-in ends as it stands, counted like any
    *  other, and the flare-or-treatment sheet opens in its place */
   const toEvent = () => {
-    if (pain == null || !onEvent) return;
+    if (!onEvent) return;
     Haptics.selectionAsync().catch(() => {});
     writeStep();
     counted(loc.length > 0 || anyAnswered);
@@ -468,7 +472,6 @@ export default function CheckinScreen({
   };
 
   const advance = () => {
-    if (pain == null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (step === 'pain') {
       /* the moment is keyed by its minute, so a changed time (the retro
@@ -513,7 +516,7 @@ export default function CheckinScreen({
   const swipeNext = () => {
     /* the last step is not swipeable: finishing a day's record should
        never be a flick, whichever step happens to be last today */
-    if (isLast || pain == null) return;
+    if (isLast) return;
     advance();
   };
   const stepSwipe = Gesture.Pan()
@@ -550,13 +553,13 @@ export default function CheckinScreen({
             on
               /* the border keeps a selected chip visible when a low pain
                  value paints it nearly black */
-              ? { backgroundColor: painColor(pain ?? 5), borderColor: 'rgba(255,255,255,0.3)' }
+              ? { backgroundColor: painColor(pain), borderColor: 'rgba(255,255,255,0.3)' }
               : { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
           ]}
         >
           <Text
             allowFontScaling maxFontSizeMultiplier={1.4}
-            style={[styles.chipText, on && { color: inkOn(pain ?? 5) }]}
+            style={[styles.chipText, on && { color: inkOn(pain) }]}
           >
             {names[id] || id}
           </Text>
@@ -858,29 +861,18 @@ export default function CheckinScreen({
           <View
             accessible
             accessibilityRole="image"
-            accessibilityLabel={pain == null
-              ? 'No pain level selected yet'
-              : 'Pain ' + speakScore(pain)}
-            style={pain == null && styles.shapeUnset}
+            accessibilityLabel={'Pain ' + speakScore(pain)}
           >
             <PainShape progress={progress} size={SQUARE} />
           </View>
           {/* the number and the word carry the value; colour never carries
-              it alone, and an unset scale says so in words */}
-          {pain == null ? (
-            <Text style={styles.unsetWord} allowFontScaling maxFontSizeMultiplier={1.6}>
-              Move the slider to choose.
-            </Text>
-          ) : (
-            <>
-              <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>
-                {formatScore(pain)}
-              </Text>
-              <Text style={styles.word} allowFontScaling maxFontSizeMultiplier={1.6}>
-                {painLabel(pain)}
-              </Text>
-            </>
-          )}
+              it alone */}
+          <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>
+            {formatScore(pain)}
+          </Text>
+          <Text style={styles.word} allowFontScaling maxFontSizeMultiplier={1.6}>
+            {painLabel(pain)}
+          </Text>
         </View>
       ) : step === 'today' ? (
         /* the one scrollable screen: the period's questions first (they
@@ -1018,8 +1010,8 @@ export default function CheckinScreen({
               <BodyMap
                 selected={loc}
                 onChange={setLoc}
-                tint={painColor(pain ?? 5)}
-                ink={inkOn(pain ?? 5)}
+                tint={painColor(pain)}
+                ink={inkOn(pain)}
                 containerWidth={winW - 56}
                 containerHeight={MAP_H}
               />
@@ -1034,12 +1026,10 @@ export default function CheckinScreen({
           <>
             <Slider
               value={pain}
-              onChange={setPain}
+              onChange={choose}
               progress={progress}
               accessibilityLabel="Pain right now, 0 to 10"
-              accessibilityValue={pain == null
-                ? { text: 'Not set' }
-                : { min: 0, max: 10, now: pain, text: speakScore(pain) }}
+              accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
             />
             <View style={styles.ends}>
               <Text style={styles.endText}>{PAIN_END_LOW.toUpperCase()}</Text>
@@ -1049,57 +1039,47 @@ export default function CheckinScreen({
         )}
 
         {step === 'pain' ? (
-          /* TWO BUTTONS OF EQUAL WEIGHT. The first version made
-             "Continue" the filled primary and put "That's it for now"
-             underneath in grey — and the product's first principle is
-             that pain alone is a finished check-in. The weight said the
-             opposite. Now the finishing action is the filled one and the
-             longer path sits beside it at the same size: a real choice,
-             not a default and an escape hatch. */
-          <View style={styles.pairRow}>
-            <Press
-              onPress={advance}
-              disabled={!canAdvance}
-              pressScale={canAdvance ? 0.985 : 1}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !canAdvance }}
-              accessibilityHint={canAdvance ? undefined : 'Choose a pain level first'}
-              style={[styles.primary, styles.pairBtn, styles.outlined, !canAdvance && styles.outlinedOff]}
-            >
-              <Text style={[styles.primaryText, styles.outlinedText, !canAdvance && styles.primaryTextOff]}>
-                {editing ? 'Change details' : 'Add details'}
-              </Text>
-            </Press>
+          /* ONE FULL-WIDTH BUTTON, AND A LINE UNDER IT. Two pills side
+             by side read as a form's Cancel/OK and cramped both labels;
+             the finishing action is the one thing this screen is for,
+             so it gets the whole width, and the longer path is a quiet
+             line beneath it, exactly where "That's it for now" once sat
+             for the opposite action. The weight now says: log the
+             number; more is here if you want it. */
+          <>
             <Press
               onPress={logOnly}
-              disabled={!canAdvance}
-              pressScale={canAdvance ? 0.985 : 1}
+              pressScale={0.985}
               accessibilityRole="button"
-              accessibilityState={{ disabled: !canAdvance }}
-              accessibilityHint={canAdvance ? undefined : 'Choose a pain level first'}
               accessibilityLabel={editing
                 ? 'Save the number and keep the rest as it was'
                 : 'Log the pain and finish'}
-              style={[styles.primary, styles.pairBtn, canAdvance ? styles.primaryOn : styles.primaryOff]}
+              style={[styles.primary, styles.primaryOn]}
             >
-              <Text style={[styles.primaryText, canAdvance ? styles.primaryTextOn : styles.primaryTextOff]}>
+              <Text style={[styles.primaryText, styles.primaryTextOn]}>
                 {editing ? 'Save' : 'Log it'}
               </Text>
             </Press>
-          </View>
+            <Press
+              onPress={advance}
+              pressOpacity={0.7}
+              style={styles.secondary}
+              accessibilityRole="button"
+              accessibilityLabel={editing ? 'Change the details' : 'Add details: where it hurts, and more'}
+            >
+              <Text style={styles.secondaryText}>
+                {editing ? 'Change details' : 'Add details'}
+              </Text>
+            </Press>
+          </>
         ) : (
           <Press
             onPress={advance}
-            disabled={!canAdvance}
-            pressScale={canAdvance ? 0.985 : 1}
+            pressScale={0.985}
             accessibilityRole="button"
-            accessibilityState={{ disabled: !canAdvance }}
-            style={[styles.primary, canAdvance ? styles.primaryOn : styles.primaryOff]}
+            style={[styles.primary, styles.primaryOn]}
           >
-            <Text style={[
-              styles.primaryText,
-              canAdvance ? styles.primaryTextOn : styles.primaryTextOff,
-            ]}>
+            <Text style={[styles.primaryText, styles.primaryTextOn]}>
               {/* DONE, not "Save": the check-in was written the moment
                   you left the pain step, and every step since has been
                   editing it. Nothing is pending here, so a Save button
@@ -1175,12 +1155,6 @@ const styles = StyleSheet.create({
     backgroundColor: color.bgSegmentTrack,
   },
   progressSegOn: { backgroundColor: color.textPrimary },
-  /* unset reads as waiting, not as a value: the shape is dimmed rather than
-     showing a colour the user has not chosen */
-  shapeUnset: { opacity: 0.28 },
-  unsetWord: {
-    color: color.textSecondary, fontSize: font.body, marginTop: 30, textAlign: 'center',
-  },
   /* the main pain value: a large display size that still scales with
      Dynamic Type — the number is the precise information */
   score: {
@@ -1189,8 +1163,6 @@ const styles = StyleSheet.create({
   },
   primaryOn: { backgroundColor: color.textPrimary },
   primaryTextOn: { color: '#000000' },
-  primaryOff: { backgroundColor: color.bgSegmentActive },
-  primaryTextOff: { color: color.textTertiary },
   /* the category beneath the score — the same five words everywhere */
   word: {
     color: color.textSecondary, fontSize: font.title3, fontWeight: '600',
@@ -1309,15 +1281,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,
   },
   primaryText: { fontSize: font.title3, fontWeight: '600' },
-  /* the pair: two pills, one row, the same height as the single one */
-  pairRow: { flexDirection: 'row', gap: 10 },
-  pairBtn: { flex: 1, marginTop: 26 },
-  outlined: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5, borderColor: color.textPrimary,
-  },
-  outlinedOff: { borderColor: color.bgSegmentActive },
-  outlinedText: { color: color.textPrimary },
   secondary: {
     minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6,
   },
