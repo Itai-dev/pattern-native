@@ -55,6 +55,7 @@ type HK = {
   queryWorkoutSamples: (opts: unknown) => Promise<unknown[]>;
   queryStateOfMindSamples?: (opts: unknown) => Promise<unknown[]>;
   requestPerObjectReadAuthorization?: (id: string) => Promise<void>;
+  requestMedicationsAuthorization?: () => Promise<boolean>;
   queryMedicationEvents?: (opts: unknown) => Promise<unknown[]>;
 };
 
@@ -112,8 +113,9 @@ function mindSupported(): boolean {
  *  on the OS version and the library's surface both, so an old phone
  *  is never offered a row it cannot honour. */
 function medicationsSupported(): boolean {
-  if (!LIB || typeof LIB.queryMedicationEvents !== 'function'
-    || typeof LIB.requestPerObjectReadAuthorization !== 'function') return false;
+  if (!LIB || typeof LIB.queryMedicationEvents !== 'function') return false;
+  if (typeof LIB.requestMedicationsAuthorization !== 'function'
+    && typeof LIB.requestPerObjectReadAuthorization !== 'function') return false;
   const major = parseInt(String(Platform.Version), 10);
   return isFinite(major) && major >= 26;
 }
@@ -203,7 +205,28 @@ export class HealthKitService implements HealthService {
        sheet must not unwind the whole setup — the failure mode is "no
        dose data", which the pipeline already treats as absent. */
     if (categories.indexOf('medications') >= 0 && medicationsSupported()) {
-      try { await LIB.requestPerObjectReadAuthorization!(MEDICATION_TYPE); } catch { /* absent */ }
+      /* THE MODULE'S OWN DOOR, NOT THE GENERIC ONE. In v14.0.2 the
+         generic requestPerObjectReadAuthorization compares the string
+         the bridge hands it ('HKUserAnnotatedMedicationTypeIdentifier')
+         against a different spelling in Helpers.swift and throws
+         "unrecognized objectType" — so the picker never opened, the
+         catch below ate it, and the first tester saw a connected row
+         and no doses. requestMedicationsAuthorization is marked
+         deprecated in the typings and calls the store directly; it is
+         the one that works, and the generic call stays as the fallback
+         for a library version that fixes its comparison and drops it. */
+      try {
+        if (typeof LIB.requestMedicationsAuthorization === 'function') {
+          await LIB.requestMedicationsAuthorization();
+        } else {
+          await LIB.requestPerObjectReadAuthorization!(MEDICATION_TYPE);
+        }
+      } catch (e) {
+        /* with other categories granted a moment ago, a failed picker
+           must not unwind them; alone, the failure is the whole answer
+           and the sheet must not record a connection that never was */
+        if (!toRead.length) throw e;
+      }
     }
   }
 
