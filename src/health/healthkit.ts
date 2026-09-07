@@ -57,6 +57,9 @@ type HK = {
   requestPerObjectReadAuthorization?: (id: string) => Promise<void>;
   requestMedicationsAuthorization?: () => Promise<boolean>;
   queryMedicationEvents?: (opts: unknown) => Promise<unknown[]>;
+  configureBackgroundTypes?: (ids: string[], freq: number) => Promise<boolean>;
+  subscribeToChanges?: (id: string, cb: (a: { typeIdentifier: string; errorMessage?: string }) => void)
+    => { remove: () => unknown };
 };
 
 const LIB: HK | null = (() => {
@@ -336,6 +339,47 @@ export class HealthKitService implements HealthService {
 
     return out;
   }
+}
+
+/* ── background delivery ───────────────────────────────────── */
+
+/** the sample types worth waking for, per category — a workout and a
+ *  night, the two things with an "after" a person can be asked about
+ *  the moment they end. Steps arrive all day and would wake the phone
+ *  for nothing. */
+const BACKGROUND_TYPES: Partial<Record<HealthCategory, string>> = {
+  workouts: 'HKWorkoutTypeIdentifier',
+  sleep: 'HKCategoryTypeIdentifierSleepAnalysis',
+};
+
+/**
+ * Ask iOS to wake Pattern when these categories change, and call back
+ * with the category when it does. Needs the background-delivery
+ * entitlement in the binary; without it (or without the module) every
+ * call fails quietly and nothing subscribes. Returns the stop function.
+ */
+export function startBackgroundDelivery(
+  categories: HealthCategory[], onChange: (category: HealthCategory) => void
+): () => void {
+  if (!LIB || typeof LIB.configureBackgroundTypes !== 'function'
+    || typeof LIB.subscribeToChanges !== 'function') return () => {};
+  const pairs = categories
+    .map((c) => ({ c, id: BACKGROUND_TYPES[c] }))
+    .filter((p): p is { c: HealthCategory; id: string } => !!p.id);
+  if (!pairs.length) return () => {};
+  const subs: { remove: () => unknown }[] = [];
+  try {
+    /* 1 = immediate, the library's UpdateFrequency — a workout that
+       ended is worth asking about now, not at the top of the hour */
+    LIB.configureBackgroundTypes(pairs.map((p) => p.id), 1).catch(() => {});
+    pairs.forEach((p) => {
+      subs.push(LIB.subscribeToChanges!(p.id, (a) => {
+        if (a.errorMessage) return;
+        try { onChange(p.c); } catch { /* the callback's failure is its own */ }
+      }));
+    });
+  } catch { /* no entitlement, no subscription */ }
+  return () => { subs.forEach((s) => { try { s.remove(); } catch { /* gone already */ } }); };
 }
 
 /** what the app actually uses: the real store when the binary carries

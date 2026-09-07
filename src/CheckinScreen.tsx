@@ -68,7 +68,7 @@ import PainShape from './PainShape';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
-  IMPACT_BETTER, IMPACT_CHIPS, IMPACT_IDS, IMPACT_WORSE, MetricDef,
+  IMPACT_BETTER, IMPACT_CHIPS, IMPACT_IDS, IMPACT_WORSE, LIMITATION_ID, MetricDef,
   eligibleNow, getMetric,
 } from './metrics';
 import { questionsNow } from './protocol';
@@ -211,9 +211,9 @@ export default function CheckinScreen({
     return questionsNow(
       db.activeProtocol(),
       { h: minutes, isFirstOfDay, entry },
-      /* interference is out of the daily loop — see metrics.ts; the
-         registry keeps the id for the answers already recorded */
-      []
+      /* the second core question rides along every day — asked in the
+         evening, once, whether or not a focus is running */
+      [LIMITATION_ID]
     );
   });
   const { width: winW } = useWindowDimensions();
@@ -372,6 +372,7 @@ export default function CheckinScreen({
      check-in never has one: the day-scoped questions stay in the
      present. An edit has one only for the moment's own words. */
   const askToday = askIds.length > 0 || askImpact || askFeel;
+  const limitationDue = !editing && askIds.indexOf(LIMITATION_ID) >= 0;
   /* WHERE, WHEN NEEDED. The first check-in of a day asks where; the
      next ones do not, unless the number has jumped WHERE_REASK_DELTA
      above anything earlier that day — a change worth locating. A
@@ -1072,21 +1073,37 @@ export default function CheckinScreen({
              line beneath it, exactly where "That's it for now" once sat
              for the opposite action. The weight now says: log the
              number; more is here if you want it. */
+          /* THE EVENING ASKS TWO THINGS. When the limitation question is
+             due — once a day, from five — the filled button goes on to
+             it and "Just the number" sits beneath: intensity and cost
+             are the two numbers this record is for, and the second one
+             a tap away from the first is how it gets answered. Pain
+             stays the only mandatory answer; the quiet line ends here. */
           <>
             <Press
-              onPress={logOnly}
+              onPress={limitationDue ? advance : logOnly}
               pressScale={0.985}
               accessibilityRole="button"
               accessibilityLabel={editing
                 ? 'Save the number and keep the rest as it was'
-                : 'Log the pain and finish'}
+                : limitationDue ? 'Continue to how much pain limited today' : 'Log the pain and finish'}
               style={[styles.primary, styles.primaryOn]}
             >
               <Text style={[styles.primaryText, styles.primaryTextOn]}>
-                {editing ? 'Save' : 'Log it'}
+                {editing ? 'Save' : limitationDue ? 'Continue' : 'Log it'}
               </Text>
             </Press>
-            {stepsShown.length > 1 && <Press
+            {limitationDue ? (
+              <Press
+                onPress={logOnly}
+                pressOpacity={0.7}
+                style={styles.secondary}
+                accessibilityRole="button"
+                accessibilityLabel="Log just the number and finish"
+              >
+                <Text style={styles.secondaryText}>Just the number</Text>
+              </Press>
+            ) : stepsShown.length > 1 && <Press
               onPress={advance}
               pressOpacity={0.7}
               style={styles.secondary}

@@ -101,3 +101,19 @@ Leaving them in means every iOS build fails until the profiles exist.
   rectangular), and the reworked home-screen sizes.
 - The production branch is current with master: the 5 September review's
   three over-the-air batches are published.
+
+---
+
+## 3. The next build carries three native things (nothing to do but build)
+
+Committed 2026-09-08, all guarded so the current binary is unaffected:
+
+| What | Where | What it enables |
+| --- | --- | --- |
+| HealthKit background delivery entitlement | `app.json` → HealthKit plugin `background: true` | iOS wakes Pattern when a workout or a night lands; `src/health/background.ts` sends one prompt at that moment |
+| expo-calendar + `NSCalendarsUsageDescription` | `app.json` plugin list, `src/calendar.ts` | "Use my calendar" in Profile: an after-event prompt for entries that read as exertion |
+| Notification category "checkin" | `src/reminders.ts` | a **Check in** button on every prompt, on the iPhone and mirrored to the watch; tapping opens the question (the watch app IS the question) |
+
+None of it has run on a device. The background-delivery path in
+particular is the library's promise that JS runs on a background wake;
+the first build with the entitlement is where that gets proven.

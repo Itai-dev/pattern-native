@@ -689,9 +689,10 @@ group('check-in questions');
 
 const INTERF = 'pain.interference.v1';
 
-ok('with no protocol, interference is still asked once a day', (() => {
-  const ids = protocol.questionsNow(null, { h: 9 * M, isFirstOfDay: true, entry: null }, [INTERF]);
-  return ids.length === 1 && ids[0] === INTERF;
+ok('with no protocol, limitation is asked in the evening, and not in the morning', (() => {
+  const ids = protocol.questionsNow(null, { h: 19 * M, isFirstOfDay: false, entry: null }, [INTERF]);
+  const am = protocol.questionsNow(null, { h: 9 * M, isFirstOfDay: true, entry: null }, [INTERF]);
+  return ids.length === 1 && ids[0] === INTERF && am.length === 0;
 })());
 ok('...and not again on a later check-in the same day', (() => {
   const entry = { pain: 5, cap: null, note: '', ctx: ctxOf({ [INTERF]: answer(6) }) };
@@ -702,12 +703,12 @@ ok('with a protocol, the factors come first and interference last', (() => {
   return ids.length === 3 && ids[2] === INTERF
     && ids[0] === 'stress.level.v1' && ids[1] === 'load.physical.v1';
 })());
-ok('a morning check-in with an evening factor asks two, not three', (() => {
+ok('a morning check-in with an evening factor asks the morning one alone', (() => {
   const ids = protocol.questionsNow(proto, { h: 8 * M, isFirstOfDay: true, entry: null }, [INTERF]);
-  return ids.length === 2 && ids.indexOf('load.physical.v1') < 0;
+  return ids.length === 1 && ids.indexOf('load.physical.v1') < 0 && ids.indexOf(INTERF) < 0;
 })());
 ok('the same extra passed twice is asked once', (() => {
-  const ids = protocol.questionsNow(null, { h: 9 * M, isFirstOfDay: true, entry: null },
+  const ids = protocol.questionsNow(null, { h: 19 * M, isFirstOfDay: true, entry: null },
     [INTERF, INTERF]);
   return ids.length === 1;
 })());

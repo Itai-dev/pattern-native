@@ -49,7 +49,7 @@ export interface SlotLike {
   on: boolean;
 }
 
-export type PromptKind = 'm' | 'd' | 'e' | 'workout' | 'dose';
+export type PromptKind = 'm' | 'd' | 'e' | 'workout' | 'dose' | 'calendar';
 
 export interface Prompt {
   /** stable within a day — the notification identifier is built from it */
@@ -157,12 +157,49 @@ export function typicalDoseTimes(health: Record<string, HealthDay>, date: string
   return peaks.sort((a, b) => a - b);
 }
 
+/** one calendar event as the planner reads it */
+export interface PlanEvent {
+  h: number;
+  minutes: number;
+  title: string;
+}
+
+/* the words that make a calendar entry an exertion — the kind of
+   event with an "after" worth asking about. Short and plain on
+   purpose: a person can see why their "Pilates" earned a prompt and
+   their "Lunch with Dana" did not. Matched as whole words, any case. */
+const EXERTION_WORDS = [
+  'gym', 'workout', 'training', 'run', 'running', 'jog', 'swim', 'swimming', 'cycle',
+  'cycling', 'bike', 'ride', 'yoga', 'pilates', 'physio', 'physiotherapy', 'pt',
+  'rehab', 'class', 'hike', 'walk', 'football', 'soccer', 'tennis', 'padel', 'climb',
+  'climbing', 'crossfit', 'boxing', 'dance', 'garden', 'gardening', 'move', 'moving',
+  'flight', 'drive', 'roadtrip',
+];
+const APPOINTMENT_WORDS = [
+  'doctor', 'dr', 'gp', 'clinic', 'hospital', 'appointment', 'neurologist',
+  'rheumatologist', 'orthopedic', 'orthopaedic', 'pain clinic', 'specialist', 'consult',
+];
+
+/** what an event title reads as — or null for the many that are
+ *  neither. Exertion earns an after-event prompt; an appointment is
+ *  kept for the day the app offers it as the next appointment. */
+export function calendarKind(title: string): 'exertion' | 'appointment' | null {
+  const t = ' ' + title.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ') + ' ';
+  const has = (w: string) => t.indexOf(' ' + w + ' ') >= 0;
+  if (APPOINTMENT_WORDS.some(has)) return 'appointment';
+  if (EXERTION_WORDS.some(has)) return 'exertion';
+  return null;
+}
+
 export interface PlanInput {
   slots: SlotLike[];
   health: Record<string, HealthDay>;
   clock: LocalClock;
   /** false = the person's own times, untouched, and no Health prompts */
   adaptive: boolean;
+  /** the date's calendar events, when the person turned the calendar
+   *  on — exertion earns an after-event prompt like a workout habit */
+  calendar?: PlanEvent[];
 }
 
 /**
@@ -201,6 +238,12 @@ export function planDay(date: string, input: PlanInput): Prompt[] {
     if (wEnd != null) extra.push({ key: 'w', h: wEnd + PROMPT_AFTER_WORKOUT_MIN, kind: 'workout' });
     typicalDoseTimes(input.health, date).forEach((t, i) => {
       extra.push({ key: 'x' + i, h: t + PROMPT_AFTER_DOSE_MIN, kind: 'dose' });
+    });
+    /* the calendar's exertions: a known end, on a known day — the one
+       "after" the phone can be sure of in advance */
+    (input.calendar || []).forEach((e, i) => {
+      if (calendarKind(e.title) !== 'exertion') return;
+      extra.push({ key: 'c' + i, h: e.h + e.minutes + PROMPT_AFTER_WORKOUT_MIN, kind: 'calendar' });
     });
     const isSlot = (q: Prompt) => q.kind === 'm' || q.kind === 'd' || q.kind === 'e';
     extra.sort((a, b) => a.h - b.h).forEach((p) => {

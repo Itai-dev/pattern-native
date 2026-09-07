@@ -84,6 +84,10 @@ export function eligibleNow(
   return false;
 }
 
+/** the second core question's id — the check-in asks it daily beside
+ *  the pain, the record and the report read it under this name */
+export const LIMITATION_ID = 'pain.interference.v1';
+
 /* ── the registry ───────────────────────────────────────────── */
 
 export type MetricType = 'ordinal' | 'numeric' | 'set';
@@ -168,12 +172,19 @@ export const METRICS: MetricDef[] = [
      read back on their days and in backups, and if function returns
      this is the id it returns under. wordingVersion 2 is the weekly
      wording those last answers were given under. */
+  /* BACK, AS THE SECOND CORE QUESTION (8 Sep 2026). Intensity says how
+     much it hurts; this says how much it cost — the number a pain
+     clinic actually manages against, and the one a person feels the
+     difference in. Asked once a day, in the evening, about TODAY
+     (wording 3; the weekly wording's answers never pool with these).
+     It rides the same id the retired weekly question used, so a day
+     that recorded it under either wording reads back on its day. */
   {
     id: 'pain.interference.v1',
-    name: 'Interference',
-    question: 'Over the past week, how much has pain got in the way?',
+    name: 'Limited by pain',
+    question: 'How much has pain limited what you could do today?',
     type: 'numeric', scope: 'day', range: [0, 10], ends: ['Not at all', 'Completely'],
-    wordingVersion: 2, eligibility: 'firstOfDay', analysis: 'trend',
+    wordingVersion: 3, eligibility: 'firstAfter1700', analysis: 'trend',
     protocolEligible: false,
   },
   {

@@ -38,7 +38,9 @@ import PrivacySheet from './src/PrivacySheet';
 import AppointmentRow, { PREF_APPOINTMENT } from './src/AppointmentRow';
 import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
-import { cancelAll, configureHandler, isReminderId } from './src/reminders';
+import { cancelAll, configureHandler, isReminderId, registerCategory } from './src/reminders';
+import { startBackgroundPrompts } from './src/health/background';
+import { calendarAvailable, calendarOn, requestCalendar, setCalendarOn } from './src/calendar';
 import { syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
 import { Moment, PainEvent, ValidBackup, iso, todayISO } from './src/model';
@@ -54,7 +56,8 @@ import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
 } from './src/theme';
 
-configureHandler(); // set once, before anything can be delivered
+configureHandler();
+    registerCategory().catch(() => {}); // set once, before anything can be delivered
 /* the chosen hue is part of the app's identity — restore it before the
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
@@ -226,6 +229,8 @@ export default function App() {
   /* the next appointment, as state so Today's card follows the Profile
      row without a remount; the picker opens on mount when Today asked */
   const [appointment, setAppointment] = useState(() => db.getPref<string>(PREF_APPOINTMENT, ''));
+  /* "Use my calendar": the switch state, saved by calendar.ts */
+  const [calendarUse, setCalendarUse] = useState<boolean>(() => calendarOn());
   const [apptPickerOnOpen, setApptPickerOnOpen] = useState(false);
   /* a date that has passed clears itself the day after — nobody wants
      to be told the appointment was yesterday — and sets the next ask a
@@ -266,6 +271,9 @@ export default function App() {
       .then(() => { setHealthDays(storedHealthDays()); syncReminders().catch(() => {}); })
       .catch(() => {});
   }, [health]);
+  /* the moment-of prompts: iOS wakes the app when a workout or a night
+     lands, on binaries with the entitlement — nothing on the others */
+  useEffect(() => startBackgroundPrompts(health), [health]);
   useEffect(() => {
     resyncHealth();
     const sub = AppState.addEventListener('change', (s) => {
@@ -1019,6 +1027,44 @@ export default function App() {
               <View style={[styles.group, styles.groupPad]}>
                 <RemindersSection />
               </View>
+              {/* the calendar: only on a binary that carries the module.
+                  A switch, because the whole setting is yes or no; the
+                  permission is asked when it goes on, where the question
+                  explains itself. */}
+              {calendarAvailable() && (
+                <>
+                  <View style={styles.group}>
+                    <View style={styles.row} accessible accessibilityRole="switch"
+                      accessibilityState={{ checked: calendarUse }}
+                      accessibilityLabel="Use my calendar for reminder times">
+                      <RowIcon name="calendar-outline" />
+                      <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                        <Text style={styles.rowLabel}>Use my calendar</Text>
+                        <Switch
+                          value={calendarUse}
+                          onValueChange={async (on) => {
+                            if (on && !(await requestCalendar())) {
+                              Alert.alert('Calendar access is off',
+                                'Turn it on for Pattern in iPhone Settings and the prompts will follow your calendar.');
+                              return;
+                            }
+                            setCalendarOn(on);
+                            setCalendarUse(on);
+                            syncReminders().catch(() => {});
+                          }}
+                          trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.groupFooter}>
+                    A prompt after the events that read as exertion — a class,
+                    physio, a run, a long drive. Titles and times are read on this
+                    iPhone and never stored or sent; no event is ever named in a
+                    notification.
+                  </Text>
+                </>
+              )}
 
               <Text style={styles.groupTitle}>Lock screen and watch</Text>
               <View style={styles.group}>

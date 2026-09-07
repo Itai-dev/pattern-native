@@ -13,14 +13,14 @@
  * handing to a physician.
  */
 import {
-  BANDS, IMPACT_BETTER, IMPACT_WORSE, TimeBandKey, bandOf, getMetric, impactName,
+  BANDS, IMPACT_BETTER, IMPACT_WORSE, LIMITATION_ID, TimeBandKey, bandOf, getMetric, impactName,
 } from './metrics';
 import {
   BACKGROUND_FIELDS, Background,
   Entries, EVENT_LABELS, EventKind, FuncEntry, Hypothesis, LOC_NAMES, PainEvent,
   DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, Protocol, QUALITY_NAMES,
   RESPONSE_LABELS, Response, checkinCount, dailyAverage,
-  dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
+  answerOf, dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
 } from './model';
 import { BAND_AT, formatScore, painLabel } from './painScale';
 import {
@@ -89,6 +89,11 @@ export interface ReportData {
    *  comparison over time is drawn */
   limited: boolean;
   avg: number;
+  /** the second core question, "how much has pain limited what you
+   *  could do today", 0–10, averaged over the evenings it was answered
+   *  under the current wording. Null until one was. Never averaged
+   *  with pain — a separate scale, kept separate. */
+  limitation: { avg: number; days: number } | null;
   lowestDay: number;
   highestDay: number;
   /** the day each extreme happened — the summary stops being a dead
@@ -292,6 +297,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
     rangeEnd: todayIso,
     exportDate: todayIso,
     loggedDays: days.length,
+    limitation: limitationOf(entries, days),
     totalCheckins: days.reduce((s, d) => s + d.count, 0),
     limited,
     avg: avgOf(avgs),
@@ -398,6 +404,20 @@ function healthContext(
   const inWindow = doses.filter((a) =>
     (a.verdict === 'possible' || a.verdict === 'observation') && !!meds[a.medId]);
   return { coverage, association, medications, doses: inWindow };
+}
+
+/** the limitation answers over the window, current wording only */
+function limitationOf(entries: Entries, days: ReportDay[]): ReportData['limitation'] {
+  const m = getMetric(LIMITATION_ID);
+  const vals: number[] = [];
+  days.forEach((d) => {
+    const a = answerOf(entries[d.date], LIMITATION_ID);
+    if (!a || typeof a.value !== 'number') return;
+    if (m && a.qv !== m.wordingVersion) return;
+    vals.push(a.value);
+  });
+  if (!vals.length) return null;
+  return { avg: Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10, days: vals.length };
 }
 
 /** how many days each chip was ticked on one side */
@@ -870,6 +890,11 @@ export function reportHtml(data: ReportData): string {
   // ── key metrics ──
   s.push('<section><h2>Key metrics</h2><div class="metrics">');
   s.push(metricCell('Average pain', formatScore(data.avg) + '/10', painLabel(data.avg)));
+  if (data.limitation) {
+    s.push(metricCell('Limited by pain', data.limitation.avg + '/10',
+      data.limitation.days + (data.limitation.days === 1 ? ' evening' : ' evenings')
+      + ', 0 not at all – 10 completely'));
+  }
   s.push(metricCell('Lowest daily average', formatScore(data.lowestDay) + '/10', fmtShortDate(data.lowestDayDate)));
   s.push(metricCell('Highest daily average', formatScore(data.highestDay) + '/10', fmtShortDate(data.highestDayDate)));
   s.push(metricCell('Logged days', String(data.loggedDays)));

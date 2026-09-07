@@ -64,7 +64,21 @@ const COPY: Record<PromptKind, string> = {
      lock screen. */
   workout: 'Around now you often finish a workout. How intense is your pain right now?',
   dose: 'About an hour after a dose you usually log around this time — how intense is your pain right now?',
+  /* the calendar knew the end; the title stays on the phone */
+  calendar: 'A while after what was in your calendar — how intense is your pain right now?',
 };
+
+/** the one category every prompt carries: a "Check in" button on the
+ *  banner, on the iPhone and mirrored to the watch, that opens the
+ *  question. Registered once at launch; harmless to repeat. */
+export const CHECKIN_CATEGORY = 'checkin';
+export async function registerCategory(): Promise<void> {
+  try {
+    await Notifications.setNotificationCategoryAsync(CHECKIN_CATEGORY, [
+      { identifier: 'log', buttonTitle: 'Check in', options: { opensAppToForeground: true } },
+    ]);
+  } catch { /* an older runtime without categories still shows the banner */ }
+}
 
 /** a delivered nudge should be quiet, not a banner that demands dismissal */
 export function configureHandler(): void {
@@ -140,7 +154,7 @@ export async function reschedule(
         const when = new Date(+parts[0], +parts[1] - 1, +parts[2], Math.floor(p.h / 60), p.h % 60, 0, 0);
         await Notifications.scheduleNotificationAsync({
           identifier: 'pattern-' + p.key + '-' + dateIso,
-          content: { title: 'Pattern', body: COPY[p.kind] },
+          content: { title: 'Pattern', body: COPY[p.kind], categoryIdentifier: CHECKIN_CATEGORY },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
         });
       }
@@ -154,7 +168,7 @@ export async function reschedule(
       const when = new Date(+p[0], +p[1] - 1, +p[2], s.hour, s.minute, 0, 0);
       await Notifications.scheduleNotificationAsync({
         identifier: 'pattern-' + s.key + '-' + dateIso,
-        content: { title: 'Pattern', body: COPY[s.key] },
+        content: { title: 'Pattern', body: COPY[s.key], categoryIdentifier: CHECKIN_CATEGORY },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
       });
     }

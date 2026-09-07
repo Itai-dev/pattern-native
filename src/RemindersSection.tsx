@@ -52,7 +52,7 @@ export default function RemindersSection() {
   /* the status line says what will actually fire today — learned times
      starred, and the after-something prompts named — so a moved hour
      is never a surprise */
-  const planLine = () => 'On ✓ ' + describePlan(plannedToday());
+  const planLine = async () => 'On ✓ ' + describePlan(await plannedToday());
 
   /* Restore the saved schedule once, on mount — but never prompt here: a
      permission sheet on launch is an ambush. Toggling a slot is what asks,
@@ -62,7 +62,8 @@ export default function RemindersSection() {
     (async () => {
       if (!slots.some((s) => s.on)) return;
       await syncReminders();
-      if (alive) setStatus(planLine());
+      const line = await planLine();
+      if (alive) setStatus(line);
     })().catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -76,7 +77,7 @@ export default function RemindersSection() {
     if (nowOn && !wasOn) track('reminder_enabled');
     if (!nowOn && wasOn) track('reminder_disabled');
     if (r === 'denied') { setStatus(DENIED); return; }
-    setStatus(r === 'on' ? planLine() : 'Off');
+    setStatus(r === 'on' ? await planLine() : 'Off');
   }, [slots]);
 
   /* Follow Apple Health: saved, then the queue rebuilt from the same

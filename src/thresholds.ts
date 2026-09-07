@@ -336,6 +336,17 @@ export const PROMPT_DOSE_SEPARATION_MIN = 120;
  *  it the workout is the day's context, not the moment's */
 export const NOW_HINT_WORKOUT_MIN = 180;
 
+/** background prompts a day — the ones fired at the moment a workout
+ *  ends or a night is in, on binaries with the entitlement. Two: a
+ *  morning and a workout, and the planned prompts already carry the
+ *  rest of the day */
+export const BG_PROMPTS_MAX_PER_DAY = 2;
+
+/** minutes after which a delivered sample is history, not a moment.
+ *  Forty-five: past it a workout the store handed over late is context
+ *  for the day and the planned prompt has already done its job */
+export const BG_PROMPT_STALE_MIN = 45;
+
 /** how far above the day's earlier check-ins a number must be before
  *  "where" is asked again that day. Two points: a change worth
  *  locating, not the slider's ordinary drift */

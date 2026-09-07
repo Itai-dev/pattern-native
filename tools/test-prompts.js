@@ -194,6 +194,23 @@ ok('a prompt whose minute has passed is not scheduled for a minute ago', (() => 
   return prompts.dueToday({ key: 'e', h: 20 * 60, kind: 'e' }, [], 20 * 60 + 1) === false;
 })());
 
+group('the calendar: what reads as exertion, and the prompt after it');
+ok('titles classify by whole words, any case; most titles are neither', (() => {
+  return prompts.calendarKind('Pilates') === 'exertion' && prompts.calendarKind('GYM 6pm') === 'exertion'
+    && prompts.calendarKind('Physio - knee') === 'exertion' && prompts.calendarKind('Drive to Haifa') === 'exertion'
+    && prompts.calendarKind('Dr Levy') === 'appointment' && prompts.calendarKind('Pain clinic follow-up') === 'appointment'
+    && prompts.calendarKind('Lunch with Dana') === null && prompts.calendarKind('Runway review') === null;
+})());
+ok('an exertion in the calendar earns a prompt PROMPT_AFTER_WORKOUT_MIN after it ends; an appointment does not', (() => {
+  const cal = [{ h: 17 * 60, minutes: 60, title: 'Yoga' }, { h: 10 * 60, minutes: 30, title: 'Dr Levy' }];
+  const p = prompts.planDay(TODAY, { slots: SLOTS.map((s) => ({ ...s, on: false })), health: {}, clock, adaptive: true, calendar: cal });
+  return p.length === 1 && p[0].kind === 'calendar' && p[0].h === 18 * 60 + th.PROMPT_AFTER_WORKOUT_MIN;
+})());
+ok('adaptive off keeps the calendar out of the plan too', (() => {
+  const cal = [{ h: 17 * 60, minutes: 60, title: 'Yoga' }];
+  return prompts.planDay(TODAY, { slots: SLOTS, health: {}, clock, adaptive: false, calendar: cal }).length === 2;
+})());
+
 group('the hint under the number');
 ok('the last dose within the dose window and a workout that ended within three hours, as facts with "ago"', (() => {
   const d = { date: TODAY, doses: [

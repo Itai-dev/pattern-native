@@ -955,6 +955,12 @@ export default function TrendsScreen({
           </Text>
           <Text style={styles.painDays} allowFontScaling maxFontSizeMultiplier={1.3}>
             {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} recorded
+            {/* the second number, beside the first and never blended
+                with it: how much it cost, on the evenings that said */}
+            {data.limitation
+              ? ' · limited by pain ' + data.limitation.avg + '/10 across '
+                + data.limitation.days + (data.limitation.days === 1 ? ' evening' : ' evenings')
+              : ''}
           </Text>
         </View>
         {ranges.length > 1 && (

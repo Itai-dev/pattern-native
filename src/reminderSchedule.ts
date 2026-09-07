@@ -16,6 +16,8 @@ import { Prompt, planDay } from './health/prompts';
 import { deviceClock } from './health/healthkit';
 import { storedHealthDays } from './health/sync';
 import { fmtClock } from './clock';
+import { CalendarEvent, calendarEvents } from './calendar';
+import { DAYS_AHEAD } from './reminders';
 
 /** "Follow Apple Health": on by default, because the whole point of a
  *  learned time is that nobody has to set it. Off returns the slots to
@@ -31,16 +33,22 @@ export function setAdaptive(on: boolean): void {
 }
 
 /** the planner the queue is built from — the saved slots, the stored
- *  Health days, the phone's clock */
-function planner(slots: Slot[]): (dateIso: string) => Prompt[] {
+ *  Health days, the phone's clock, and the week's calendar when the
+ *  person turned it on (an empty map otherwise, or on any failure) */
+function planner(slots: Slot[], calendar: Record<string, CalendarEvent[]>): (dateIso: string) => Prompt[] {
   const health = storedHealthDays();
   const adaptive = adaptiveOn();
-  return (dateIso) => planDay(dateIso, { slots, health, clock: deviceClock, adaptive });
+  return (dateIso) => planDay(dateIso, {
+    slots, health, clock: deviceClock, adaptive, calendar: calendar[dateIso],
+  });
+}
+async function plannerAsync(slots: Slot[]): Promise<(dateIso: string) => Prompt[]> {
+  return planner(slots, await calendarEvents(todayISO(), DAYS_AHEAD));
 }
 
 /** today's plan, for the settings row to describe */
-export function plannedToday(): Prompt[] {
-  return planner(savedSlots())(todayISO());
+export async function plannedToday(): Promise<Prompt[]> {
+  return (await plannerAsync(savedSlots()))(todayISO());
 }
 
 /** the plan as one line: the times, then what Health adds */
@@ -50,6 +58,7 @@ export function describePlan(prompts: Prompt[]): string {
   const extras: string[] = [];
   if (prompts.some((p) => p.kind === 'workout')) extras.push('after workouts');
   if (prompts.some((p) => p.kind === 'dose')) extras.push('after doses');
+  if (prompts.some((p) => p.kind === 'calendar')) extras.push('after calendar events');
   return times.concat(extras).join(' · ');
 }
 
@@ -69,7 +78,7 @@ export async function syncReminders(): Promise<void> {
   if (!slots.some((s) => s.on)) return;
   if (!(await hasPermission())) return;
   const t = todayISO();
-  await reschedule(slots, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow(), planner(slots));
+  await reschedule(slots, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow(), await plannerAsync(slots));
 }
 
 export type ApplyResult = 'on' | 'off' | 'denied';
@@ -86,7 +95,7 @@ export async function applySlots(next: Slot[]): Promise<ApplyResult> {
   }
   if (!(await ensurePermission())) return 'denied';
   const t = todayISO();
-  await reschedule(next, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow(), planner(next));
+  await reschedule(next, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow(), await plannerAsync(next));
   return 'on';
 }
 
