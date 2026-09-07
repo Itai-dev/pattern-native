@@ -26,7 +26,9 @@ import * as Haptics from 'expo-haptics';
 import { EASE_OUT, reduceMotion } from './motion';
 import { track } from './analytics';
 import { Slot } from './reminders';
-import { applySlots, savedSlots, syncReminders } from './reminderSchedule';
+import {
+  adaptiveOn, applySlots, describePlan, plannedToday, savedSlots, setAdaptive, syncReminders,
+} from './reminderSchedule';
 import { fmtClock } from './clock';
 import { color, font, radius } from './theme';
 
@@ -45,6 +47,12 @@ export default function RemindersSection() {
     savedSlots().some((sl) => sl.on && sl.key !== 'e'));
 
   const anyOn = slots.some((sl) => sl.on);
+  const [adaptive, setAdaptiveState] = useState<boolean>(() => adaptiveOn());
+
+  /* the status line says what will actually fire today — learned times
+     starred, and the after-something prompts named — so a moved hour
+     is never a surprise */
+  const planLine = () => 'On ✓ ' + describePlan(plannedToday());
 
   /* Restore the saved schedule once, on mount — but never prompt here: a
      permission sheet on launch is an ambush. Toggling a slot is what asks,
@@ -54,7 +62,7 @@ export default function RemindersSection() {
     (async () => {
       if (!slots.some((s) => s.on)) return;
       await syncReminders();
-      if (alive) setStatus('On ✓ ' + slots.filter((s) => s.on).map(fmt).join(' · '));
+      if (alive) setStatus(planLine());
     })().catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -68,8 +76,17 @@ export default function RemindersSection() {
     if (nowOn && !wasOn) track('reminder_enabled');
     if (!nowOn && wasOn) track('reminder_disabled');
     if (r === 'denied') { setStatus(DENIED); return; }
-    setStatus(r === 'on' ? 'On ✓ ' + next.filter((s) => s.on).map(fmt).join(' · ') : 'Off');
+    setStatus(r === 'on' ? planLine() : 'Off');
   }, [slots]);
+
+  /* Follow Apple Health: saved, then the queue rebuilt from the same
+     slots so the phone holds what the switch says */
+  const toggleAdaptive = (on: boolean) => {
+    Haptics.selectionAsync().catch(() => {});
+    setAdaptive(on);
+    setAdaptiveState(on);
+    apply(slots);
+  };
 
   /* the master switch: on = the evening slot at its saved time, off = all
      of them. It never forgets a customised schedule — the slot config
@@ -137,6 +154,27 @@ export default function RemindersSection() {
         />
       </View>
 
+      {/* the learned schedule. Under the daily switch because it only
+          means anything with one on; visible always, because a moved
+          hour needs its explanation within reach */}
+      {anyOn && (
+        <View style={styles.row}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Follow Apple Health</Text>
+            <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Morning after you usually wake, evening before you usually sleep, and a prompt
+              after the workouts and doses Health sees you log. Times marked * were learned.
+            </Text>
+          </View>
+          <Switch
+            value={adaptive}
+            onValueChange={toggleAdaptive}
+            accessibilityLabel="Follow Apple Health for reminder times"
+            trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+          />
+        </View>
+      )}
+
       {customising && slots.map((s) => (
         <View key={s.key} style={styles.row}>
           <Text style={styles.label}>{LABELS[s.key]}</Text>
@@ -201,6 +239,7 @@ const styles = StyleSheet.create({
   customise: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 14 },
   label: { flex: 1, color: color.textPrimary, fontSize: 15 },
+  hint: { color: color.textTertiary, fontSize: 12, lineHeight: 16, marginTop: 2, paddingBottom: 6 },
   time: {
     backgroundColor: color.bgSegmentActive, borderRadius: radius.segment, borderCurve: 'continuous',
     paddingVertical: 7, paddingHorizontal: 12,

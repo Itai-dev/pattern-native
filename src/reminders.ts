@@ -21,6 +21,7 @@
 import * as Notifications from 'expo-notifications';
 import { bandOf } from './metrics';
 import { addDays } from './model';
+import { Prompt, PromptKind, dueToday } from './health/prompts';
 
 export interface Slot {
   /** 'm' | 'd' | 'e' — the identifier is stable so a reschedule can replace it */
@@ -51,12 +52,18 @@ export const DAYS_AHEAD = 7;
 
 /* the copy follows the hour it fires in — same voice, different moment.
    Every line is an offer, never an instruction. */
-const COPY: Record<Slot['key'], string> = {
+const COPY: Record<PromptKind, string> = {
   /* each nudge asks the same question the check-in asks — about NOW, not
      about the whole day, because several of these arrive daily */
   m: 'How intense is your pain right now? A few seconds, only if there is room for it.',
   d: 'How intense is your pain right now? A few seconds, only if there is room for it.',
   e: 'How intense is your pain right now? A missed day is just a missed day.',
+  /* the learned ones say "often" and "usually": the phone scheduled
+     them from a habit, not from today, and must not claim to know
+     what today held. No medication is ever named — this lands on a
+     lock screen. */
+  workout: 'Around now you often finish a workout. How intense is your pain right now?',
+  dose: 'About an hour after a dose you usually log around this time — how intense is your pain right now?',
 };
 
 /** a delivered nudge should be quiet, not a banner that demands dismissal */
@@ -112,11 +119,34 @@ export function slotDates(
 }
 
 /** replace the phone's queue with exactly the slots that are on, a week
- *  ahead, minus today's where today has already been answered */
+ *  ahead, minus today's where today has already been answered.
+ *
+ *  With a `planner`, each date's prompts come from it instead — the
+ *  slots moved by Health where it knows better, plus the after-workout
+ *  and after-dose prompts (see health/prompts.ts) — and today's are
+ *  filtered by the same "already answered" rule. Seven days at most
+ *  PROMPTS_MAX_PER_DAY is thirty-five, inside iOS's sixty-four. */
 export async function reschedule(
-  slots: Slot[], todayIso: string, todayMinutes: number[], nowMinutes: number
+  slots: Slot[], todayIso: string, todayMinutes: number[], nowMinutes: number,
+  planner?: (dateIso: string) => Prompt[]
 ): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
+  if (planner) {
+    for (let d = 0; d < DAYS_AHEAD; d++) {
+      const dateIso = addDays(todayIso, d);
+      for (const p of planner(dateIso)) {
+        if (d === 0 && !dueToday(p, todayMinutes, nowMinutes)) continue;
+        const parts = dateIso.split('-');
+        const when = new Date(+parts[0], +parts[1] - 1, +parts[2], Math.floor(p.h / 60), p.h % 60, 0, 0);
+        await Notifications.scheduleNotificationAsync({
+          identifier: 'pattern-' + p.key + '-' + dateIso,
+          content: { title: 'Pattern', body: COPY[p.kind] },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
+        });
+      }
+    }
+    return;
+  }
   for (const s of slots) {
     if (!s.on) continue;
     for (const dateIso of slotDates(s, todayIso, todayMinutes, nowMinutes)) {

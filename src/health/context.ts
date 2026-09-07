@@ -23,6 +23,7 @@
 import {
   CONTEXT_SLEEP_USUAL_DELTA_MIN, CONTEXT_STAND_USUAL_DELTA_MIN,
   CONTEXT_STEPS_USUAL_RATIO, CONTEXT_USUAL_MIN_DAYS, CONTEXT_USUAL_WINDOW_DAYS,
+  DOSE_AFTER_MAX_MIN, NOW_HINT_WORKOUT_MIN,
 } from '../thresholds';
 import { addDays, fmtTime } from '../model';
 import { HealthDay, NormalizedDose } from './types';
@@ -232,6 +233,40 @@ export function healthHintFor(metricId: string, day: HealthDay | null | undefine
     return 'Apple Health: you logged “' + valenceWord(latest.valence) + '” today';
   }
   return null;
+}
+
+/** "how long ago", in a person's words */
+function ago(min: number): string {
+  if (min < 60) return min + ' min ago';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h + 'h' + (m ? ' ' + m + 'm' : '') + ' ago';
+}
+
+/**
+ * What Health knows about the last few hours, for the pain step: the
+ * most recent dose within the dose window, the most recent workout
+ * that ended within NOW_HINT_WORKOUT_MIN. The number is recorded WITH
+ * its context, and the context is why the after-workout and after-dose
+ * prompts exist — a person answering one sees what it was about.
+ * Facts, in time order; never "so how is it".
+ */
+export function healthNowHint(day: HealthDay | null | undefined, nowMinutes: number): string[] {
+  if (!day) return [];
+  const out: string[] = [];
+  const doses = (day.doses || []).filter((d) =>
+    d.status === 'taken' && d.h <= nowMinutes && nowMinutes - d.h <= DOSE_AFTER_MAX_MIN);
+  if (doses.length) {
+    const d = doses[doses.length - 1];
+    out.push('Apple Health: ' + doseText(d) + ', ' + ago(nowMinutes - d.h));
+  }
+  const ws = (day.workouts || []).filter((w) =>
+    w.h + w.minutes <= nowMinutes && nowMinutes - (w.h + w.minutes) <= NOW_HINT_WORKOUT_MIN);
+  if (ws.length) {
+    const w = ws[ws.length - 1];
+    out.push('Apple Health: ' + fmtDuration(w.minutes) + ' workout, ended '
+      + ago(nowMinutes - (w.h + w.minutes)));
+  }
+  return out;
 }
 
 /** the one line Today may carry from Health: last night, which is over

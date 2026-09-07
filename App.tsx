@@ -261,7 +261,9 @@ export default function App() {
      live in health/sync.ts. */
   const resyncHealth = useCallback(() => {
     syncHealth(health, deviceClock)
-      .then(() => setHealthDays(storedHealthDays()))
+      /* fresh nights and doses re-plan the reminder week — the learned
+         times come from these days (health/prompts.ts) */
+      .then(() => { setHealthDays(storedHealthDays()); syncReminders().catch(() => {}); })
       .catch(() => {});
   }, [health]);
   useEffect(() => {

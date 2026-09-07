@@ -274,3 +274,69 @@ export const DOSE_AFTER_MAX_MIN = 360;
  *  and cheap in days, since each pair is one afternoon. What it does
  *  not buy is causation; see DOSE_NON_CAUSATION. */
 export const DOSE_MIN_PAIRS = PATTERN_MIN_N;
+
+/* ── when to ask: the reminder plan learned from Health ──────
+   A fixed time is the wrong time for most of the questions this
+   record asks. These decide how far Health may move a prompt, when an
+   "after" prompt lands, and how many a day may carry at all. */
+
+/** prompts a day, ceiling, whatever Health suggests. Five: three slots
+ *  the person can set plus two "after" prompts on a full day, and a
+ *  record kept under more than that is a record abandoned */
+export const PROMPTS_MAX_PER_DAY = 5;
+
+/** minutes between two prompts, minimum. Ninety: closer than that and
+ *  the second is a nag about the first, and a check-in within that
+ *  span already answers it */
+export const PROMPT_MIN_GAP_MIN = 90;
+
+/** the waking window an "after" prompt may land in — outside it, a
+ *  learned habit stays a habit and not a 5 a.m. notification */
+export const PROMPT_EARLIEST_MIN = 6 * 60;
+export const PROMPT_LATEST_MIN = 23 * 60;
+
+/** nights of the recent record used to learn wake and bed times, and
+ *  days used for dose habits — two weeks: current, and enough for a
+ *  median to mean something */
+export const PROMPT_SLEEP_DAYS = 14;
+
+/** nights (or dose days) before a learned time is trusted over the
+ *  time the person set — five, the same floor the context lines use */
+export const PROMPT_MIN_DAYS = 5;
+
+/** minutes after the usual wake before the morning asks. Thirty: up,
+ *  moving, and the night still fresh — the morning pain the sleep
+ *  comparison reads */
+export const PROMPT_AFTER_WAKE_MIN = 30;
+
+/** minutes before the usual bedtime for the evening prompt. Forty-five:
+ *  the day is over and the phone is still in hand */
+export const PROMPT_BEFORE_BED_MIN = 45;
+
+/** minutes after a workout usually ends. Forty-five: showered, sat
+ *  down, and the body's first word on it in */
+export const PROMPT_AFTER_WORKOUT_MIN = 45;
+
+/** weeks of the same weekday looked at, and how many of them need a
+ *  workout before that weekday earns an "after your workout" prompt.
+ *  Two of four: a habit, not a one-off, and learnable in a fortnight */
+export const PROMPT_WORKOUT_WEEKS = 4;
+export const PROMPT_MIN_RECURRENCE = 2;
+
+/** minutes after a usual dose time. Sixty: past the DOSE_AFTER_MIN_MIN
+ *  floor with margin, so the check-in it invites can be the "after"
+ *  half of a dose pair */
+export const PROMPT_AFTER_DOSE_MIN = 60;
+
+/** how far apart two learned dose times must be to be two habits */
+export const PROMPT_DOSE_SEPARATION_MIN = 120;
+
+/** how long after a workout ends the pain step still mentions it.
+ *  Three hours: the window the after-workout question is about; past
+ *  it the workout is the day's context, not the moment's */
+export const NOW_HINT_WORKOUT_MIN = 180;
+
+/** how far above the day's earlier check-ins a number must be before
+ *  "where" is asked again that day. Two points: a change worth
+ *  locating, not the slider's ordinary drift */
+export const WHERE_REASK_DELTA = 2;

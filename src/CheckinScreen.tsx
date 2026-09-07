@@ -72,7 +72,8 @@ import {
   eligibleNow, getMetric,
 } from './metrics';
 import { questionsNow } from './protocol';
-import { healthHintFor } from './health/context';
+import { healthHintFor, healthNowHint } from './health/context';
+import { WHERE_REASK_DELTA } from './thresholds';
 import { HealthDay } from './health/types';
 import { track, trackCheckin } from './analytics';
 import { color, font, size } from './theme';
@@ -219,6 +220,11 @@ export default function CheckinScreen({
   /* what Health already has for today, read once — a hint above a
      question, never an answer to it */
   const [healthToday] = useState<HealthDay | null>(() => db.getHealthDay<HealthDay>(today));
+  /* the last few hours as Health saw them, under the number: the dose
+     an hour ago, the workout that just ended. Today's flow only — a
+     past day's "now" is not now. */
+  const [nowHint] = useState<string[]>(() =>
+    retro || editing ? [] : healthNowHint(db.getHealthDay<HealthDay>(today), minutesNow()));
   const [pid] = useState<number | null>(() => {
     const p = db.activeProtocol();
     return p && p.id != null ? p.id : null;
@@ -366,7 +372,22 @@ export default function CheckinScreen({
      check-in never has one: the day-scoped questions stay in the
      present. An edit has one only for the moment's own words. */
   const askToday = askIds.length > 0 || askImpact || askFeel;
-  const order: Step[] = retro && !editing ? ['pain', 'where'] : ['pain', 'where', 'today'];
+  /* WHERE, WHEN NEEDED. The first check-in of a day asks where; the
+     next ones do not, unless the number has jumped WHERE_REASK_DELTA
+     above anything earlier that day — a change worth locating. A
+     later check-in with nothing due on the third screen is then pain
+     and Log it, nothing else; the place stays editable on the day
+     screen. Edits and past days always ask: a day being reconstructed
+     has no "earlier". */
+  const whereDoneToday = editing || retro ? false
+    : logsOf(db.getDay(today)).some((l) => !!l.locAsked);
+  const painSoFar = editing || retro ? null
+    : logsOf(db.getDay(today)).filter((l) => l.h !== writtenAt)
+      .reduce<number | null>((m, l) => (m == null || l.pain > m ? l.pain : m), null);
+  const askWhere = !whereDoneToday || (painSoFar != null && pain >= painSoFar + WHERE_REASK_DELTA);
+  const order: Step[] = retro && !editing
+    ? (askWhere ? ['pain', 'where'] : ['pain'])
+    : (askWhere ? ['pain', 'where', 'today'] : ['pain', 'today']);
   const stepsShown = order.filter((s) => s !== 'today' || askToday);
   const isLast = stepsShown.indexOf(step) === stepsShown.length - 1;
 
@@ -873,6 +894,11 @@ export default function CheckinScreen({
           <Text style={styles.word} allowFontScaling maxFontSizeMultiplier={1.6}>
             {painLabel(pain)}
           </Text>
+          {nowHint.map((t) => (
+            <Text key={t} style={styles.nowHint} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {t}
+            </Text>
+          ))}
         </View>
       ) : step === 'today' ? (
         /* the one scrollable screen: the period's questions first (they
@@ -1060,7 +1086,7 @@ export default function CheckinScreen({
                 {editing ? 'Save' : 'Log it'}
               </Text>
             </Press>
-            <Press
+            {stepsShown.length > 1 && <Press
               onPress={advance}
               pressOpacity={0.7}
               style={styles.secondary}
@@ -1070,7 +1096,7 @@ export default function CheckinScreen({
               <Text style={styles.secondaryText}>
                 {editing ? 'Change details' : 'Add details'}
               </Text>
-            </Press>
+            </Press>}
           </>
         ) : (
           <Press
@@ -1193,6 +1219,12 @@ const styles = StyleSheet.create({
   },
   /* the Health line under a question: the quiet colour, because it is
      context for an answer and not the answer */
+  /* the Health facts under the word: quiet, centred, and clearly not
+     part of the value */
+  nowHint: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 6,
+    textAlign: 'center', fontVariant: ['tabular-nums'],
+  },
   qHealth: {
     color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: -4,
     fontVariant: ['tabular-nums'],

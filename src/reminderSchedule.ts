@@ -12,6 +12,46 @@ import { logsOf, minutesNow, todayISO } from './model';
 import {
   DEFAULT_SLOTS, SLOTS_PREF, Slot, ensurePermission, hasPermission, reschedule,
 } from './reminders';
+import { Prompt, planDay } from './health/prompts';
+import { deviceClock } from './health/healthkit';
+import { storedHealthDays } from './health/sync';
+import { fmtClock } from './clock';
+
+/** "Follow Apple Health": on by default, because the whole point of a
+ *  learned time is that nobody has to set it. Off returns the slots to
+ *  the hours the person typed and drops the after-workout and
+ *  after-dose prompts. */
+export const ADAPTIVE_PREF = 'reminders.adaptive';
+
+export function adaptiveOn(): boolean {
+  return db.getPref<boolean>(ADAPTIVE_PREF, true);
+}
+export function setAdaptive(on: boolean): void {
+  db.setPref(ADAPTIVE_PREF, on);
+}
+
+/** the planner the queue is built from — the saved slots, the stored
+ *  Health days, the phone's clock */
+function planner(slots: Slot[]): (dateIso: string) => Prompt[] {
+  const health = storedHealthDays();
+  const adaptive = adaptiveOn();
+  return (dateIso) => planDay(dateIso, { slots, health, clock: deviceClock, adaptive });
+}
+
+/** today's plan, for the settings row to describe */
+export function plannedToday(): Prompt[] {
+  return planner(savedSlots())(todayISO());
+}
+
+/** the plan as one line: the times, then what Health adds */
+export function describePlan(prompts: Prompt[]): string {
+  const times = prompts.filter((p) => p.kind === 'm' || p.kind === 'd' || p.kind === 'e')
+    .map((p) => fmtClock(p.h) + (p.adapted ? '*' : ''));
+  const extras: string[] = [];
+  if (prompts.some((p) => p.kind === 'workout')) extras.push('after workouts');
+  if (prompts.some((p) => p.kind === 'dose')) extras.push('after doses');
+  return times.concat(extras).join(' · ');
+}
 
 export function savedSlots(): Slot[] {
   return db.getPref<Slot[]>(SLOTS_PREF, DEFAULT_SLOTS);
@@ -29,7 +69,7 @@ export async function syncReminders(): Promise<void> {
   if (!slots.some((s) => s.on)) return;
   if (!(await hasPermission())) return;
   const t = todayISO();
-  await reschedule(slots, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow());
+  await reschedule(slots, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow(), planner(slots));
 }
 
 export type ApplyResult = 'on' | 'off' | 'denied';
@@ -46,7 +86,7 @@ export async function applySlots(next: Slot[]): Promise<ApplyResult> {
   }
   if (!(await ensurePermission())) return 'denied';
   const t = todayISO();
-  await reschedule(next, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow());
+  await reschedule(next, t, logsOf(db.getDay(t)).map((l) => l.h), minutesNow(), planner(next));
   return 'on';
 }
 
