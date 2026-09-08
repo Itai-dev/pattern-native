@@ -22,7 +22,7 @@ import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { color, font, radius as radii, size } from './theme';
 import { Entries, checkinCount, dailyAverage, iso, todayISO } from './model';
-import { formatCheckins, painColor, speakScore, themeBrand } from './painScale';
+import { formatCheckins, formatScore, inkOn, painColor, speakScore, themeBrand } from './painScale';
 import { Press } from './motion';
 
 const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -221,9 +221,24 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                               /* keeps a near-black low-pain day visible on
                                  the black ground */
                               borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+                              alignItems: 'center', justifyContent: 'center',
                             },
                       ]}
-                    />
+                    >
+                      {/* THE NUMBER, IN THE SQUARE. Colour never carries
+                          the value alone — the app's own rule — and on a
+                          month of 5s, 6s and 7s the eye could not tell
+                          them apart. The day's average, in the ink the
+                          ramp says is legible on it. */}
+                      {avg != null && (
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.cellNum, { color: inkOn(avg), fontSize: Math.round(cell * 0.36) }]}
+                        >
+                          {formatScore(avg)}
+                        </Text>
+                      )}
+                    </View>
 
                     {/* how many check-ins the average came from — under the
                         shape, in the margin, like the reference */}
@@ -285,6 +300,7 @@ const styles = StyleSheet.create({
     fontSize: 11, fontWeight: '600', paddingBottom: 2,
   },
   cell: { alignItems: 'center' },
+  cellNum: { fontWeight: '600', fontVariant: ['tabular-nums'], letterSpacing: -0.3 },
   dayNum: {
     fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'],
     marginBottom: 4, height: 15, textAlign: 'center',

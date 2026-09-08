@@ -529,10 +529,30 @@ ok('every logged day gets a point', (htmlGap.match(/<circle/g) || []).length ===
 /* ── colour themes ─────────────────────────────────────────── */
 group('colour themes');
 const themeMod = require(path.join(OUT, 'theme.js'));
-ok('four themes exist and blue is first/default', (() => {
+ok('five themes exist and blue is first/default', (() => {
   const ids = themeMod.PAIN_THEMES.map((x) => x.id);
-  return ids.length === 4 && ids[0] === 'blue' && themeMod.DEFAULT_PAIN_THEME === 'blue';
+  return ids.length === 5 && ids[0] === 'blue' && themeMod.DEFAULT_PAIN_THEME === 'blue';
 })(), themeMod.PAIN_THEMES.map((x) => x.id));
+/* OKLab lightness — the quantity the ramps were spaced in; see tools/make-ramps.js */
+const okL = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const r = lin((n >> 16) & 255), g = lin((n >> 8) & 255), b = lin(n & 255);
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const sv = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+  return 0.2104542553 * Math.cbrt(l) + 0.7936177850 * Math.cbrt(m) - 0.0040720468 * Math.cbrt(sv);
+};
+ok('every theme steps evenly on each side of 5: no neighbour pair differs from another by more than a fifth', (() => {
+  for (const th of themeMod.PAIN_THEMES) {
+    const L = Array.from({ length: 11 }, (_, i) => okL(scale.painColor(i, th.id)));
+    const steps = L.slice(1).map((v, i) => v - L[i]);
+    for (const side of [steps.slice(0, 5), steps.slice(5)]) {
+      if (Math.max(...side) / Math.min(...side) > 1.2) return false;
+    }
+  }
+  return true;
+})());
 ok('the default theme is blue', scale.getPainTheme() === 'blue');
 ok('blue keeps the documented anchors', (() =>
   scale.painColor(0) === '#070C16' && scale.painColor(5) === '#0A84FF' && scale.painColor(10) === '#EAF6FF'
