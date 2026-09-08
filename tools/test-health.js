@@ -944,6 +944,55 @@ ok('the day’s hint says the words the person chose', (() => {
   return ctxM.healthHintFor('stress.level.v1', day) === 'Apple Health: you logged “Unpleasant · stressed, drained” today';
 })());
 
+group('nutrition: water and caffeine before the evening, drinks before the morning');
+ok('water and caffeine total from the best source with an hourly shape; a day with water and no drink has zero drinks', (() => {
+  const d = normalize.normalizeDay(bundle(D, {
+    water: [qs(at(D, 8 * 60), at(D, 8 * 60), 250, 'phone'), qs(at(D, 13 * 60), at(D, 13 * 60), 500, 'phone'), qs(at(D, 8 * 60), at(D, 8 * 60), 250, 'watch')],
+    caffeine: [qs(at(D, 7 * 60 + 30), at(D, 7 * 60 + 30), 95, 'phone')],
+  }), clock);
+  return d.waterMl === 750 && d.waterHourly[8] === 250 && d.waterHourly[13] === 500
+    && d.caffeineMg === 95 && d.caffeineHourly[7] === 95 && d.alcoholDrinks === 0 && d.coverage.nutrition === true;
+})());
+ok('a day with nothing logged has no drinks value at all — absence stays absence', (() => {
+  const d = normalize.normalizeDay(bundle(D, {}), clock);
+  return d.alcoholDrinks === undefined && !d.coverage.nutrition;
+})());
+ok('water before the evening check-in pairs with that evening; the hour of the check-in is left out', (() => {
+  const entries = { [D]: { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 4 }, { h: 20 * 60 + 30, pain: 6 }] } };
+  const hourly = Array(24).fill(0); hourly[9] = 300; hourly[14] = 400; hourly[20] = 250;
+  const health = { [D]: { date: D, waterMl: 950, waterHourly: hourly, coverage: { nutrition: true } } };
+  const p = windows.buildPairs('waterBeforeVsEvening', entries, health);
+  return p.length === 1 && p[0].factor === 700 && p[0].pain === 6
+    && windows.buildPairs('caffeineBeforeVsEvening', entries, health).length === 0;
+})());
+ok('yesterday’s drinks pair with this morning as yes-or-no; a day without nutrition data joins nothing', (() => {
+  const d1 = day8(1), d2 = day8(2), d3 = day8(3);
+  const entries = {};
+  [d2, d3].forEach((d) => { entries[d] = { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 5 }] }; });
+  const health = { [d1]: { date: d1, alcoholDrinks: 2, coverage: { nutrition: true } }, [d2]: { date: d2, coverage: {} } };
+  const p = windows.buildPairs('alcoholVsNextMorning', entries, health);
+  return p.length === 1 && p[0].date === d2 && p[0].factor === 1 && engine.isCategorical('alcoholVsNextMorning');
+})());
+ok('the groups need half a litre or a coffee between them; the labels read as amounts', (() => {
+  const mk = (lo, hi) => Array.from({ length: 16 }, (_, i) => ({ date: day8(i + 1), factor: i < 8 ? lo + i : hi + i, pain: i < 8 ? 6 : 4 }));
+  return engine.evaluate('waterBeforeVsEvening', mk(600, 900)).verdict === 'observation'
+    && engine.evaluate('waterBeforeVsEvening', mk(400, 1400)).verdict === 'possible'
+    && engine.evaluate('caffeineBeforeVsEvening', mk(50, 100)).verdict === 'observation'
+    && engine.evaluate('caffeineBeforeVsEvening', mk(0, 180)).verdict === 'possible'
+    && engine.factorLabel('waterBeforeVsEvening', 1250) === '1.3 L' && engine.factorLabel('waterBeforeVsEvening', 750) === '750 ml'
+    && engine.factorLabel('caffeineBeforeVsEvening', 95.4) === '95 mg' && engine.factorLabel('alcoholVsNextMorning', 1) === 'drinks';
+})());
+ok('nutrition licenses its three, and the day reads them back as tiles and lines', (() => {
+  const ctxN = require(path.join(OUT, 'health', 'context.js'));
+  const day = { date: D, waterMl: 1250, caffeineMg: 95, alcoholDrinks: 2, coverage: { nutrition: true } };
+  const tiles = ctxN.healthDayTiles(day);
+  const lines = ctxN.healthDayLines(day);
+  return noticed.licensedKinds(['nutrition']).length === 3
+    && tiles.some((t) => t.key === 'water' && t.value === '1.3 L') && tiles.some((t) => t.key === 'alcohol' && t.label === 'Drinks')
+    && lines.some((l) => l.text === '1.3 L of water') && lines.some((l) => l.text === '95 mg caffeine') && lines.some((l) => l.text === '2 drinks')
+    && ctxN.healthDayTiles({ date: D, alcoholDrinks: 0, coverage: { nutrition: true } }).length === 0;
+})());
+
 group('the first days: facts before the picture');
 ok('one to three paired days are listed newest first; four become an early look and leave the list', (() => {
   const mk = (n) => { const e = {}, h = {}; for (let i = 1; i <= n; i++) { const d = day8(i);

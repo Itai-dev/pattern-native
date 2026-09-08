@@ -32,6 +32,7 @@ export const CATEGORY_ASSOCIATIONS: Partial<Record<HealthCategory, PairKind[]>> 
   movement: ['prevDayStepsVsMorning', 'stepsBeforeVsEvening', 'standBeforeVsEvening'],
   workouts: ['workoutVsNextMorning', 'workoutLoadVsNextMorning'],
   mind: ['mindVsEvening'],
+  nutrition: ['waterBeforeVsEvening', 'caffeineBeforeVsEvening', 'alcoholVsNextMorning'],
 };
 
 /** the association kinds the connected categories license, deduped */

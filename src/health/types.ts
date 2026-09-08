@@ -42,7 +42,11 @@ export type HealthCategory =
    * through Apple's per-medication picker, so the person chooses which
    * medications Pattern may see, one by one. Compared before-and-after
    * a dose, never day against day — see doses.ts. */
-  | 'medications';
+  | 'medications'
+  /* Water, caffeine and drinks, as logged in Health (by hand, or by an
+   * app that writes them). Water and caffeine accumulate before the
+   * evening check-in; drinks are yesterday's, beside this morning. */
+  | 'nutrition';
 
 export const HEALTH_CATEGORIES: {
   id: HealthCategory; name: string; blurb: string;
@@ -69,6 +73,10 @@ export const HEALTH_CATEGORIES: {
   {
     id: 'medications', name: 'Medications', offered: true,
     blurb: 'Doses you log in the Health app — which medication, and when. You pick which ones to share. Shown beside the day, and compared with your check-ins before and after a dose. Needs iOS 26.',
+  },
+  {
+    id: 'nutrition', name: 'Water, caffeine and drinks', offered: true,
+    blurb: 'What you log in Health as water, caffeine and alcoholic drinks. Water and caffeine through the day sit beside the evening’s pain; drinks beside the next morning’s.',
   },
   {
     id: 'mind', name: 'State of Mind', offered: true,
@@ -215,6 +223,18 @@ export interface HealthDay {
    *  a covered day — the coverage flag is what says "measured at all". */
   stepsHourly?: number[];
   workouts?: NormalizedWorkout[];
+  /** water logged this date, millilitres, and per local hour */
+  waterMl?: number;
+  waterHourly?: number[];
+  /** caffeine logged this date, milligrams, and per local hour */
+  caffeineMg?: number;
+  caffeineHourly?: number[];
+  /** alcoholic drinks logged this date. Present on any day with
+   *  nutrition coverage: a day where water or caffeine was logged and
+   *  no drink is a day with none — the one place this record reads an
+   *  absence as a zero, because nobody logs "no drinks", and the timing
+   *  sentence says so. */
+  alcoholDrinks?: number;
   restingHeartRate?: number;
   hrvSDNN?: number;
   stateOfMind?: { h: number; valence: number; kind: string; labels?: string[] }[];
@@ -239,6 +259,9 @@ export interface DayRawBundle {
   workouts: WorkoutSample[];
   restingHeartRate: QuantitySample[];
   hrvSDNN: QuantitySample[];
+  water: QuantitySample[];
+  caffeine: QuantitySample[];
+  alcohol: QuantitySample[];
   stateOfMind: StateOfMindSample[];
   doses: DoseSample[];
 }

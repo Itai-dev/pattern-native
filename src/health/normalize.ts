@@ -203,6 +203,30 @@ export function normalizeDay(raw: DayRawBundle, clock: LocalClock): HealthDay {
     day.coverage.workouts = true;
   }
 
+  /* water and caffeine: the day's total from the single source that saw
+     most of it, and the hourly shape for "before the check-in". Drinks:
+     summed, and a zero on any day with other nutrition data — see the
+     field's note in types.ts for the one absence this record reads. */
+  const water = bestSourceTotal(raw.water);
+  if (water != null) {
+    day.waterMl = Math.round(water);
+    day.waterHourly = hourlyOf(raw.water, clock);
+    day.coverage.nutrition = true;
+  }
+  const caffeine = bestSourceTotal(raw.caffeine);
+  if (caffeine != null) {
+    day.caffeineMg = Math.round(caffeine);
+    day.caffeineHourly = hourlyOf(raw.caffeine, clock);
+    day.coverage.nutrition = true;
+  }
+  const drinks = bestSourceTotal(raw.alcohol);
+  if (drinks != null) {
+    day.alcoholDrinks = Math.round(drinks * 10) / 10;
+    day.coverage.nutrition = true;
+  } else if (day.coverage.nutrition) {
+    day.alcoholDrinks = 0;
+  }
+
   const rhr = sparseDaily(raw.restingHeartRate);
   if (rhr != null) { day.restingHeartRate = rhr; day.coverage.heart = true; }
   const hrv = sparseDaily(raw.hrvSDNN);

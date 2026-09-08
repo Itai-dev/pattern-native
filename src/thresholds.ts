@@ -229,6 +229,14 @@ export const HEALTH_STAND_MIN_SPREAD_MINUTES = 60;
  *  more than a band — "slightly unpleasant" days against "slightly
  *  pleasant" ones at the very least, never two shades of neutral. */
 export const HEALTH_MIND_MIN_SPREAD = 0.4;
+/** water logged before the evening check-in: the groups must differ by
+ *  half a litre — two glasses, the smallest amount a person would
+ *  call "more water" rather than a bigger glass */
+export const HEALTH_WATER_MIN_SPREAD_ML = 500;
+/** caffeine before the evening check-in: eighty milligrams, about one
+ *  cup of coffee — below that, a "more caffeine" day is a stronger
+ *  brew, not a different day */
+export const HEALTH_CAFFEINE_MIN_SPREAD_MG = 80;
 
 /* ── "than your usual" on the day's context lines ────────────
    Descriptive comparison of ONE day's sensor value against the person's

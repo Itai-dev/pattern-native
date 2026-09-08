@@ -43,7 +43,8 @@
 import {
   EARLY_MIN_GROUP_DAYS, EARLY_MIN_PAIRED_DAYS,
   HEALTH_MIN_DELTA, HEALTH_MIN_GROUP_DAYS, HEALTH_MIN_PAIRED_DAYS,
-  HEALTH_MIND_MIN_SPREAD, HEALTH_SLEEP_MIN_SPREAD_MINUTES, HEALTH_STEPS_MIN_SPREAD,
+  HEALTH_CAFFEINE_MIN_SPREAD_MG, HEALTH_MIND_MIN_SPREAD, HEALTH_SLEEP_MIN_SPREAD_MINUTES,
+  HEALTH_STEPS_MIN_SPREAD, HEALTH_WATER_MIN_SPREAD_ML,
   HEALTH_STAND_MIN_SPREAD_MINUTES, HEALTH_WORKOUT_MIN_SPREAD_MINUTES,
 } from '../thresholds';
 import { PairKind, PairedDay } from './windows';
@@ -72,11 +73,19 @@ export interface Association {
 const round1 = (v: number) => Math.round(v * 10) / 10;
 const mean = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length;
 
+/** the comparisons whose factor is yes-or-no: covered days without the
+ *  thing against days with it, rather than the person's terciles */
+export function isCategorical(kind: PairKind): boolean {
+  return kind === 'workoutVsNextMorning' || kind === 'alcoholVsNextMorning';
+}
+
 /** the factor-spread floor for each association — below it the "high"
  *  and "low" groups are the same behaviour sorted into piles */
 function spreadFloor(kind: PairKind): number {
   if (kind === 'sleepVsMorning') return HEALTH_SLEEP_MIN_SPREAD_MINUTES;
-  if (kind === 'workoutVsNextMorning') return 1;   // the groups are categorical
+  if (isCategorical(kind)) return 1;   // the groups are categorical
+  if (kind === 'waterBeforeVsEvening') return HEALTH_WATER_MIN_SPREAD_ML;
+  if (kind === 'caffeineBeforeVsEvening') return HEALTH_CAFFEINE_MIN_SPREAD_MG;
   if (kind === 'workoutLoadVsNextMorning') return HEALTH_WORKOUT_MIN_SPREAD_MINUTES;
   if (kind === 'standBeforeVsEvening') return HEALTH_STAND_MIN_SPREAD_MINUTES;
   if (kind === 'mindVsEvening') return HEALTH_MIND_MIN_SPREAD;
@@ -102,8 +111,8 @@ export function evaluate(
   const sorted = pairs.slice().sort((a, b) => a.factor - b.factor);
 
   let lowG: PairedDay[], highG: PairedDay[];
-  if (kind === 'workoutVsNextMorning') {
-    /* categorical: covered days without a workout vs days with one */
+  if (isCategorical(kind)) {
+    /* categorical: covered days without the thing vs days with it */
     lowG = sorted.filter((p) => p.factor === 0);
     highG = sorted.filter((p) => p.factor > 0);
   } else {
@@ -166,7 +175,7 @@ export function earlyLook(kind: PairKind, pairs: PairedDay[]): EarlyLook | null 
   if (pairs.length < EARLY_MIN_PAIRED_DAYS || pairs.length >= HEALTH_MIN_PAIRED_DAYS) return null;
   const sorted = pairs.slice().sort((a, b) => a.factor - b.factor);
   let lowG: PairedDay[], highG: PairedDay[];
-  if (kind === 'workoutVsNextMorning') {
+  if (isCategorical(kind)) {
     lowG = sorted.filter((p) => p.factor === 0);
     highG = sorted.filter((p) => p.factor > 0);
   } else {
@@ -276,6 +285,26 @@ const KIND_WORDS: Record<PairKind, {
     join: 'on', lowWord: 'more unpleasant', highWord: 'more pleasant', groupNoun: 'days',
     needs: 'a State of Mind entry in Health, then a check-in in the evening',
   },
+  waterBeforeVsEvening: {
+    factor: 'Water',
+    timing: 'Each evening is compared only with the water logged in Health before that check-in.',
+    join: 'on', lowWord: 'less-water', highWord: 'more-water', groupNoun: 'days',
+    needs: 'water logged in Health, then a check-in in the evening',
+  },
+  caffeineBeforeVsEvening: {
+    factor: 'Caffeine',
+    timing: 'Each evening is compared only with the caffeine logged in Health before that check-in.',
+    join: 'on', lowWord: 'less-caffeine', highWord: 'more-caffeine', groupNoun: 'days',
+    needs: 'caffeine logged in Health, then a check-in in the evening',
+  },
+  alcoholVsNextMorning: {
+    factor: 'Drinks',
+    timing: 'Each morning is compared with the day before it, never with the same day. '
+      + 'A day counts as no-drinks only when something else was logged in Health that day — '
+      + 'nobody logs a zero.',
+    join: 'after', lowWord: 'no-drinks', highWord: 'drinks', groupNoun: 'days',
+    needs: 'a check-in before noon, the day after Health had a water or caffeine entry',
+  },
   workoutLoadVsNextMorning: {
     factor: 'Workout load',
     timing: 'Each morning is compared with the previous day’s workouts. Load is total '
@@ -330,12 +359,20 @@ export function factorLabel(kind: PairKind, value: number): string {
   }
   if (kind === 'workoutLoadVsNextMorning') return Math.round(value) + ' min';
   if (kind === 'workoutVsNextMorning') return value > 0 ? 'workout' : 'no workout';
+  if (kind === 'alcoholVsNextMorning') return value > 0 ? 'drinks' : 'no drinks';
   if (kind === 'mindVsEvening') return valenceWord(value).toLowerCase();
+  if (kind === 'waterBeforeVsEvening') {
+    return value >= 1000 ? (Math.round(value / 100) / 10) + ' L' : Math.round(value) + ' ml';
+  }
+  if (kind === 'caffeineBeforeVsEvening') return Math.round(value) + ' mg';
   return Math.round(value).toLocaleString('en-US') + ' steps';
 }
 
 /** the kinds whose outcome is the evening check-in — every other kind reads the morning */
-const EVENING_KINDS: PairKind[] = ['stepsBeforeVsEvening', 'standBeforeVsEvening', 'mindVsEvening'];
+const EVENING_KINDS: PairKind[] = [
+  'stepsBeforeVsEvening', 'standBeforeVsEvening', 'mindVsEvening',
+  'waterBeforeVsEvening', 'caffeineBeforeVsEvening',
+];
 
 export interface AssociationCopy {
   title: string;

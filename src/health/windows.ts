@@ -54,7 +54,14 @@ export type PairKind =
    * that evening's pain. Valence, −1 to 1, averaged over the entries
    * that came first. Lawful in time and still not a cause: mood and
    * pain travel together, and the card says so in the same breath. */
-  | 'mindVsEvening';
+  | 'mindVsEvening'
+  /* Water and caffeine accumulated before the evening check-in → that
+   * evening's pain, the same construction as steps. Drinks are
+   * yesterday's, beside this morning: a day with water or caffeine
+   * logged and no drink counts as none (types.ts says why). */
+  | 'waterBeforeVsEvening'
+  | 'caffeineBeforeVsEvening'
+  | 'alcoholVsNextMorning';
 
 /** one paired observation: a factor value and the pain it may lawfully
  *  be compared with. `factor` is continuous except for workouts, where
@@ -108,6 +115,14 @@ function sumBefore(hourly: number[] | undefined, covered: boolean, h: number): n
 
 export function stepsBefore(day: HealthDay, h: number): number | null {
   return sumBefore(day.stepsHourly, !!day.coverage.movement, h);
+}
+
+export function waterBefore(day: HealthDay, h: number): number | null {
+  return sumBefore(day.waterHourly, day.waterMl != null, h);
+}
+
+export function caffeineBefore(day: HealthDay, h: number): number | null {
+  return sumBefore(day.caffeineHourly, day.caffeineMg != null, h);
 }
 
 export function standBefore(day: HealthDay, h: number): number | null {
@@ -172,6 +187,24 @@ export function buildPairs(
       const before = standBefore(h, pain.h);
       if (before == null) return;
       out.push({ date, factor: before, pain: pain.pain });
+      return;
+    }
+
+    if (kind === 'waterBeforeVsEvening' || kind === 'caffeineBeforeVsEvening') {
+      const pain = eveningPain(logs);
+      const h = health[date];
+      if (!pain || !h) return;
+      const before = kind === 'waterBeforeVsEvening' ? waterBefore(h, pain.h) : caffeineBefore(h, pain.h);
+      if (before == null) return;
+      out.push({ date, factor: before, pain: pain.pain });
+      return;
+    }
+
+    if (kind === 'alcoholVsNextMorning') {
+      const pain = morningPain(logs);
+      const prev = health[addDays(date, -1)];
+      if (!pain || !prev || prev.alcoholDrinks == null) return;
+      out.push({ date, factor: prev.alcoholDrinks > 0 ? 1 : 0, pain: pain.pain });
       return;
     }
 

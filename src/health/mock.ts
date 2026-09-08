@@ -18,6 +18,7 @@ export function emptyBundle(date: string): DayRawBundle {
   return {
     date, sleep: [], steps: [], distance: [], activeEnergy: [], stand: [],
     workouts: [], restingHeartRate: [], hrvSDNN: [], stateOfMind: [], doses: [],
+    water: [], caffeine: [], alcohol: [],
   };
 }
 
@@ -50,6 +51,11 @@ export class MockHealthService implements HealthService {
     if (categories.indexOf('heart') >= 0) {
       if (f.restingHeartRate) out.restingHeartRate = f.restingHeartRate;
       if (f.hrvSDNN) out.hrvSDNN = f.hrvSDNN;
+    }
+    if (categories.indexOf('nutrition') >= 0) {
+      if (f.water) out.water = f.water;
+      if (f.caffeine) out.caffeine = f.caffeine;
+      if (f.alcohol) out.alcohol = f.alcohol;
     }
     if (categories.indexOf('mind') >= 0 && f.stateOfMind) out.stateOfMind = f.stateOfMind;
     if (categories.indexOf('medications') >= 0 && f.doses) out.doses = f.doses;

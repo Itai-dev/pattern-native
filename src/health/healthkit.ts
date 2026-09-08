@@ -96,6 +96,11 @@ const TYPES: Record<HealthCategory, string[]> = {
     'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
   ],
   mind: ['HKStateOfMindTypeIdentifier'],
+  nutrition: [
+    'HKQuantityTypeIdentifierDietaryWater',
+    'HKQuantityTypeIdentifierDietaryCaffeine',
+    'HKQuantityTypeIdentifierNumberOfAlcoholicBeverages',
+  ],
   /* medications are not a type on Apple's read sheet. They go through
      per-object authorization — Apple's own picker, one medication at a
      time — so there is nothing to list here; see requestAuthorization */
@@ -320,6 +325,12 @@ export class HealthKitService implements HealthService {
     if (categories.indexOf('heart') >= 0) {
       out.restingHeartRate = await q('HKQuantityTypeIdentifierRestingHeartRate', 'count/min', dayStart, dayEnd);
       out.hrvSDNN = await q('HKQuantityTypeIdentifierHeartRateVariabilitySDNN', 'ms', dayStart, dayEnd);
+    }
+
+    if (categories.indexOf('nutrition') >= 0) {
+      out.water = await q('HKQuantityTypeIdentifierDietaryWater', 'mL', dayStart, dayEnd);
+      out.caffeine = await q('HKQuantityTypeIdentifierDietaryCaffeine', 'mg', dayStart, dayEnd);
+      out.alcohol = await q('HKQuantityTypeIdentifierNumberOfAlcoholicBeverages', 'count', dayStart, dayEnd);
     }
 
     if (categories.indexOf('mind') >= 0 && mindSupported()) {

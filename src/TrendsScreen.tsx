@@ -41,7 +41,7 @@ import {
 } from './report';
 import {
   Association as HealthAssociation, EARLY_NOTE, EarlyLook, FIRST_NOTE, IN_BED_NOTE,
-  associationCopy, earlyCopy, fadedCopy, factorLabel, firstTitle, groupLabels,
+  associationCopy, earlyCopy, fadedCopy, factorLabel, firstTitle, groupLabels, isCategorical,
 } from './health/engine';
 import { FirstDays, HealthProgress } from './health/noticed';
 import {
@@ -648,7 +648,7 @@ function GroupBars({ a }: { a: Pick<HealthAssociation, 'kind' | 'low' | 'high'> 
           <View style={cmpStyles.head}>
             <Text style={cmpStyles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
               {r.word[0].toUpperCase() + r.word.slice(1) + ' ' + w.noun
-                + (a.kind === 'workoutVsNextMorning'
+                + (isCategorical(a.kind)
                   ? '' : ' · avg ' + factorLabel(a.kind, r.g.factorMean))}
             </Text>
             <Text style={cmpStyles.n} allowFontScaling maxFontSizeMultiplier={1.3}>

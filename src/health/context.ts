@@ -165,6 +165,23 @@ export function healthDayTiles(
     });
   }
 
+  if (day.waterMl != null) {
+    out.push({
+      key: 'water', icon: 'water-outline',
+      value: day.waterMl >= 1000 ? (Math.round(day.waterMl / 100) / 10) + ' L' : day.waterMl + ' ml',
+      label: 'Water',
+    });
+  }
+  if (day.caffeineMg != null) {
+    out.push({ key: 'caffeine', icon: 'cafe-outline', value: day.caffeineMg + ' mg', label: 'Caffeine' });
+  }
+  if (day.alcoholDrinks != null && day.alcoholDrinks > 0) {
+    out.push({
+      key: 'alcohol', icon: 'wine-outline', value: String(day.alcoholDrinks),
+      label: day.alcoholDrinks === 1 ? 'Drink' : 'Drinks',
+    });
+  }
+
   if (day.restingHeartRate != null || day.hrvSDNN != null) {
     out.push({
       key: 'heart', icon: 'pulse-outline',
@@ -355,6 +372,16 @@ export function healthDayLines(
   } else if (w.length > 1) {
     const total = w.reduce((s, x) => s + x.minutes, 0);
     out.push({ key: 'workouts', text: w.length + ' workouts · ' + fmtDuration(total) + ' total' });
+  }
+  if (day.waterMl != null) {
+    out.push({ key: 'water', text: (day.waterMl >= 1000
+      ? (Math.round(day.waterMl / 100) / 10) + ' L' : day.waterMl + ' ml') + ' of water' });
+  }
+  if (day.caffeineMg != null) {
+    out.push({ key: 'caffeine', text: day.caffeineMg + ' mg caffeine' });
+  }
+  if (day.alcoholDrinks != null && day.alcoholDrinks > 0) {
+    out.push({ key: 'alcohol', text: day.alcoholDrinks + (day.alcoholDrinks === 1 ? ' drink' : ' drinks') });
   }
   if (day.restingHeartRate != null) {
     out.push({ key: 'rhr', text: 'Resting heart rate ' + Math.round(day.restingHeartRate) });
