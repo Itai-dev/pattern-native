@@ -157,10 +157,26 @@ export function inkForBg(hex: string): string {
   return luminanceOf(hex) > 0.179 ? '#000000' : '#FFFFFF';
 }
 
-/** the legible foreground for a pain colour — light on the dark low end,
- *  dark on the luminous high end */
+/** WCAG contrast between two luminances */
+function contrastOf(a: number, b: number): number {
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+/** The legible foreground for a pain colour, IN THE RAMP'S OWN HUE: the
+ *  scale's darkest stop on a light square, its lightest stop on a dark
+ *  one. Black and white did the same job and flipped hard across a
+ *  calendar — a 4 in white beside a 5 in black read as two kinds of
+ *  day. The theme's own ends keep the flip (there is no single ink
+ *  that reads on both a 2 and a 9) but make it quiet. Where the tinted
+ *  end cannot reach 4.5:1 the plain ink returns, so legibility is
+ *  never traded for tone. */
 export function inkOn(v: number): string {
-  return inkForBg(painColor(v));
+  const bg = painColor(v);
+  const lum = luminanceOf(bg);
+  const dark = active.anchors[0][1];
+  const light = active.anchors[active.anchors.length - 1][1];
+  const pick = lum > 0.179 ? dark : light;
+  return contrastOf(lum, luminanceOf(pick)) >= 4.5 ? pick : inkForBg(bg);
 }
 
 /** "2 check-ins" / "1 check-in" / "No check-ins yet today" */

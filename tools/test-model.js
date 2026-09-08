@@ -104,20 +104,24 @@ ok('the whole-step ramp has eleven colours', scale.painRamp().length === 11);
 
 /* ── calendar readability: ink for every pain value ────────── */
 group('ink and contrast');
-ok('ink follows real luminance at every value', (() => {
+ok('ink is the ramp’s own end: its darkest stop on a light square, its lightest on a dark one', (() => {
+  const dark = scale.painRamp()[0], light = scale.painRamp()[10];
   for (let i = 0; i <= 10; i++) {
-    const expected = scale.luminanceOf(scale.painColor(i)) > 0.179 ? '#000000' : '#FFFFFF';
+    const expected = scale.luminanceOf(scale.painColor(i)) > 0.179 ? dark : light;
     if (scale.inkOn(i) !== expected) return false;
   }
   return true;
 })());
-ok('the dark low end takes light ink', scale.inkOn(0) === '#FFFFFF' && scale.inkOn(3) === '#FFFFFF');
-ok('the luminous high end takes dark ink', scale.inkOn(10) === '#000000');
-ok('both inks actually occur across the scale', (() => {
+ok('the dark low end takes the light ink, the luminous high end the dark', (() =>
+  scale.inkOn(0) === scale.painRamp()[10] && scale.inkOn(3) === scale.painRamp()[10]
+  && scale.inkOn(10) === scale.painRamp()[0]
+)());
+ok('both inks actually occur across the scale, and never pure black or white', (() => {
   const inks = new Set();
   for (let i = 0; i <= 10; i++) inks.add(scale.inkOn(i));
-  return inks.size === 2;
+  return inks.size === 2 && !inks.has('#000000') && !inks.has('#FFFFFF');
 })());
+
 
 /* ── daily average ─────────────────────────────────────────── */
 group('daily average');
@@ -592,6 +596,19 @@ ok('the animated ramp follows the active theme', (() => {
   const okRamp = r.length === 11 && r[5] === '#2AC0B0';
   scale.setPainTheme('blue');
   return okRamp && scale.painRamp()[5] === '#0A84FF';
+})());
+ok('the tinted ink reaches 4.5:1 at every value of every theme', (() => {
+  const before = scale.getPainTheme();
+  try {
+    for (const th of themeMod.PAIN_THEMES) {
+      scale.setPainTheme(th.id);
+      for (let i = 0; i <= 10; i++) {
+        const a = scale.luminanceOf(scale.painColor(i)), b = scale.luminanceOf(scale.inkOn(i));
+        if ((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < 4.5) return false;
+      }
+    }
+    return true;
+  } finally { scale.setPainTheme(before); }
 })());
 ok('ink stays legible on every theme at every value', (() => {
   for (const th of themeMod.PAIN_THEMES) {

@@ -25,7 +25,7 @@
  */
 import { PainThemeId } from './theme';
 import {
-  PAIN_MAX, PAIN_MIN, getPainTheme, inkForBg, painLabel, painRamp,
+  PAIN_MAX, PAIN_MIN, getPainTheme, inkOn, painLabel, painRamp,
 } from './painScale';
 
 /** bumped only if the watch has to parse this differently; the watch
@@ -48,7 +48,7 @@ export function watchContext(): WatchContext {
     v: WATCH_CONTEXT_VERSION,
     theme: getPainTheme(),
     ramp,
-    ink: ramp.map(inkForBg),
+    ink: Array.from({ length: PAIN_MAX - PAIN_MIN + 1 }, (_, i) => inkOn(PAIN_MIN + i)),
     words: scores.map(painLabel),
   };
 }
