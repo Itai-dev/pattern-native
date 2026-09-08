@@ -38,6 +38,7 @@
  * for finding accidents.
  */
 import {
+  EARLY_MIN_GROUP_DAYS, EARLY_MIN_PAIRED_DAYS,
   HEALTH_MIN_DELTA, HEALTH_MIN_GROUP_DAYS, HEALTH_MIN_PAIRED_DAYS,
   HEALTH_SLEEP_MIN_SPREAD_MINUTES, HEALTH_STEPS_MIN_SPREAD,
   HEALTH_STAND_MIN_SPREAD_MINUTES, HEALTH_WORKOUT_MIN_SPREAD_MINUTES,
@@ -137,6 +138,60 @@ export function evaluate(
   if (Math.abs(delta) < HEALTH_MIN_DELTA) return fade(full);
 
   return { ...full, verdict: 'possible' };
+}
+
+/* ── the early look ─────────────────────────────────────────
+   The same comparison before it has earned a sentence: the person's
+   lower half of days against their upper half (halves, not terciles —
+   with five days a tercile is one day), each at least
+   EARLY_MIN_GROUP_DAYS, drawn as the same two bars and captioned as a
+   picture. No verdict, no delta gate, no spread gate: it is not a
+   claim, and the words beside it say so. */
+
+export interface EarlyLook {
+  kind: PairKind;
+  pairedDays: number;
+  low: { n: number; factorMean: number; painMean: number };
+  high: { n: number; factorMean: number; painMean: number };
+  /** high minus low, for the bars' order only — never a sentence */
+  delta: number;
+}
+
+export function earlyLook(kind: PairKind, pairs: PairedDay[]): EarlyLook | null {
+  if (pairs.length < EARLY_MIN_PAIRED_DAYS || pairs.length >= HEALTH_MIN_PAIRED_DAYS) return null;
+  const sorted = pairs.slice().sort((a, b) => a.factor - b.factor);
+  let lowG: PairedDay[], highG: PairedDay[];
+  if (kind === 'workoutVsNextMorning') {
+    lowG = sorted.filter((p) => p.factor === 0);
+    highG = sorted.filter((p) => p.factor > 0);
+  } else {
+    const half = Math.floor(sorted.length / 2);
+    lowG = sorted.slice(0, half);
+    highG = sorted.slice(sorted.length - half);
+  }
+  if (lowG.length < EARLY_MIN_GROUP_DAYS || highG.length < EARLY_MIN_GROUP_DAYS) return null;
+  const g = (a: PairedDay[]) => ({
+    n: a.length,
+    factorMean: round1(mean(a.map((p) => p.factor))),
+    painMean: round1(mean(a.map((p) => p.pain))),
+  });
+  const low = g(lowG), high = g(highG);
+  return { kind, pairedDays: pairs.length, low, high, delta: round1(high.painMean - low.painMean) };
+}
+
+/** the caption every early look carries — the picture's disclaimer,
+ *  fixed words, beside the bars */
+export const EARLY_NOTE =
+  'An early look: too few days to call anything. It fills in as you check in.';
+
+/** the early look's title and its count — never a direction word */
+export function earlyCopy(e: EarlyLook): { title: string; evidence: string } {
+  const w = KIND_WORDS[e.kind];
+  const outcome = EVENING_KINDS.indexOf(e.kind) >= 0 ? 'evening pain' : 'morning pain';
+  return {
+    title: w.factor + ' and ' + outcome + ', so far',
+    evidence: e.pairedDays + ' of ' + HEALTH_MIN_PAIRED_DAYS + ' paired days.',
+  };
 }
 
 /* ── copy, from numbers ──────────────────────────────────────

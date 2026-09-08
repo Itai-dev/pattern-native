@@ -39,8 +39,8 @@
  */
 import { Entries, logsOf } from '../model';
 import {
-  DOSE_AFTER_MAX_MIN, DOSE_AFTER_MIN_MIN, DOSE_BEFORE_WINDOW_MIN, DOSE_MIN_PAIRS,
-  HEALTH_MIN_DELTA,
+  DOSE_AFTER_MAX_MIN, DOSE_AFTER_MIN_MIN, DOSE_BEFORE_WINDOW_MIN, DOSE_EARLY_MIN_PAIRS,
+  DOSE_MIN_PAIRS, HEALTH_MIN_DELTA,
 } from '../thresholds';
 import { Verdict } from './engine';
 import { HealthDay, NormalizedDose } from './types';
@@ -142,6 +142,35 @@ export function doseAssociations(
   return Object.keys(by)
     .sort((a, b) => names[a].localeCompare(names[b]))
     .map((id) => evaluateDoses(id, names[id], by[id], previouslyShown.indexOf(id) >= 0));
+}
+
+/** a medication's before/after picture before it has earned a
+ *  sentence — DOSE_EARLY_MIN_PAIRS pairs and short of the gate */
+export interface DoseEarly {
+  medId: string;
+  med: string;
+  pairs: number;
+  before: number;
+  after: number;
+  delta: number;
+}
+
+export function earlyDoses(entries: Entries, health: Record<string, HealthDay>): DoseEarly[] {
+  const by: Record<string, DosePair[]> = {};
+  const names: Record<string, string> = {};
+  dosePairs(entries, health).forEach((p) => {
+    (by[p.medId] = by[p.medId] || []).push(p);
+    names[p.medId] = p.med;
+  });
+  return Object.keys(by)
+    .filter((id) => by[id].length >= DOSE_EARLY_MIN_PAIRS && by[id].length < DOSE_MIN_PAIRS)
+    .sort((a, b) => names[a].localeCompare(names[b]))
+    .map((id) => {
+      const ps = by[id];
+      const before = round1(mean(ps.map((p) => p.before)));
+      const after = round1(mean(ps.map((p) => p.after)));
+      return { medId: id, med: names[id], pairs: ps.length, before, after, delta: round1(after - before) };
+    });
 }
 
 /** the strongest `possible`, or null — one sentence, never a list */

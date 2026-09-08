@@ -40,13 +40,13 @@ import {
   fmtReportDate,
 } from './report';
 import {
-  Association as HealthAssociation, IN_BED_NOTE, associationCopy, fadedCopy, factorLabel,
-  groupLabels, progressCopy,
+  Association as HealthAssociation, EARLY_NOTE, EarlyLook, IN_BED_NOTE, associationCopy,
+  earlyCopy, fadedCopy, factorLabel, groupLabels,
 } from './health/engine';
 import { HealthProgress } from './health/noticed';
 import {
-  DOSE_TIMING, DoseAssociation, DoseProgress, doseCopy, doseObservationCopy,
-  doseProgressCopy, fadedDoseCopy,
+  DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, doseCopy, doseObservationCopy,
+  fadedDoseCopy,
 } from './health/doses';
 import { DigestCard, checkinBuys, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
@@ -86,6 +86,8 @@ export interface TrendsScreenProps {
      *  the instruction — what a connected person sees before anything
      *  has cleared, so the wait is never silent */
     progress: HealthProgress[];
+    /** the pictures before the gates — see thresholds.ts, early looks */
+    early: EarlyLook[];
     /** the same four, for doses logged in Health — before-and-after a
      *  dose rather than groups of days, gated in doses.ts */
     doses: {
@@ -93,6 +95,7 @@ export interface TrendsScreenProps {
       fading: DoseAssociation[];
       groups: DoseAssociation[];
       progress: DoseProgress[];
+      early: DoseEarly[];
     };
   };
   /** the active observation period, for the progress cards — what a
@@ -230,9 +233,7 @@ function MiniChart({
           </Text>
         ) : (
           <Text style={styles.readoutHint} allowFontScaling maxFontSizeMultiplier={1.3}>
-            {weekly
-              ? 'Tap a week to see it — tap its reading to open its latest day'
-              : 'Tap a day to see it — tap its reading to open it'}
+            {weekly ? 'Tap a week' : 'Tap a day'}
           </Text>
         )}
       </View>
@@ -626,7 +627,7 @@ function outcomeOf(ev: PainEvent): string {
  * Every bar carries its n, because a bar without its sample size is a
  * claim wearing a chart's clothes.
  */
-function GroupBars({ a }: { a: HealthAssociation }) {
+function GroupBars({ a }: { a: Pick<HealthAssociation, 'kind' | 'low' | 'high'> }) {
   if (!a.low || !a.high) return null;
   const w = groupLabels(a.kind);
   const rows = [
@@ -681,7 +682,7 @@ function GroupBars({ a }: { a: HealthAssociation }) {
  * are the mean pain, the medication lives in the text. Each bar carries
  * its n — the same n, because these are pairs.
  */
-function DoseBars({ a }: { a: DoseAssociation }) {
+function DoseBars({ a }: { a: Pick<DoseAssociation, 'med' | 'pairs' | 'before' | 'after'> }) {
   if (a.before == null || a.after == null) return null;
   const rows = [
     { word: 'Before a dose', v: a.before },
@@ -925,10 +926,19 @@ export default function TrendsScreen({
       || Math.abs(dz.best.delta as number) > Math.abs(healthNoticed.best.delta));
   const doseGroups = (dz?.groups || []).filter((a) => !(doseLeads && a === dz?.best));
   const doseWaiting = dz ? dz.progress : [];
-  const watching = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
-    || otherGroups.length > 0 || buys.length > 0 || healthWaiting.length > 0
-    || !!doseBestCopy || !!(dz && dz.fading.length) || doseGroups.length > 0
-    || doseWaiting.length > 0;
+  const early = healthNoticed?.early || [];
+  const doseEarly = dz?.early || [];
+  /* what is still short of even an early look, as one line — the
+     rows it replaced said the same thing four times over */
+  const collecting = healthWaiting
+    .filter((p) => !early.some((e) => e.kind === p.kind))
+    .map((p) => groupLabels(p.kind).factor.toLowerCase() + ' ' + p.pairedDays + ' of ' + p.needed)
+    .concat(doseWaiting
+      .filter((p) => !doseEarly.some((e) => e.medId === p.medId))
+      .map((p) => p.med + ' ' + p.pairs + ' of ' + p.needed));
+  const anythingOut = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
+    || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
+    || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0;
 
   return (
     <View style={styles.page}>
@@ -947,7 +957,10 @@ export default function TrendsScreen({
           The record itself leads: the chart, the two figures, the
           sentences that read it, and every day as a calendar behind a
           fold. A calendar square opens its day. */}
-      <Card title={data.limited ? 'Pain recorded so far' : 'Your pain'}>
+      <Card
+        title={data.limited ? 'Pain recorded so far' : 'Your pain'}
+        note="Blank days were not logged. Colour is the day’s average pain, 0–10."
+      >
         <View style={styles.painHead}>
           <Text style={styles.painAvg} allowFontScaling maxFontSizeMultiplier={1.3}>
             {formatScore(data.avg)}
@@ -994,10 +1007,6 @@ export default function TrendsScreen({
           onSelect={setPicked}
           onOpenDay={onOpenDay}
         />
-        <Text style={styles.noteLine}>
-          Days without check-ins stay blank — nothing is filled in for a day you
-          didn’t log.
-        </Text>
         {!!data.halves && (
           <Direction first={data.halves.first} second={data.halves.second} />
         )}
@@ -1030,14 +1039,6 @@ export default function TrendsScreen({
           </Press>
         </View>
 
-        {/* the record as sentences — each one a statistic that already
-            cleared its named gate; none rates today or compares opens */}
-        {says.length > 0 && (
-          <View style={styles.subBlock}>
-            {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
-          </View>
-        )}
-
         {/* every day, as a calendar, behind a fold — the way to any day,
             one tap further in so the chart stays the first thing read */}
         <View style={styles.subBlock}>
@@ -1063,11 +1064,18 @@ export default function TrendsScreen({
           faded one said out loud, comparisons whose groups formed but
           did not differ, and what the focus is still collecting. Absent
           when none of that exists — silence is a valid card. */}
-      {watching && (
-        <Card
-          title="Worth watching"
-          note="An association here is a pattern in what you recorded, not proof of what caused what. Groups are your own lowest and highest third, the middle third left out. Nothing on this card moves on its own — only when you add a check-in."
-        >
+      <Card
+        title="What stands out"
+        note="A pattern in what you recorded, never proof of cause. Nothing here moves on its own — only when you add a check-in."
+      >
+        <>
+          {/* the record's own sentences first — they exist from the
+              first week and need no sensor */}
+          {says.length > 0 && (
+            <View style={styles.subBlockFirst}>
+              {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+            </View>
+          )}
           {doseLeads && doseBestCopy && dz && dz.best ? (
             <>
               <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -1128,6 +1136,36 @@ export default function TrendsScreen({
             </Text>
           ) : null}
 
+          {/* THE EARLY LOOKS. The same bars a claim would carry, before
+              any claim may be made, captioned as a picture: a person
+              who connected Health sees it doing something in the first
+              week instead of a fortnight of silence. */}
+          {early.map((e) => {
+            const c = earlyCopy(e);
+            return (
+              <View key={'e.' + e.kind} style={styles.subBlock}>
+                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {c.title}
+                </Text>
+                <GroupBars a={e} />
+                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {c.evidence} {EARLY_NOTE}
+                </Text>
+              </View>
+            );
+          })}
+          {doseEarly.map((e) => (
+            <View key={'de.' + e.medId} style={styles.subBlock}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {e.med}, around your doses so far
+              </Text>
+              <DoseBars a={e} />
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {e.pairs} doses with a check-in before and after. {EARLY_NOTE}
+              </Text>
+            </View>
+          ))}
+
           {/* doses whose pairs formed: the bars, with the observation's
               words or — for a change that did not lead the card — no
               words at all beyond the timing and the regression line */}
@@ -1168,40 +1206,25 @@ export default function TrendsScreen({
             );
           })}
 
-          {(buys.length > 0 || healthWaiting.length > 0 || doseWaiting.length > 0) && (
+          {(buys.length > 0 || collecting.length > 0) && (
             <View style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Still collecting
-              </Text>
               {buys.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
-              {/* the Health comparisons short of their gate: the count,
-                  and what one more paired day takes — so a person who
-                  logs at lunch learns that a morning check-in is what
-                  sleep is waiting for, instead of waiting forever */}
-              {healthWaiting.map((p, i) => {
-                const c = progressCopy(p);
-                return (
-                  <DigestRow
-                    key={'h.' + p.kind}
-                    card={{ key: 'h.' + p.kind, title: c.title, evidence: c.evidence, caveat: c.caveat }}
-                    first={i === 0 && buys.length === 0}
-                  />
-                );
-              })}
-              {doseWaiting.map((p, i) => {
-                const c = doseProgressCopy(p);
-                return (
-                  <DigestRow
-                    key={'d.' + p.medId}
-                    card={{ key: 'd.' + p.medId, title: c.title, evidence: c.evidence, caveat: c.caveat }}
-                    first={i === 0 && buys.length === 0 && healthWaiting.length === 0}
-                  />
-                );
-              })}
+              {collecting.length > 0 && (
+                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  Collecting: {collecting.join(' · ')}. A comparison needs the days on both
+                  sides of it — a morning check-in for sleep, an evening one for movement.
+                </Text>
+              )}
             </View>
           )}
+          {!anythingOut && buys.length === 0 && collecting.length === 0 && (
+            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Nothing yet. This card fills as the record does — a few days of check-ins,
+              and Apple Health if you connect it.
+            </Text>
+          )}
+        </>
         </Card>
-      )}
 
       {/* ── 3. your record ──────────────────────────────────
           The appendix: how the days split by band, the most recorded
@@ -1210,7 +1233,7 @@ export default function TrendsScreen({
           findings, and the card says so inside itself. */}
       <Card
         title="Your record"
-        note="Counts of what you recorded — where, which words, when, what you noticed — and nothing compared to last week. What you noticed is your own read of a day: a thing only lands there on days you already suspected it, so there are no days without it to weigh against."
+        note="Counts of what you recorded, never findings. What you noticed is your own read of a day, so it can’t be weighed against the days you didn’t notice it."
       >
         {feltBands.length > 0 && (
           <>
@@ -1236,11 +1259,6 @@ export default function TrendsScreen({
             {data.qualities.slice(0, 3).map((q) => q.name).join(' · ')}
           </Text>
         )}
-        <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-          <Text style={styles.profileKey}>The record   </Text>
-          {data.loggedDays} {data.loggedDays === 1 ? 'day' : 'days'} · {data.totalCheckins}{' '}
-          {data.totalCheckins === 1 ? 'check-in' : 'check-ins'}
-        </Text>
 
         {!recordOpen ? (
           <Press
@@ -1484,6 +1502,7 @@ const styles = StyleSheet.create({
   sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },
   subCaveat: { color: color.textTertiary },
   /* a second thought inside a card, ruled off from the first */
+  subBlockFirst: { marginTop: 4 },
   subBlock: {
     marginTop: 18, paddingTop: 16,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,

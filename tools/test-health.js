@@ -51,6 +51,7 @@ const qs = (start, end, value, source) => ({ start, end, value, source: source |
 group('sleep normalization');
 
 const D = '2026-08-20';
+const day8 = (i) => '2026-08-' + String(i).padStart(2, '0');
 ok('overlapping intervals from two sources merge to their union', (() => {
   // watch 23:00–06:30, phone 23:20–06:00 — the union is 23:00–06:30
   const n = normalize.nightSleep([
@@ -901,6 +902,58 @@ ok('a dose reads as name, amount and unit, "skipped" said plainly, the time left
 })());
 ok('the day tiles are untouched by doses — a dose is a row, not a tile', (() => {
   return ctx3.healthDayTiles(HD(D, [{ h: 600, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }])).length === 0;
+})());
+
+group('early looks: the picture before the sentence');
+ok('four paired days split into halves of two, with the means and no verdict', (() => {
+  const pairs = [1, 2, 3, 4].map((i) => ({ date: day8(i), factor: 300 + i * 60, pain: i <= 2 ? 6 : 4 }));
+  const e = engine.earlyLook('sleepVsMorning', pairs);
+  return e && e.pairedDays === 4 && e.low.n === 2 && e.high.n === 2
+    && e.low.painMean === 6 && e.high.painMean === 4 && e.delta === -2 && !('verdict' in e);
+})());
+ok('three paired days are not a picture; fourteen are the engine’s, not an early look', (() => {
+  const mk = (n) => Array.from({ length: n }, (_, i) => ({ date: day8(i + 1), factor: 300 + i * 30, pain: 5 }));
+  return engine.earlyLook('sleepVsMorning', mk(3)) === null
+    && engine.earlyLook('sleepVsMorning', mk(th.HEALTH_MIN_PAIRED_DAYS)) === null
+    && engine.earlyLook('sleepVsMorning', mk(th.EARLY_MIN_PAIRED_DAYS)) !== null;
+})());
+ok('an odd count leaves the middle day out of both halves', (() => {
+  const pairs = [1, 2, 3, 4, 5].map((i) => ({ date: day8(i), factor: i * 100, pain: i }));
+  const e = engine.earlyLook('prevDayStepsVsMorning', pairs);
+  return e && e.low.n === 2 && e.high.n === 2 && e.low.painMean === 1.5 && e.high.painMean === 4.5;
+})());
+ok('a workout early look needs two days of each kind', (() => {
+  const a = [0, 0, 1, 1].map((f, i) => ({ date: day8(i + 1), factor: f, pain: 5 }));
+  const b = [0, 1, 1, 1].map((f, i) => ({ date: day8(i + 1), factor: f, pain: 5 }));
+  return engine.earlyLook('workoutVsNextMorning', a) !== null && engine.earlyLook('workoutVsNextMorning', b) === null;
+})());
+ok('the caption names the factor and the count, and never a direction', (() => {
+  const pairs = [1, 2, 3, 4].map((i) => ({ date: day8(i), factor: 300 + i * 60, pain: i }));
+  const c = engine.earlyCopy(engine.earlyLook('sleepVsMorning', pairs));
+  return c.title === 'Sleep and morning pain, so far' && c.evidence === '4 of 14 paired days.'
+    && !/lower|higher|worth watching/.test(c.title + c.evidence) && /too few days/.test(engine.EARLY_NOTE);
+})());
+ok('earlyLooks draws only what the connected categories license and only between the two gates', (() => {
+  const entries = {}, health = {};
+  for (let i = 1; i <= 6; i++) {
+    const d = day8(i);
+    entries[d] = { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 4 + (i % 2) }] };
+    health[d] = { date: d, sleepMinutes: 380 + i * 10, steps: 5000, coverage: { sleep: true, movement: true } };
+  }
+  const withSleep = noticed.earlyLooks(entries, health, ['sleep']);
+  const withBoth = noticed.earlyLooks(entries, health, ['sleep', 'movement']);
+  return withSleep.length === 1 && withSleep[0].kind === 'sleepVsMorning'
+    && withBoth.some((e) => e.kind === 'prevDayStepsVsMorning') && noticed.earlyLooks(entries, health, []).length === 0;
+})());
+ok('doses: three pairs are an early picture, eight are the engine’s', (() => {
+  const doses = require(path.join(OUT, 'health', 'doses.js'));
+  const mk = (n) => { const e = {}, h = {}; for (let i = 1; i <= n; i++) { const d = day8(i);
+    e[d] = { pain: 5, cap: null, note: '', logs: [{ h: 13 * 60, pain: 7 }, { h: 16 * 60, pain: 4 }] };
+    h[d] = { date: d, doses: [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }], coverage: { medications: true } }; } return [e, h]; };
+  const [e3, h3] = mk(3), [e8, h8] = mk(th.DOSE_MIN_PAIRS), [e2, h2] = mk(2);
+  const a = doses.earlyDoses(e3, h3);
+  return a.length === 1 && a[0].pairs === 3 && a[0].before === 7 && a[0].after === 4 && a[0].delta === -3
+    && doses.earlyDoses(e8, h8).length === 0 && doses.earlyDoses(e2, h2).length === 0;
 })());
 
 group('the check-in hint: Health above the question, never instead of it');

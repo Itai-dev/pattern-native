@@ -25,8 +25,8 @@ import { HealthKitService, deviceClock } from './src/health/healthkit';
 import {
   healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
 } from './src/health/sync';
-import { healthProgress, noticedAssociations, strongestPossible } from './src/health/noticed';
-import { doseAssociations, doseProgress, strongestDose } from './src/health/doses';
+import { earlyLooks, healthProgress, noticedAssociations, strongestPossible } from './src/health/noticed';
+import { doseAssociations, doseProgress, earlyDoses, strongestDose } from './src/health/doses';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
 import FocusSheet from './src/FocusSheet';
@@ -56,8 +56,8 @@ import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
 } from './src/theme';
 
-configureHandler();
-    registerCategory().catch(() => {}); // set once, before anything can be delivered
+configureHandler(); // set once, before anything can be delivered
+registerCategory().catch(() => {}); // the Check in button on every prompt
 /* the chosen hue is part of the app's identity — restore it before the
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
@@ -318,8 +318,11 @@ export default function App() {
       fading: doseAll.filter((a) => a.verdict === 'fading'),
       groups: doseAll.filter((a) => a.verdict === 'possible' || a.verdict === 'observation'),
       progress: meds ? doseProgress(entries, healthDays) : [],
+      early: meds ? earlyDoses(entries, healthDays) : [],
     };
-    return { best, fading, groups, progress, doses };
+    /* and the pictures before the gates — see thresholds.ts, early looks */
+    const early = earlyLooks(entries, healthDays, healthCategories());
+    return { best, fading, groups, progress, early, doses };
   }, [entries, healthDays, protocol]);
   /* an event being edited. Nothing has to be closed to reach it any more:
      the day is a LAYER, not a modal, so the event sheet presents on top

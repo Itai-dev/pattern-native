@@ -188,6 +188,26 @@ export const HEALTH_MIN_GROUP_DAYS = 5;
  *  protocol rule, for the same reason */
 export const HEALTH_MIN_DELTA = PATTERN_MIN_DELTA;
 
+/* ── early looks ─────────────────────────────────────────────
+   Below the gates nothing may be CLAIMED — but a person who connected
+   Health on day one and sees nothing for a fortnight learns that the
+   connection does nothing. An early look is the same two groups,
+   drawn, with words that say "too few days to call" beside them; the
+   picture exists, the sentence does not. It changes only when a day
+   is added, like everything on the screen. */
+
+/** paired days before the picture is drawn at all. Four: two a side,
+ *  which is the smallest thing that is a comparison and not a day */
+export const EARLY_MIN_PAIRED_DAYS = 4;
+
+/** days in each half of an early look. Two — a single day is an
+ *  anecdote wearing a bar */
+export const EARLY_MIN_GROUP_DAYS = 2;
+
+/** dose pairs before the before/after picture is drawn. Three: each
+ *  pair is its own control, so the picture is worth showing sooner */
+export const DOSE_EARLY_MIN_PAIRS = 3;
+
 /** The factor itself must differ meaningfully between the groups, or the
  *  comparison is noise sorted into piles. Group MEANS must sit at least
  *  this far apart, per factor kind. */

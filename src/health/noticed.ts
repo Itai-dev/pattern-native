@@ -20,7 +20,7 @@
  */
 import { Entries } from '../model';
 import { HEALTH_MIN_PAIRED_DAYS } from '../thresholds';
-import { Association, evaluate } from './engine';
+import { Association, EarlyLook, earlyLook, evaluate } from './engine';
 import { HealthCategory, HealthDay } from './types';
 import { PairKind, buildPairs } from './windows';
 
@@ -79,6 +79,18 @@ export function healthProgress(
       needed: HEALTH_MIN_PAIRED_DAYS,
     }))
     .filter((p) => p.pairedDays < p.needed);
+}
+
+/** the early looks the connected categories license — the comparisons
+ *  past EARLY_MIN_PAIRED_DAYS and short of the gate, drawn as pictures */
+export function earlyLooks(
+  entries: Entries,
+  health: Record<string, HealthDay>,
+  categories: HealthCategory[]
+): EarlyLook[] {
+  return licensedKinds(categories)
+    .map((kind) => earlyLook(kind, buildPairs(kind, entries, health)))
+    .filter((e): e is EarlyLook => e != null);
 }
 
 /** The single strongest `possible`, or null — PATTERN_MAX_CARDS is a
