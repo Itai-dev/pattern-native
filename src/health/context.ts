@@ -230,7 +230,11 @@ export function healthHintFor(metricId: string, day: HealthDay | null | undefine
   if ((metricId === 'stress.level.v1' || metricId === 'fatigue.level.v1')
     && day.stateOfMind && day.stateOfMind.length) {
     const latest = day.stateOfMind[day.stateOfMind.length - 1];
-    return 'Apple Health: you logged “' + valenceWord(latest.valence) + '” today';
+    /* the person's own words, when they chose some — "Unpleasant ·
+       stressed" is a better mirror than the band alone */
+    const words = latest.labels && latest.labels.length
+      ? ' · ' + latest.labels.slice(0, 2).join(', ') : '';
+    return 'Apple Health: you logged “' + valenceWord(latest.valence) + words + '” today';
   }
   return null;
 }

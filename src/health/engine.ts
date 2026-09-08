@@ -32,18 +32,22 @@
  * out loud instead of pretending it never spoke.
  *
  * ONLY THE LISTED ASSOCIATIONS ARE EVER TESTED, and only when the
- * user's connected Health categories license them. Resting HR, HRV and State of
- * Mind are imported and normalized but generate nothing here — a
+ * user's connected Health categories license them. Resting HR and HRV
+ * are imported and normalized but generate nothing here — a
  * correlation engine pointed at every stream it can reach is a machine
- * for finding accidents.
+ * for finding accidents. State of Mind earned one comparison
+ * (mindVsEvening, 8 Sep 2026): the moods logged earlier in the day
+ * beside the evening's pain, worded as two things that move together
+ * and never as one causing the other.
  */
 import {
   EARLY_MIN_GROUP_DAYS, EARLY_MIN_PAIRED_DAYS,
   HEALTH_MIN_DELTA, HEALTH_MIN_GROUP_DAYS, HEALTH_MIN_PAIRED_DAYS,
-  HEALTH_SLEEP_MIN_SPREAD_MINUTES, HEALTH_STEPS_MIN_SPREAD,
+  HEALTH_MIND_MIN_SPREAD, HEALTH_SLEEP_MIN_SPREAD_MINUTES, HEALTH_STEPS_MIN_SPREAD,
   HEALTH_STAND_MIN_SPREAD_MINUTES, HEALTH_WORKOUT_MIN_SPREAD_MINUTES,
 } from '../thresholds';
 import { PairKind, PairedDay } from './windows';
+import { valenceWord } from './context';
 
 export type Verdict = 'insufficient' | 'observation' | 'possible' | 'fading';
 
@@ -75,6 +79,7 @@ function spreadFloor(kind: PairKind): number {
   if (kind === 'workoutVsNextMorning') return 1;   // the groups are categorical
   if (kind === 'workoutLoadVsNextMorning') return HEALTH_WORKOUT_MIN_SPREAD_MINUTES;
   if (kind === 'standBeforeVsEvening') return HEALTH_STAND_MIN_SPREAD_MINUTES;
+  if (kind === 'mindVsEvening') return HEALTH_MIND_MIN_SPREAD;
   return HEALTH_STEPS_MIN_SPREAD;
 }
 
@@ -247,6 +252,18 @@ const KIND_WORDS: Record<PairKind, {
     join: 'on', lowWord: 'less-upright', highWord: 'more-upright', groupNoun: 'days',
     needs: 'an evening check-in on a day the watch was worn',
   },
+  mindVsEvening: {
+    factor: 'Mood',
+    /* the one timing sentence on this screen that must argue AGAINST
+       itself: the arrow of time is honest here and still says nothing
+       about cause, because a hard day sours a mood as readily as a
+       mood hardens a day. "Accompanies", in metrics.ts's vocabulary. */
+    timing: 'Each evening is compared only with the moods you logged in Health earlier '
+      + 'that day. Mood and pain move together; this says nothing about which leads — '
+      + 'a hard day can sour a mood as easily as the other way round.',
+    join: 'on', lowWord: 'more unpleasant', highWord: 'more pleasant', groupNoun: 'days',
+    needs: 'a State of Mind entry in Health, then a check-in in the evening',
+  },
   workoutLoadVsNextMorning: {
     factor: 'Workout load',
     timing: 'Each morning is compared with the previous day’s workouts. Load is total '
@@ -301,11 +318,12 @@ export function factorLabel(kind: PairKind, value: number): string {
   }
   if (kind === 'workoutLoadVsNextMorning') return Math.round(value) + ' min';
   if (kind === 'workoutVsNextMorning') return value > 0 ? 'workout' : 'no workout';
+  if (kind === 'mindVsEvening') return valenceWord(value).toLowerCase();
   return Math.round(value).toLocaleString('en-US') + ' steps';
 }
 
 /** the kinds whose outcome is the evening check-in — every other kind reads the morning */
-const EVENING_KINDS: PairKind[] = ['stepsBeforeVsEvening', 'standBeforeVsEvening'];
+const EVENING_KINDS: PairKind[] = ['stepsBeforeVsEvening', 'standBeforeVsEvening', 'mindVsEvening'];
 
 export interface AssociationCopy {
   title: string;

@@ -210,7 +210,10 @@ export function normalizeDay(raw: DayRawBundle, clock: LocalClock): HealthDay {
 
   if (raw.stateOfMind.length) {
     day.stateOfMind = raw.stateOfMind
-      .map((s) => ({ h: clock.minutesOf(s.ts), valence: s.valence, kind: s.kind }))
+      .map((s) => ({
+        h: clock.minutesOf(s.ts), valence: s.valence, kind: s.kind,
+        ...(s.labels && s.labels.length ? { labels: s.labels } : {}),
+      }))
       .sort((a, b) => a.h - b.h);
     day.coverage.mind = true;
   }

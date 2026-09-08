@@ -8,9 +8,9 @@
  * demanding a second confirmation through the focus flow was double
  * consent wearing principle's clothes — connecting sleep and then
  * seeing nothing because a different switch was off. So each connected
- * category licenses its own associations, and only those: heart and
- * mind license NOTHING by design, and the whole search space is five
- * predefined questions, never a scan. Focus remains the vehicle for
+ * category licenses its own associations, and only those: heart
+ * licenses NOTHING by design, mind exactly one, and the whole search
+ * space is a handful of predefined questions, never a scan. Focus remains the vehicle for
  * what no sensor can answer — stress, weather, alcohol — and gates the
  * manual questions exactly as before.
  *
@@ -24,12 +24,14 @@ import { Association, EarlyLook, earlyLook, evaluate } from './engine';
 import { HealthCategory, HealthDay } from './types';
 import { PairKind, buildPairs } from './windows';
 
-/** connected category → the associations it licenses. Heart and mind
- *  are deliberately absent: imported, normalized, never examined. */
+/** connected category → the associations it licenses. Heart is
+ *  deliberately absent: imported, normalized, never examined. Mind
+ *  licenses exactly one, worded as accompaniment (engine.ts). */
 export const CATEGORY_ASSOCIATIONS: Partial<Record<HealthCategory, PairKind[]>> = {
   sleep: ['sleepVsMorning'],
   movement: ['prevDayStepsVsMorning', 'stepsBeforeVsEvening', 'standBeforeVsEvening'],
   workouts: ['workoutVsNextMorning', 'workoutLoadVsNextMorning'],
+  mind: ['mindVsEvening'],
 };
 
 /** the association kinds the connected categories license, deduped */

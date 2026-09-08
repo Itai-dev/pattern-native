@@ -25,21 +25,19 @@
    categories; the adapter requests only the underlying types those
    categories name.
 
-   THE SHEET OFFERS THREE OF THE FIVE. Heart and State of Mind are
-   imported and normalised and license no association by design — they
-   were a tile on the day screen and nothing else, which made the
-   setup sheet the one place the app asked for more than it used. A
-   permission sheet is where trust is decided, so they are off the
-   sheet. The code paths stay: a person who connected them before this
-   change keeps their tiles, and if either ever earns a comparison the
-   flag below is one word to flip. */
+   HEART IS OFF THE SHEET. It is imported and normalised and licenses
+   no association — a tile on the day screen and nothing else, and a
+   permission sheet is where trust is decided, so it is not asked for.
+   The code path stays for anyone who connected it earlier. State of
+   Mind was off for the same reason until it earned a comparison
+   (mindVsEvening, 8 Sep 2026); the flag below is one word either way. */
 
 export type HealthCategory =
   | 'sleep'
   | 'movement'   // steps, distance, active energy
   | 'workouts'
   | 'heart'      // resting HR, HRV (SDNN) — imported, never analysed in v1
-  | 'mind'       // State of Mind — imported, never analysed in v1
+  | 'mind'       // State of Mind — the day's moods, beside the evening's pain
   /* Doses logged in the Health app (iOS 26's medication log). Read
    * through Apple's per-medication picker, so the person chooses which
    * medications Pattern may see, one by one. Compared before-and-after
@@ -74,7 +72,7 @@ export const HEALTH_CATEGORIES: {
   },
   {
     id: 'mind', name: 'State of Mind', offered: true,
-    blurb: 'Moods you logged in Health, where your iOS version supports it. Stands in for the stress and fatigue questions on days you logged one; never compared with pain.',
+    blurb: 'Moods you log in Health, where your iOS version supports it. Said back before the stress and fatigue questions, and set beside your evening pain — as things that move together, never as one causing the other.',
   },
 ];
 
@@ -154,6 +152,9 @@ export interface StateOfMindSample {
   valence: number;
   /** 'momentaryEmotion' | 'dailyMood' */
   kind: string;
+  /** the words the person attached — 'stressed', 'calm' — as Apple
+   *  names them, lower-case. Absent when none were chosen. */
+  labels?: string[];
 }
 
 /* ── the normalized day ──────────────────────────────────────
@@ -216,7 +217,7 @@ export interface HealthDay {
   workouts?: NormalizedWorkout[];
   restingHeartRate?: number;
   hrvSDNN?: number;
-  stateOfMind?: { h: number; valence: number; kind: string }[];
+  stateOfMind?: { h: number; valence: number; kind: string; labels?: string[] }[];
   /** doses logged in Health this day, in time order. Present only on a
    *  day with at least one taken or skipped dose — an empty list would
    *  claim "nothing taken", and an unlogged dose is not that. */

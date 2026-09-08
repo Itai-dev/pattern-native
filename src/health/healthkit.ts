@@ -123,6 +123,27 @@ function medicationsSupported(): boolean {
   return isFinite(major) && major >= 26;
 }
 
+/** Apple's State of Mind labels by raw value — the bridge may hand
+ *  the enum as its number or its name; both become the lower-case
+ *  word. The list is Apple's, in Apple's order. */
+const MIND_LABELS = [
+  '', 'amazed', 'amused', 'angry', 'anxious', 'ashamed', 'brave', 'calm', 'content',
+  'disappointed', 'discouraged', 'disgusted', 'embarrassed', 'excited', 'frustrated',
+  'grateful', 'guilty', 'happy', 'hopeless', 'irritated', 'jealous', 'joyful', 'lonely',
+  'passionate', 'peaceful', 'proud', 'relieved', 'sad', 'scared', 'stressed', 'surprised',
+  'worried', 'annoyed', 'confident', 'drained', 'hopeful', 'indifferent', 'overwhelmed',
+  'satisfied',
+];
+function mindLabels(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  v.forEach((x) => {
+    if (typeof x === 'number' && MIND_LABELS[x]) out.push(MIND_LABELS[x]);
+    else if (typeof x === 'string' && x) out.push(x.toLowerCase());
+  });
+  return out;
+}
+
 /** Health's dose log status → what the person did. Taken and skipped
  *  are theirs; everything else (never interacted, snoozed, not logged,
  *  no notification) is a reminder's state, not a person's act. The
@@ -309,7 +330,10 @@ export class HealthKitService implements HealthService {
           const t = ts(r.startDate != null ? r.startDate : r.date);
           const valence = num(r.valence);
           if (t == null || valence == null) return null;
-          return { ts: t, valence, kind: String(r.kind || 'momentaryEmotion') } as StateOfMindSample;
+          const sample: StateOfMindSample = { ts: t, valence, kind: String(r.kind || 'momentaryEmotion') };
+          const labels = mindLabels(r.labels);
+          if (labels.length) sample.labels = labels;
+          return sample;
         }).filter((s): s is StateOfMindSample => s != null);
       } catch { /* state of mind stays empty */ }
     }

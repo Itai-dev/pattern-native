@@ -224,6 +224,11 @@ export const HEALTH_WORKOUT_MIN_SPREAD_MINUTES = 20;
  *  hour between a "less upright" and a "more upright" day is posture
  *  noise, not a different kind of day. */
 export const HEALTH_STAND_MIN_SPREAD_MINUTES = 60;
+/** State of Mind valence (−1…1) group means must sit at least this far
+ *  apart. Apple sorts valence into seven bands about 0.29 wide; 0.4 is
+ *  more than a band — "slightly unpleasant" days against "slightly
+ *  pleasant" ones at the very least, never two shades of neutral. */
+export const HEALTH_MIND_MIN_SPREAD = 0.4;
 
 /* ── "than your usual" on the day's context lines ────────────
    Descriptive comparison of ONE day's sensor value against the person's

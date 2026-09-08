@@ -49,7 +49,12 @@ export type PairKind =
    * measure HealthKit carries on every workout, while energy is absent
    * from many — and a comparison whose unit changes day to day is not a
    * comparison. Heart-rate-based intensity can refine this later. */
-  | 'workoutLoadVsNextMorning';
+  | 'workoutLoadVsNextMorning'
+  /* The day's mood, as logged in Health BEFORE the evening check-in →
+   * that evening's pain. Valence, −1 to 1, averaged over the entries
+   * that came first. Lawful in time and still not a cause: mood and
+   * pain travel together, and the card says so in the same breath. */
+  | 'mindVsEvening';
 
 /** one paired observation: a factor value and the pain it may lawfully
  *  be compared with. `factor` is continuous except for workouts, where
@@ -177,6 +182,19 @@ export function buildPairs(
          see normalize.ts for why coverage requires measured movement */
       if (!pain || !prev || !prev.coverage.workouts) return;
       out.push({ date, factor: (prev.workouts || []).length > 0 ? 1 : 0, pain: pain.pain });
+      return;
+    }
+
+    if (kind === 'mindVsEvening') {
+      const pain = eveningPain(logs);
+      const h = health[date];
+      if (!pain || !h || !h.stateOfMind || !h.stateOfMind.length) return;
+      /* only entries logged before the pain reading — a mood written
+         after the number is a mood about the number */
+      const before = h.stateOfMind.filter((m) => m.h < pain.h);
+      if (!before.length) return;
+      const valence = before.reduce((s, m) => s + m.valence, 0) / before.length;
+      out.push({ date, factor: Math.round(valence * 100) / 100, pain: pain.pain });
       return;
     }
 

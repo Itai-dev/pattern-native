@@ -337,8 +337,9 @@ ok('workouts license the workout comparisons, movement the step and upright ones
     && m.length === 3 && m.indexOf('standBeforeVsEvening') >= 0
     && m.indexOf('sleepVsMorning') < 0;
 })());
-ok('heart and mind license nothing — imported, never examined', (() => {
-  return noticed.licensedKinds(['heart', 'mind']).length === 0;
+ok('heart licenses nothing — imported, never examined; mind licenses exactly one', (() => {
+  return noticed.licensedKinds(['heart']).length === 0
+    && noticed.licensedKinds(['mind']).join() === 'mindVsEvening';
 })());
 ok('one card at most: the strongest possible wins', (() => {
   const a = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 7, 4));
@@ -902,6 +903,45 @@ ok('a dose reads as name, amount and unit, "skipped" said plainly, the time left
 })());
 ok('the day tiles are untouched by doses — a dose is a row, not a tile', (() => {
   return ctx3.healthDayTiles(HD(D, [{ h: 600, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }])).length === 0;
+})());
+
+group('mood beside the evening: State of Mind as a comparison');
+const moodDay = (d, moods, logs) => [
+  { pain: 5, cap: null, note: '', logs },
+  { date: d, stateOfMind: moods, coverage: { mind: true } },
+];
+ok('the moods logged before the evening check-in average into the factor; the pain is the last evening check-in', (() => {
+  const [e, h] = moodDay(D, [{ h: 9 * 60, valence: -0.6, kind: 'momentaryEmotion' }, { h: 14 * 60, valence: 0.2, kind: 'momentaryEmotion' }],
+    [{ h: 8 * 60, pain: 3 }, { h: 18 * 60, pain: 6 }, { h: 21 * 60, pain: 7 }]);
+  const p = windows.buildPairs('mindVsEvening', { [D]: e }, { [D]: h });
+  return p.length === 1 && p[0].factor === -0.2 && p[0].pain === 7;
+})());
+ok('a mood logged after the pain reading is a mood about the number — left out; none before, no pair', (() => {
+  const [e1, h1] = moodDay(D, [{ h: 21 * 60 + 30, valence: -0.8, kind: 'momentaryEmotion' }, { h: 10 * 60, valence: 0.5, kind: 'dailyMood' }],
+    [{ h: 21 * 60, pain: 7 }]);
+  const [e2, h2] = moodDay(D, [{ h: 22 * 60, valence: -0.8, kind: 'momentaryEmotion' }], [{ h: 21 * 60, pain: 7 }]);
+  const a = windows.buildPairs('mindVsEvening', { [D]: e1 }, { [D]: h1 });
+  return a.length === 1 && a[0].factor === 0.5
+    && windows.buildPairs('mindVsEvening', { [D]: e2 }, { [D]: h2 }).length === 0;
+})());
+ok('no evening check-in, no pair — a mood beside a morning number is a different question', (() => {
+  const [e, h] = moodDay(D, [{ h: 9 * 60, valence: -0.6, kind: 'momentaryEmotion' }], [{ h: 8 * 60, pain: 3 }, { h: 13 * 60, pain: 5 }]);
+  return windows.buildPairs('mindVsEvening', { [D]: e }, { [D]: h }).length === 0;
+})());
+ok('the groups must sit more than a valence band apart, and the words are accompaniment, never cause', (() => {
+  const mk = (lowV, highV) => Array.from({ length: 16 }, (_, i) => ({ date: day8(i + 1), factor: i < 8 ? lowV + i * 0.01 : highV + i * 0.01, pain: i < 8 ? 7 : 4 }));
+  const near = engine.evaluate('mindVsEvening', mk(-0.1, 0.1));
+  const far = engine.evaluate('mindVsEvening', mk(-0.6, 0.5));
+  const c = engine.associationCopy(far);
+  return near.verdict === 'observation' && far.verdict === 'possible'
+    && /points lower on your more pleasant days than on your more unpleasant ones/.test(c.body)
+    && /which leads/.test(c.timing) && !/cause[sd]? |because/.test(c.body)
+    && engine.factorLabel('mindVsEvening', -0.6) === 'very unpleasant' && engine.factorLabel('mindVsEvening', 0.3) === 'pleasant';
+})());
+ok('the day’s hint says the words the person chose', (() => {
+  const day = { date: D, stateOfMind: [{ h: 8 * 60, valence: -0.4, kind: 'momentaryEmotion', labels: ['stressed', 'drained', 'sad'] }], coverage: { mind: true } };
+  const ctxM = require(path.join(OUT, 'health', 'context.js'));
+  return ctxM.healthHintFor('stress.level.v1', day) === 'Apple Health: you logged “Unpleasant · stressed, drained” today';
 })());
 
 group('early looks: the picture before the sentence');
