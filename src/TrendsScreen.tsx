@@ -936,6 +936,36 @@ export default function TrendsScreen({
     .concat(doseWaiting
       .filter((p) => !doseEarly.some((e) => e.medId === p.medId))
       .map((p) => p.med + ' ' + p.pairs + ' of ' + p.needed));
+  /* STRESS AND FATIGUE, ANSWERED BY HEALTH. The focus counts the stress
+     and fatigue questions a person answers by hand; a person logging
+     pain only never answers them, and the row reads "0 low, 0 high"
+     for weeks while Apple Health's mood is quietly collecting the
+     same thing two rows down. When State of Mind is connected the
+     mood comparison stands in: the focus row says so and carries the
+     mood's count, and once the mood has its own picture or claim the
+     row steps aside for it. Answering the question at a check-in
+     still counts directly — the manual answer is what the focus
+     compares; the mood is the automatic stand-in. */
+  const MIND_FOR: Record<string, true> = { 'progress.stress.level.v1': true, 'progress.fatigue.level.v1': true };
+  const mindProgress = healthWaiting.find((p) => p.kind === 'mindVsEvening');
+  const mindShown = early.some((e) => e.kind === 'mindVsEvening')
+    || (healthNoticed?.groups || []).some((a) => a.kind === 'mindVsEvening')
+    || healthNoticed?.best?.kind === 'mindVsEvening';
+  const buysShown = buys
+    .map((c) => {
+      if (!MIND_FOR[c.key] || (!mindProgress && !mindShown)) return c;
+      if (mindShown) return null;
+      return {
+        key: c.key, title: c.title,
+        evidence: 'Apple Health’s mood is standing in — ' + (mindProgress as HealthProgress).pairedDays
+          + ' of ' + (mindProgress as HealthProgress).needed + ' days so far.',
+        caveat: 'Each day takes a State of Mind entry in Health before an evening check-in. Answering the '
+          + c.title.toLowerCase() + ' question at a check-in counts it directly.',
+      };
+    })
+    .filter((c): c is DigestCard => c != null);
+  const mindFolded = !!mindProgress && buys.some((c) => MIND_FOR[c.key]);
+  const collectingShown = mindFolded ? collecting.filter((t) => t.indexOf('mood ') !== 0) : collecting;
   const anythingOut = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
     || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
     || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0;
@@ -1206,18 +1236,18 @@ export default function TrendsScreen({
             );
           })}
 
-          {(buys.length > 0 || collecting.length > 0) && (
+          {(buysShown.length > 0 || collectingShown.length > 0) && (
             <View style={styles.subBlock}>
-              {buys.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
-              {collecting.length > 0 && (
+              {buysShown.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+              {collectingShown.length > 0 && (
                 <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Collecting: {collecting.join(' · ')}. A comparison needs the days on both
+                  Collecting: {collectingShown.join(' · ')}. A comparison needs the days on both
                   sides of it — a morning check-in for sleep, an evening one for movement.
                 </Text>
               )}
             </View>
           )}
-          {!anythingOut && buys.length === 0 && collecting.length === 0 && (
+          {!anythingOut && buysShown.length === 0 && collectingShown.length === 0 && (
             <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
               Nothing yet. This card fills as the record does — a few days of check-ins,
               and Apple Health if you connect it.
