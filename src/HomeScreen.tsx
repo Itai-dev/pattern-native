@@ -33,11 +33,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import DayLine from './DayLine';
 import DaySquare from './DaySquare';
-import FocusCard from './FocusCard';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
-  Entries, LOC_NAMES, Moment, Protocol, QUALITY_NAMES, addDays, checkinCount, logsOf,
+  Entries, LOC_NAMES, Moment, QUALITY_NAMES, addDays, checkinCount, logsOf,
   todayISO,
 } from './model';
 import { fmtDay } from './DayScreen';
@@ -46,7 +45,6 @@ import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
 import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
-import { HYPOTHESIS_OFFER_AFTER_DAYS } from './thresholds';
 
 /* ── when Today may ask for something ────────────────────────
    Three offers live on this screen, and at most ONE shows at a time:
@@ -141,7 +139,6 @@ function speakDetails(rows: DetailRow[]): string {
 
 export interface HomeScreenProps {
   entries: Entries;
-  protocol: Protocol | null;
   onLog: () => void;
   /** the day detail — where editing, deleting and events live */
   onOpenDay: (dateIso: string) => void;
@@ -152,9 +149,6 @@ export interface HomeScreenProps {
   onAddNote: () => void;
   /** Pain through the day, opened on today */
   onOpenToday: () => void;
-  onFocus: () => void;
-  onKeepFocus: () => void;
-  onTestFactor: (metricId: string) => void;
   /** the Background sheet, offered from here once a record exists */
   onOpenBackground: () => void;
   /** the appointment date picker, in Profile */
@@ -175,8 +169,8 @@ export interface HomeScreenProps {
 }
 
 export default function HomeScreen({
-  entries, protocol, onLog, onOpenDay, onAddNote, onOpenToday, onFocus, onKeepFocus,
-  onTestFactor, onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
+  entries, onLog, onOpenDay, onAddNote, onOpenToday,
+  onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
 }: HomeScreenProps) {
   const t = todayISO();
@@ -215,10 +209,6 @@ export default function HomeScreen({
   const breathStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + breath.value * 0.025 }],
   }));
-
-  /* the focus question is worth asking only once there is a record to
-     form a hypothesis about — a first-day user has nothing to suspect */
-  const offerSetup = Object.keys(entries).length >= HYPOTHESIS_OFFER_AFTER_DAYS;
 
   /* The background offer: once, after the record exists, gone forever
      on either answer. Onboarding is the wrong home for a five-minute
@@ -804,18 +794,6 @@ export default function HomeScreen({
         </View>
       )}
 
-      {/* ── the period, or the invitation to start one ──────
-          About the record rather than about a day, which is why it sits
-          outside both cards and under them. */}
-      <FocusCard
-        protocol={protocol}
-        entries={entries}
-        todayIso={t}
-        offerSetup={offerSetup}
-        onStart={onFocus}
-        onKeepGoing={onKeepFocus}
-        onTest={onTestFactor}
-      />
     </View>
   );
 }

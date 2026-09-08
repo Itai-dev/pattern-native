@@ -29,7 +29,6 @@ import { earlyLooks, healthProgress, noticedAssociations, strongestPossible } fr
 import { doseAssociations, doseProgress, earlyDoses, strongestDose } from './src/health/doses';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
-import FocusSheet from './src/FocusSheet';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import BackgroundSheet from './src/BackgroundSheet';
@@ -49,8 +48,6 @@ import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
-import { activeFactors } from './src/protocol';
-import { HYPOTHESIS_OFFER_AFTER_DAYS } from './src/thresholds';
 import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
@@ -62,7 +59,7 @@ registerCategory().catch(() => {}); // the Check in button on every prompt
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'event' | 'focus';
+type Sheet = null | 'checkin' | 'event';
 
 /* "Thu, 21 Aug" comes from DayScreen, which is the other place a date is
    a heading. Two copies of the same format is how two screens end up
@@ -149,10 +146,6 @@ export default function App() {
     () => db.getPref<boolean>('onboarded', db.countDays() > 0)
   );
   const [events, setEvents] = useState(() => db.getEvents());
-  const [protocol, setProtocol] = useState(() => db.activeProtocol());
-  /* a factor the chips pointed at, carried into the focus flow so the
-     picker opens on it instead of making the user find it again */
-  const [seedFactor, setSeedFactor] = useState<string | null>(null);
   /* act on Today, read the record on Record — the two sit side by side,
      so a swipe moves between them and the tab bar is a shortcut rather
      than the only way */
@@ -323,7 +316,7 @@ export default function App() {
     /* and the pictures before the gates — see thresholds.ts, early looks */
     const early = earlyLooks(entries, healthDays, healthCategories());
     return { best, fading, groups, progress, early, doses };
-  }, [entries, healthDays, protocol]);
+  }, [entries, healthDays]);
   /* an event being edited. Nothing has to be closed to reach it any more:
      the day is a LAYER, not a modal, so the event sheet presents on top
      of it and the day is still there underneath when it dismisses. The
@@ -334,7 +327,6 @@ export default function App() {
     const next = db.getAll();
     setEntries(next);
     setEvents(db.getEvents());
-    setProtocol(db.activeProtocol());
     /* one place to feed the widget, so no screen has to remember to */
     refreshWidget(next);
     /* and to rebuild the reminder queue — a check-in just made silences
@@ -428,13 +420,6 @@ export default function App() {
      the next review is another fourteen days out. The period is not
      restarted — restarting it would orphan the answers already given from
      the run they belong to. */
-  const keepFocus = useCallback(() => {
-    track('focus_extended');
-    const p = db.activeProtocol();
-    if (p && p.id != null) db.extendProtocol(p.id, todayISO());
-    refresh();
-  }, [refresh]);
-
   const startEditEvent = useCallback((ev: PainEvent) => {
     setEditEvent(ev);
     setSheet('event');
@@ -471,10 +456,6 @@ export default function App() {
         /* written FOR the report, so it rides every share — the sheet that
            collects it says so in its first sentence */
         background: db.getBackground(),
-        /* the person's own question, verbatim, and the periods it was
-           watched over — the two things a clinician gets nowhere else */
-        hypothesis: db.latestHypothesis(),
-        protocols: db.getProtocols(),
         /* the same health context Trends shows — one gate, two surfaces,
            so the preview and the PDF can never disagree about what the
            record supports */
@@ -659,11 +640,6 @@ export default function App() {
     );
   }, [refresh]);
 
-  /* The focus question is worth asking only once there is a record to
-     form a hypothesis about — Today's card has always waited a week for
-     that reason, and this row was letting a day-one user walk in the side
-     door and commit to a fortnight of questions about nothing. */
-  const focusReady = Object.keys(entries).length >= HYPOTHESIS_OFFER_AFTER_DAYS;
   const themeName = (PAIN_THEMES.find((t) => t.id === getPainTheme()) || PAIN_THEMES[0]).name;
 
   if (!onboarded) {
@@ -673,27 +649,11 @@ export default function App() {
           <OnboardingScreen
             onDone={(r) => {
               /* counts only, never content — the closed-list rule */
-              track('onboarding_completed', {
-                wroteHypothesis: !!r.understand,
-                suspicions: r.suspicions.length,
-                where: r.where.length,
-              });
+              track('onboarding_completed', { where: r.where.length });
               /* and from which screen they left early, when they did */
               if (r.skippedAt !== undefined) track('onboarding_skipped', { step: r.skippedAt });
               db.setPref('onboarded', true);
               setOnboarded(true);
-              /* their words, verbatim, from the moment they had the
-                 clearest reason to open this. The focus flow finds it a
-                 week later and builds its offer on it. */
-              if (r.understand) {
-                db.addHypothesis({
-                  createdOn: todayISO(), understand: r.understand, harder: '', helps: '',
-                });
-              }
-              /* the suspicions, in tap order — what makes the week-later
-                 focus offer specific instead of cold. Stored as metric
-                 ids, the focus flow's own vocabulary. */
-              if (r.suspicions.length) db.setPref('suspicions.v1', r.suspicions);
               /* usual places, for the first check-in's offer — a record
                  with no history yet has no last time to be the same as */
               if (r.where.length) db.setPref('onboard.loc.v1', r.where);
@@ -817,14 +777,10 @@ export default function App() {
               showsVerticalScrollIndicator={false}>
               <HomeScreen
                 entries={entries}
-                protocol={protocol}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
                 onAddNote={() => openDayNote(todayISO())}
                 onOpenToday={() => openDay(todayISO())}
-                onFocus={() => { setSeedFactor(null); setSheet('focus'); }}
-                onKeepFocus={keepFocus}
-                onTestFactor={(id) => { setSeedFactor(id); setSheet('focus'); }}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
                 onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
@@ -868,7 +824,6 @@ export default function App() {
                 healthNoticed={healthNoticed}
                 onShare={shareTrends}
                 sharing={sharing}
-                protocol={protocol}
               />
             </ScrollView>
           </ScrollView>
@@ -930,10 +885,6 @@ export default function App() {
           />
         </Modal>
 
-        <Modal visible={sheet === 'focus'} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeSheet}>
-          <FocusSheet seedFactor={seedFactor} onDone={closeSheet} onClose={closeSheet} />
-        </Modal>
-
         <Modal
           visible={sheet === 'event'}
           animationType="slide"
@@ -965,35 +916,6 @@ export default function App() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
-              {/* the record used to have a row here too — a door to a tab
-                  that is one swipe away, kept from when the summary was a
-                  buried sheet. The tab and its Share button are the
-                  feature now; a second entrance was furniture. */}
-              <Text style={styles.groupTitle}>Focus</Text>
-              <View style={styles.group}>
-                <Pressable
-                  onPress={() => {
-                    afterDismiss.current = () => { setSeedFactor(null); setSheet('focus'); };
-                    setProfile(false);
-                  }}
-                  disabled={!protocol && !focusReady}
-                  style={styles.row}
-                  accessibilityRole="button"
-                  accessibilityLabel={protocol ? 'Change your focus' : 'Choose a focus'}
-                >
-                  <RowIcon name="search-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Your focus</Text>
-                    <Text style={styles.rowValue} numberOfLines={1}>
-                      {protocol
-                        ? activeFactors(protocol).map((m) => m.name).join(' · ')
-                        : focusReady ? 'Not set' : 'After a week of logging'}
-                    </Text>
-                    <Text style={styles.rowChevron}>›</Text>
-                  </View>
-                </Pressable>
-              </View>
-
               {/* Only offered where the binary can actually do it — a
                   row promising a connection an old build cannot make is
                   a broken promise on a settings screen. The sheet

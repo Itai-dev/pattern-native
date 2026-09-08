@@ -12,10 +12,13 @@
  *                          the body map behind "Show more" for anything
  *                          sided or specific.
  *   3. About today       — one scrollable screen, only when something is
- *                          due: the focus's questions (only the ones
- *                          this moment can honestly answer), how it
- *                          feels (SOCRATES "Character", once a day), and
- *                          what moved it (the chips, evenings only).
+ *                          due: how much pain limited the day (evenings,
+ *                          once) and how it feels (SOCRATES "Character",
+ *                          once a day). THE FOCUS'S QUESTIONS AND THE
+ *                          "WHAT MOVED IT" CHIPS ARE GONE (8 Sep 2026):
+ *                          the app asks about pain and nothing else, and
+ *                          Apple Health supplies the context — sleep,
+ *                          movement, doses, mood — without a question.
  *   4. Logged.           — a check mark, and out.
  *
  * PAIN IS THE ONLY MANDATORY ANSWER, and after step 1 the flow says so
@@ -68,10 +71,8 @@ import PainShape from './PainShape';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
-  IMPACT_BETTER, IMPACT_CHIPS, IMPACT_IDS, IMPACT_WORSE, LIMITATION_ID, MetricDef,
-  eligibleNow, getMetric,
+  LIMITATION_ID, MetricDef, eligibleNow, getMetric,
 } from './metrics';
-import { questionsNow } from './protocol';
 import { healthHintFor, healthNowHint } from './health/context';
 import { WHERE_REASK_DELTA } from './thresholds';
 import { HealthDay } from './health/types';
@@ -87,9 +88,6 @@ import {
   minutesNow, nowMeta, todayISO,
 } from './model';
 import { fmtClock } from './clock';
-
-const IMPACT_LABELS: Record<string, string> = {};
-IMPACT_CHIPS.forEach((c) => { IMPACT_LABELS[c.id] = c.name; });
 
 const SQUARE = 150;
 
@@ -107,9 +105,6 @@ const MAP_H = 400;
    chips still only in the evening — so the screen is short when little
    is due and absent when nothing is. */
 type Step = 'pain' | 'where' | 'today' | 'done';
-
-/** which side of the chip grid is showing */
-type Side = 'worse' | 'better';
 
 export interface CheckinScreenProps {
   /** the day being written. Absent = today, the normal case. A PAST day
@@ -196,25 +191,19 @@ export default function CheckinScreen({
     ...(extra || {}),
   });
 
-  /* ── today's questions ─────────────────────────────────────
-     Resolved once, when the flow opens, from the active period and the
-     clock. An empty list is the normal state before a protocol exists,
-     and the step is skipped entirely rather than shown empty. Editing a
-     moment asks none of them: they are the day's, already answered. */
+  /* ── today's one question ──────────────────────────────────
+     How much pain limited the day, once, in the evening. No focus
+     questions any more: the registry's other metrics keep their ids
+     for the answers already recorded, and nothing asks them. Editing a
+     moment asks nothing — the answer is the day's, already given. */
   const [askIds] = useState<string[]>(() => {
     if (editing) return [];
     const entry = db.getDay(today);
     const isFirstOfDay = logsOf(entry).length === 0;
-    /* interference is fixed core rather than part of a protocol, so it
-       rides along as an extra and is asked once a day whether or not an
-       observation period exists yet */
-    return questionsNow(
-      db.activeProtocol(),
-      { h: minutes, isFirstOfDay, entry },
-      /* the second core question rides along every day — asked in the
-         evening, once, whether or not a focus is running */
-      [LIMITATION_ID]
-    );
+    const m = getMetric(LIMITATION_ID);
+    const due = !!m && eligibleNow(m.eligibility, minutes, isFirstOfDay,
+      answerOf(entry, LIMITATION_ID) != null);
+    return due ? [LIMITATION_ID] : [];
   });
   const { width: winW } = useWindowDimensions();
   /* what Health already has for today, read once — a hint above a
@@ -225,10 +214,9 @@ export default function CheckinScreen({
      past day's "now" is not now. */
   const [nowHint] = useState<string[]>(() =>
     retro || editing ? [] : healthNowHint(db.getHealthDay<HealthDay>(today), minutesNow()));
-  const [pid] = useState<number | null>(() => {
-    const p = db.activeProtocol();
-    return p && p.id != null ? p.id : null;
-  });
+  /* no observation period stamps an answer any more; the column stays
+     for the answers that carry one */
+  const pid: number | null = null;
   /* answers held in memory until the step is left, so backing out of a
      half-finished screen records nothing */
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
@@ -238,17 +226,6 @@ export default function CheckinScreen({
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({});
 
-  /* the chips. Asked once a day, in the window the registry declares
-     for them — the evening, since "what made today harder" cannot be
-     answered before the day has happened. The rule is read from the
-     metric rather than repeated here, so it cannot drift. */
-  const [askImpact] = useState<boolean>(() => {
-    if (editing) return false;
-    const entry = db.getDay(today);
-    const first = logsOf(entry).length === 0;
-    const rule = (getMetric(IMPACT_WORSE) || { eligibility: undefined }).eligibility;
-    return eligibleNow(rule, minutes, first, answerOf(entry, IMPACT_WORSE) != null);
-  });
   /* HOW IT FEELS IS ASKED ONCE A DAY, on the first check-in — the same
      rule the day's attributions already follow.
      For chronic pain the character is the stable part: aching is aching
@@ -271,9 +248,6 @@ export default function CheckinScreen({
     const saidToday = logsOf(entry).some((l) => !!(l.q && l.q.length));
     return eligibleNow('firstOfDay', minutes, first, saidToday);
   });
-  const [side, setSide] = useState<Side>('worse');
-  const [worse, setWorse] = useState<string[]>([]);
-  const [better, setBetter] = useState<string[]>([]);
 
   /* Chronic pain usually lives in the same places, so the where step opens
      with the last ones already ticked and the common case is one tap on
@@ -371,7 +345,7 @@ export default function CheckinScreen({
   /* the third screen exists only when something is due on it. A retro
      check-in never has one: the day-scoped questions stay in the
      present. An edit has one only for the moment's own words. */
-  const askToday = askIds.length > 0 || askImpact || askFeel;
+  const askToday = askIds.length > 0 || askFeel;
   const limitationDue = !editing && askIds.indexOf(LIMITATION_ID) >= 0;
   /* WHERE, WHEN NEEDED. The first check-in of a day asks where; the
      next ones do not, unless the number has jumped WHERE_REASK_DELTA
@@ -404,8 +378,7 @@ export default function CheckinScreen({
      blank form rather than declining. Same tap, same stored skip — but
      now the button admits it, which is the difference between an
      optional question and one the user could not get past. */
-  const anyAnswered = askIds.some((id) => answers[id] !== undefined)
-    || quality.length > 0 || worse.length > 0 || better.length > 0;
+  const anyAnswered = askIds.some((id) => answers[id] !== undefined) || quality.length > 0;
 
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
@@ -475,10 +448,6 @@ export default function CheckinScreen({
     if (step === 'where') persist({ locAsked: true });
     else if (step === 'today') {
       if (askIds.length) persistAnswers();
-      if (askImpact) {
-        db.setAnswerList(today, IMPACT_WORSE, worse, minutes, pid);
-        db.setAnswerList(today, IMPACT_BETTER, better, minutes, pid);
-      }
       if (askFeel) persist({ qAsked: true });
     }
   };
@@ -937,47 +906,6 @@ export default function CheckinScreen({
             </View>
           )}
 
-          {askImpact && (
-            <View style={styles.todayBlock}>
-              <Text style={styles.todayTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                What moved it today?
-              </Text>
-              <Text style={styles.todayHint} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Your read on the day — Pattern records it, it doesn’t test it.
-              </Text>
-              <View style={styles.sideSwitch}>
-            {(['worse', 'better'] as Side[]).map((sd) => {
-              const on = side === sd;
-              const n = (sd === 'worse' ? worse : better).length;
-              return (
-                <Pressable
-                  key={sd}
-                  onPress={() => { Haptics.selectionAsync().catch(() => {}); setSide(sd); }}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={sd === 'worse' ? 'Made it harder' : 'Helped'}
-                  style={({ pressed }) => [
-                    styles.sideItem, on && styles.sideItemOn, pressed && { opacity: 0.85 },
-                  ]}
-                >
-                  <Text style={[styles.sideText, on && styles.sideTextOn]}
-                    allowFontScaling maxFontSizeMultiplier={1.3}>
-                    {sd === 'worse' ? 'Made it harder' : 'Helped'}{n ? ' · ' + n : ''}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-              <View style={styles.chipGrid}>
-                {chipRow(
-                  IMPACT_IDS,
-                  IMPACT_LABELS,
-                  side === 'worse' ? worse : better,
-                  side === 'worse' ? setWorse : setBetter
-                )}
-              </View>
-            </View>
-          )}
         </ScrollView>
       ) : (
         /* The main places, your usual ones first — the daily answer in

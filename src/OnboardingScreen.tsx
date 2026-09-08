@@ -82,7 +82,6 @@ export interface OnboardingScreenProps {
 export default function OnboardingScreen({ onDone, review }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
-  const [understand, setUnderstand] = useState('');
   const [duration, setDuration] = useState<OnboardingResult['duration']>('');
   const [diagnosis, setDiagnosis] = useState<OnboardingResult['diagnosis']>('');
   const [diagnosisText, setDiagnosisText] = useState('');
@@ -95,10 +94,13 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
   /* reading it again from Profile stops at the boundaries — the row says
      "what Pattern is and isn't", and re-asking the question of someone
      who answered it weeks ago is not what they tapped */
-  const lastStep = review ? 0 : 2;
+  /* two screens: the promise and the boundaries, then the usual places.
+     The third — "what do you want to understand?" — left with the focus
+     (8 Sep 2026): the app asks about pain and lets Health say the rest. */
+  const lastStep = review ? 0 : 1;
 
   const result = (skippedAt?: number): OnboardingResult => ({
-    understand: understand.trim(),
+    understand: '',
     where: collapseSidedLocs(where),
     duration, diagnosis,
     diagnosisText: diagnosisText.trim(),
@@ -217,7 +219,7 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               </Text>
             </View>
           </>
-        ) : step === 1 ? (
+        ) : (
           <>
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
               Where does it{'\n'}usually hurt?
@@ -269,32 +271,6 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
               />
             )}
           </>
-        ) : (
-          <>
-            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
-              What do you want{'\n'}to understand?
-            </Text>
-            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              In your own words — whatever made you open this app. It stays on
-              this phone, and it goes into your doctor summary exactly as you
-              write it.
-            </Text>
-            <TextInput
-              value={understand}
-              onChangeText={setUnderstand}
-              placeholder="e.g. why some mornings are so much worse"
-              placeholderTextColor={color.textTertiary}
-              style={styles.input}
-              multiline
-              autoFocus={false}
-              accessibilityLabel="What are you trying to understand about your pain?"
-            />
-            <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Optional, and you can change it later. After a week of check-ins,
-              Pattern will offer to watch one thing you suspect, properly —
-              this is what makes that offer specific instead of cold.
-            </Text>
-          </>
         )}
       </ScrollView>
 
@@ -305,23 +281,13 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
           style={styles.primary}
           accessibilityRole="button"
           accessibilityLabel={
-            step < lastStep ? 'Continue'
-              : review ? 'Done'
-                : understand.trim() ? 'Start my first check-in' : 'Skip and start my first check-in'
+            step < lastStep ? 'Continue' : review ? 'Done' : 'Start my first check-in'
           }
         >
           <Text style={styles.primaryText}>
             {step < lastStep ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
           </Text>
         </Press>
-
-        {/* the question is genuinely skippable, and says so — a blank
-            answer walks through the same button */}
-        {step === 2 && !understand.trim() && (
-          <Text style={styles.skipHint} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Leave it blank if you’d rather just start.
-          </Text>
-        )}
 
         {canSkip && (
           <Press
@@ -339,7 +305,7 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
         )}
 
         <View style={styles.dots}>
-          {(review ? [0] : [0, 1, 2]).map((i) => (
+          {(review ? [0] : [0, 1]).map((i) => (
             <View
               key={i}
               style={[styles.dot, i === step && { backgroundColor: color.textSecondary }]}

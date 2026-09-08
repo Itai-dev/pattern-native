@@ -31,7 +31,7 @@ import * as db from './db';
 import { Press } from './motion';
 import MapScreen from './MapScreen';
 import {
-  EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent, Protocol,
+  EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent,
   RESPONSE_LABELS, Response, dateFromISO, } from './model';
 import { fmtClock } from './clock';
 import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
@@ -48,7 +48,7 @@ import {
   DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, doseCopy, doseObservationCopy,
   fadedDoseCopy,
 } from './health/doses';
-import { DigestCard, checkinBuys, recordSays } from './digest';
+import { DigestCard, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -98,9 +98,6 @@ export interface TrendsScreenProps {
       early: DoseEarly[];
     };
   };
-  /** the active observation period, for the progress cards — what a
-   *  check-in is currently buying */
-  protocol?: Protocol | null;
   /** the PDF, from its natural home at the foot of the screen — the
    *  handoff is the destination of everything above it */
   onShare?: () => void;
@@ -792,7 +789,7 @@ const digestStyles = StyleSheet.create({
 
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
-  healthNoticed, protocol, onShare, sharing,
+  healthNoticed, onShare, sharing,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
      day — a fixed window that happens to miss the days someone logged
@@ -860,7 +857,6 @@ export default function TrendsScreen({
      Both come back empty until their gates clear, and empty sections are
      not drawn — silence is a valid digest. */
   const says = recordSays(data);
-  const buys = checkinBuys(protocol || null, entries, todayIso);
 
   const tried = data.events.filter((ev) => ev.intervention || ev.resp || ev.helped != null);
 
@@ -936,36 +932,7 @@ export default function TrendsScreen({
     .concat(doseWaiting
       .filter((p) => !doseEarly.some((e) => e.medId === p.medId))
       .map((p) => p.med + ' ' + p.pairs + ' of ' + p.needed));
-  /* STRESS AND FATIGUE, ANSWERED BY HEALTH. The focus counts the stress
-     and fatigue questions a person answers by hand; a person logging
-     pain only never answers them, and the row reads "0 low, 0 high"
-     for weeks while Apple Health's mood is quietly collecting the
-     same thing two rows down. When State of Mind is connected the
-     mood comparison stands in: the focus row says so and carries the
-     mood's count, and once the mood has its own picture or claim the
-     row steps aside for it. Answering the question at a check-in
-     still counts directly — the manual answer is what the focus
-     compares; the mood is the automatic stand-in. */
-  const MIND_FOR: Record<string, true> = { 'progress.stress.level.v1': true, 'progress.fatigue.level.v1': true };
-  const mindProgress = healthWaiting.find((p) => p.kind === 'mindVsEvening');
-  const mindShown = early.some((e) => e.kind === 'mindVsEvening')
-    || (healthNoticed?.groups || []).some((a) => a.kind === 'mindVsEvening')
-    || healthNoticed?.best?.kind === 'mindVsEvening';
-  const buysShown = buys
-    .map((c) => {
-      if (!MIND_FOR[c.key] || (!mindProgress && !mindShown)) return c;
-      if (mindShown) return null;
-      return {
-        key: c.key, title: c.title,
-        evidence: 'Apple Health’s mood is standing in — ' + (mindProgress as HealthProgress).pairedDays
-          + ' of ' + (mindProgress as HealthProgress).needed + ' days so far.',
-        caveat: 'Each day takes a State of Mind entry in Health before an evening check-in. Answering the '
-          + c.title.toLowerCase() + ' question at a check-in counts it directly.',
-      };
-    })
-    .filter((c): c is DigestCard => c != null);
-  const mindFolded = !!mindProgress && buys.some((c) => MIND_FOR[c.key]);
-  const collectingShown = mindFolded ? collecting.filter((t) => t.indexOf('mood ') !== 0) : collecting;
+  const collectingShown = collecting;
   const anythingOut = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
     || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
     || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0;
@@ -1236,9 +1203,8 @@ export default function TrendsScreen({
             );
           })}
 
-          {(buysShown.length > 0 || collectingShown.length > 0) && (
+          {collectingShown.length > 0 && (
             <View style={styles.subBlock}>
-              {buysShown.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
               {collectingShown.length > 0 && (
                 <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
                   Collecting: {collectingShown.join(' · ')}. A comparison needs the days on both
@@ -1247,7 +1213,7 @@ export default function TrendsScreen({
               )}
             </View>
           )}
-          {!anythingOut && buysShown.length === 0 && collectingShown.length === 0 && (
+          {!anythingOut && collectingShown.length === 0 && (
             <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
               Nothing yet. This card fills as the record does — a few days of check-ins,
               and Apple Health if you connect it.
@@ -1296,52 +1262,12 @@ export default function TrendsScreen({
             pressOpacity={0.7}
             style={styles.more}
             accessibilityRole="button"
-            accessibilityLabel="Show everything: what you noticed, the hardest and easiest days, the tables and the events"
+            accessibilityLabel="Show everything: the hardest and easiest days, the tables and the events"
           >
             <Text style={styles.moreText}>Show details ›</Text>
           </Press>
         ) : (
           <>
-            {(data.flagged.worse.length > 0 || data.flagged.better.length > 0) && (
-              <View style={styles.subBlock}>
-                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  What you noticed
-                </Text>
-                {data.flagged.worse.length > 0 && (
-                  <>
-                    <Text style={styles.subhead}>Made it harder</Text>
-                    <FoldedList
-                      bars
-                      label="things"
-                      items={data.flagged.worse.map((f) => ({
-                        key: 'w' + f.id,
-                        left: f.name,
-                        right: f.days + (f.days === 1 ? ' day' : ' days'),
-                        frac: f.days / Math.max(1, data.flagged.worse[0].days),
-                        tint: color.textPrimary,
-                      }))}
-                    />
-                  </>
-                )}
-                {data.flagged.better.length > 0 && (
-                  <>
-                    <Text style={styles.subhead}>Helped</Text>
-                    <FoldedList
-                      bars
-                      label="things"
-                      items={data.flagged.better.map((f) => ({
-                        key: 'b' + f.id,
-                        left: f.name,
-                        right: f.days + (f.days === 1 ? ' day' : ' days'),
-                        frac: f.days / Math.max(1, data.flagged.better[0].days),
-                        tint: color.textPrimary,
-                      }))}
-                    />
-                  </>
-                )}
-              </View>
-            )}
-
             {!!he && (
               <View style={styles.subBlock}>
                 <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
