@@ -189,6 +189,18 @@ export function earlyLook(kind: PairKind, pairs: PairedDay[]): EarlyLook | null 
 export const EARLY_NOTE =
   'An early look: too few days to call anything. It fills in as you check in.';
 
+/** the caption under the first days — a list of facts, not yet a picture */
+export const FIRST_NOTE =
+  'The days so far, as recorded. A picture starts at ' + EARLY_MIN_PAIRED_DAYS
+  + ' paired days, a comparison at ' + HEALTH_MIN_PAIRED_DAYS + '.';
+
+/** the first-days block's title: the factor and the pain it sits beside */
+export function firstTitle(kind: PairKind): string {
+  const w = KIND_WORDS[kind];
+  const outcome = EVENING_KINDS.indexOf(kind) >= 0 ? 'evening pain' : 'morning pain';
+  return w.factor + ' beside ' + outcome + ', the first days';
+}
+
 /** the early look's title and its count — never a direction word */
 export function earlyCopy(e: EarlyLook): { title: string; evidence: string } {
   const w = KIND_WORDS[e.kind];

@@ -19,10 +19,10 @@
  * out as data — the caller owns remembering it.
  */
 import { Entries } from '../model';
-import { HEALTH_MIN_PAIRED_DAYS } from '../thresholds';
+import { EARLY_MIN_PAIRED_DAYS, HEALTH_MIN_PAIRED_DAYS } from '../thresholds';
 import { Association, EarlyLook, earlyLook, evaluate } from './engine';
 import { HealthCategory, HealthDay } from './types';
-import { PairKind, buildPairs } from './windows';
+import { PairKind, PairedDay, buildPairs } from './windows';
 
 /** connected category → the associations it licenses. Heart is
  *  deliberately absent: imported, normalized, never examined. Mind
@@ -93,6 +93,28 @@ export function earlyLooks(
   return licensedKinds(categories)
     .map((kind) => earlyLook(kind, buildPairs(kind, entries, health)))
     .filter((e): e is EarlyLook => e != null);
+}
+
+/** THE FIRST DAYS. Before even an early look — one to three paired
+ *  days — the record has facts and no comparison, and a person who
+ *  connected Health yesterday deserves to see the fact rather than a
+ *  counter. So the pairs themselves are listed: the night, the
+ *  morning's number; the mood, the evening's number. Each row is what
+ *  they entered beside what Health measured, nothing derived, and the
+ *  caption says a comparison is still to come. */
+export interface FirstDays {
+  kind: PairKind;
+  pairs: PairedDay[];
+}
+
+export function firstDays(
+  entries: Entries,
+  health: Record<string, HealthDay>,
+  categories: HealthCategory[]
+): FirstDays[] {
+  return licensedKinds(categories)
+    .map((kind) => ({ kind, pairs: buildPairs(kind, entries, health).slice().sort((a, b) => a.date < b.date ? 1 : -1) }))
+    .filter((f) => f.pairs.length >= 1 && f.pairs.length < EARLY_MIN_PAIRED_DAYS);
 }
 
 /** The single strongest `possible`, or null — PATTERN_MAX_CARDS is a

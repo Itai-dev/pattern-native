@@ -944,6 +944,34 @@ ok('the day’s hint says the words the person chose', (() => {
   return ctxM.healthHintFor('stress.level.v1', day) === 'Apple Health: you logged “Unpleasant · stressed, drained” today';
 })());
 
+group('the first days: facts before the picture');
+ok('one to three paired days are listed newest first; four become an early look and leave the list', (() => {
+  const mk = (n) => { const e = {}, h = {}; for (let i = 1; i <= n; i++) { const d = day8(i);
+    e[d] = { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: i }] };
+    h[d] = { date: d, sleepMinutes: 300 + i * 30, coverage: { sleep: true } }; } return [e, h]; };
+  const [e3, h3] = mk(3), [e4, h4] = mk(4), [e0, h0] = mk(0);
+  const f = noticed.firstDays(e3, h3, ['sleep']);
+  return f.length === 1 && f[0].kind === 'sleepVsMorning' && f[0].pairs.length === 3
+    && f[0].pairs[0].date === day8(3) && f[0].pairs[2].pain === 1
+    && noticed.firstDays(e4, h4, ['sleep']).length === 0 && noticed.firstDays(e0, h0, ['sleep']).length === 0
+    && noticed.firstDays(e3, h3, []).length === 0;
+})());
+ok('the title names the factor and the pain it sits beside; the caption says when a picture starts', (() => {
+  return engine.firstTitle('mindVsEvening') === 'Mood beside evening pain, the first days'
+    && engine.firstTitle('sleepVsMorning') === 'Sleep beside morning pain, the first days'
+    && /starts at 4 paired days, a comparison at 14/.test(engine.FIRST_NOTE);
+})());
+ok('doses: one or two pairs are listed, three become the early picture', (() => {
+  const doses = require(path.join(OUT, 'health', 'doses.js'));
+  const mk = (n) => { const e = {}, h = {}; for (let i = 1; i <= n; i++) { const d = day8(i);
+    e[d] = { pain: 5, cap: null, note: '', logs: [{ h: 13 * 60, pain: 7 }, { h: 16 * 60, pain: 4 }] };
+    h[d] = { date: d, doses: [{ h: 14 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }], coverage: { medications: true } }; } return [e, h]; };
+  const [e2, h2] = mk(2), [e3, h3] = mk(3);
+  const f = doses.firstDoses(e2, h2);
+  return f.length === 1 && f[0].med === 'Ibuprofen' && f[0].pairs.length === 2 && f[0].pairs[0].before === 7
+    && doses.firstDoses(e3, h3).length === 0;
+})());
+
 group('early looks: the picture before the sentence');
 ok('four paired days split into halves of two, with the means and no verdict', (() => {
   const pairs = [1, 2, 3, 4].map((i) => ({ date: day8(i), factor: 300 + i * 60, pain: i <= 2 ? 6 : 4 }));

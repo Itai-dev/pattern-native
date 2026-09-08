@@ -25,8 +25,12 @@ import { HealthKitService, deviceClock } from './src/health/healthkit';
 import {
   healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
 } from './src/health/sync';
-import { earlyLooks, healthProgress, noticedAssociations, strongestPossible } from './src/health/noticed';
-import { doseAssociations, doseProgress, earlyDoses, strongestDose } from './src/health/doses';
+import {
+  earlyLooks, firstDays, healthProgress, noticedAssociations, strongestPossible,
+} from './src/health/noticed';
+import {
+  doseAssociations, doseProgress, earlyDoses, firstDoses, strongestDose,
+} from './src/health/doses';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
 import TrendsScreen from './src/TrendsScreen';
@@ -312,10 +316,12 @@ export default function App() {
       groups: doseAll.filter((a) => a.verdict === 'possible' || a.verdict === 'observation'),
       progress: meds ? doseProgress(entries, healthDays) : [],
       early: meds ? earlyDoses(entries, healthDays) : [],
+      first: meds ? firstDoses(entries, healthDays) : [],
     };
     /* and the pictures before the gates — see thresholds.ts, early looks */
     const early = earlyLooks(entries, healthDays, healthCategories());
-    return { best, fading, groups, progress, early, doses };
+    const first = firstDays(entries, healthDays, healthCategories());
+    return { best, fading, groups, progress, early, first, doses };
   }, [entries, healthDays]);
   /* an event being edited. Nothing has to be closed to reach it any more:
      the day is a LAYER, not a modal, so the event sheet presents on top

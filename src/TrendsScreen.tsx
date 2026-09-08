@@ -40,13 +40,13 @@ import {
   fmtReportDate,
 } from './report';
 import {
-  Association as HealthAssociation, EARLY_NOTE, EarlyLook, IN_BED_NOTE, associationCopy,
-  earlyCopy, fadedCopy, factorLabel, groupLabels,
+  Association as HealthAssociation, EARLY_NOTE, EarlyLook, FIRST_NOTE, IN_BED_NOTE,
+  associationCopy, earlyCopy, fadedCopy, factorLabel, firstTitle, groupLabels,
 } from './health/engine';
-import { HealthProgress } from './health/noticed';
+import { FirstDays, HealthProgress } from './health/noticed';
 import {
-  DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, doseCopy, doseObservationCopy,
-  fadedDoseCopy,
+  DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, FirstDoses, doseCopy,
+  doseObservationCopy, fadedDoseCopy,
 } from './health/doses';
 import { DigestCard, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
@@ -88,6 +88,8 @@ export interface TrendsScreenProps {
     progress: HealthProgress[];
     /** the pictures before the gates — see thresholds.ts, early looks */
     early: EarlyLook[];
+    /** and before the pictures, the first paired days as facts */
+    first: FirstDays[];
     /** the same four, for doses logged in Health — before-and-after a
      *  dose rather than groups of days, gated in doses.ts */
     doses: {
@@ -96,6 +98,7 @@ export interface TrendsScreenProps {
       groups: DoseAssociation[];
       progress: DoseProgress[];
       early: DoseEarly[];
+      first: FirstDoses[];
     };
   };
   /** the PDF, from its natural home at the foot of the screen — the
@@ -924,18 +927,21 @@ export default function TrendsScreen({
   const doseWaiting = dz ? dz.progress : [];
   const early = healthNoticed?.early || [];
   const doseEarly = dz?.early || [];
+  const first = healthNoticed?.first || [];
+  const doseFirst = dz?.first || [];
   /* what is still short of even an early look, as one line — the
      rows it replaced said the same thing four times over */
   const collecting = healthWaiting
-    .filter((p) => !early.some((e) => e.kind === p.kind))
+    .filter((p) => !early.some((e) => e.kind === p.kind) && !first.some((e) => e.kind === p.kind))
     .map((p) => groupLabels(p.kind).factor.toLowerCase() + ' ' + p.pairedDays + ' of ' + p.needed)
     .concat(doseWaiting
-      .filter((p) => !doseEarly.some((e) => e.medId === p.medId))
+      .filter((p) => !doseEarly.some((e) => e.medId === p.medId) && !doseFirst.some((e) => e.medId === p.medId))
       .map((p) => p.med + ' ' + p.pairs + ' of ' + p.needed));
   const collectingShown = collecting;
   const anythingOut = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
     || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
-    || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0;
+    || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0
+    || first.length > 0 || doseFirst.length > 0;
 
   return (
     <View style={styles.page}>
@@ -1159,6 +1165,53 @@ export default function TrendsScreen({
               <DoseBars a={e} />
               <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
                 {e.pairs} doses with a check-in before and after. {EARLY_NOTE}
+              </Text>
+            </View>
+          ))}
+
+          {/* THE FIRST DAYS. One to three paired days: not a picture
+              yet, so the facts themselves — the night and the morning's
+              number, the mood and the evening's, the dose and the two
+              numbers around it. What was entered beside what Health
+              measured, and a caption saying when a picture starts. */}
+          {first.map((fd) => (
+            <View key={'f.' + fd.kind} style={styles.subBlock}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {firstTitle(fd.kind)}
+              </Text>
+              {fd.pairs.map((p) => (
+                <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
+                  accessibilityLabel={fmtReportDate(p.date) + ', ' + factorLabel(fd.kind, p.factor)
+                    + ', pain ' + formatScore(p.pain)}>
+                  <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
+                  {'   ' + factorLabel(fd.kind, p.factor) + '  ·  pain '}
+                  <Text style={styles.firstNum}>{formatScore(p.pain)}</Text>
+                </Text>
+              ))}
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {FIRST_NOTE}
+              </Text>
+            </View>
+          ))}
+          {doseFirst.map((fd) => (
+            <View key={'df.' + fd.medId} style={styles.subBlock}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {fd.med}, around the first doses
+              </Text>
+              {fd.pairs.map((p) => (
+                <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
+                  accessibilityLabel={fmtReportDate(p.date) + ', pain ' + formatScore(p.before)
+                    + ' before the dose, ' + formatScore(p.after) + ' after'}>
+                  <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
+                  {'   before '}
+                  <Text style={styles.firstNum}>{formatScore(p.before)}</Text>
+                  {'  ·  after '}
+                  <Text style={styles.firstNum}>{formatScore(p.after)}</Text>
+                </Text>
+              ))}
+              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                The doses so far, as recorded — a picture starts at three, and a dose is
+                often taken when pain is high.
               </Text>
             </View>
           ))}
@@ -1459,6 +1512,14 @@ const styles = StyleSheet.create({
   subCaveat: { color: color.textTertiary },
   /* a second thought inside a card, ruled off from the first */
   subBlockFirst: { marginTop: 4 },
+  /* one paired day as a line: the date in grey, the numbers in ink —
+     no bar, because two days are not a shape */
+  firstRow: {
+    color: color.textSecondary, fontSize: font.footnote, lineHeight: 20, marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  firstDate: { color: color.textTertiary },
+  firstNum: { color: color.textPrimary, fontWeight: '600' },
   subBlock: {
     marginTop: 18, paddingTop: 16,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,

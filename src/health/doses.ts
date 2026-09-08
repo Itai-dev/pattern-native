@@ -173,6 +173,27 @@ export function earlyDoses(entries: Entries, health: Record<string, HealthDay>):
     });
 }
 
+/** the first one or two dose pairs, listed as facts — before the
+ *  early picture exists (see noticed.firstDays for the reasoning) */
+export interface FirstDoses {
+  medId: string;
+  med: string;
+  pairs: DosePair[];
+}
+
+export function firstDoses(entries: Entries, health: Record<string, HealthDay>): FirstDoses[] {
+  const by: Record<string, DosePair[]> = {};
+  const names: Record<string, string> = {};
+  dosePairs(entries, health).forEach((p) => {
+    (by[p.medId] = by[p.medId] || []).push(p);
+    names[p.medId] = p.med;
+  });
+  return Object.keys(by)
+    .filter((id) => by[id].length >= 1 && by[id].length < DOSE_EARLY_MIN_PAIRS)
+    .sort((a, b) => names[a].localeCompare(names[b]))
+    .map((id) => ({ medId: id, med: names[id], pairs: by[id].slice().sort((a, b) => a.date < b.date ? 1 : -1) }));
+}
+
 /** the strongest `possible`, or null — one sentence, never a list */
 export function strongestDose(all: DoseAssociation[]): DoseAssociation | null {
   let best: DoseAssociation | null = null;
