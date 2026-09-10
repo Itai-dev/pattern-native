@@ -394,6 +394,69 @@ ok('the load sentence says harder-workout days and names the outcome', (() => {
     && c.body.indexOf('morning pain') >= 0
     && c.timing.indexOf('your own usual') >= 0;
 })());
+group('the load budget: the workout-load association, read forward');
+const budget = require(path.join(OUT, 'health', 'budget.js'));
+/** n pairs with loads climbing from `from` in steps of `step`; the
+ *  upper half of the list carries `hiPain`, the lower half `loPain` */
+function ramp(n, from, step, loPain, hiPain) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push({ date: '2026-07-' + String(i + 1).padStart(2, '0'), factor: from + i * step,
+      pain: i < n / 2 ? loPain : hiPain });
+  }
+  return out;
+}
+ok('a budget is the median and the upper tercile’s first load, from a possible verdict', (() => {
+  // loads 20,23,…,71: median (44+47)/2 = 45.5 → 46; third = 6, so the
+  // upper group starts at index 12 → 56 min
+  const pairs = ramp(18, 20, 3, 4, 7);
+  const a = engine.evaluate('workoutLoadVsNextMorning', pairs);
+  const b = budget.loadBudget(pairs, a);
+  return a.verdict === 'possible' && b && b.usualMinutes === 46 && b.pastMinutes === 56
+    && b.association === a;
+})());
+ok('no budget when longer workouts paired with EASIER mornings', (() => {
+  const pairs = ramp(18, 20, 3, 7, 4);
+  const a = engine.evaluate('workoutLoadVsNextMorning', pairs);
+  return a.verdict === 'possible' && a.delta < 0 && budget.loadBudget(pairs, a) === null;
+})());
+ok('no budget below the verdict gate, or from another kind', (() => {
+  const near = fabricate(18, 40, 55, 4, 7);
+  const obs = engine.evaluate('workoutLoadVsNextMorning', near);
+  const sleep = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 4, 7));
+  return obs.verdict === 'observation' && budget.loadBudget(near, obs) === null
+    && sleep.verdict === 'possible' && budget.loadBudget(fabricate(18, 300, 480, 4, 7), sleep) === null
+    && budget.loadBudget([], null) === null;
+})());
+ok('the line must sit clear of the usual by the headroom threshold', (() => {
+  // 6×20, 6×40, 6×45: groups 20 vs 45 clear the spread, but the upper
+  // third begins at 45 and the median is 40 — five minutes of headroom
+  const pairs = [];
+  for (let i = 0; i < 18; i++) {
+    const f = i < 6 ? 20 : i < 12 ? 40 : 45;
+    pairs.push({ date: '2026-07-' + String(i + 1).padStart(2, '0'), factor: f, pain: i < 6 ? 4 : 7 });
+  }
+  const a = engine.evaluate('workoutLoadVsNextMorning', pairs);
+  return a.verdict === 'possible' && th.BUDGET_MIN_HEADROOM_MINUTES > 5
+    && budget.loadBudget(pairs, a) === null;
+})());
+ok('the budget sentence names the usual, the line, the groups and what it is not', (() => {
+  const pairs = ramp(18, 20, 3, 4, 7);
+  const b = budget.loadBudget(pairs, engine.evaluate('workoutLoadVsNextMorning', pairs));
+  const c = budget.budgetCopy(b, 'Jul 1 – Jul 18');
+  const again = budget.budgetCopy(b, 'Jul 1 – Jul 18');
+  return c.title === 'Your usual workout is about 46 minutes. Past 56, your next mornings ran harder.'
+    && c.evidence === 'Mornings after workouts of 56 min or more averaged 7 (6 days); after your 6 lightest, 4. Jul 1 – Jul 18.'
+    && c.caveat.indexOf('not a limit or a plan') >= 0
+    && c.caveat.indexOf(engine.HEALTH_NON_CAUSATION) >= 0
+    && !/stop|dial|should/i.test(c.title + c.evidence + c.caveat)
+    && JSON.stringify(c) === JSON.stringify(again);
+})());
+ok('loadBudgetFor reads the workout-load association out of the licensed set, or nothing', (() => {
+  return noticed.loadBudgetFor({}, {}, []) === null
+    && noticed.loadBudgetFor({}, {}, [{ kind: 'sleepVsMorning', verdict: 'possible', pairedDays: 0 }]) === null;
+})());
+
 ok('factor labels read as humans do', (() => {
   return engine.factorLabel('sleepVsMorning', 460) === '7h 40m'
     && engine.factorLabel('workoutLoadVsNextMorning', 48.4) === '48 min'

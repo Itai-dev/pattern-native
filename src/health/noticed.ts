@@ -21,6 +21,7 @@
 import { Entries } from '../model';
 import { EARLY_MIN_PAIRED_DAYS, HEALTH_MIN_PAIRED_DAYS } from '../thresholds';
 import { Association, EarlyLook, earlyLook, evaluate } from './engine';
+import { LoadBudget, loadBudget } from './budget';
 import { HealthCategory, HealthDay } from './types';
 import { PairKind, PairedDay, buildPairs } from './windows';
 
@@ -58,6 +59,21 @@ export function noticedAssociations(
 ): Association[] {
   return licensedKinds(categories).map((kind) =>
     evaluate(kind, buildPairs(kind, entries, health), previouslyShown.indexOf(kind) >= 0));
+}
+
+/** The load budget, read from the workout-load association among the
+ *  ones already evaluated — licensed by the same category, gated by
+ *  the same verdict, and null whenever the association is. The pairs
+ *  are rebuilt here so the budget's tercile boundary is computed on
+ *  exactly the list the verdict was. */
+export function loadBudgetFor(
+  entries: Entries,
+  health: Record<string, HealthDay>,
+  all: Association[]
+): LoadBudget | null {
+  const a = all.filter((x) => x.kind === 'workoutLoadVsNextMorning')[0] || null;
+  if (!a || a.verdict !== 'possible') return null;
+  return loadBudget(buildPairs('workoutLoadVsNextMorning', entries, health), a);
 }
 
 /** what each licensed comparison is still waiting for — the ones short

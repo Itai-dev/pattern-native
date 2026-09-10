@@ -219,6 +219,16 @@ export const HEALTH_ENERGY_MIN_SPREAD_KCAL = 150;
  *  "lighter" workout day are one stretching session apart, and the
  *  comparison is rounding sorted into piles. */
 export const HEALTH_WORKOUT_MIN_SPREAD_MINUTES = 20;
+/** The load budget's line — the smallest load in the harder-workout
+ *  third — must sit at least this many minutes above the person's
+ *  usual (median) workout before it is said. The spread floor above
+ *  guarantees the two GROUPS differ by twenty minutes of mean load,
+ *  but when most workouts are the same length the upper third can
+ *  begin at the median itself, and "your usual is 30; past 30, mornings
+ *  ran harder" is a sentence about every workout — the workout-or-none
+ *  comparison wearing a budget's clothes. Ten: half the spread floor,
+ *  and about the smallest step a person can plan a session around. */
+export const BUDGET_MIN_HEADROOM_MINUTES = 10;
 /** upright-time groups must differ by at least this much. An hour:
  *  Watch stand-time credits a minute for very little, so less than an
  *  hour between a "less upright" and a "more upright" day is posture
