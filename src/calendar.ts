@@ -25,6 +25,10 @@ export interface CalendarEvent {
   h: number;
   minutes: number;
   title: string;
+  /** the store's id and the start as epoch ms — what Apple's editor
+   *  needs to open THIS event, a recurring one's instance included */
+  id?: string;
+  start?: number;
 }
 
 type Cal = {
@@ -32,8 +36,11 @@ type Cal = {
   requestCalendarPermissions: () => Promise<{ granted: boolean }>;
   getCalendars: (t?: unknown) => Promise<{ id: string }[]>;
   listEvents: (cals: { id: string }[] | string[], from: Date, to: Date) => Promise<{
-    title?: string; startDate?: Date | string; endDate?: Date | string; allDay?: boolean;
+    id?: string; title?: string; startDate?: Date | string; endDate?: Date | string; allDay?: boolean;
   }[]>;
+  /** Apple's own event editor, prefilled with an existing event —
+   *  absent on an older module, and the card then has no action */
+  editEventInCalendarAsync?: (params: { id: string; instanceStartDate?: Date }) => Promise<{ action?: string }>;
 };
 
 const LIB: Cal | null = (() => {
@@ -74,6 +81,32 @@ export async function requestCalendar(): Promise<boolean> {
   } catch { return false; }
 }
 
+/** can this binary open Apple's editor on an event? */
+export function calendarEditable(): boolean {
+  return !!LIB && typeof LIB.editEventInCalendarAsync === 'function';
+}
+
+export type EditResult = 'saved' | 'canceled' | 'deleted' | 'unavailable';
+
+/**
+ * Open Apple's own event editor on one event. PATTERN NEVER WRITES:
+ * the sheet is iOS's, prefilled with the event as it stands, and only
+ * the person's tap on Save changes anything. The result says what
+ * they did, so a saved change can be counted — never what it was.
+ * Every failure is 'unavailable', and the card that called this
+ * simply stays as it is.
+ */
+export async function editEventInCalendar(ev: CalendarEvent): Promise<EditResult> {
+  if (!LIB || typeof LIB.editEventInCalendarAsync !== 'function' || !ev.id) return 'unavailable';
+  try {
+    const r = await LIB.editEventInCalendarAsync({
+      id: ev.id, ...(ev.start != null ? { instanceStartDate: new Date(ev.start) } : {}),
+    });
+    const a = r && r.action;
+    return a === 'saved' || a === 'deleted' ? a : 'canceled';
+  } catch { return 'unavailable'; }
+}
+
 const ts = (v: unknown): number | null => {
   if (v instanceof Date) return v.getTime();
   if (typeof v === 'string') { const n = new Date(v).getTime(); return isNaN(n) ? null : n; }
@@ -107,6 +140,7 @@ export async function calendarEvents(fromIso: string, days: number): Promise<Rec
         h: d.getHours() * 60 + d.getMinutes(),
         minutes: Math.max(1, Math.round((en - s) / 60000)),
         title: String(e.title),
+        ...(e.id ? { id: String(e.id), start: s } : {}),
       };
       (out[date] = out[date] || []).push(ev);
     });

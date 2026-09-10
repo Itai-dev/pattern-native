@@ -175,6 +175,45 @@ ok('a check-in nearby does not silence the budget; a passed minute does', (() =>
     && prompts.dueToday(b, [], 17 * 60) === false;
 })());
 
+group('the evening before: what is booked, against the line');
+const ahead = require(path.join(OUT, 'health', 'ahead.js'));
+const TOMORROW = day(21);
+const ev = (h, minutes, title, id) => ({ h, minutes, title, ...(id ? { id, start: at(TOMORROW, h) } : {}) });
+ok('tomorrow’s exertion longer than the line earns the card, with the overrun', (() => {
+  const events = { [TOMORROW]: [ev(18 * 60, 60, 'Functional training', 'e1')] };
+  const b = ahead.bookedPastLine(events, BUDGET, TODAY, TOMORROW, 12 * 60, []);
+  return b && b.when === 'tomorrow' && b.date === TOMORROW && b.overBy === 12
+    && b.event.id === 'e1' && b.budget === BUDGET;
+})());
+ok('at the line is not past it; a non-exertion is not a session; no budget, no card', (() => {
+  const atLine = { [TOMORROW]: [ev(18 * 60, 48, 'Gym')] };
+  const lunch = { [TOMORROW]: [ev(13 * 60, 90, 'Lunch with Dana')] };
+  const gym = { [TOMORROW]: [ev(18 * 60, 60, 'Gym')] };
+  return ahead.bookedPastLine(atLine, BUDGET, TODAY, TOMORROW, 0, []) === null
+    && ahead.bookedPastLine(lunch, BUDGET, TODAY, TOMORROW, 0, []) === null
+    && ahead.bookedPastLine(gym, null, TODAY, TOMORROW, 0, []) === null;
+})());
+ok('today counts only before it starts, and comes before tomorrow', (() => {
+  const events = { [TODAY]: [ev(18 * 60, 75, 'Pilates')], [TOMORROW]: [ev(9 * 60, 60, 'Run')] };
+  const before = ahead.bookedPastLine(events, BUDGET, TODAY, TOMORROW, 12 * 60, []);
+  const after = ahead.bookedPastLine(events, BUDGET, TODAY, TOMORROW, 19 * 60, []);
+  return before && before.when === 'today' && before.event.title === 'Pilates'
+    && after && after.when === 'tomorrow' && after.event.title === 'Run';
+})());
+ok('a dismissed booking stays dismissed as booked, and asks again if it moves', (() => {
+  const e = ev(18 * 60, 60, 'Gym');
+  const key = ahead.aheadKey(TOMORROW, e);
+  const same = ahead.bookedPastLine({ [TOMORROW]: [e] }, BUDGET, TODAY, TOMORROW, 0, [key]);
+  const moved = ahead.bookedPastLine({ [TOMORROW]: [ev(17 * 60, 60, 'Gym')] }, BUDGET, TODAY, TOMORROW, 0, [key]);
+  return same === null && moved !== null;
+})());
+ok('the body names the overrun, the line, the usual, and what it is not — never a verb at the person', (() => {
+  const b = ahead.bookedPastLine({ [TOMORROW]: [ev(18 * 60, 60, 'Gym')] }, BUDGET, TODAY, TOMORROW, 0, []);
+  const s = ahead.aheadBody(b);
+  return s === 'That is 12 minutes past 48, where your next mornings ran harder. Your usual is about 35. A description of your record, not a limit.'
+    && !/stop|dial|should|shorten|skip/i.test(s);
+})());
+
 group('after a dose: the habit in half-hours');
 const doseDays = (n, times) => {
   const h = {};

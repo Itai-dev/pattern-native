@@ -43,10 +43,14 @@ import RemindersSection from './src/RemindersSection';
 import * as db from './src/db';
 import { cancelAll, configureHandler, isReminderId, registerCategory } from './src/reminders';
 import { startBackgroundPrompts } from './src/health/background';
-import { calendarAvailable, calendarOn, requestCalendar, setCalendarOn } from './src/calendar';
+import {
+  CalendarEvent, calendarAvailable, calendarEditable, calendarEvents, calendarOn, editEventInCalendar,
+  requestCalendar, setCalendarOn,
+} from './src/calendar';
+import { aheadKey, bookedPastLine } from './src/health/ahead';
 import { syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
-import { Moment, PainEvent, ValidBackup, iso, todayISO } from './src/model';
+import { Moment, PainEvent, ValidBackup, addDays, iso, minutesNow, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import {
@@ -279,6 +283,30 @@ export default function App() {
     return () => sub.remove();
   }, [resyncHealth]);
 
+  /* THE CALENDAR, TWO DAYS OUT — today and tomorrow, for the card that
+     reads a booked session against the line (health/ahead.ts). Read
+     on launch and on every foreground, like Health, because a booking
+     made in another app an hour ago is exactly what it is for. An
+     empty map whenever the calendar is off, and the card is absent. */
+  const [calendarAhead, setCalendarAhead] = useState<Record<string, CalendarEvent[]>>({});
+  const refreshCalendar = useCallback(() => {
+    if (!calendarUse) { setCalendarAhead({}); return; }
+    calendarEvents(todayISO(), 2).then(setCalendarAhead).catch(() => setCalendarAhead({}));
+  }, [calendarUse]);
+  useEffect(() => {
+    refreshCalendar();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') refreshCalendar();
+    });
+    return () => sub.remove();
+  }, [refreshCalendar]);
+  /* "fine as it is": the booking as booked, remembered by its key so a
+     moved or shortened event asks again. The last twenty keys — a
+     bounded pref, never a growing one. */
+  const [aheadDismissed, setAheadDismissed] = useState<string[]>(
+    () => db.getPref<string[]>('ahead.dismissed', [])
+  );
+
   /* What Pattern noticed — licensed by the Health categories the user
      connected (consent lives in the Health setup, not in a second
      switch), remembered so a shown finding that stops holding fades
@@ -327,6 +355,28 @@ export default function App() {
     const budget = loadBudgetFor(entries, healthDays, all);
     return { best, fading, groups, progress, early, first, doses, budget };
   }, [entries, healthDays]);
+
+  /* the booked session past the line, if any — derived, never stored,
+     from the calendar just read and the budget just computed */
+  const ahead = useMemo(() => {
+    const t = todayISO();
+    return bookedPastLine(calendarAhead, healthNoticed.budget, t, addDays(t, 1), minutesNow(), aheadDismissed);
+  }, [calendarAhead, healthNoticed, aheadDismissed]);
+  const dismissAhead = useCallback(() => {
+    if (!ahead) return;
+    track('ahead_dismissed');
+    const next = aheadDismissed.concat(aheadKey(ahead.date, ahead.event)).slice(-20);
+    db.setPref('ahead.dismissed', next);
+    setAheadDismissed(next);
+  }, [ahead, aheadDismissed]);
+  /* Apple's editor on the event, then the calendar re-read: a saved
+     change is a different booking, and the card follows it */
+  const openAhead = useCallback(() => {
+    if (!ahead) return;
+    editEventInCalendar(ahead.event)
+      .then((r) => { track('ahead_opened', { action: r }); refreshCalendar(); })
+      .catch(() => {});
+  }, [ahead, refreshCalendar]);
   /* an event being edited. Nothing has to be closed to reach it any more:
      the day is a LAYER, not a modal, so the event sheet presents on top
      of it and the day is still there underneath when it dismisses. The
@@ -797,6 +847,10 @@ export default function App() {
                 onShare={shareTrends}
                 appointment={appointment}
                 healthDays={healthDays}
+                ahead={ahead}
+                aheadEditable={calendarEditable()}
+                onOpenAhead={openAhead}
+                onDismissAhead={dismissAhead}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background

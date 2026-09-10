@@ -75,7 +75,13 @@ export type EventName =
   | 'appointment_pdf'
   | 'backup_exported'
   | 'backup_restored'
-  | 'widget_tap';
+  | 'widget_tap'
+  /* the evening-before card: Apple's editor was opened on a booked
+     session past the line, and how the sheet closed (saved,
+     canceled, deleted) — or the card was set aside. Never the
+     event's title, time or length. */
+  | 'ahead_opened'
+  | 'ahead_dismissed';
 
 type PropValue = number | boolean | string;
 
