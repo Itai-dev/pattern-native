@@ -14,7 +14,8 @@ import {
 } from './reminders';
 import { Prompt, planDay } from './health/prompts';
 import { deviceClock } from './health/healthkit';
-import { storedHealthDays } from './health/sync';
+import { healthCategories, storedHealthDays } from './health/sync';
+import { loadBudgetFor, noticedAssociations } from './health/noticed';
 import { fmtClock } from './clock';
 import { CalendarEvent, calendarEvents } from './calendar';
 import { DAYS_AHEAD } from './reminders';
@@ -38,8 +39,16 @@ export function setAdaptive(on: boolean): void {
 function planner(slots: Slot[], calendar: Record<string, CalendarEvent[]>): (dateIso: string) => Prompt[] {
   const health = storedHealthDays();
   const adaptive = adaptiveOn();
+  /* the budget, from the same evaluation Trends shows — computed once
+     per rebuild, not per day, and only when Health may move the
+     schedule at all: a person who turned Follow Apple Health off asked
+     for their own times and nothing learned */
+  const budget = adaptive
+    ? loadBudgetFor(db.getAll(), health,
+      noticedAssociations(db.getAll(), health, healthCategories(), []))
+    : null;
   return (dateIso) => planDay(dateIso, {
-    slots, health, clock: deviceClock, adaptive, calendar: calendar[dateIso],
+    slots, health, clock: deviceClock, adaptive, calendar: calendar[dateIso], budget,
   });
 }
 async function plannerAsync(slots: Slot[]): Promise<(dateIso: string) => Prompt[]> {
@@ -56,6 +65,7 @@ export function describePlan(prompts: Prompt[]): string {
   const times = prompts.filter((p) => p.kind === 'm' || p.kind === 'd' || p.kind === 'e')
     .map((p) => fmtClock(p.h) + (p.adapted ? '*' : ''));
   const extras: string[] = [];
+  if (prompts.some((p) => p.kind === 'budget')) extras.push('your budget before workouts');
   if (prompts.some((p) => p.kind === 'workout')) extras.push('after workouts');
   if (prompts.some((p) => p.kind === 'dose')) extras.push('after doses');
   if (prompts.some((p) => p.kind === 'calendar')) extras.push('after calendar events');

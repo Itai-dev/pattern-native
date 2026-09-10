@@ -57,7 +57,9 @@ same fact shown a week later on Trends.
 2. **Pre-workout delivery.** The reminder planner already knows when a
    workout usually starts. Deliver the budget sentence then, as a
    notification that says what the record says and nothing else. Ships
-   OTA.
+   OTA. *(built 2026-09-10: `typicalWorkoutStart` and the `budget`
+   prompt in `src/health/prompts.ts`, under the cap, the gap and the
+   waking window, never displacing a slot)*
 3. **Close the loop.** The after-workout prompt asks how you are; the
    next morning's check-in is the outcome. Make sure a person who logs
    after a workout is asked the next morning, so the budget keeps

@@ -360,6 +360,13 @@ export const PROMPT_BEFORE_BED_MIN = 45;
  *  down, and the body's first word on it in */
 export const PROMPT_AFTER_WORKOUT_MIN = 45;
 
+/** minutes before a workout usually STARTS that the load budget is
+ *  delivered. Thirty: the decision to go is made and the bag is not
+ *  yet packed — long enough to read one sentence, short enough that
+ *  it is still about this workout and not about the day. Earlier is
+ *  a fact about last month; later is a lock screen in a locker. */
+export const PROMPT_BEFORE_WORKOUT_MIN = 30;
+
 /** weeks of the same weekday looked at, and how many of them need a
  *  workout before that weekday earns an "after your workout" prompt.
  *  Two of four: a habit, not a one-off, and learnable in a fortnight */
