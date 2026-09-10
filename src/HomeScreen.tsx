@@ -45,6 +45,7 @@ import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
 import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
+import { BookedAhead, aheadBody } from './health/ahead';
 
 /* ── when Today may ask for something ────────────────────────
    Three offers live on this screen, and at most ONE shows at a time:
@@ -166,12 +167,21 @@ export interface HomeScreenProps {
   healthOfferable: boolean;
   /** the Health setup sheet */
   onOpenHealth: () => void;
+  /** a booked session, later today or tomorrow, longer than the
+   *  person's own line — null when there is none, or no line yet */
+  ahead: BookedAhead | null;
+  /** Apple's editor on that event; false when the binary cannot */
+  aheadEditable: boolean;
+  onOpenAhead: () => void;
+  /** "fine as it is": this booking, as booked, asks no more */
+  onDismissAhead: () => void;
 }
 
 export default function HomeScreen({
   entries, onLog, onOpenDay, onAddNote, onOpenToday,
   onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
+  ahead, aheadEditable, onOpenAhead, onDismissAhead,
 }: HomeScreenProps) {
   const t = todayISO();
   /* LAST NIGHT, ON TODAY. The calm rule keeps Health off this screen
@@ -596,6 +606,55 @@ export default function HomeScreen({
             >
               <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Change date
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
+      {/* ── what is booked, against the line ──────────────
+          THE EVENING BEFORE. A session in the calendar, later today
+          or tomorrow, longer than the person's own line — the one
+          decision the record can actually reach in time. A fact
+          card like the appointment: it shows regardless of the
+          offers below, and it changes only when the calendar or the
+          record does. The single action opens Apple's editor on the
+          event; Pattern itself never writes (calendar.ts). The title
+          is the person's own calendar read back to them, in the app,
+          and goes nowhere else. */}
+      {ahead && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {(ahead.when === 'today' ? 'Today at ' : 'Tomorrow at ') + fmtClock(ahead.event.h)
+              + ': ' + ahead.event.title + ', ' + ahead.event.minutes + ' min'}
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {aheadBody(ahead)}
+          </Text>
+          <View style={styles.bgOfferActions}>
+            {aheadEditable && !!ahead.event.id && (
+              <Press
+                onPress={onOpenAhead}
+                pressOpacity={0.8}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Open this event in Calendar"
+                accessibilityHint="Opens Apple's event editor. Nothing changes unless you save."
+              >
+                <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  Open in Calendar
+                </Text>
+              </Press>
+            )}
+            <Press
+              onPress={onDismissAhead}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Leave this session as it is"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Fine as it is
               </Text>
             </Press>
           </View>

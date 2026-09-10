@@ -64,20 +64,32 @@ same fact shown a week later on Trends.
    next morning's check-in is the outcome. Make sure a person who logs
    after a workout is asked the next morning, so the budget keeps
    learning. Mostly exists.
-4. **Live budget on the Watch.** Pattern's own Watch app starts the
-   workout session for the chosen type, shows elapsed minutes and
-   heart-rate zone against the budget, and gives one haptic with the
-   record's sentence at the line. Never "stop"; always "your record
-   says". A native build; the Watch target needs its provisioning step
-   (AGENTS.md) if it has not been done. Heart-rate zones refine load
-   here, not before — duration is the one measure every workout has.
+4. **The evening before, from the calendar.** The calendar already
+   names tomorrow's class and its length. When a booked exertion
+   runs past the line, Today shows it the day before with the
+   record's sentence, and one action: *Open in Calendar*, which is
+   Apple's own event editor prefilled with the event. Pattern never
+   writes; only a tap on Save in Apple's sheet changes anything.
+   Ships OTA. *(built 2026-09-10: `src/health/ahead.ts`, the card on
+   Today, `editEventInCalendar` in `src/calendar.ts`)*
+
+   **Retired before building, 2026-09-10 — in-session nudges.** Two
+   were designed and dropped. A live budget on the Watch needs
+   Pattern to run the workout session, which makes it a workout
+   app. A heart-rate detector on the phone needs a permission the
+   app refused, a native build, and mistakes stairs for a workout.
+   Both aim at the wrong moment: forty minutes into a class nobody
+   leaves because a wrist buzzed, the cost is felt the next morning
+   and not in the session, and a buzz mid-effort reads as "stop"
+   whatever it says. The decision that changes tomorrow is made the
+   evening before, and that is where the app now speaks.
 5. **Same shape for sleep and food.** Bedtime: the sleep association
    read forward ("mornings after under six hours ran harder"). Evening:
    caffeine and water already pair with evening pain. Same engine,
    delivered before the decision instead of after.
 
-Steps 1–3 make the app proactive on every tester's phone without a
-native build. Step 4 is the real-time piece and a separate milestone.
+Steps 1–4 make the app proactive on every tester's phone without a
+native build.
 
 **Kill criterion:** after four weeks with a budget shown, the founder's
 workouts do not cluster under the line, or the mornings after workouts
