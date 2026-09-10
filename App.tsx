@@ -26,7 +26,7 @@ import {
   healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
 } from './src/health/sync';
 import {
-  earlyLooks, firstDays, healthProgress, noticedAssociations, strongestPossible,
+  earlyLooks, firstDays, healthProgress, loadBudgetFor, noticedAssociations, strongestPossible,
 } from './src/health/noticed';
 import {
   doseAssociations, doseProgress, earlyDoses, firstDoses, strongestDose,
@@ -321,7 +321,11 @@ export default function App() {
     /* and the pictures before the gates — see thresholds.ts, early looks */
     const early = earlyLooks(entries, healthDays, healthCategories());
     const first = firstDays(entries, healthDays, healthCategories());
-    return { best, fading, groups, progress, early, first, doses };
+    /* the one forward-facing sentence: where the person's own
+       harder-workout days begin, from the association already
+       evaluated above — null until that association clears */
+    const budget = loadBudgetFor(entries, healthDays, all);
+    return { best, fading, groups, progress, early, first, doses, budget };
   }, [entries, healthDays]);
   /* an event being edited. Nothing has to be closed to reach it any more:
      the day is a LAYER, not a modal, so the event sheet presents on top

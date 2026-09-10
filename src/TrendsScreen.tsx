@@ -44,6 +44,7 @@ import {
   associationCopy, earlyCopy, fadedCopy, factorLabel, firstTitle, groupLabels, isCategorical,
 } from './health/engine';
 import { FirstDays, HealthProgress } from './health/noticed';
+import { LoadBudget, budgetCopy } from './health/budget';
 import {
   DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, FirstDoses, doseCopy,
   doseObservationCopy, fadedDoseCopy,
@@ -90,6 +91,11 @@ export interface TrendsScreenProps {
     early: EarlyLook[];
     /** and before the pictures, the first paired days as facts */
     first: FirstDays[];
+    /** the workout-load association read forward: where this person's
+     *  harder-workout days begin, in minutes. null until the association
+     *  clears its gates, and only when more load paired with harder
+     *  mornings — budget.ts says why one direction only */
+    budget: LoadBudget | null;
     /** the same four, for doses logged in Health — before-and-after a
      *  dose rather than groups of days, gated in doses.ts */
     doses: {
@@ -928,6 +934,13 @@ export default function TrendsScreen({
   const early = healthNoticed?.early || [];
   const doseEarly = dz?.early || [];
   const first = healthNoticed?.first || [];
+  /* the budget's sentence, with the dates in this screen's style */
+  const budget = healthNoticed?.budget || null;
+  const budgetCard = budget
+    ? budgetCopy(budget, budget.association.from && budget.association.to
+      ? fmtReportDate(budget.association.from) + ' – ' + fmtReportDate(budget.association.to)
+      : undefined)
+    : null;
   const doseFirst = dz?.first || [];
   /* what is still short of even an early look, as one line — the
      rows it replaced said the same thing four times over */
@@ -938,7 +951,7 @@ export default function TrendsScreen({
       .filter((p) => !doseEarly.some((e) => e.medId === p.medId) && !doseFirst.some((e) => e.medId === p.medId))
       .map((p) => p.med + ' ' + p.pairs + ' of ' + p.needed));
   const collectingShown = collecting;
-  const anythingOut = !!bestCopy || !!(healthNoticed && healthNoticed.fading.length)
+  const anythingOut = !!bestCopy || !!budgetCard || !!(healthNoticed && healthNoticed.fading.length)
     || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
     || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0
     || first.length > 0 || doseFirst.length > 0;
@@ -1077,6 +1090,20 @@ export default function TrendsScreen({
           {says.length > 0 && (
             <View style={styles.subBlockFirst}>
               {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
+            </View>
+          )}
+          {/* THE BUDGET. The one sentence on this screen written for
+              the NEXT decision rather than the last one: the same
+              workout-load association the card below may carry, read
+              forward as minutes. Words and grey numbers, no colour —
+              colour is for pain — and what it is not sits inside the
+              block, not under the card. */}
+          {budgetCard && (
+            <View style={says.length > 0 ? styles.subBlock : styles.subBlockFirst}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                Before your next workout
+              </Text>
+              <DigestRow card={budgetCard} first />
             </View>
           )}
           {doseLeads && doseBestCopy && dz && dz.best ? (
