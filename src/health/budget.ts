@@ -93,6 +93,20 @@ export const BUDGET_NOTE =
   'A description of your record, not a limit or a plan. Exercise helps most '
   + 'persistent pain; this is about the session that costs the next morning.';
 
+/** the short form of the note, for a lock screen — one sentence, the
+ *  one that matters most when there is room for one */
+export const BUDGET_NOTE_SHORT = 'A description of your record, not a limit.';
+
+/**
+ * The budget as a notification body — the sentence and the short note,
+ * nothing else. No groups, no dates: it lands on a lock screen, is
+ * read in the time it takes to lift a phone, and the evidence is one
+ * tap away on Trends. Never a verb aimed at the person.
+ */
+export function budgetNotification(b: LoadBudget): string {
+  return budgetCopy(b).title + ' ' + BUDGET_NOTE_SHORT;
+}
+
 export interface BudgetCopy {
   key: string;
   /** the sentence a person can carry into a workout */

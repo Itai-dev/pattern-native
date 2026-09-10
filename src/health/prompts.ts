@@ -34,11 +34,12 @@ import { addDays } from '../model';
 import { bandOf } from '../metrics';
 import {
   PROMPTS_MAX_PER_DAY, PROMPT_AFTER_DOSE_MIN, PROMPT_AFTER_WAKE_MIN,
-  PROMPT_AFTER_WORKOUT_MIN, PROMPT_BEFORE_BED_MIN, PROMPT_DOSE_SEPARATION_MIN,
+  PROMPT_AFTER_WORKOUT_MIN, PROMPT_BEFORE_BED_MIN, PROMPT_BEFORE_WORKOUT_MIN, PROMPT_DOSE_SEPARATION_MIN,
   PROMPT_EARLIEST_MIN, PROMPT_LATEST_MIN, PROMPT_MIN_DAYS, PROMPT_MIN_GAP_MIN,
   PROMPT_MIN_RECURRENCE, PROMPT_SLEEP_DAYS, PROMPT_WORKOUT_WEEKS,
 } from '../thresholds';
 import { HealthDay, LocalClock } from './types';
+import { LoadBudget, budgetNotification } from './budget';
 
 /** the shape reminders.ts saves — repeated here so this file never
  *  imports the notification library and can run in Node */
@@ -49,7 +50,12 @@ export interface SlotLike {
   on: boolean;
 }
 
-export type PromptKind = 'm' | 'd' | 'e' | 'workout' | 'dose' | 'calendar';
+/* `budget` is the one prompt that asks NOTHING: the person's own load
+   budget, delivered before the workout it is about (see budget.ts).
+   It is the first proactive sentence in the app, and it obeys every
+   rule the asking prompts do — the cap, the gap, the waking window —
+   because a sentence at the wrong moment is a nag whatever it says. */
+export type PromptKind = 'm' | 'd' | 'e' | 'workout' | 'dose' | 'calendar' | 'budget';
 
 export interface Prompt {
   /** stable within a day — the notification identifier is built from it */
@@ -59,6 +65,9 @@ export interface Prompt {
   kind: PromptKind;
   /** true when Health moved a slot from the time the person set */
   adapted?: boolean;
+  /** the notification's words when they carry the person's own
+   *  numbers — absent, the kind's fixed copy is used */
+  body?: string;
 }
 
 const median = (a: number[]): number => {
@@ -123,6 +132,24 @@ export function typicalWorkoutEnd(health: Record<string, HealthDay>, date: strin
     ends.push(end);
   }
   return ends.length >= PROMPT_MIN_RECURRENCE ? median(ends) : null;
+}
+
+/** when a workout usually STARTS on this weekday — the median start
+ *  of the day's first workout, over the same weekdays and under the
+ *  same recurrence rule as the end. The budget is about the session
+ *  ahead, so it wants the first one, where the end prompt wants the
+ *  last. */
+export function typicalWorkoutStart(health: Record<string, HealthDay>, date: string): number | null {
+  const starts: number[] = [];
+  for (let w = 1; w <= PROMPT_WORKOUT_WEEKS; w++) {
+    const d = health[addDays(date, -7 * w)];
+    const ws = d && d.workouts ? d.workouts : [];
+    if (!ws.length) continue;
+    let start = 1440;
+    ws.forEach((x) => { start = Math.min(start, x.h); });
+    starts.push(start);
+  }
+  return starts.length >= PROMPT_MIN_RECURRENCE ? median(starts) : null;
 }
 
 /** the times of day a dose is usually logged — peaks in the last
@@ -200,6 +227,10 @@ export interface PlanInput {
   /** the date's calendar events, when the person turned the calendar
    *  on — exertion earns an after-event prompt like a workout habit */
   calendar?: PlanEvent[];
+  /** the person's load budget, when their record has earned one —
+   *  delivered before the usual workout. Absent or null: no such
+   *  prompt, and nothing else changes. */
+  budget?: LoadBudget | null;
 }
 
 /**
@@ -260,6 +291,23 @@ export function planDay(date: string, input: PlanInput): Prompt[] {
       yields.forEach((q) => out.splice(out.indexOf(q), 1));
       out.push(p);
     });
+
+    /* THE BUDGET, before the usual workout. Last, and under stricter
+       rules than the after-prompts: it never displaces a slot — a
+       question the person asked for is worth more than a sentence they
+       did not — and it yields to anything already within the gap,
+       because a budget delivered as the second banner in an hour is
+       noise with numbers in it. */
+    if (input.budget) {
+      const wStart = typicalWorkoutStart(input.health, date);
+      if (wStart != null) {
+        const h = wStart - PROMPT_BEFORE_WORKOUT_MIN;
+        const clear = h >= PROMPT_EARLIEST_MIN && h <= PROMPT_LATEST_MIN
+          && out.length < PROMPTS_MAX_PER_DAY
+          && !out.some((q) => Math.abs(q.h - h) < PROMPT_MIN_GAP_MIN);
+        if (clear) out.push({ key: 'b', h, kind: 'budget', body: budgetNotification(input.budget) });
+      }
+    }
   }
 
   return out.sort((a, b) => a.h - b.h);
@@ -274,6 +322,9 @@ export function planDay(date: string, input: PlanInput): Prompt[] {
  */
 export function dueToday(p: Prompt, todayMinutes: number[], nowMinutes: number): boolean {
   if (p.h <= nowMinutes) return false;
+  /* the budget asks nothing, so a check-in nearby answers nothing —
+     it fires unless its minute has passed */
+  if (p.kind === 'budget') return true;
   if (p.kind === 'm' || p.kind === 'd' || p.kind === 'e') {
     return !todayMinutes.some((h) => bandOf(h) === bandOf(p.h));
   }

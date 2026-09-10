@@ -124,6 +124,57 @@ ok('the day’s LAST workout sets the end, and the median holds across weeks', (
   return prompts.typicalWorkoutEnd(h, TODAY) === 18 * 60;
 })());
 
+group('before a workout: the budget, delivered');
+/* a budget as budget.ts would return it — the planner reads only the
+   two minutes, and the copy under test is the notification's */
+const BUDGET = {
+  usualMinutes: 35, pastMinutes: 48,
+  association: { kind: 'workoutLoadVsNextMorning', verdict: 'possible', pairedDays: 18, delta: 2,
+    low: { n: 6, factorMean: 25, painMean: 3 }, high: { n: 6, factorMean: 60, painMean: 5 } },
+};
+ok('the usual START is the median first workout on that weekday', (() => {
+  const h = weekly(18 * 60, [1, 2, 3]);
+  const k = Object.keys(h)[0];
+  h[k].workouts.push({ uuid: 'early', h: 7 * 60, minutes: 30, activity: 'x' });
+  return prompts.typicalWorkoutStart(h, TODAY) === 18 * 60 - 45
+    && prompts.typicalWorkoutStart(weekly(18 * 60, [1]), TODAY) === null;
+})());
+ok('with a budget, a prompt lands PROMPT_BEFORE_WORKOUT_MIN before the usual start, carrying the numbers', (() => {
+  const h = weekly(18 * 60, [1, 3]);
+  const p = prompts.planDay(TODAY, { slots: SLOTS, health: h, clock, adaptive: true, budget: BUDGET });
+  const b = p.find((x) => x.kind === 'budget');
+  return b && b.h === 18 * 60 - 45 - th.PROMPT_BEFORE_WORKOUT_MIN
+    && b.body === 'Your usual workout is about 35 minutes. Past 48, your next mornings ran harder. A description of your record, not a limit.'
+    && !/stop|dial|should/i.test(b.body)
+    && p.some((x) => x.kind === 'workout');
+})());
+ok('no budget, no prompt; adaptive off, no prompt; no habit on that weekday, no prompt', (() => {
+  const h = weekly(18 * 60, [1, 3]);
+  const none = prompts.planDay(TODAY, { slots: SLOTS, health: h, clock, adaptive: true, budget: null });
+  const off = prompts.planDay(TODAY, { slots: SLOTS, health: h, clock, adaptive: false, budget: BUDGET });
+  const noHabit = prompts.planDay(TODAY, { slots: SLOTS, health: weekly(18 * 60, [1]), clock, adaptive: true, budget: BUDGET });
+  return ![none, off, noHabit].some((p) => p.some((x) => x.kind === 'budget'));
+})());
+ok('the budget never displaces a slot and yields to anything within the gap', (() => {
+  // usual start 17:15 → budget at 16:45; a midday slot at 16:00 is
+  // within ninety minutes, so the budget stays out and the slot stays in
+  const h = weekly(18 * 60, [1, 3]);
+  const slots = SLOTS.map((s) => (s.key === 'd' ? { ...s, hour: 16, minute: 0, on: true } : s));
+  const p = prompts.planDay(TODAY, { slots, health: h, clock, adaptive: true, budget: BUDGET });
+  return p.some((x) => x.kind === 'd' && x.h === 16 * 60) && !p.some((x) => x.kind === 'budget');
+})());
+ok('the budget stays inside the waking window', (() => {
+  // a 06:10 habit puts the budget at 05:40 — before PROMPT_EARLIEST_MIN
+  const h = weekly(6 * 60 + 55, [1, 3]);
+  const p = prompts.planDay(TODAY, { slots: SLOTS, health: h, clock, adaptive: true, budget: BUDGET });
+  return prompts.typicalWorkoutStart(h, TODAY) === 6 * 60 + 10 && !p.some((x) => x.kind === 'budget');
+})());
+ok('a check-in nearby does not silence the budget; a passed minute does', (() => {
+  const b = { key: 'b', h: 16 * 60 + 45, kind: 'budget', body: 'x' };
+  return prompts.dueToday(b, [16 * 60 + 30], 12 * 60) === true
+    && prompts.dueToday(b, [], 17 * 60) === false;
+})());
+
 group('after a dose: the habit in half-hours');
 const doseDays = (n, times) => {
   const h = {};
