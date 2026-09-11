@@ -1215,6 +1215,8 @@ export interface ValidBackup {
   hypotheses: Omit<Hypothesis, 'id'>[];
   protocols: Omit<Protocol, 'id'>[];
   modifiers: string[];
+  /** every experiment, cleaned; empty on files from before them */
+  experiments: Experiment[];
 }
 
 const okNum = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 10;
@@ -1326,6 +1328,12 @@ export function validateBackup(json: string): ValidBackup | null {
     goal: typeof d.goal === 'string' && d.goal.trim() ? d.goal.trim() : null,
     hypotheses, protocols,
     modifiers: cleanModifiers((d as { modifiers?: unknown }).modifiers),
+    experiments: (() => {
+      const raw = (d as { experiments?: unknown }).experiments;
+      const out: Experiment[] = [];
+      if (Array.isArray(raw)) raw.forEach((r) => { const e = cleanExperiment(r); if (e) out.push(e); });
+      return out;
+    })(),
   };
 }
 
@@ -1358,4 +1366,40 @@ export function dedupeEvents(
     out.push(ev);
   });
   return out;
+}
+
+/* ── experiments ─────────────────────────────────────────────
+   One thing tried for a fortnight (experiment.ts reads it against the
+   record). The shape lives here with the other domain types so the
+   backup can validate it without importing the reader. */
+
+export interface Experiment {
+  /** epoch ms at start — an id that survives a backup and a merge */
+  id: number;
+  /** the thing being tried, in the person's words */
+  what: string;
+  /** first day the evening question is asked */
+  from: string;
+  status: 'running' | 'done' | 'stopped';
+  /** the day it ended, by time or by hand; absent while running */
+  endedOn?: string;
+}
+
+/** the longest a description may be — a phrase, not a plan */
+export const EXPERIMENT_WHAT_MAX = 80;
+
+/** a raw experiment from a backup → a clean one, or null. Unknown keys
+ *  drop; a description is trimmed and capped; dates must be real. */
+export function cleanExperiment(raw: unknown): Experiment | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<Experiment>;
+  if (typeof r.id !== 'number' || !isFinite(r.id)) return null;
+  if (typeof r.what !== 'string' || !r.what.trim()) return null;
+  if (!isIsoDate(r.from)) return null;
+  if (r.status !== 'running' && r.status !== 'done' && r.status !== 'stopped') return null;
+  const e: Experiment = {
+    id: r.id, what: r.what.trim().slice(0, EXPERIMENT_WHAT_MAX), from: r.from, status: r.status,
+  };
+  if (isIsoDate(r.endedOn)) e.endedOn = r.endedOn;
+  return e;
 }

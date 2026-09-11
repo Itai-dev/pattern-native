@@ -40,7 +40,8 @@ uncertainty, never causes.
 
 Buildable now: PEG, function goal, flare/event log, pain-quality words,
 treatments-tried log, weekly reflection, the clinician report, association
-observations.
+observations, the fortnight experiment (one thing tried, the mornings
+after read back as a difference, no difference, or too few days).
 
 Waits for clinical authorship: ACT, CBT, CBT-I, PRT, graded exposure,
 pacing *instruction*, anything touching medication decisions.
@@ -53,6 +54,12 @@ pacing *instruction*, anything touching medication decisions.
 4. Wearables are context, never diagnosis.
 5. No medication changes, ever.
 6. A missed day is just a missed day — no streaks, no guilt.
+7. Engagement rewards finding out and living, never looking at pain: a
+   countdown to an answer, a sentence before a decision, an activity
+   that went fine. Nothing that moves without a day added, nothing that
+   rates today. (Decided 2026-09-11, replacing "nothing rewards looking
+   at it" — a record read back was the control arm, and an app with
+   nothing to come back for is a record nobody keeps.)
 
 ## Known commercial facts
 

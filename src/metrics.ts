@@ -243,6 +243,24 @@ export const METRICS: MetricDef[] = [
     protocolEligible: false,
   },
 
+  /* THE EXPERIMENT'S QUESTION (experiment.ts). Asked in the evening,
+     once, while an experiment is running; the words on screen are
+     the person's own phrase, put in front of this question by the
+     check-in. Stored like any day answer — three-state, revisable —
+     under one stable id, so a backup restored anywhere reads back.
+     Never analysed by the engine: experiment.ts reads it against the
+     next morning on its own calendar. */
+  {
+    id: 'experiment.did.v1',
+    name: 'Your experiment',
+    question: 'Did it happen today?',
+    type: 'ordinal', scope: 'day',
+    levels: [lv('no', 'Not today'), lv('yes', 'Yes, today')],
+    extremes: ['no', 'yes'],
+    wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'none',
+    protocolEligible: false,
+  },
+
   /* ── protocol-eligible factors ────────────────────────────── */
   {
     id: 'stress.level.v1',

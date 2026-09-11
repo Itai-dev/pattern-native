@@ -153,11 +153,16 @@ every theme; counts and non-pain measures are white or neutral; only actual
 pain values take the ramp. A button tinted with the pain palette borrows a
 meaning it does not have.
 
-**Nothing rewards looking at it.** No streaks, no rings, no week-over-week
-deltas, no arrows, no completion percentages, nothing that differs between two
-opens on the same day except data the user added. This is the surface most
-likely to turn "I keep a record" into "I check my numbers five times a day",
-and that is a harm, not engagement.
+**Nothing rewards looking at your pain.** No streaks, no rings, no
+week-over-week deltas on pain, no arrows, no completion percentages, and
+no verdict on today. This is the surface most likely to turn "I keep a
+record" into "I check my numbers five times a day", and that is a harm, not
+engagement. What the app MAY reward is finding out and living: a countdown
+to an answer (the experiment, a comparison still collecting), a sentence
+before a decision (the budget, the calendar), and activity that went fine.
+Those move only when a day is added, never penalise a missed one, and
+never put a number on today. Between two opens of the same day nothing
+changes except data the user added.
 
 **The number is what the user entered.** Never invent a derived or composite
 score. Pain and ability are separate scales and are never averaged. The same
