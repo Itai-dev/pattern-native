@@ -33,6 +33,8 @@ import {
 } from './src/health/doses';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
+import ExperimentSheet from './src/ExperimentSheet';
+import { experimentState } from './src/experiment';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import BackgroundSheet from './src/BackgroundSheet';
@@ -67,7 +69,7 @@ registerCategory().catch(() => {}); // the Check in button on every prompt
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'event';
+type Sheet = null | 'checkin' | 'event' | 'experiment';
 
 /* "Thu, 21 Aug" comes from DayScreen, which is the other place a date is
    a heading. Two copies of the same format is how two screens end up
@@ -355,6 +357,24 @@ export default function App() {
     const budget = loadBudgetFor(entries, healthDays, all);
     return { best, fading, groups, progress, early, first, doses, budget };
   }, [entries, healthDays]);
+
+  /* THE EXPERIMENT, read against the record on every render that
+     matters — entries change, a day passes, one starts or ends. The
+     experiment itself is a pref; its state is derived, never stored.
+     Ending by time is the state's call; App files it the moment the
+     person taps Done, and never before, so the answer stays on Today
+     until it has been read. */
+  const [experimentBump, setExperimentBump] = useState(0);
+  const experiment = useMemo(() => {
+    const e = db.getExperiment();
+    return e ? experimentState(e, entries, todayISO()) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, experimentBump]);
+  const endExperiment = useCallback((how: 'done' | 'stopped') => {
+    const closed = db.endExperiment(how, todayISO());
+    if (closed) track('experiment_ended', { how: how === 'stopped' ? 'stopped' : (experiment ? experiment.verdict : 'done') });
+    setExperimentBump((n) => n + 1);
+  }, [experiment]);
 
   /* the booked session past the line, if any — derived, never stored,
      from the calendar just read and the budget just computed */
@@ -851,6 +871,9 @@ export default function App() {
                 aheadEditable={calendarEditable()}
                 onOpenAhead={openAhead}
                 onDismissAhead={dismissAhead}
+                experiment={experiment}
+                onStartExperiment={() => setSheet('experiment')}
+                onEndExperiment={endExperiment}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background
@@ -957,6 +980,18 @@ export default function App() {
           onDismiss={runAfterDismiss}
         >
           <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
+        </Modal>
+
+        <Modal
+          visible={sheet === 'experiment'}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={closeSheet}
+        >
+          <ExperimentSheet
+            onDone={() => { track('experiment_started'); setExperimentBump((n) => n + 1); closeSheet(); }}
+            onClose={closeSheet}
+          />
         </Modal>
 
         {/* the profile — grouped like the iOS Settings app: inset cards,

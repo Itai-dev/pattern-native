@@ -83,7 +83,17 @@ same fact shown a week later on Trends.
    and not in the session, and a buzz mid-effort reads as "stop"
    whatever it says. The decision that changes tomorrow is made the
    evening before, and that is where the app now speaks.
-5. **Same shape for sleep and food.** Bedtime: the sleep association
+5. **The experiment.** One thing, in the person's words, for a
+   fortnight. The evening check-in asks whether it happened; the next
+   morning's number is the outcome; at the end the record says which
+   of three true things it found — the mornings differed, they did
+   not, or there were too few days each way. All three are answers.
+   It extends itself to reach five days each way and gives up at four
+   weeks. The one thing on Today that counts toward something, and
+   what it counts toward is an answer. Ships OTA. *(built 2026-09-11:
+   `src/experiment.ts`, the evening question in the check-in, the
+   card and the offer on Today, `ExperimentSheet`)*
+6. **Same shape for sleep and food.** Bedtime: the sleep association
    read forward ("mornings after under six hours ran harder"). Evening:
    caffeine and water already pair with evening pain. Same engine,
    delivered before the decision instead of after.
@@ -96,9 +106,10 @@ workouts do not cluster under the line, or the mornings after workouts
 are no better than before it was shown. Then the moment is wrong or the
 number is, and the fix is the delivery, not the engine.
 
-**What this retires from the old Phase 1:** the weekly story and the
-self-experiment primitive. Both are still worth having; neither is
-proactive, and the phase is one question.
+**What this retires from the old Phase 1:** the weekly story. The
+self-experiment came back on 2026-09-11 as step 5, once the rule on
+engagement was rewritten (POSITIONING.md, principle 7): a countdown to
+an answer is the honest kind of reason to open the app.
 
 ## Phase 2 — n=10 · mid-Oct → Dec
 

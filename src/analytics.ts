@@ -81,7 +81,11 @@ export type EventName =
      canceled, deleted) — or the card was set aside. Never the
      event's title, time or length. */
   | 'ahead_opened'
-  | 'ahead_dismissed';
+  | 'ahead_dismissed'
+  /* the experiment: started, and how it ended (the verdict word, or
+     'stopped'). Never the phrase, never the numbers. */
+  | 'experiment_started'
+  | 'experiment_ended';
 
 type PropValue = number | boolean | string;
 

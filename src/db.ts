@@ -9,6 +9,7 @@
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { getMetric } from './metrics';
 import { addDays } from './model';
+import { EXPERIMENT_WHAT_MAX, Experiment } from './model';
 import {
   Answer, BACKUP_VERSION, Background, CONTEXT_VERSION, ContextAnswers, Entries, Entry,
   Duration, EventKind, FuncEntry, Hypothesis, Onset, PainEvent, Protocol, ProtocolStatus,
@@ -761,6 +762,7 @@ export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResu
      never overwrites words already written on this phone */
   if (mode === 'replace') setBackground(backup.background);
   else if (backup.background && !getBackground()) setBackground(backup.background);
+  restoreExperiments(backup.experiments, mode);
   return {
     ok: true, mode, days: dayKeys.length, events: eventsAdded,
     func: backup.func.length, hypotheses: hypAdded, protocols: protAdded,
@@ -771,6 +773,60 @@ export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResu
  *  row ids), function check-ins with their saved dates, and the activity;
  *  it records the pain-scale version so a future reader knows which label
  *  set the numbers were captured under. */
+/* ── experiments ─────────────────────────────────────────────
+   One running at a time, and the ones before it. Prefs, like the
+   background: a document each, never joined to anything. The answers
+   an experiment collects live on the days, under its metric id, so
+   deleting the experiment never deletes what the person said. */
+
+const EXPERIMENT_PREF = 'experiment.active';
+const EXPERIMENTS_PREF = 'experiment.history';
+
+export function getExperiment(): Experiment | null {
+  return getPref<Experiment | null>(EXPERIMENT_PREF, null);
+}
+export function getExperimentHistory(): Experiment[] {
+  return getPref<Experiment[]>(EXPERIMENTS_PREF, []);
+}
+export function startExperiment(what: string, todayIso: string): Experiment {
+  const e: Experiment = {
+    id: Date.now(), what: what.trim().slice(0, EXPERIMENT_WHAT_MAX), from: todayIso, status: 'running',
+  };
+  setPref(EXPERIMENT_PREF, e);
+  return e;
+}
+/** close the running experiment — done by time, or stopped by hand —
+ *  and file it. Its answers stay on their days. */
+export function endExperiment(status: 'done' | 'stopped', endedOn: string): Experiment | null {
+  const e = getExperiment();
+  if (!e) return null;
+  const closed: Experiment = { ...e, status, endedOn };
+  setPref(EXPERIMENTS_PREF, getExperimentHistory().concat(closed));
+  setPref(EXPERIMENT_PREF, null);
+  return closed;
+}
+/** every experiment, for the backup: the running one first */
+export function getExperiments(): Experiment[] {
+  const a = getExperiment();
+  return (a ? [a] : []).concat(getExperimentHistory());
+}
+/** the other half of the backup: replace takes the file's word,
+ *  merge adds what this phone has not seen by id and restores a
+ *  running one only when nothing is running here */
+function restoreExperiments(list: Experiment[], mode: 'replace' | 'merge'): void {
+  const running = list.filter((e) => e.status === 'running')[0] || null;
+  const rest = list.filter((e) => e.status !== 'running');
+  if (mode === 'replace') {
+    setPref(EXPERIMENT_PREF, running);
+    setPref(EXPERIMENTS_PREF, rest);
+    return;
+  }
+  const have = getExperiments().map((e) => e.id);
+  const add = rest.filter((e) => have.indexOf(e.id) < 0);
+  if (add.length) setPref(EXPERIMENTS_PREF, getExperimentHistory().concat(add));
+  if (running && !getExperiment() && have.indexOf(running.id) < 0) setPref(EXPERIMENT_PREF, running);
+}
+
 /* ── the background ─────────────────────────────────────────
    One object in prefs — it is a document, not a table, and it changes a
    few times a year at most. cleanBackground runs on the way IN, so what
@@ -789,6 +845,7 @@ export function exportBackup(todayIso: string): string {
     background: getBackground(),
     entries: getAll(), events: getEvents(), func: getFunc(), goal: getGoal(),
     hypotheses: getHypotheses(), protocols: getProtocols(), modifiers: getModifiers(),
+    experiments: getExperiments(),
   };
   /* Shadow rows are health-derived and leave only when asked for. Off by
      default, and a restore never reads them back — see applyBackup. */
