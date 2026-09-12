@@ -125,9 +125,64 @@ With retention + report evidence in hand, choose: consumer wellness product
 (App Store, freemium, solo) vs clinical-evidence path (partners, capital).
 Deciding earlier is guessing.
 
+## Phase 4 — Recommended in Health · after the App Store
+
+"Recommended in Health" is two different things, and Pattern is built
+today to qualify for neither.
+
+**The Apps list inside Health** is mechanical: under Browse, each data
+type lists the apps that can WRITE it. Pain lives there as Symptoms
+(Generalized Body Ache, Lower Back Pain, Headache, Pelvic Pain,
+Fatigue), each with a severity of mild, moderate or severe. Pattern
+promises the opposite in its usage string ("never writes to Apple
+Health") and in POSITIONING.md (local SQLite only). HealthKit stays on
+the phone and is end-to-end encrypted, so the promise can be redrawn
+honestly, in this order:
+
+1. **Rewrite POSITIONING.md first** (AGENTS.md: what leaves the phone
+   changes there before it changes in code). The new line: the record
+   is local; the person may choose to copy pain into Health, and
+   Health's own sharing rules take over from there.
+2. **Write Symptoms, opt-in, never default.** A switch in Profile, off
+   until touched. The coarse band (mild / moderate / severe) is
+   explained beside the switch, and the exact 0–10 goes in the sample's
+   metadata so nothing invented stands in for the number the user
+   entered. A skipped answer is never written as "not present" — three
+   states survive the copy or the copy does not happen.
+3. **A new binary.** The write usage string and entitlement live in
+   Info.plist, so this needs `eas build`. The JS guards the call, so
+   the runtime does not bump and old binaries keep taking OTA updates.
+
+**Editorial features** (the Health category on the App Store, "apps for
+chronic conditions", Health app promotions) are curated. What editors
+look for, against where Pattern stands:
+
+- Two-way HealthKit integration — missing until the steps above.
+- The newest platform features — Liquid Glass and the widget are in;
+  a Watch check-in, Shortcuts and a Live Activity for the flare
+  follow-up are not.
+- Accessibility done properly — mostly there; audit Dynamic Type,
+  VoiceOver labels and Reduce Motion before nominating.
+- Privacy that reads as a feature — Pattern's strongest card. No
+  accounts, no servers, no ads, and it stays that way.
+- A clinical story — CareKit apps get featured; the one-page clinician
+  summary is the nearest thing to it.
+- A public listing with ratings — nothing to feature while it is in
+  TestFlight.
+
+**The path, in order:** the App Store listing (Phase 3's consumer fork,
+or the clinical one — both need a public app), then opt-in Symptom
+writing with the positioning rewrite, then Shortcuts and a Watch
+check-in, then nominate through App Store Connect's promotion form
+once ratings exist.
+
+**Kill criterion:** if fewer than one tester in five turns the Health
+switch on in its first month, the Apps list is not where these people
+look for Pattern, and the editorial path alone is worth the work.
+
 ## Parked (deliberately)
 
 PROMIS/BPI (licensing), pain-quality beyond the flare log, HRV, widgets,
-Apple Watch app (phase 2 hardware), Hebrew in native, the five-column
-research DB expansion, ACT/CBT content (needs clinician), App Store public
-name and listing.
+Hebrew in native, the five-column research DB expansion, ACT/CBT content
+(needs clinician). The Apple Watch check-in and the App Store listing
+moved to Phase 4 on 2026-09-12.
