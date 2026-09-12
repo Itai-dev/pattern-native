@@ -163,8 +163,9 @@ export default function RemindersSection() {
           <View style={{ flex: 1 }}>
             <Text style={styles.label}>Follow Apple Health</Text>
             <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Morning after you usually wake, evening before you usually sleep, and a prompt
-              after the workouts and doses Health sees you log. Times marked * were learned.
+              Morning after you usually wake, evening before you usually sleep, a prompt
+              after the workouts and doses Health sees you log — and your workout budget
+              before a usual workout, once your record has one. Times marked * were learned.
             </Text>
           </View>
           <Switch

@@ -157,6 +157,37 @@ export const PROTOCOL_REVIEW_DAYS = 14;
  *  record has nothing to form a hypothesis about */
 export const HYPOTHESIS_OFFER_AFTER_DAYS = 7;
 
+/* ── experiments ─────────────────────────────────────────────
+   One thing tried for a fortnight, the evening answer against the
+   next morning's number. The comparison is the Health engine's
+   categorical one — yes-days against no-days — and it clears the
+   same group floor and the same delta, argued below under Apple
+   Health. What is the experiment's own is its calendar. */
+
+/** the planned length. Fourteen: long enough for five days each way
+ *  with ordinary gaps, short enough that a person will commit to it
+ *  on the day they think of it. Hormonal and seasonal questions need
+ *  months, and the sheet does not pretend otherwise. */
+export const EXPERIMENT_DAYS = 14;
+
+/** the most it will extend to, collecting toward the floor, before
+ *  answering with what it has. Twice the plan: past a month an
+ *  experiment is a habit, and "still collecting" has become a nag. */
+export const EXPERIMENT_MAX_DAYS = 28;
+
+/** days each way before a verdict — the Health floor, for the same
+ *  standard-error arithmetic, and because a comparison this app
+ *  makes on five-a-side elsewhere cannot honestly need more here */
+export const EXPERIMENT_MIN_GROUP_DAYS = 5;
+
+/** logged days before an experiment is offered — a person with no
+ *  record has no baseline to compare a fortnight against */
+export const EXPERIMENT_OFFER_AFTER_DAYS = 7;
+
+/** "not now" rests the offer for this long. A fortnight, the length
+ *  of the thing declined. */
+export const EXPERIMENT_REOFFER_DAYS = 14;
+
 /* ── Apple Health context ────────────────────────────────────
    The same person, the same 0–10 pain scale, and the same question — do
    two groups of days differ — so the same arithmetic applies. What
@@ -359,6 +390,13 @@ export const PROMPT_BEFORE_BED_MIN = 45;
 /** minutes after a workout usually ends. Forty-five: showered, sat
  *  down, and the body's first word on it in */
 export const PROMPT_AFTER_WORKOUT_MIN = 45;
+
+/** minutes before a workout usually STARTS that the load budget is
+ *  delivered. Thirty: the decision to go is made and the bag is not
+ *  yet packed — long enough to read one sentence, short enough that
+ *  it is still about this workout and not about the day. Earlier is
+ *  a fact about last month; later is a lock screen in a locker. */
+export const PROMPT_BEFORE_WORKOUT_MIN = 30;
 
 /** weeks of the same weekday looked at, and how many of them need a
  *  workout before that weekday earns an "after your workout" prompt.

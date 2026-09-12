@@ -45,6 +45,9 @@ import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
 import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
+import { BookedAhead, aheadBody } from './health/ahead';
+import { ExperimentState, experimentCopy } from './experiment';
+import { EXPERIMENT_OFFER_AFTER_DAYS, EXPERIMENT_REOFFER_DAYS } from './thresholds';
 
 /* ── when Today may ask for something ────────────────────────
    Three offers live on this screen, and at most ONE shows at a time:
@@ -166,12 +169,29 @@ export interface HomeScreenProps {
   healthOfferable: boolean;
   /** the Health setup sheet */
   onOpenHealth: () => void;
+  /** a booked session, later today or tomorrow, longer than the
+   *  person's own line — null when there is none, or no line yet */
+  ahead: BookedAhead | null;
+  /** Apple's editor on that event; false when the binary cannot */
+  aheadEditable: boolean;
+  onOpenAhead: () => void;
+  /** "fine as it is": this booking, as booked, asks no more */
+  onDismissAhead: () => void;
+  /** the running or just-ended experiment, read against the record —
+   *  null when none */
+  experiment: ExperimentState | null;
+  /** the sheet that starts one */
+  onStartExperiment: () => void;
+  /** file an ended one ("Done"), or end a running one early ("Stop") */
+  onEndExperiment: (how: 'done' | 'stopped') => void;
 }
 
 export default function HomeScreen({
   entries, onLog, onOpenDay, onAddNote, onOpenToday,
   onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
+  ahead, aheadEditable, onOpenAhead, onDismissAhead,
+  experiment, onStartExperiment, onEndExperiment,
 }: HomeScreenProps) {
   const t = todayISO();
   /* LAST NIGHT, ON TODAY. The calm rule keeps Health off this screen
@@ -291,10 +311,25 @@ export default function HomeScreen({
   const apptSoon = !!appointment && appointment >= t
     && appointment <= addDays(t, APPOINTMENT_LEAD_DAYS);
 
+  /* The experiment, offered once a week of record exists to compare a
+     fortnight against, and never while one is running or waiting to
+     be read. "Not now" rests it for the length of the thing declined.
+     It sits after the background in the order: history first, then a
+     question to carry forward. */
+  const xAskAfter = db.getPref<string>('experiment.askAfter', '');
+  const offerExperiment = !experiment && loggedDays >= EXPERIMENT_OFFER_AFTER_DAYS
+    && (!xAskAfter || t >= xAskAfter);
+  const dismissExperiment = () => {
+    db.setPref('experiment.askAfter', addDays(t, EXPERIMENT_REOFFER_DAYS));
+    bump((n) => n + 1);
+  };
+  const xCopy = experiment ? experimentCopy(experiment) : null;
+
   /* one at a time, in the order they pay back */
-  const offer: null | 'reminder' | 'health' | 'background' | 'appointment' | 'widget' = offerReminder
+  const offer: null | 'reminder' | 'health' | 'background' | 'experiment' | 'appointment' | 'widget' = offerReminder
     ? 'reminder' : offerHealth ? 'health' : offerBackground ? 'background'
-      : offerAppointment ? 'appointment' : offerWidget ? 'widget' : null;
+      : offerExperiment ? 'experiment'
+        : offerAppointment ? 'appointment' : offerWidget ? 'widget' : null;
 
   /* the day's shape, from the two numbers on screen: the first check-in
      of today against the latest. Nothing is stored, nothing is derived
@@ -602,6 +637,169 @@ export default function HomeScreen({
         </View>
       )}
 
+      {/* ── what is booked, against the line ──────────────
+          THE EVENING BEFORE. A session in the calendar, later today
+          or tomorrow, longer than the person's own line — the one
+          decision the record can actually reach in time. A fact
+          card like the appointment: it shows regardless of the
+          offers below, and it changes only when the calendar or the
+          record does. The single action opens Apple's editor on the
+          event; Pattern itself never writes (calendar.ts). The title
+          is the person's own calendar read back to them, in the app,
+          and goes nowhere else. */}
+      {ahead && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {(ahead.when === 'today' ? 'Today at ' : 'Tomorrow at ') + fmtClock(ahead.event.h)
+              + ': ' + ahead.event.title + ', ' + ahead.event.minutes + ' min'}
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {aheadBody(ahead)}
+          </Text>
+          <View style={styles.bgOfferActions}>
+            {aheadEditable && !!ahead.event.id && (
+              <Press
+                onPress={onOpenAhead}
+                pressOpacity={0.8}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Open this event in Calendar"
+                accessibilityHint="Opens Apple's event editor. Nothing changes unless you save."
+              >
+                <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  Open in Calendar
+                </Text>
+              </Press>
+            )}
+            <Press
+              onPress={onDismissAhead}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Leave this session as it is"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Fine as it is
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
+      {/* ── the experiment: the countdown, or the answer ────
+          THE ONE THING ON TODAY THAT COUNTS TOWARD SOMETHING, and
+          what it counts toward is an answer: day N of fourteen, the
+          days each way so far, and at the end the sentence. It moves
+          only when a day is added — no streak, no reset, a missed
+          evening is a missing pair and nothing else. A fact card,
+          above the offers, because a person who started one wants to
+          see where it stands before anything is asked of them. */}
+      {experiment && xCopy && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {experiment.ended ? 'Your experiment, answered' : 'Your experiment'}
+          </Text>
+          <Text style={styles.xTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {xCopy.title}
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {xCopy.evidence}
+          </Text>
+          {!!xCopy.caveat && (
+            <Text style={styles.xCaveat} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {xCopy.caveat}
+            </Text>
+          )}
+          <View style={styles.bgOfferActions}>
+            {experiment.ended ? (
+              <>
+                <Press
+                  onPress={() => { onEndExperiment('done'); onStartExperiment(); }}
+                  pressOpacity={0.8}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="File this result and try something else"
+                >
+                  <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    Try something else
+                  </Text>
+                </Press>
+                <Press
+                  onPress={() => onEndExperiment('done')}
+                  pressOpacity={0.7}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="File this result"
+                >
+                  <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    Done
+                  </Text>
+                </Press>
+              </>
+            ) : (
+              <Press
+                onPress={() => {
+                  Alert.alert(
+                    'Stop this experiment?',
+                    'The evenings you answered stay on their days. It will be read with what it has.',
+                    [
+                      { text: 'Keep going', style: 'cancel' },
+                      { text: 'Stop', style: 'destructive', onPress: () => onEndExperiment('stopped') },
+                    ]
+                  );
+                }}
+                pressOpacity={0.7}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Stop this experiment early"
+              >
+                <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  Stop early
+                </Text>
+              </Press>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ── the experiment offer ──────────────────────────── */}
+      {offer === 'experiment' && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Try something for two weeks
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            An early night, a walk on the days you would skip — one thing,
+            in your words. Each evening Pattern asks whether it happened,
+            and at the end it tells you what the mornings after said.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={onStartExperiment}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Choose something to try"
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Choose
+              </Text>
+            </Press>
+            <Press
+              onPress={dismissExperiment}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Not now — offered again in two weeks"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Not now
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
       {/* ── the reminder offer ────────────────────────────── */}
       {offer === 'reminder' && (
         <View style={[styles.card, styles.cardGap]}>
@@ -843,6 +1041,9 @@ const styles = StyleSheet.create({
   },
   chev: { color: color.textTertiary, fontSize: 18, marginTop: -2 },
   eyebrow: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
+  /* the experiment's sentence: the card's point, above its evidence */
+  xTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22 },
+  xCaveat: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18 },
 
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   /* iOS shadow: no offset, so the colour sits evenly around the shape

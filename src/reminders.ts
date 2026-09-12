@@ -66,6 +66,9 @@ const COPY: Record<PromptKind, string> = {
   dose: 'About an hour after a dose you usually log around this time — how intense is your pain right now?',
   /* the calendar knew the end; the title stays on the phone */
   calendar: 'A while after what was in your calendar — how intense is your pain right now?',
+  /* never shown: a budget prompt always carries its own body, with
+     the person's numbers in it. The entry keeps the record total. */
+  budget: 'Your workout budget, from your own record, is on Trends.',
 };
 
 /** the one category every prompt carries: a "Check in" button on the
@@ -154,7 +157,7 @@ export async function reschedule(
         const when = new Date(+parts[0], +parts[1] - 1, +parts[2], Math.floor(p.h / 60), p.h % 60, 0, 0);
         await Notifications.scheduleNotificationAsync({
           identifier: 'pattern-' + p.key + '-' + dateIso,
-          content: { title: 'Pattern', body: COPY[p.kind], categoryIdentifier: CHECKIN_CATEGORY },
+          content: { title: 'Pattern', body: p.body || COPY[p.kind], categoryIdentifier: CHECKIN_CATEGORY },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
         });
       }

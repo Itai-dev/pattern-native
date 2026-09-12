@@ -75,6 +75,7 @@ import {
 } from './metrics';
 import { healthHintFor, healthNowHint } from './health/context';
 import { WHERE_REASK_DELTA } from './thresholds';
+import { EXPERIMENT_METRIC_ID, experimentQuestion } from './experiment';
 import { HealthDay } from './health/types';
 import { track, trackCheckin } from './analytics';
 import { color, font, size } from './theme';
@@ -203,7 +204,19 @@ export default function CheckinScreen({
     const m = getMetric(LIMITATION_ID);
     const due = !!m && eligibleNow(m.eligibility, minutes, isFirstOfDay,
       answerOf(entry, LIMITATION_ID) != null);
-    return due ? [LIMITATION_ID] : [];
+    const ids = due ? [LIMITATION_ID] : [];
+    /* the experiment's evening question, while one is running — the
+       same window and the same once-a-day rule as the limitation */
+    const x = getMetric(EXPERIMENT_METRIC_ID);
+    if (x && db.getExperiment() && eligibleNow(x.eligibility, minutes, isFirstOfDay,
+      answerOf(entry, EXPERIMENT_METRIC_ID) != null)) ids.push(EXPERIMENT_METRIC_ID);
+    return ids;
+  });
+  /* the phrase the experiment's question wears — read once; a sheet
+     cannot start one mid-check-in */
+  const [experimentWhat] = useState<string | null>(() => {
+    const e = db.getExperiment();
+    return e ? experimentQuestion(e) : null;
   });
   const { width: winW } = useWindowDimensions();
   /* what Health already has for today, read once — a hint above a
@@ -882,8 +895,12 @@ export default function CheckinScreen({
           keyboardDismissMode="interactive"
         >
           {askIds.map((id) => {
-            const m = getMetric(id);
-            if (!m) return null;
+            const base = getMetric(id);
+            if (!base) return null;
+            /* the experiment's question is the person's own phrase —
+               the registry's wording is the fallback it never shows */
+            const m = id === EXPERIMENT_METRIC_ID && experimentWhat
+              ? { ...base, question: experimentWhat } : base;
             return m.type === 'numeric' ? numericRow(m) : ordinalRow(m);
           })}
 

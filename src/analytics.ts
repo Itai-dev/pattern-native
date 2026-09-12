@@ -75,7 +75,17 @@ export type EventName =
   | 'appointment_pdf'
   | 'backup_exported'
   | 'backup_restored'
-  | 'widget_tap';
+  | 'widget_tap'
+  /* the evening-before card: Apple's editor was opened on a booked
+     session past the line, and how the sheet closed (saved,
+     canceled, deleted) — or the card was set aside. Never the
+     event's title, time or length. */
+  | 'ahead_opened'
+  | 'ahead_dismissed'
+  /* the experiment: started, and how it ended (the verdict word, or
+     'stopped'). Never the phrase, never the numbers. */
+  | 'experiment_started'
+  | 'experiment_ended';
 
 type PropValue = number | boolean | string;
 
