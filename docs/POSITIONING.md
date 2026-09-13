@@ -141,6 +141,42 @@ still runs on the phone. The report is still generated on the phone. What a
 user flags about their own day is still their read of it and still never
 reaches the engine.
 
+**BLOCKED, FOUND THE SAME DAY, BEFORE ANY CODE.** App Store Review
+Guideline 5.1.3(ii) reads, in full: *"Apps must not write false or inaccurate
+data into HealthKit or any other medical research or health management apps,
+and may not store personal health information in iCloud."* There is no
+carve-out in that sentence for the private database, for a container of our
+own, or for data we encrypted before it left. Pattern already reads HealthKit
+and is self-evidently a health management app to a reviewer, so the sentence
+is pointed directly at us.
+
+This does not retract the decision above; it retracts its *destination*. The
+argument stands in full — asking harder is not a design, the record must
+survive the app being deleted, and what leaves must be unreadable. Three ways
+forward, and the choice is not ours to guess:
+
+1. **Ask Apple and get it in writing.** CloudKit's private database offers
+   per-field encryption on device before upload, which is the strongest
+   technical answer and the one worth putting to review. But 5.1.3(ii) as
+   written says no, and a rejection costs a build cycle that needs a computer
+   — so this is a question to ask first, never a thing to ship and find out.
+2. **The user picks the destination.** Pattern encrypts, and writes the
+   ciphertext where the user chose once and for all. Nothing is stored by us
+   in iCloud; if the folder they chose happens to sync, that was their doing
+   and their account. It sidesteps the guideline because the app is not the
+   thing putting health information in iCloud. Still needs a native build:
+   folder access on iOS is session-only, and persisting it needs a
+   security-scoped bookmark, which no Expo module exposes today.
+3. **Keep the record local and make the manual copy much better.** Ships over
+   the air this week, reaches every tester on the current binary, and needs
+   no permission from anyone. It is the floor we already shipped, not the
+   answer, but it is the only one of the three that helps before a build.
+
+**Whichever wins, the encryption design does not change**, and neither does
+the retirement of the old line. The record is encrypted on the device, the
+key lives where the app cannot lose it, and what leaves the phone is
+ciphertext. Only the destination is open.
+
 **A native build is required**, and the automatic copy therefore reaches only
 binaries built after this decision. The JavaScript must be guarded so that
 older binaries take the catch and live without it, exactly as HealthKit and
