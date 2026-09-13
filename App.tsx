@@ -615,6 +615,14 @@ export default function App() {
       const r = db.applyBackup(backup, mode);
       track('backup_restored', { mode });
       refresh();
+      /* restored from the first onboarding screen: a record exists now,
+         and the person who made it has seen the introduction already —
+         sending them through it, and then through a first check-in that
+         would duplicate a restored day, is the wrong end of the app */
+      if (r.days > 0 && !onboarded) {
+        db.setPref('onboarded', true);
+        setOnboarded(true);
+      }
       Alert.alert(
         mode === 'replace' ? 'Backup restored' : 'Backup merged',
         r.days + (r.days === 1 ? ' day' : ' days') +
@@ -625,7 +633,7 @@ export default function App() {
     } catch {
       Alert.alert('Restore failed', 'Nothing was changed. Your current data is intact.');
     }
-  }, [refresh]);
+  }, [refresh, onboarded]);
 
   const restoreBackup = useCallback(async () => {
     const res = await DocumentPicker
@@ -672,13 +680,23 @@ export default function App() {
     );
   }, [applyRestore]);
 
+  /* THE ONE COPY THAT SURVIVES DELETION. The file is written to the
+     cache and handed to the share sheet; where it lands is the user's
+     choice and the app never learns where. What iOS does report is
+     whether it landed at all — 'sharedAction' when it went somewhere,
+     'dismissedAction' when the sheet was closed — and only the first
+     counts as a copy existing. A cancelled sheet leaves the Today card
+     exactly where it was, because it must: a card that cleared itself
+     on a tap would be claiming a copy that isn't there. */
+  const [lastCopy, setLastCopy] = useState(() => db.getLastCopy());
   const exportBackup = useCallback(async () => {
     track('backup_exported');
     const json = db.exportBackup(todayISO());
     const path = FileSystem.cacheDirectory + 'pattern-backup-' + todayISO() + '.json';
     try {
       await FileSystem.writeAsStringAsync(path, json);
-      await Share.share({ url: path, message: 'Pattern backup ' + todayISO() });
+      const r = await Share.share({ url: path, message: 'Pattern backup ' + todayISO() });
+      if (r.action === Share.sharedAction) setLastCopy(db.markCopied(todayISO()));
     } catch {
       // sharing the text itself still gets the data out of the app
       Share.share({ message: json }).catch(() => {});
@@ -727,6 +745,7 @@ export default function App() {
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaProvider>
           <OnboardingScreen
+            onRestore={restoreBackup}
             onDone={(r) => {
               /* counts only, never content — the closed-list rule */
               track('onboarding_completed', { where: r.where.length });
@@ -874,6 +893,8 @@ export default function App() {
                 experiment={experiment}
                 onStartExperiment={() => setSheet('experiment')}
                 onEndExperiment={endExperiment}
+                onSaveCopy={exportBackup}
+                lastCopy={lastCopy}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background
@@ -1266,13 +1287,20 @@ export default function App() {
                   </View>
                 </Pressable>
               </View>
-              {/* a fact, not a row — iOS puts it under the group */}
+              {/* a fact, not a row — iOS puts it under the group. It
+                  opens with when the record last had a home other than
+                  this phone, because that is the sentence that decides
+                  whether the rest of the paragraph matters today. */}
               <Text style={styles.groupFooter}>
-                Stored only on this iPhone. Your Pattern record and any imported
-                Apple Health context stay here unless you choose to export or
-                restore a backup — and Health context never travels in a backup,
-                because it can always be re-read from Health itself. Restoring
-                lets you replace or merge; you decide before anything changes.
+                {(lastCopy
+                  ? 'Last copy saved ' + fmtDay(lastCopy.on) + ', holding '
+                    + lastCopy.days + (lastCopy.days === 1 ? ' day. ' : ' days. ')
+                  : 'No copy saved yet. ')
+                  + 'Your record is stored only on this iPhone, and deleting Pattern deletes it — '
+                  + 'a copy you save to Files or iCloud Drive is the one thing that survives that. '
+                  + 'Any imported Apple Health context stays here too, never travels in a backup, '
+                  + 'and can always be re-read from Health itself. Restoring lets you replace or '
+                  + 'merge; you decide before anything changes.'}
               </Text>
               {/* which code is actually running — the end of guessing
                   whether an update has landed. updateId is null when the

@@ -111,6 +111,49 @@ self-experiment came back on 2026-09-11 as step 5, once the rule on
 engagement was rewritten (POSITIONING.md, principle 7): a countdown to
 an answer is the honest kind of reason to open the app.
 
+## A copy that survives deletion · next native build
+
+*Added 2026-09-13, after a tester's whole record was lost.* The app went
+from the phone — the reason matters less than that nothing warned anyone
+— and the reinstall came back empty. Nothing was wrong with the code:
+the record is one SQLite file in the app's container, deleting the app
+deletes the container, and by design there is no server copy to fall
+back on. That is the privacy promise working exactly as written
+(POSITIONING.md), and it is also how a person loses months of a pain
+record with no error message anywhere.
+
+**Shipped over the air the same day, and it is mitigation, not a fix.**
+Today asks for a saved copy once a week of record exists without one,
+Profile says when the last copy was made, and the first onboarding
+screen offers Restore so a reinstall has a way back in. All three still
+depend on the person having chosen to save a file, and on still having
+it. The gap is that the safe thing is manual.
+
+**What actually closes it needs a native build**, because every
+mechanism that survives app deletion is a native capability:
+
+1. **iCloud Drive, written by the app.** A backup JSON written to the
+   app's own iCloud Drive container on a schedule. It outlives the app
+   and restores on the next install. It also moves the health record
+   off the phone, so POSITIONING.md has to be rewritten BEFORE this
+   ships, not after — and the honest version is a switch, default off,
+   that says what leaves and where it goes.
+2. **The Files-provider route**, if 1 is judged too big a change to the
+   promise: a security-scoped bookmark to a folder the user picks once,
+   written to on the same schedule. Nothing reaches Apple's servers
+   unless the user pointed it at iCloud Drive themselves, which keeps
+   the promise intact and puts the choice where it belongs.
+
+Until one of them ships, the manual copy is the only thing between a
+tester and this happening again. Say so plainly when onboarding a
+tester — it belongs in the TestFlight notes, not only in the app.
+
+**On the trigger:** a TestFlight build stops working after 90 days, and
+the usual tester response is delete and reinstall. Every external tester
+recruited in Phase 2 is therefore on a 90-day clock with a manual backup
+as their only protection, which is a reason to treat this as blocking
+for that phase rather than after it.
+
 ## Phase 2 — n=10 · mid-Oct → Dec
 
 - 10 chronic-pain testers via TestFlight external testing; recruit from

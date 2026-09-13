@@ -432,3 +432,17 @@ export const BG_PROMPT_STALE_MIN = 45;
  *  "where" is asked again that day. Two points: a change worth
  *  locating, not the slider's ordinary drift */
 export const WHERE_REASK_DELTA = 2;
+
+/* ── the record's only copy ─────────────────────────────────── */
+
+/** days of record with no saved copy anywhere before Today says so.
+ *  The record is one file inside the app's own container: deleting the
+ *  app — by hand, after a TestFlight build expires, on a lost phone —
+ *  deletes it, and nothing the app writes on its own survives that
+ *  (see docs/ROADMAP.md, "a copy that survives deletion"). Seven: under
+ *  LIMITED_RECORD_DAYS the record draws no comparisons and is quick to
+ *  re-enter, so a week is also the point at which losing it first
+ *  costs something. The same count is the gap between "not now" and the
+ *  next ask, counted in days ADDED, never days elapsed — the card moves
+ *  only when the record does, like everything else on Today. */
+export const COPY_NUDGE_DAYS = 7;

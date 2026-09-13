@@ -75,6 +75,11 @@ export type EventName =
   | 'appointment_pdf'
   | 'backup_exported'
   | 'backup_restored'
+  /* the "save a copy" card on Today: taken, or set aside. That it was
+     shown at all says only that a record exists — never how long it
+     is, and never what is in it. */
+  | 'copy_offer_taken'
+  | 'copy_offer_dismissed'
   | 'widget_tap'
   /* the evening-before card: Apple's editor was opened on a booked
      session past the line, and how the sheet closed (saved,
