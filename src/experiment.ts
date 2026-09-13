@@ -54,12 +54,23 @@ export const EXPERIMENT_METRIC_ID = 'experiment.did.v1';
 export { cleanExperiment, EXPERIMENT_WHAT_MAX } from './model';
 export type { Experiment } from './model';
 
-/** offered as chips; a person can type their own */
+/** Offered as chips; a person can type their own.
+ *
+ *  Two of the six are about food, because food is the thing people
+ *  with chronic pain most often suspect and least often get an answer
+ *  on. The registry refuses a general "how did you eat today" for a
+ *  reason (metrics.ts, food.intake.v1): one question covering every
+ *  meal measures nothing. A fortnight of one named change does — an
+ *  elimination diet IS an n-of-1 experiment, and this is the shape of
+ *  it. None of the six names a food as a culprit: they are habits a
+ *  person might keep, not foods Pattern suspects. */
 export const EXPERIMENT_EXAMPLES = [
   'walk on days I would skip',
   'an early night',
   'no coffee after noon',
   'ten minutes of stretching',
+  'breakfast every morning',
+  'no snacks after dinner',
 ];
 
 export type ExperimentVerdict = 'running' | 'possible' | 'observation' | 'insufficient';

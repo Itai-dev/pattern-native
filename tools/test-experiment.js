@@ -146,6 +146,28 @@ ok('the same record gives the same words twice', (() => {
   return JSON.stringify(a) === JSON.stringify(b);
 })());
 
+ok('the example chips are usable phrases, distinct, within the cap, and name no food as a culprit', (() => {
+  const ex = x.EXPERIMENT_EXAMPLES;
+  if (!Array.isArray(ex) || ex.length < 4) return false;
+  const seen = {};
+  for (let i = 0; i < ex.length; i++) {
+    const e = ex[i];
+    if (typeof e !== 'string' || !e.trim()) return false;
+    if (e.length > x.EXPERIMENT_WHAT_MAX) return false;
+    /* lower-case FIRST letter only: the chip is a phrase the question
+       capitalises, not a sentence. "I" inside one is still correct English. */
+    if (e !== e.trim() || e.charAt(0) !== e.charAt(0).toLowerCase()) return false;
+    if (seen[e]) return false;
+    seen[e] = 1;
+  }
+  /* a chip that named a suspect food would be Pattern suggesting a
+     culprit, which the sheet promises it does not do */
+  const culprits = /\b(gluten|dairy|sugar|wheat|lactose|nightshade|carbs|processed)\b/i;
+  if (ex.some((e) => culprits.test(e))) return false;
+  /* each one has to read as an answerable yes-or-no about today */
+  return ex.every((e) => x.experimentQuestion({ ...EXP, what: e }).indexOf('— did it happen today?') > 0);
+})());
+
 group('a backup’s experiment');
 ok('cleanExperiment keeps a real one, caps the phrase, drops junk', (() => {
   const long = 'x'.repeat(200);

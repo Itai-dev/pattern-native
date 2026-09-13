@@ -3,11 +3,13 @@
  *
  * The sheet is deliberately small. Two weeks is fixed, the outcome is
  * fixed (the next morning's number), and the only thing to decide is
- * what to try. Four examples are offered as chips because a blank field
+ * what to try. Examples are offered as chips because a blank field
  * asks for imagination on a day that may not have any; a tap fills the
  * field and the words stay editable. Nothing here suggests what WOULD
- * help — the examples are the four most ordinary things people try,
- * and the sheet says what the app will and will not do with the answer.
+ * help — the examples are ordinary things people try, two of them
+ * about food because that is the most suspected and least answered
+ * thing of all, and the sheet says what the app will and will not do
+ * with the answer.
  */
 import React, { useState } from 'react';
 import {

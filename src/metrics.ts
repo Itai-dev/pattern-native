@@ -414,7 +414,9 @@ export const METRICS: MetricDef[] = [
     keywords: ['food', 'diet', 'eating', 'gluten', 'sugar', 'dairy', 'inflammation'],
     excludedBecause:
       'A single food question covers too much to measure anything. Tracking one specific ' +
-      'thing you suspect is the useful version, and that is not built yet.',
+      'thing you suspect is the useful version, and that is what an experiment does: ' +
+      'name the change in your own words, answer yes or no each evening for a fortnight, ' +
+      'and read what the mornings after said.',
   },
   {
     id: 'medication.change.v1',
