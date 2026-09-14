@@ -23,7 +23,7 @@ import { Press, useReduceMotion } from './motion';
 import { getMetric, levelLabel } from './metrics';
 import {
   Answer, DURATION_LABELS, EVENT_LABELS, INTERVENTIONS, LOC_NAMES, Moment,
-  ONSET_LABELS, PainEvent, QUALITY_NAMES, RESPONSE_LABELS,
+  ONSET_LABELS, PainEvent, QUALITY_NAMES, RESPONSE_LABELS, SYMPTOM_NAMES,
   dateFromISO, daySummary, logsOf, momentAddedLater,
   readLocParts, todayISO,
 } from './model';
@@ -186,7 +186,8 @@ export default function DayDetail({
                 style={styles.row}
                 accessibilityRole="button"
                 accessibilityLabel={fmtClock(l.h) + ', ' + speakScore(l.pain) +
-                  (l.loc && l.loc.length ? ', ' + names(l.loc, LOC_NAMES) : '')}
+                  (l.loc && l.loc.length ? ', ' + names(l.loc, LOC_NAMES) : '') +
+                  (l.sym && l.sym.length ? ', ' + names(l.sym, SYMPTOM_NAMES) : '')}
                 accessibilityHint="Opens this check-in to edit. Swipe left to delete."
               >
                 <View style={[styles.swatch, { backgroundColor: painColor(l.pain) }]} />
@@ -215,6 +216,11 @@ export default function DayDetail({
                   {!!l.locNote && <Text style={styles.rowSub}>“{l.locNote}”</Text>}
                   {l.q && l.q.length > 0 && (
                     <Text style={styles.rowSub}>{names(l.q, QUALITY_NAMES)}</Text>
+                  )}
+                  {/* what else was marked at this check-in — a record of
+                      the moment, read back in the same words it was tapped in */}
+                  {l.sym && l.sym.length > 0 && (
+                    <Text style={styles.rowSub}>{names(l.sym, SYMPTOM_NAMES)}</Text>
                   )}
                 </View>
                 <Text style={styles.chev}>›</Text>

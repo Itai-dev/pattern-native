@@ -19,7 +19,7 @@ import {
   BACKGROUND_FIELDS, Background,
   Entries, EVENT_LABELS, EventKind, FuncEntry, Hypothesis, LOC_NAMES, PainEvent,
   DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, Protocol, QUALITY_NAMES,
-  RESPONSE_LABELS, Response, checkinCount, dailyAverage,
+  RESPONSE_LABELS, Response, SYMPTOM_NAMES, checkinCount, dailyAverage,
   answerOf, dateFromISO, fmtTime, funcTrend, iso, logsOf, valuesOf,
 } from './model';
 import { BAND_AT, formatScore, painLabel } from './painScale';
@@ -116,6 +116,12 @@ export interface ReportData {
   abilityChange: { first: FuncEntry; last: FuncEntry } | null;
   locations: { id: string; name: string; days: number }[];
   qualities: { id: string; name: string; count: number }[];
+  /** what the patient marked alongside the pain, by DAYS on which it was
+   *  marked at least once — three check-ins of one day with fatigue is
+   *  one day with it. Presence, never severity: the chips have no scale,
+   *  and a day without a mark is not a day without the symptom.
+   *  Recorded and shown; never analysed. */
+  symptoms: { id: string; name: string; days: number }[];
   events: PainEvent[]; // chronological
   /** the two ends of the record, described. null until there is enough
    *  of a record for the ends to be different from the middle. */
@@ -278,14 +284,18 @@ export function buildReportData(inp: ReportInput): ReportData | null {
   }
 
   const locDays: Record<string, number> = {};
+  const symDays: Record<string, number> = {};
   const qual: Record<string, number> = {};
   days.forEach((d) => {
     const seen: Record<string, boolean> = {};
+    const seenSym: Record<string, boolean> = {};
     logsOf(entries[d.date]).forEach((l) => {
       (l.loc || []).forEach((id) => { seen[id] = true; });
+      (l.sym || []).forEach((id) => { seenSym[id] = true; });
       (l.q || []).forEach((q) => { qual[q] = (qual[q] || 0) + 1; });
     });
     Object.keys(seen).forEach((id) => { locDays[id] = (locDays[id] || 0) + 1; });
+    Object.keys(seenSym).forEach((id) => { symDays[id] = (symDays[id] || 0) + 1; });
   });
 
   const sortedFunc = func.slice().sort((a, b) => (a.week < b.week ? -1 : 1));
@@ -320,6 +330,9 @@ export function buildReportData(inp: ReportInput): ReportData | null {
     qualities: Object.keys(qual)
       .sort((a, b) => qual[b] - qual[a])
       .map((id) => ({ id, name: QUALITY_NAMES[id] || id, count: qual[id] })),
+    symptoms: Object.keys(symDays)
+      .sort((a, b) => symDays[b] - symDays[a])
+      .map((id) => ({ id, name: SYMPTOM_NAMES[id] || id, days: symDays[id] })),
     events: events
       .filter((ev) => ev.date >= startIso && ev.date <= todayIso)
       .slice()
@@ -1001,6 +1014,21 @@ export function reportHtml(data: ReportData): string {
     s.push('<section><h2>Described as</h2>');
     s.push('<div class="note">' + data.qualities
       .map((q) => esc(q.name) + ' ×' + q.count).join(' · ') + '</div>');
+    s.push('</section>');
+  }
+
+  // ── associated symptoms ──
+  // SOCRATES' A, in the patient's own marks. Counted by days and printed
+  // beside what it is not, because "fatigue on 9 days" invites the
+  // reading "and not on the other 5", and the record cannot say that.
+  if (data.symptoms.length) {
+    s.push('<section><h2>Associated symptoms</h2>');
+    s.push('<div class="note">' + data.symptoms
+      .map((x) => esc(x.name) + ' (' + x.days + (x.days === 1 ? ' day' : ' days') + ')')
+      .join(' · ') + '</div>');
+    s.push('<div class="note">Marked by the patient at check-in, beside the pain score, from a ' +
+      'fixed list of five. Days on which each was marked at least once — a count of presence, ' +
+      'not severity, and a day without a mark is not a day without the symptom.</div>');
     s.push('</section>');
   }
 

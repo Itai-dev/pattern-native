@@ -32,12 +32,13 @@ import Animated, {
   cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import DayLine from './DayLine';
+import InfoTip from './InfoTip';
 import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
-  Entries, LastCopy, LOC_NAMES, Moment, QUALITY_NAMES, addDays, checkinCount, copyOfferDue,
-  logsOf, todayISO, unsavedDays,
+  addDays, checkinCount, copyOfferDue, Entries, LastCopy, LOC_NAMES, logsOf, Moment,
+  QUALITY_NAMES, SYMPTOM_NAMES, todayISO, unsavedDays,
 } from './model';
 import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
@@ -134,6 +135,13 @@ function detailsOf(l: Moment): DetailRow[] {
   } else if (l.qAsked) {
     rows.push({ label: 'Feels like', chips: [], state: 'Nothing fit' });
   }
+  /* the chips under the number. Shown only when something was marked:
+     they are on every check-in, so "nothing marked" is the common case,
+     and a row saying so under each pain-only check-in would read as a
+     reproach rather than a fact. The stored flag keeps the distinction
+     (symAsked); this card just does not nag with it. */
+  const sym = (l.sym || []).map((id) => SYMPTOM_NAMES[id] || id);
+  if (sym.length) rows.push({ label: 'Also', chips: sym });
   return rows;
 }
 
@@ -600,12 +608,12 @@ export default function HomeScreen({
             <DayLine logs={logs} height={SPARK_H} grid axis highlightH={latest ? latest.h : undefined} />
           </View>
 
-          {/* what the drawing is NOT, inside the card it qualifies */}
-          <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Each dot is a check-in, at the hour you made it; the ringed one is
-            the latest. One day is not a trend, and nothing here is being
-            compared to another day.
-          </Text>
+          {/* what the drawing is NOT, inside the card it qualifies —
+              folded behind the (i), still in the card */}
+          <InfoTip
+            label="About this chart"
+            text="Each dot is a check-in, at the hour you made it; the ringed one is the latest. One day is not a trend, and nothing here is being compared to another day."
+          />
 
           <View style={styles.rule} />
           <View style={styles.foot}>

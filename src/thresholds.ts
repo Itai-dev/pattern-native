@@ -433,6 +433,14 @@ export const BG_PROMPT_STALE_MIN = 45;
  *  locating, not the slider's ordinary drift */
 export const WHERE_REASK_DELTA = 2;
 
+/** how many quick check-ins in a row before the pain step leads with
+ *  Log it instead of Continue. Three: one is a bad moment, two is a bad
+ *  day, three is how this person is checking in at the moment — and the
+ *  cost of guessing wrong is one extra tap either way, so the number
+ *  errs toward following the person quickly. A single detailed check-in
+ *  flips it back at once (see checkinMode.ts). */
+export const QUICK_DEFAULT_AFTER = 3;
+
 /* ── the record's only copy ─────────────────────────────────── */
 
 /** days of record with no saved copy anywhere before Today says so.

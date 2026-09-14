@@ -321,6 +321,114 @@ ok('an empty entries backup validates to zero days',
 ok('the export format version is 6', model.BACKUP_VERSION === 6);
 ok('the scale version is 3', scale.SCALE_VERSION === 3);
 
+/* ── symptoms alongside the pain ───────────────────────────── */
+group('symptoms');
+ok('the vocabulary is the five from the research', model.SYMPTOMIDS.join() === 'fatigue,fog,sleep,stiffness,mood');
+ok('chosen symptoms are stored and the moment is marked asked', (() => {
+  const m = model.applyMoment(null, 600, 7, null, null, { sym: ['fatigue', 'fog'] }).logs[0];
+  return m.sym.join() === 'fatigue,fog' && m.symAsked === 1;
+})());
+ok('an empty list is "nothing applied": asked, no sym key', (() => {
+  const m = model.applyMoment(null, 600, 7, null, null, { sym: [] }).logs[0];
+  return m.sym === undefined && m.symAsked === 1;
+})());
+ok('a writer that did not put the chips leaves neither mark', (() => {
+  const m = model.applyMoment(null, 600, 7, null, null, model.nowMeta(3)).logs[0];
+  return m.sym === undefined && m.symAsked === undefined;
+})());
+ok('an edit without the chips keeps what the moment said', (() => {
+  const e = model.applyMoment(null, 600, 7, null, null, { sym: ['stiffness'] });
+  const m = model.applyMoment(e, 600, 8, null, null, model.nowMeta(3)).logs[0];
+  return m.pain === 8 && m.sym.join() === 'stiffness' && m.symAsked === 1;
+})());
+ok('an edit that clears the chips records the clearing', (() => {
+  const e = model.applyMoment(null, 600, 7, null, null, { sym: ['stiffness'] });
+  const m = model.applyMoment(e, 600, 7, null, null, { sym: [] }).logs[0];
+  return m.sym === undefined && m.symAsked === 1;
+})());
+ok('the pain-only path stays pain-only', (() => {
+  const m = model.applyMoment(null, 600, 7, null, null, { sym: [] }).logs[0];
+  return m.loc === undefined && m.q === undefined && m.locAsked === undefined;
+})());
+ok('cleanLogs drops unknown ids and keeps the marker', (() => {
+  const l = model.cleanLogs([{ h: 600, pain: 5, sym: ['fog', 'NOPE'], symAsked: 1 }])[0];
+  return l.sym.join() === 'fog' && l.symAsked === 1;
+})());
+ok('cleanLogs reads only-unknown ids as "nothing applied"', (() => {
+  const l = model.cleanLogs([{ h: 600, pain: 5, sym: ['NOPE'] }])[0];
+  return l.sym === undefined && l.symAsked === 1;
+})());
+ok('cleanLogs leaves a never-asked moment never asked', (() => {
+  const l = model.cleanLogs([{ h: 600, pain: 5 }])[0];
+  return l.sym === undefined && l.symAsked === undefined;
+})());
+ok('all three states survive a backup round trip', (() => {
+  const b = model.validateBackup(JSON.stringify({ entries: { '2026-08-10': { pain: 5, logs: [
+    { h: 540, pain: 5, sym: ['mood'], symAsked: 1 },
+    { h: 900, pain: 5, symAsked: 1 },
+    { h: 1200, pain: 5 },
+  ] } } }));
+  const l = b.entries['2026-08-10'].logs;
+  return l[0].sym.join() === 'mood' && l[0].symAsked === 1
+    && l[1].sym === undefined && l[1].symAsked === 1
+    && l[2].sym === undefined && l[2].symAsked === undefined;
+})());
+ok('the report counts symptoms by day, not by check-in', (() => {
+  const entries = {
+    '2026-08-19': day([{ h: 540, pain: 6 }, { h: 1200, pain: 7 }]),
+    '2026-08-20': day([{ h: 540, pain: 4 }]),
+  };
+  entries['2026-08-19'].logs[0].sym = ['fatigue', 'fog'];
+  entries['2026-08-19'].logs[1].sym = ['fatigue'];
+  entries['2026-08-20'].logs[0].sym = ['fatigue'];
+  const d = report.buildReportData({ entries, events: [], func: [], goalText: null,
+    todayIso: '2026-08-20', windowDays: 30 });
+  return d.symptoms.length === 2 && d.symptoms[0].id === 'fatigue' && d.symptoms[0].days === 2
+    && d.symptoms[1].id === 'fog' && d.symptoms[1].days === 1;
+})());
+ok('the PDF names the symptoms and says what the count is not', (() => {
+  const entries = { '2026-08-20': day([{ h: 540, pain: 4 }]) };
+  entries['2026-08-20'].logs[0].sym = ['stiffness'];
+  const html = report.reportHtml(report.buildReportData({ entries, events: [], func: [],
+    goalText: null, todayIso: '2026-08-20', windowDays: 30 }));
+  return html.indexOf('Associated symptoms') >= 0 && html.indexOf('Stiffness (1 day)') >= 0
+    && html.indexOf('not a day without the symptom') >= 0;
+})());
+ok('no symptoms, no section', (() => {
+  const html = report.reportHtml(report.buildReportData({ entries: { '2026-08-20': day([{ h: 540, pain: 4 }]) },
+    events: [], func: [], goalText: null, todayIso: '2026-08-20', windowDays: 30 }));
+  return html.indexOf('Associated symptoms') < 0;
+})());
+
+/* ── the check-in remembers its detail level ───────────────── */
+group('check-in mode');
+const mode = require(path.join(OUT, 'checkinMode.js'));
+ok('nothing learned yet: mode is null', mode.MODE_DEFAULT.mode === null && mode.MODE_DEFAULT.quickRun === 0);
+ok('three quick check-ins in a row bring quick, not two', (() => {
+  let s = mode.MODE_DEFAULT;
+  s = mode.afterCheckin(s, 'quick'); const two = mode.afterCheckin(s, 'quick');
+  const three = mode.afterCheckin(two, 'quick');
+  return two.mode === null && two.quickRun === 2 && three.mode === 'quick' && three.quickRun === 3;
+})());
+ok('one detailed check-in brings detailed at once and resets the run', (() => {
+  const s = mode.afterCheckin({ mode: 'quick', quickRun: 7 }, 'detailed');
+  return s.mode === 'detailed' && s.quickRun === 0;
+})());
+ok('a quick check-in after a detailed one does not flip back alone', (() => {
+  const s = mode.afterCheckin({ mode: 'detailed', quickRun: 0 }, 'quick');
+  return s.mode === 'detailed' && s.quickRun === 1;
+})());
+ok('the switch decides at once and restarts the run', (() => {
+  const s = mode.chooseMode('quick');
+  return s.mode === 'quick' && s.quickRun === 0;
+})());
+ok('the threshold is the named one', mode.afterCheckin({ mode: null, quickRun: 2 }, 'quick').mode === 'quick');
+ok('junk in the pref reads as the default', (() => {
+  const a = mode.cleanModeState(null), b = mode.cleanModeState({ mode: 'loud', quickRun: -3 });
+  const c = mode.cleanModeState({ mode: 'detailed', quickRun: 1.7 });
+  return a.mode === null && b.mode === null && b.quickRun === 0 && c.mode === 'detailed' && c.quickRun === 1;
+})());
+
 /* ── the report data ───────────────────────────────────────── */
 group('report data');
 const mk = (n, gapAt) => {

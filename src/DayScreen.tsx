@@ -48,6 +48,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DayLine from './DayLine';
 import DayDetail from './DayDetail';
+import InfoTip from './InfoTip';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
@@ -492,10 +493,11 @@ export default function DayScreen({
       {/* what the drawing is NOT — under the pager rather than inside a
           card, so it can wrap to whatever length the type size needs
           instead of being clipped by a fixed page height */}
-      <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.6}>
-        The line joins the times you checked in. The stretches between them are
-        hours you didn’t record, not hours without pain.
-      </Text>
+      <InfoTip
+        label="About this chart"
+        style={styles.fineTip}
+        text="The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain."
+      />
 
       {/* the rest of the day, keyed by date so walking to another day
           rebuilds it rather than editing the last one's draft note */}
@@ -576,6 +578,8 @@ const styles = StyleSheet.create({
   statUnit: { fontSize: font.footnote, fontWeight: '600', color: color.textSecondary },
   statL: { color: color.textSecondary, fontSize: font.footnote },
 
+  /* the (i) sits where the sentence sat, in the same gutter */
+  fineTip: { marginTop: 6, paddingHorizontal: size.contentX },
   fine: {
     color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
     marginTop: 14, paddingHorizontal: size.contentX,

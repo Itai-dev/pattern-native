@@ -30,6 +30,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
 import { Press } from './motion';
 import MapScreen from './MapScreen';
+import InfoTip, { InfoTitle } from './InfoTip';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent,
   RESPONSE_LABELS, Response, dateFromISO, } from './model';
@@ -311,17 +312,19 @@ function MiniChart({
         <Text style={styles.axisText}>{shortDate(cols[0].from)}</Text>
         <Text style={styles.axisText}>{shortDate(cols[cols.length - 1].to)}</Text>
       </View>
-      {weekly && (
-        <Text style={styles.noteLine}>
-          Each bar is a week: the average of the days you logged in it. A
-          week with nothing logged stays blank.
-        </Text>
-      )}
-      {easier != null && (
-        <Text style={styles.noteLine}>
-          The shaded band is your own easier third — {formatScore(easier)} and
-          below. Lower is better, so a bar that stops inside it is a better day.
-        </Text>
+      {(weekly || easier != null) && (
+        <InfoTip
+          label="How to read the chart"
+          text={[
+            weekly
+              ? 'Each bar is a week: the average of the days you logged in it. A week with nothing logged stays blank.'
+              : '',
+            easier != null
+              ? 'The shaded band is your own easier third — ' + formatScore(easier)
+                + ' and below. Lower is better, so a bar that stops inside it is a better day.'
+              : '',
+          ].filter(Boolean).join(' ')}
+        />
       )}
     </View>
   );
@@ -458,15 +461,16 @@ function Card({
 }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-        {title}
-      </Text>
-      {children}
-      {!!note && (
-        <Text style={styles.noteLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-          {note}
+      {/* the note — what the numbers are not — folds behind the (i) on
+          the title row, still inside the card it qualifies */}
+      {note ? (
+        <InfoTitle title={title} titleStyle={styles.cardTitle} text={note} style={styles.cardHead} />
+      ) : (
+        <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {title}
         </Text>
       )}
+      {children}
     </View>
   );
 }
@@ -973,16 +977,19 @@ export default function TrendsScreen({
 
   return (
     <View style={styles.page}>
-      <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.5}>
-        What you’ve recorded, {fmtReportDate(data.rangeStart)} – {fmtReportDate(data.rangeEnd)}.
-        {data.limited && (
-          <Text style={styles.subCaveat}>
-            {'  '}Still a short record — {data.loggedDays}{' '}
-            {data.loggedDays === 1 ? 'day' : 'days'} logged, so changes over time
-            aren’t worth reading much into yet.
-          </Text>
-        )}
-      </Text>
+      {/* the range is the fact; what to make of it folds behind the (i),
+          with the short-record caveat while it applies */}
+      <InfoTitle
+        title={fmtReportDate(data.rangeStart) + ' – ' + fmtReportDate(data.rangeEnd)}
+        titleStyle={styles.sub}
+        label="About this screen"
+        text={'What you’ve recorded over this range, and nothing inferred from it.'
+          + (data.limited
+            ? ' Still a short record — ' + data.loggedDays
+              + (data.loggedDays === 1 ? ' day' : ' days')
+              + ' logged, so changes over time aren’t worth reading much into yet.'
+            : '')}
+      />
 
       {/* ── 1. your pain ─────────────────────────────────────
           The record itself leads: the chart, the two figures, the
@@ -1331,11 +1338,11 @@ export default function TrendsScreen({
             <Text style={styles.subhead}>Days like this</Text>
             <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
             <Key items={feltBands} />
-            <Text style={styles.noteLine}>
-              Your {data.days.length} logged {data.days.length === 1 ? 'day' : 'days'},
-              grouped by how they averaged. This is the figure here that rises as
-              things get easier.
-            </Text>
+            <InfoTip
+              label="About days like this"
+              text={'Your ' + data.days.length + ' logged ' + (data.days.length === 1 ? 'day' : 'days')
+                + ', grouped by how they averaged. This is the figure here that rises as things get easier.'}
+            />
           </>
         )}
         {data.locations.length > 0 && (
@@ -1402,16 +1409,16 @@ export default function TrendsScreen({
                     ))}
                   </>
                 )}
-                <Text style={styles.noteLine}>
-                  The highest and lowest third of your logged days, with the middle
-                  third ({he.middleDays}{he.middleDays === 1 ? ' day' : ' days'}) set
-                  aside. This describes where the pain was and how you described it
-                  — not what caused it.
-                </Text>
+                <InfoTip
+                  label="About hardest and easiest days"
+                  text={'The highest and lowest third of your logged days, with the middle third ('
+                    + he.middleDays + (he.middleDays === 1 ? ' day' : ' days')
+                    + ') set aside. This describes where the pain was and how you described it — not what caused it.'}
+                />
               </View>
             )}
 
-            {(data.locations.length > 0 || data.qualities.length > 0 || data.timeOfDay.length > 0) && (
+            {(data.locations.length > 0 || data.qualities.length > 0 || data.symptoms.length > 0 || data.timeOfDay.length > 0) && (
               <View style={styles.subBlock}>
                 {data.locations.length > 0 && (
                   <>
@@ -1445,6 +1452,28 @@ export default function TrendsScreen({
                     />
                   </>
                 )}
+                {data.symptoms.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>Also marked</Text>
+                    <FoldedList
+                      bars
+                      label="symptoms"
+                      items={data.symptoms.map((x) => ({
+                        key: x.id,
+                        left: x.name,
+                        right: x.days + (x.days === 1 ? ' day' : ' days'),
+                        frac: x.days / Math.max(1, data.symptoms[0].days),
+                        tint: color.textPrimary,
+                      }))}
+                    />
+                    {/* the sentence about what the count is not, inside
+                        the card it qualifies */}
+                    <InfoTip
+                      label="About the symptoms count"
+                      text="Days you marked it at a check-in. A day without a mark is not a day without it."
+                    />
+                  </>
+                )}
                 {data.timeOfDay.length > 0 && (
                   <>
                     <Text style={styles.subhead}>Time of day</Text>
@@ -1459,10 +1488,10 @@ export default function TrendsScreen({
                         tint={painColor(b.avg)}
                       />
                     ))}
-                    <Text style={styles.noteLine}>
-                      These are the averages of when you happened to check in — not
-                      a claim about when your pain is worst.
-                    </Text>
+                    <InfoTip
+                      label="About time of day"
+                      text="These are the averages of when you happened to check in — not a claim about when your pain is worst."
+                    />
                   </>
                 )}
               </View>
@@ -1491,13 +1520,13 @@ export default function TrendsScreen({
                     right: outcomeOf(ev),
                   }))}
                 />
-                <Text style={styles.noteLine}>
-                  Events sit alongside your check-ins. Their timing doesn’t prove
-                  they caused a change
-                  {tried.length > 0
-                    ? '; impressions are your own, afterwards, recorded as you gave them.'
-                    : '.'}
-                </Text>
+                <InfoTip
+                  label="About events"
+                  text={'Events sit alongside your check-ins. Their timing doesn’t prove they caused a change'
+                    + (tried.length > 0
+                      ? '; impressions are your own, afterwards, recorded as you gave them.'
+                      : '.')}
+                />
               </View>
             )}
 
@@ -1745,10 +1774,14 @@ const styles = StyleSheet.create({
   endLine: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
   more: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   moreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
-  painHead: {
-    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-    marginBottom: 10,
-  },
+  /* the title row of a card with a note behind its (i); the heading's
+     own bottom margin moves here so the row keeps the card's rhythm */
+  cardHead: { marginBottom: 10 },
+  /* two lines, deliberately. This was one row with the count on the
+     right, and the moment the count grew a second clause ("· limited by
+     pain 3/10 across 2 evenings") it wrapped under the average and ran
+     off the card's edge — "Moderate2 days recorded · limited b". */
+  painHead: { marginBottom: 10, gap: 2 },
   painAvg: {
     color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
     fontVariant: ['tabular-nums'],
