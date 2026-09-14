@@ -259,6 +259,13 @@ intentionally chooses a value.
 **Log pain** → a timestamped record immediately, with UTC instant and offset. Complete even if
 the user stops here.
 
+**Also right now** — five chips under the number, on the same screen: fatigue, brain fog,
+slept badly, stiffness, low mood. The bad-day path: one slide, a tap or two, no typing, no
+second screen. They are *associated symptoms* (SOCRATES "A"), recorded per moment and shown
+back as what was marked; never attributions, never fed to the engine. Tri-state on the
+moment (`sym`, `symAsked`): never asked (the watch, older moments), asked and nothing
+applied, answered. A pain-only check-in is complete without them, and nothing says otherwise.
+
 ### Step 2 — The two active factors
 
 Shown only if a protocol is active, and only for factors this moment is eligible to answer.

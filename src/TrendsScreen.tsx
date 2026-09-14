@@ -1396,7 +1396,7 @@ export default function TrendsScreen({
               </View>
             )}
 
-            {(data.locations.length > 0 || data.qualities.length > 0 || data.timeOfDay.length > 0) && (
+            {(data.locations.length > 0 || data.qualities.length > 0 || data.symptoms.length > 0 || data.timeOfDay.length > 0) && (
               <View style={styles.subBlock}>
                 {data.locations.length > 0 && (
                   <>
@@ -1428,6 +1428,28 @@ export default function TrendsScreen({
                         tint: color.textPrimary,
                       }))}
                     />
+                  </>
+                )}
+                {data.symptoms.length > 0 && (
+                  <>
+                    <Text style={styles.subhead}>Also marked</Text>
+                    <FoldedList
+                      bars
+                      label="symptoms"
+                      items={data.symptoms.map((x) => ({
+                        key: x.id,
+                        left: x.name,
+                        right: x.days + (x.days === 1 ? ' day' : ' days'),
+                        frac: x.days / Math.max(1, data.symptoms[0].days),
+                        tint: color.textPrimary,
+                      }))}
+                    />
+                    {/* the sentence about what the count is not, inside
+                        the card it qualifies */}
+                    <Text style={styles.noteLine}>
+                      Days you marked it at a check-in. A day without a mark is not a
+                      day without it.
+                    </Text>
                   </>
                 )}
                 {data.timeOfDay.length > 0 && (

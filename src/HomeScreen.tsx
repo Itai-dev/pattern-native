@@ -36,7 +36,7 @@ import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
-  Entries, LOC_NAMES, Moment, QUALITY_NAMES, addDays, checkinCount, logsOf,
+  Entries, LOC_NAMES, Moment, QUALITY_NAMES, SYMPTOM_NAMES, addDays, checkinCount, logsOf,
   todayISO,
 } from './model';
 import { fmtDay } from './DayScreen';
@@ -130,6 +130,13 @@ function detailsOf(l: Moment): DetailRow[] {
   } else if (l.qAsked) {
     rows.push({ label: 'Feels like', chips: [], state: 'Nothing fit' });
   }
+  /* the chips under the number. Shown only when something was marked:
+     they are on every check-in, so "nothing marked" is the common case,
+     and a row saying so under each pain-only check-in would read as a
+     reproach rather than a fact. The stored flag keeps the distinction
+     (symAsked); this card just does not nag with it. */
+  const sym = (l.sym || []).map((id) => SYMPTOM_NAMES[id] || id);
+  if (sym.length) rows.push({ label: 'Also', chips: sym });
   return rows;
 }
 

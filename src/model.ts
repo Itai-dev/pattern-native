@@ -66,6 +66,19 @@ export interface Moment {
    *  different facts about the same silence. Additive: older moments
    *  carry no flag and are read as the unknown they are. */
   qAsked?: 1;
+  /** what else was going on at this moment — fatigue, fog, stiffness —
+   *  from a closed list of five, tapped on the pain screen itself.
+   *  These are SYMPTOMS, not causes: "brain fog" is a fact about the
+   *  moment the way "aching" is, and it is recorded and shown back as
+   *  one. Never fed to the engine, for the same reason the attributions
+   *  are not: a chip is ticked only on the days it applied, so there is
+   *  no set of clear-headed days to compare against. */
+  sym?: string[];
+  /** 1 = the chips were on screen at this moment. With `sym` absent it
+   *  means "nothing applied", which is an answer; a moment carrying
+   *  neither (the watch, anything written before the chips existed) was
+   *  never asked. Three states, never two. */
+  symAsked?: 1;
 }
 
 /** the longest a location description can be — same cap as every other
@@ -362,6 +375,10 @@ export function cleanLogs(l: unknown): Moment[] | undefined {
     const qc = cleanIds(q, QUALITYIDS);
     if (qc) v.q = qc;
     if (raw.qAsked === 1) v.qAsked = 1;
+    const sc = cleanIds(raw.sym, SYMPTOMIDS);
+    if (sc) v.sym = sc;
+    // "nothing applied" survives on its own, like the where-marker above
+    if (raw.symAsked === 1 || (Array.isArray(raw.sym) && !sc)) v.symAsked = 1;
     const ts = typeof raw.ts === 'number' && isFinite(raw.ts) && raw.ts > 0 ? Math.round(raw.ts) : undefined;
     if (ts !== undefined) v.ts = ts;
     const tz = cleanInt(raw.tz, -18 * 60, 18 * 60);
@@ -561,6 +578,12 @@ export interface MomentMeta {
    *  difference matters: the pain-step write must not erase what the
    *  where-step wrote a moment ago. */
   locNote?: string;
+  /** what else was going on, from SYMPTOM_NAMES. Undefined = this writer
+   *  did not put the chips, and whatever the moment already carries is
+   *  left alone; an array — EMPTY INCLUDED — is the answer, and marks
+   *  the moment as asked. The chips live on the pain step, so every
+   *  phone check-in passes one; the watch passes none. */
+  sym?: string[];
 }
 
 /** stamp the current instant. Kept here so every writer agrees on what
@@ -593,6 +616,10 @@ export function applyMoment(
   if (q && q.length) moment.q = q.slice();
   if (meta && meta.qAsked) moment.qAsked = 1;
   else if (q && q.length) moment.qAsked = 1;
+  if (meta && meta.sym !== undefined) {
+    if (meta.sym.length) moment.sym = meta.sym.slice();
+    moment.symAsked = 1;
+  }
   if (meta) {
     if (meta.ts !== undefined) moment.ts = meta.ts;
     if (meta.tz !== undefined) moment.tz = meta.tz;
@@ -613,6 +640,12 @@ export function applyMoment(
        explicit '' (the user cleared the field) removes the words */
     if (moment.locNote === undefined && was.locNote !== undefined
       && (!meta || meta.locNote === undefined)) moment.locNote = was.locNote;
+    /* a writer that did not put the chips (the watch, an older caller)
+       leaves what the moment already said about them */
+    if (!meta || meta.sym === undefined) {
+      if (was.sym) moment.sym = was.sym.slice();
+      if (was.symAsked) moment.symAsked = 1;
+    }
     logs[i] = moment;
   } else logs.push(moment);
   logs.sort((a, b) => a.h - b.h);
@@ -749,6 +782,24 @@ export const QUALITYIDS = Object.keys(QUALITY_NAMES);
 
 export function cleanQuality(a: unknown): string[] | undefined {
   return cleanIds(a, QUALITYIDS);
+}
+
+/* ── symptoms alongside the pain ─────────────────────────────
+   Five, and the five the chronic-pain communities keep naming as what
+   travels with a bad day. They sit on the pain screen so a bad-day
+   check-in is one slide and a tap or two, with no typing and no
+   second screen. A closed list on purpose: this is the "associated
+   symptoms" answer a clinician asks for, not a symptom tracker, and
+   anything finer belongs in a note. Ids are storage words and never
+   change; the labels are what the user reads. */
+export const SYMPTOM_NAMES: Record<string, string> = {
+  fatigue: 'Fatigue', fog: 'Brain fog', sleep: 'Slept badly',
+  stiffness: 'Stiffness', mood: 'Low mood',
+};
+export const SYMPTOMIDS = Object.keys(SYMPTOM_NAMES);
+
+export function cleanSymptoms(a: unknown): string[] | undefined {
+  return cleanIds(a, SYMPTOMIDS);
 }
 
 /** what tends to make it better or worse — asked once with the protocol,
