@@ -24,6 +24,7 @@ import { color, font, radius as radii, size } from './theme';
 import { Entries, checkinCount, dailyAverage, iso, todayISO } from './model';
 import { formatCheckins, formatScore, inkOn, painColor, speakScore, themeBrand } from './painScale';
 import { Press } from './motion';
+import { InfoTitle } from './InfoTip';
 
 const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const WEEKSTART = 1; // Monday-first
@@ -132,26 +133,31 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
             key={month.key}
             style={flat ? [mi > 0 && styles.flatGap] : [styles.card, mi > 0 && styles.cardGap]}
           >
-            <View style={styles.monthHead}>
-              <Text style={styles.monthName} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {month.label}
-              </Text>
-              {/* what a grid of holes does not say by itself */}
-              <Text style={styles.monthCount} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {logged} of {shown.length} logged
-              </Text>
-            </View>
-
-            {/* The key to the grid it precedes, and only on the first one:
-                the notation is identical in every month, and saying it
-                twenty-four times down a scroll is noise. It used to float
-                above the whole stack, which left it belonging to no card
-                and scrolling away from the thing it explains. */}
-            {mi === 0 && (
-              <Text style={styles.legend} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Colour is the day’s average pain, 0–10. The dots under a day
-                count its check-ins. Scroll for earlier months.
-              </Text>
+            {/* The key to the grid, behind an (i) on the first month's
+                header only: the notation is identical in every month, and
+                saying it twenty-four times down a scroll is noise. It used
+                to float above the whole stack, which left it belonging to
+                no card and scrolling away from the thing it explains. */}
+            {mi === 0 ? (
+              <InfoTitle
+                title={month.label}
+                titleStyle={styles.monthName}
+                aside={logged + ' of ' + shown.length + ' logged'}
+                asideStyle={styles.monthCount}
+                label="How to read the calendar"
+                text="Colour is the day’s average pain, 0–10. The dots under a day count its check-ins. Scroll for earlier months."
+                style={styles.monthHead}
+              />
+            ) : (
+              <View style={[styles.monthHead, styles.monthHeadRow]}>
+                <Text style={styles.monthName} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {month.label}
+                </Text>
+                {/* what a grid of holes does not say by itself */}
+                <Text style={styles.monthCount} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {logged} of {shown.length} logged
+                </Text>
+              </View>
             )}
 
             <View style={[styles.grid, { width: gridW, columnGap: GAP, rowGap: 4 }]}>
@@ -284,9 +290,10 @@ const styles = StyleSheet.create({
   cardGap: { marginTop: 14 },
   /* months inside a host card sit closer — the host owns the rhythm */
   flatGap: { marginTop: 22 },
-  monthHead: {
-    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-    gap: 10, marginBottom: 12,
+  monthHead: { marginBottom: 12 },
+  /* the plain month header (every month but the first) draws its own row */
+  monthHeadRow: {
+    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10,
   },
   monthName: {
     color: color.textPrimary, fontSize: font.title3, fontWeight: '700', letterSpacing: -0.2,

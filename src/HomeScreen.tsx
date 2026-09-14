@@ -32,6 +32,7 @@ import Animated, {
   cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import DayLine from './DayLine';
+import InfoTip from './InfoTip';
 import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
@@ -570,12 +571,12 @@ export default function HomeScreen({
             <DayLine logs={logs} height={SPARK_H} grid axis highlightH={latest ? latest.h : undefined} />
           </View>
 
-          {/* what the drawing is NOT, inside the card it qualifies */}
-          <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Each dot is a check-in, at the hour you made it; the ringed one is
-            the latest. One day is not a trend, and nothing here is being
-            compared to another day.
-          </Text>
+          {/* what the drawing is NOT, inside the card it qualifies —
+              folded behind the (i), still in the card */}
+          <InfoTip
+            label="About this chart"
+            text="Each dot is a check-in, at the hour you made it; the ringed one is the latest. One day is not a trend, and nothing here is being compared to another day."
+          />
 
           <View style={styles.rule} />
           <View style={styles.foot}>
