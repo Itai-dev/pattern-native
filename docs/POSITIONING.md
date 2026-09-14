@@ -61,6 +61,128 @@ pacing *instruction*, anything touching medication decisions.
    at it" — a record read back was the control arm, and an app with
    nothing to come back for is a record nobody keeps.)
 
+## The record leaves the phone, encrypted · decided 13 Sep 2026
+
+**What forced it.** A tester lost their entire record. The app went from the
+phone and the reinstall came back empty. Nothing was broken: the record is
+one SQLite file in the app's container, deleting the app deletes the
+container, and there was deliberately no copy anywhere else. The promise
+worked exactly as written, and the promise is what destroyed the data.
+
+That is not a bug to be fixed with a warning. A pain record's whole value is
+that it is long — ninety squares settle what memory cannot, and a report is
+worth showing because it covers months. The longer the record gets, the more
+it is worth, and until 13 Sep 2026 the more it was worth the more there was
+to lose to one tap, one lost phone, one TestFlight build running out at
+ninety days. A tool whose value grows with the amount of data it can silently
+destroy is not a tool anyone should be asked to trust with a year of their
+life.
+
+**What was rejected.** Asking harder. The mitigation shipped that same day —
+Today asks for a saved copy, Profile says when the last one was made, the
+first onboarding screen offers Restore — and it is worth keeping, but as a
+floor, not the answer. Every version of it puts the work on a person with
+chronic pain, on the day they are least able to do it, to protect against a
+harm they cannot see coming. "The user should have exported a backup" is the
+same sentence as "the user should have known", and it is not a design.
+
+**The decision.** The record is copied off the phone automatically, and it is
+encrypted before it goes:
+
+- Pattern encrypts the backup on the device. What leaves is ciphertext.
+- The key is held in Apple's iCloud Keychain, which is end-to-end encrypted
+  in every account, with no setting to get wrong, and which survives the app
+  being deleted.
+- The ciphertext goes to the app's own private iCloud container, under the
+  user's Apple ID. It survives the app being deleted, and comes back on
+  reinstall.
+- Pattern still has no server, no account and no login. There is still
+  nowhere for us to put a health record and no way for us to read one.
+
+**The line that replaces the old one.** "Nothing you told us about your body
+ever leaves the phone" is retired. It was true, and it cost a tester their
+record, and no sentence is worth that. The replacement is not a retreat and
+should not be written as one:
+
+> Your record is encrypted on your iPhone before a copy of it is placed in
+> your own iCloud account. The key never leaves Apple's end-to-end encrypted
+> keychain. Pattern has no server; neither we nor Apple can read what is
+> stored.
+
+That is a stronger claim than the one it replaces, not a weaker one. The old
+line promised the data went nowhere. The new one promises it is unreadable
+wherever it goes, which is the property people actually wanted, and it comes
+with a copy that survives the thing that has already happened once.
+
+**What we are honest about instead.** Three costs, and they belong in the
+policy rather than in a footnote:
+
+1. **A key the user does not have is a record the user cannot recover.** If
+   iCloud Keychain is switched off, the key stays on that one device: it
+   still survives deleting the app, but not losing the phone, and the copy
+   in iCloud is then unreadable ciphertext. The app must say so plainly at
+   the moment it matters, and the manual export stays exactly where it is as
+   the way out. We do not invent a recovery phrase for a person in pain to
+   write down and lose.
+2. **Apple is now in the path.** Not for the contents, which are encrypted
+   before they reach it, but for the fact that an account has a Pattern
+   container at all, and for the availability of the whole thing. That is a
+   real dependency and naming it is the price of the claim above.
+3. **This is a backup, not sync.** One file, restored on a fresh install. It
+   is not the live record shared across devices, because the same day edited
+   in two places is a merge problem, and a wrong merge in a health record is
+   a corrupted answer to a clinician's question. Sync stays a later decision,
+   as SPEC 19.5 always had it.
+
+**What does not change.** Nothing new is sent to us or to any processor we
+control. The analytics rule is untouched: a closed event list, values capped
+at 24 characters, opt-out in Profile, and never a health value. The engine
+still runs on the phone. The report is still generated on the phone. What a
+user flags about their own day is still their read of it and still never
+reaches the engine.
+
+**BLOCKED, FOUND THE SAME DAY, BEFORE ANY CODE.** App Store Review
+Guideline 5.1.3(ii) reads, in full: *"Apps must not write false or inaccurate
+data into HealthKit or any other medical research or health management apps,
+and may not store personal health information in iCloud."* There is no
+carve-out in that sentence for the private database, for a container of our
+own, or for data we encrypted before it left. Pattern already reads HealthKit
+and is self-evidently a health management app to a reviewer, so the sentence
+is pointed directly at us.
+
+This does not retract the decision above; it retracts its *destination*. The
+argument stands in full — asking harder is not a design, the record must
+survive the app being deleted, and what leaves must be unreadable. Three ways
+forward, and the choice is not ours to guess:
+
+1. **Ask Apple and get it in writing.** CloudKit's private database offers
+   per-field encryption on device before upload, which is the strongest
+   technical answer and the one worth putting to review. But 5.1.3(ii) as
+   written says no, and a rejection costs a build cycle that needs a computer
+   — so this is a question to ask first, never a thing to ship and find out.
+2. **The user picks the destination.** Pattern encrypts, and writes the
+   ciphertext where the user chose once and for all. Nothing is stored by us
+   in iCloud; if the folder they chose happens to sync, that was their doing
+   and their account. It sidesteps the guideline because the app is not the
+   thing putting health information in iCloud. Still needs a native build:
+   folder access on iOS is session-only, and persisting it needs a
+   security-scoped bookmark, which no Expo module exposes today.
+3. **Keep the record local and make the manual copy much better.** Ships over
+   the air this week, reaches every tester on the current binary, and needs
+   no permission from anyone. It is the floor we already shipped, not the
+   answer, but it is the only one of the three that helps before a build.
+
+**Whichever wins, the encryption design does not change**, and neither does
+the retirement of the old line. The record is encrypted on the device, the
+key lives where the app cannot lose it, and what leaves the phone is
+ciphertext. Only the destination is open.
+
+**A native build is required**, and the automatic copy therefore reaches only
+binaries built after this decision. The JavaScript must be guarded so that
+older binaries take the catch and live without it, exactly as HealthKit and
+expo-glass-effect did, so that everyone keeps receiving the same over-the-air
+updates and the runtime version does not move.
+
 ## Known commercial facts
 
 - App Store display name "Pattern" is taken; a distinct store name is needed
@@ -73,4 +195,5 @@ pacing *instruction*, anything touching medication decisions.
   counts — that a check-in happened, how long it took, never what it said —
   go to a named, EU-hosted processor, with an opt-out in Profile. The health
   record itself stays local, and any further move requires rewriting this
-  paragraph first.
+  paragraph first. **It changed again on 13 Sep 2026 — see below, which is
+  that rewrite.**

@@ -695,8 +695,19 @@ If AI is added later, three constraints hold:
 ### 19.5 Privacy posture
 
 Local-first · no account · no advertising SDK · **no health-content values in product
-analytics, including shadow results** · hypothesis text never leaves the device · export and
-deletion user-controlled · cloud sync and Apple Health remain later decisions.
+analytics, including shadow results** · export and deletion user-controlled · Apple Health
+connected on the device and never written to.
+
+**Amended 13 Sep 2026.** Two lines here were written when the record had no copy anywhere,
+and a tester losing theirs retired both. "Hypothesis text never leaves the device" is now
+"hypothesis text is never readable off the device": it travels inside the **encrypted
+off-device backup** with everything else, as ciphertext Pattern encrypts before it leaves.
+And cloud sync is no longer an open decision in one direction — a backup and restore to the
+user's own private iCloud container is decided and specified in POSITIONING.md; *live
+multi-device sync* remains deferred, because the same day edited in two places is a merge
+problem and a wrong merge is a corrupted answer to a clinician. The key lives in Apple's
+end-to-end encrypted iCloud Keychain, so neither we nor Apple can read the contents; we
+still have no server that could receive them.
 
 ## 20. Accessibility and visual behaviour
 

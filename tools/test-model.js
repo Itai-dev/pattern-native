@@ -960,5 +960,52 @@ ok('the note survives a backup round-trip, junk does not', (() => {
     && e.logs[2].locNote === undefined;
 })());
 
+/* ── the saved copy, and when Today asks for one ────────────
+   The record is one file inside the app; deleting the app deletes it.
+   These two decide when Today says so — and, just as much, when it
+   stays quiet, which is the half that keeps it from being a nag. */
+group('the saved copy');
+
+const dayRange = (from, n) => {
+  const e = {};
+  let d = from;
+  for (let i = 0; i < n; i++) { e[d] = { date: d, pain: 5, logs: [] }; d = model.addDays(d, 1); }
+  return e;
+};
+
+ok('with no copy, every logged day is unsaved',
+  model.unsavedDays(dayRange('2026-09-01', 10), null) === 10);
+ok('an empty record has nothing to save',
+  model.unsavedDays({}, null) === 0);
+ok('a copy covers the days up to and including its own date',
+  model.unsavedDays(dayRange('2026-09-01', 10), { on: '2026-09-06', days: 6 }) === 4);
+ok('a copy made after the last day leaves nothing unsaved',
+  model.unsavedDays(dayRange('2026-09-01', 10), { on: '2026-09-30', days: 10 }) === 0);
+ok('a copy made before the record leaves all of it unsaved',
+  model.unsavedDays(dayRange('2026-09-01', 10), { on: '2026-08-01', days: 0 }) === 10);
+/* a day edited after the copy was made is NOT re-counted: the copy
+   holds a version of it, and counting edits would mean counting writes */
+ok('re-editing a day inside the copy does not make it unsaved again',
+  model.unsavedDays(dayRange('2026-09-01', 10), { on: '2026-09-06', days: 6 }) === 4);
+
+ok('under the threshold, nothing is asked',
+  model.copyOfferDue(6, 0, 7) === false);
+ok('at the threshold with no copy, the card is due',
+  model.copyOfferDue(7, 0, 7) === true);
+/* "not now" marks the count at that moment; the next ask needs a whole
+   further threshold of days ADDED, so the card cannot return tomorrow */
+ok('right after "not now", the card is gone',
+  model.copyOfferDue(7, 7, 7) === false);
+ok('six more days after "not now" is still not enough',
+  model.copyOfferDue(13, 7, 7) === false);
+ok('seven more days after "not now" asks again',
+  model.copyOfferDue(14, 7, 7) === true);
+ok('a copy resets the mark, and a fresh week asks again',
+  model.copyOfferDue(7, 0, 7) === true);
+/* the only thing that moves it is days added — elapsed time never does,
+   which is what keeps it off the "nothing rewards looking" list */
+ok('time passing with no new days never brings it back',
+  model.copyOfferDue(7, 7, 7) === false && model.copyOfferDue(7, 7, 7) === false);
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

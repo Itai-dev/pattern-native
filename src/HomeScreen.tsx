@@ -37,8 +37,8 @@ import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
-  Entries, LOC_NAMES, Moment, QUALITY_NAMES, SYMPTOM_NAMES, addDays, checkinCount, logsOf,
-  todayISO,
+  addDays, checkinCount, copyOfferDue, Entries, LastCopy, LOC_NAMES, logsOf, Moment,
+  QUALITY_NAMES, SYMPTOM_NAMES, todayISO, unsavedDays,
 } from './model';
 import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
@@ -48,20 +48,24 @@ import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
 import { ExperimentState, experimentCopy } from './experiment';
-import { EXPERIMENT_OFFER_AFTER_DAYS, EXPERIMENT_REOFFER_DAYS } from './thresholds';
+import { COPY_NUDGE_DAYS, EXPERIMENT_OFFER_AFTER_DAYS, EXPERIMENT_REOFFER_DAYS } from './thresholds';
 
 /* ── when Today may ask for something ────────────────────────
-   Three offers live on this screen, and at most ONE shows at a time:
-   a screen that asks for three things is a form. They are ordered by
-   how much they pay back a new user, and each is shown once, on either
-   answer, forever.
+   Several offers live on this screen, and at most ONE shows at a
+   time: a screen that asks for three things is a form. They are
+   ordered by how much they pay back a new user, and each is shown
+   once, on either answer, forever — except the copy, which is the
+   one thing here that protects the record rather than adding to it,
+   and so returns after another week of days it does not cover.
 
    The reminder comes first and right after the first check-in — the
    moment it explains itself, and the strongest habit lever the app
-   has. The background waits: five minutes of history right after six
-   onboarding screens was the first thing every tester dismissed. The
-   widget waits longest, because a lock screen is worth explaining only
-   to someone who has come back. */
+   has. The copy comes next, ahead of everything optional: a record
+   worth adding to is a record worth not losing. The background waits:
+   five minutes of history right after six onboarding screens was the
+   first thing every tester dismissed. The widget waits longest,
+   because a lock screen is worth explaining only to someone who has
+   come back. */
 const HEALTH_OFFER_AFTER_DAYS = 2;
 const BACKGROUND_OFFER_AFTER_DAYS = 3;
 const APPOINTMENT_OFFER_AFTER_DAYS = 4;
@@ -192,6 +196,12 @@ export interface HomeScreenProps {
   onStartExperiment: () => void;
   /** file an ended one ("Done"), or end a running one early ("Stop") */
   onEndExperiment: (how: 'done' | 'stopped') => void;
+  /** the backup export — the share sheet, and the record marked copied
+   *  only if the sheet closed with the file handed somewhere */
+  onSaveCopy: () => void;
+  /** the last saved copy, owned by App so the card clears the moment one
+   *  is made — null when there has never been one */
+  lastCopy: LastCopy | null;
 }
 
 export default function HomeScreen({
@@ -200,6 +210,7 @@ export default function HomeScreen({
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
   experiment, onStartExperiment, onEndExperiment,
+  onSaveCopy, lastCopy,
 }: HomeScreenProps) {
   const t = todayISO();
   /* LAST NIGHT, ON TODAY. The calm rule keeps Health off this screen
@@ -288,6 +299,30 @@ export default function HomeScreen({
   );
   const offerWidget = !widgetDismissed && loggedDays >= WIDGET_OFFER_AFTER_DAYS;
 
+  /* THE COPY. The record is one SQLite file inside the app's own
+     container, and deleting the app deletes it — there is no server
+     copy by design, and nothing the app writes on its own outlives the
+     app. A tester lost a whole record this way (13 Sep 2026): the app
+     went, the reinstall came back empty, and the only thing that would
+     have survived was a file they had chosen a home for.
+
+     So Today says so — once a week of record exists that no copy holds,
+     and again only after another week has been ADDED since "not now".
+     It counts days added, never days elapsed: the card moves when the
+     record does and never on its own, and a missed week neither
+     advances it nor scolds. It is not a streak and not a verdict on
+     today — it names how many days are at risk, which is a fact about
+     storage, not about the pain in them, and it goes quiet the moment
+     a copy exists. */
+  const unsaved = unsavedDays(entries, lastCopy);
+  const [copySeen, setCopySeenState] = useState(() => db.getCopySeen());
+  const offerCopy = copyOfferDue(unsaved, copySeen, COPY_NUDGE_DAYS);
+  const dismissCopy = () => {
+    track('copy_offer_dismissed');
+    db.setCopySeen(unsaved);
+    setCopySeenState(unsaved);
+  };
+
   /* Apple Health, offered once a record exists to sit beside. It left
      onboarding with the other day-zero asks: a permission request
      before the first check-in was friction wearing a privacy costume,
@@ -334,8 +369,10 @@ export default function HomeScreen({
   const xCopy = experiment ? experimentCopy(experiment) : null;
 
   /* one at a time, in the order they pay back */
-  const offer: null | 'reminder' | 'health' | 'background' | 'experiment' | 'appointment' | 'widget' = offerReminder
-    ? 'reminder' : offerHealth ? 'health' : offerBackground ? 'background'
+  /* one at a time, and the copy goes near the front: every other offer
+     adds something to a record that the copy is what keeps. */
+  const offer: null | 'reminder' | 'copy' | 'health' | 'background' | 'experiment' | 'appointment' | 'widget' = offerReminder
+    ? 'reminder' : offerCopy ? 'copy' : offerHealth ? 'health' : offerBackground ? 'background'
       : offerExperiment ? 'experiment'
         : offerAppointment ? 'appointment' : offerWidget ? 'widget' : null;
 
@@ -956,6 +993,50 @@ export default function HomeScreen({
             >
               <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Got it
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
+      {/* ── the copy: this phone is the only place it lives ──
+          Plain about the failure it prevents, because the failure is
+          silent: nothing warns you, and you find out on the reinstall.
+          No number about the pain, only a count of days at risk. */}
+      {offer === 'copy' && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Your record lives only on this iPhone
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {(lastCopy
+              ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' after your last saved copy.'
+              : unsaved + (unsaved === 1 ? ' day has' : ' days have') + ' never been saved anywhere else.')
+              + ' If Pattern is removed — by you, by a test build running out, with a lost phone —'
+              + ' they go with it. A copy you keep in Files or iCloud Drive does not.'}
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={() => { track('copy_offer_taken'); onSaveCopy(); }}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Save a copy of your record"
+              accessibilityHint="Opens the share sheet with a backup file. Choose Save to Files to keep it outside the app."
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Save a copy
+              </Text>
+            </Press>
+            <Press
+              onPress={dismissCopy}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Not now"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Not now
               </Text>
             </Press>
           </View>

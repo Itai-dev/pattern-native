@@ -1439,6 +1439,35 @@ export interface Experiment {
 /** the longest a description may be — a phrase, not a plan */
 export const EXPERIMENT_WHAT_MAX = 80;
 
+/* ── the saved copy ─────────────────────────────────────────── */
+
+/** the last time the record left the phone as a backup file the user
+ *  chose a home for — the day, and how many days it held. Kept in
+ *  prefs, never in the backup itself: a file restored onto a new phone
+ *  must not arrive claiming that phone has a copy. */
+export interface LastCopy {
+  on: string;
+  days: number;
+}
+
+/** logged days no saved copy holds: every day when there has never
+ *  been one, otherwise the days dated after it. A day re-edited before
+ *  the copy's date is not counted — the copy has a version of it, and
+ *  a rule that counted edits would have to count every write. */
+export function unsavedDays(entries: Entries, copied: LastCopy | null): number {
+  const dates = Object.keys(entries);
+  if (!copied) return dates.length;
+  return dates.filter((d) => d > copied.on).length;
+}
+
+/** whether Today should ask for a copy: enough unsaved days, and
+ *  enough MORE of them than there were the last time the person said
+ *  not now. `seen` is the unsaved count at that dismissal (0 when
+ *  never dismissed, or after a copy resets it). */
+export function copyOfferDue(unsaved: number, seen: number, threshold: number): boolean {
+  return unsaved >= threshold && unsaved - seen >= threshold;
+}
+
 /** a raw experiment from a backup → a clean one, or null. Unknown keys
  *  drop; a description is trimmed and capped; dates must be real. */
 export function cleanExperiment(raw: unknown): Experiment | null {
