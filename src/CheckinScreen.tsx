@@ -89,6 +89,9 @@ import {
   minutesNow, nowMeta, todayISO,
 } from './model';
 import { fmtClock } from './clock';
+import {
+  CheckinMode, ModeState, PREF_CHECKIN_MODE, afterCheckin, chooseMode, cleanModeState,
+} from './checkinMode';
 
 const SQUARE = 150;
 
@@ -158,6 +161,16 @@ export default function CheckinScreen({
      opens with the moment's own marks. */
   const [sym, setSym] = useState<string[]>(edit && edit.sym ? edit.sym.slice() : []);
   const [writtenAt, setWrittenAt] = useState<number | null>(edit ? edit.h : null);
+  /* which button leads on the pain step, learned from the last few
+     check-ins or chosen on the switch — see checkinMode.ts */
+  const [modeState, setModeState] = useState<ModeState>(() =>
+    cleanModeState(db.getPref<unknown>(PREF_CHECKIN_MODE, null)));
+  const pickMode = (m: CheckinMode) => {
+    Haptics.selectionAsync().catch(() => {});
+    const next = chooseMode(m);
+    setModeState(next);
+    db.setPref(PREF_CHECKIN_MODE, next);
+  };
   /* the shape starts at the middle of the ramp, where the thumb parks,
      so an untouched control and an untouched square agree with each other.
      Both are dimmed until a value is actually chosen. */
@@ -369,6 +382,13 @@ export default function CheckinScreen({
      present. An edit has one only for the moment's own words. */
   const askToday = askIds.length > 0 || askFeel;
   const limitationDue = !editing && askIds.indexOf(LIMITATION_ID) >= 0;
+  /* WHICH BUTTON IS FILLED on the pain step. A learned or chosen mode
+     decides; before anything is learned the app's own rule holds — the
+     number leads, except in the evening when the limitation question
+     does. A remembered day and an edit keep the plain rule: the switch
+     is about how you check in today, and neither of those is that. */
+  const modeLead: CheckinMode = modeState.mode || (limitationDue ? 'detailed' : 'quick');
+  const showModeSwitch = !editing && !retro;
   /* WHERE, WHEN NEEDED. The first check-in of a day asks where; the
      next ones do not, unless the number has jumped WHERE_REASK_DELTA
      above anything earlier that day — a change worth locating. A
@@ -386,6 +406,9 @@ export default function CheckinScreen({
     ? (askWhere ? ['pain', 'where'] : ['pain'])
     : (askWhere ? ['pain', 'where', 'today'] : ['pain', 'today']);
   const stepsShown = order.filter((s) => s !== 'today' || askToday);
+  /* Continue leads only when there is somewhere to continue to */
+  const detailsLead = showModeSwitch ? modeLead === 'detailed' && stepsShown.length > 1
+    : limitationDue;
   const isLast = stepsShown.indexOf(step) === stepsShown.length - 1;
 
   const back = () => {
@@ -431,10 +454,18 @@ export default function CheckinScreen({
     trackCheckin(Math.round((Date.now() - openedAt) / 1000), contextAdded, moved);
   };
 
+  /** what this check-in teaches the next one. An edit or a remembered
+   *  day says nothing about how the person checks in today. */
+  const learn = (outcome: CheckinMode) => {
+    if (editing || retro) return;
+    db.setPref(PREF_CHECKIN_MODE, afterCheckin(modeState, outcome));
+  };
+
   const finish = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     /* "context added" means something beyond the number was actually
        chosen, not that a screen was walked through */
+    learn('detailed');
     counted(loc.length > 0 || sym.length > 0 || anyAnswered);
     setStep('done');
   };
@@ -455,6 +486,7 @@ export default function CheckinScreen({
       editing ? loc : null, editing ? quality : null, meta()
     );
     setWrittenAt(minutes);
+    learn('quick');
     counted(sym.length > 0);
     setStep('done');
   };
@@ -480,6 +512,7 @@ export default function CheckinScreen({
     if (!onEvent) return;
     Haptics.selectionAsync().catch(() => {});
     writeStep();
+    learn('detailed');
     counted(loc.length > 0 || sym.length > 0 || anyAnswered);
     onEvent();
   };
@@ -841,6 +874,42 @@ export default function CheckinScreen({
       )}
       {hint && <Text style={styles.hint}>{hint}</Text>}
 
+      {/* THE SWITCH. Quick or detailed, one tap, under the title where
+          the decision about today gets made before the slider moves. It
+          changes which button below is filled, nothing else: both paths
+          stay a tap away, and the record is the same either way. It also
+          moves on its own — three quick check-ins in a row bring Quick,
+          one walk into the details brings Detailed — so most people
+          never touch it; it is here for the person who already knows.
+          Not shown while editing or writing a remembered day: neither is
+          how you are checking in today. */}
+      {step === 'pain' && showModeSwitch && stepsShown.length > 1 && (
+        <View style={[styles.sideSwitch, styles.modeSwitch]} accessibilityRole="radiogroup"
+          accessibilityLabel="How much to record this time">
+          {(['quick', 'detailed'] as CheckinMode[]).map((m) => {
+            const on = modeLead === m;
+            return (
+              <Press
+                key={m}
+                onPress={() => { if (!on) pickMode(m); }}
+                pressOpacity={0.8}
+                style={[styles.sideItem, styles.modeItem, on && styles.sideItemOn]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: on, selected: on }}
+                accessibilityLabel={m === 'quick'
+                  ? 'Quick: just the number'
+                  : 'Detailed: where it hurts, and more'}
+              >
+                <Text style={[styles.sideText, on && styles.sideTextOn]}
+                  allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {m === 'quick' ? 'Quick' : 'Detailed'}
+                </Text>
+              </Press>
+            );
+          })}
+        </View>
+      )}
+
       <GestureDetector gesture={stepSwipe}>
       {step === 'pain' ? (
         <View style={styles.middle}>
@@ -1051,19 +1120,22 @@ export default function CheckinScreen({
              stays the only mandatory answer; the quiet line ends here. */
           <>
             <Press
-              onPress={limitationDue ? advance : logOnly}
+              onPress={detailsLead ? advance : logOnly}
               pressScale={0.985}
               accessibilityRole="button"
               accessibilityLabel={editing
                 ? 'Save the number and keep the rest as it was'
-                : limitationDue ? 'Continue to how much pain limited today' : 'Log the pain and finish'}
+                : detailsLead
+                  ? (limitationDue ? 'Continue to how much pain limited today'
+                    : 'Continue to where it hurts, and more')
+                  : 'Log the pain and finish'}
               style={[styles.primary, styles.primaryOn]}
             >
               <Text style={[styles.primaryText, styles.primaryTextOn]}>
-                {editing ? 'Save' : limitationDue ? 'Continue' : 'Log it'}
+                {editing ? 'Save' : detailsLead ? 'Continue' : 'Log it'}
               </Text>
             </Press>
-            {limitationDue ? (
+            {detailsLead ? (
               <Press
                 onPress={logOnly}
                 pressOpacity={0.7}
@@ -1284,6 +1356,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8,
   },
   sideItemOn: { backgroundColor: color.bgSegmentActive },
+  /* the quick/detailed switch: the same segmented control, narrowed and
+     centred under the title — a small decision, drawn small */
+  modeSwitch: { alignSelf: 'center', marginTop: 14, minWidth: 220 },
+  modeItem: { minHeight: 48, paddingHorizontal: 18 },
   sideText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   sideTextOn: { color: color.textPrimary },
   chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderCurve: 'continuous', borderWidth: 1 },

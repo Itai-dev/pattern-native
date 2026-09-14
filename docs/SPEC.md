@@ -266,6 +266,14 @@ back as what was marked; never attributions, never fed to the engine. Tri-state 
 moment (`sym`, `symAsked`): never asked (the watch, older moments), asked and nothing
 applied, answered. A pain-only check-in is complete without them, and nothing says otherwise.
 
+**Quick or detailed.** The pain step leads with one of two buttons — *Log it* or *Continue*
+— and which one is filled is learned, never set: three quick check-ins in a row and the
+number leads; one walk into the details and Continue leads next time. A two-segment switch
+under the title makes the same choice by hand. Before anything is learned the old rule holds
+(the number leads, except in the evening when the limitation question does). The count that
+decides this is never shown and is not a streak (`src/checkinMode.ts`,
+`QUICK_DEFAULT_AFTER`).
+
 ### Step 2 — The two active factors
 
 Shown only if a protocol is active, and only for factors this moment is eligible to answer.

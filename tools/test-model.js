@@ -400,6 +400,35 @@ ok('no symptoms, no section', (() => {
   return html.indexOf('Associated symptoms') < 0;
 })());
 
+/* ── the check-in remembers its detail level ───────────────── */
+group('check-in mode');
+const mode = require(path.join(OUT, 'checkinMode.js'));
+ok('nothing learned yet: mode is null', mode.MODE_DEFAULT.mode === null && mode.MODE_DEFAULT.quickRun === 0);
+ok('three quick check-ins in a row bring quick, not two', (() => {
+  let s = mode.MODE_DEFAULT;
+  s = mode.afterCheckin(s, 'quick'); const two = mode.afterCheckin(s, 'quick');
+  const three = mode.afterCheckin(two, 'quick');
+  return two.mode === null && two.quickRun === 2 && three.mode === 'quick' && three.quickRun === 3;
+})());
+ok('one detailed check-in brings detailed at once and resets the run', (() => {
+  const s = mode.afterCheckin({ mode: 'quick', quickRun: 7 }, 'detailed');
+  return s.mode === 'detailed' && s.quickRun === 0;
+})());
+ok('a quick check-in after a detailed one does not flip back alone', (() => {
+  const s = mode.afterCheckin({ mode: 'detailed', quickRun: 0 }, 'quick');
+  return s.mode === 'detailed' && s.quickRun === 1;
+})());
+ok('the switch decides at once and restarts the run', (() => {
+  const s = mode.chooseMode('quick');
+  return s.mode === 'quick' && s.quickRun === 0;
+})());
+ok('the threshold is the named one', mode.afterCheckin({ mode: null, quickRun: 2 }, 'quick').mode === 'quick');
+ok('junk in the pref reads as the default', (() => {
+  const a = mode.cleanModeState(null), b = mode.cleanModeState({ mode: 'loud', quickRun: -3 });
+  const c = mode.cleanModeState({ mode: 'detailed', quickRun: 1.7 });
+  return a.mode === null && b.mode === null && b.quickRun === 0 && c.mode === 'detailed' && c.quickRun === 1;
+})());
+
 /* ── the report data ───────────────────────────────────────── */
 group('report data');
 const mk = (n, gapAt) => {
