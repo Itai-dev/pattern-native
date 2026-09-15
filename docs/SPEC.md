@@ -876,9 +876,11 @@ line on the card itself.
 **Setup** lives in Profile (`HealthSheet.tsx`): pick categories → Apple's own
 sheet → done. The screen speaks only states it can know — HealthKit hides
 read denials, so "no data yet" is never rendered as "denied". Stored context
-is derived data: local SQLite (`health_day`), excluded from backups (another
-phone must not inherit sensor readings it didn't take), wiped by delete-all
-and by disconnecting.
+is derived data: its own SQLite file (`pattern-health.db`, table
+`health_day`) under Library/Caches, which iOS leaves out of device backups —
+and it is excluded from the export too (another phone must not inherit sensor
+readings it didn't take; App Review 5.1.3 forbids health data in iCloud).
+Wiped by delete-all and by disconnecting; re-derived if iOS purges Caches.
 
 **Decisions.** Foreground-only sync (open + return from background,
 `HEALTH_RESYNC_DAYS` re-derived for late-arriving watch data,

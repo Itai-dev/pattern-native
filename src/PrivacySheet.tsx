@@ -12,14 +12,15 @@ import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Press } from './motion';
 import { color, font } from './theme';
 
-export const PRIVACY_UPDATED = '24 August 2026';
+export const PRIVACY_UPDATED = '15 September 2026';
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'What stays on your device',
     body: [
       'Every check-in: pain score, time, body areas, quality words. Everything you write: notes, what you tried, what you want to understand. Your answers to the daily questions, and which questions were asked or skipped. Events, reminders, and your app preferences.',
-      'This lives in a database inside the app’s own storage, protected by your device’s encryption and passcode. Deleting Pattern deletes all of it. There is no copy anywhere else.',
+      'This lives in a database inside the app’s own storage, protected by your device’s encryption and passcode. Deleting Pattern deletes all of it.',
+      'Your record is part of your iPhone’s own backup — iCloud Backup, or a backup to a computer — if you have one turned on. That backup is Apple’s, made and encrypted under your Apple Account; Pattern does not make it, cannot see it and cannot turn it off. It is what brings your record back on a new phone, and it is the only copy anywhere other than the one you export yourself.',
     ],
   },
   {
@@ -46,7 +47,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'Apple Health',
     body: [
-      'If you connect Apple Health, Pattern reads only the categories you choose, never writes to Health, and keeps what it reads on this iPhone. Health context is not included in backups and is removed when you disconnect.',
+      'If you connect Apple Health, Pattern reads only the categories you choose, never writes to Health, and keeps what it reads on this iPhone — apart from your record, in a place iOS leaves out of backups, so a new phone reads Health afresh rather than inheriting readings it never took. It is not in the backup file you export, and it is removed when you disconnect.',
     ],
   },
   {
@@ -103,15 +104,15 @@ export default function PrivacySheet({ onDone, contactEmail }: PrivacySheetProps
           Last updated {PRIVACY_UPDATED}
         </Text>
         <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Nothing you record about your body ever leaves your phone. Your pain
+          Nothing you record about your body is ever sent to Pattern. Your pain
           scores, body areas, descriptions, notes, answers and hypotheses are
-          stored only on your device, and Pattern has no server that could
-          receive them.
+          stored on your iPhone, and Pattern has no server that could receive
+          them.
         </Text>
         <Text style={styles.p} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Pattern has no accounts, no login, and no cloud sync. There is
-          nowhere for us to store your health record even if we wanted to, and
-          no way for us to read it.
+          Pattern has no accounts, no login, and no cloud sync of its own.
+          There is nowhere for us to store your health record even if we
+          wanted to, and no way for us to read it.
         </Text>
         {SECTIONS.map((s) => (
           <View key={s.title} style={styles.section}>

@@ -214,8 +214,10 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
                 Your record stays on this iPhone
               </Text>
               <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                No account, no sign-in, nothing uploaded. What you write leaves
-                this phone only if you export it or share a summary yourself.
+                No account, no sign-in, nothing sent to Pattern. It rides in your
+                iPhone’s own backup, so a new phone gets it back. What you write
+                leaves your hands only if you export it or share a summary
+                yourself.
               </Text>
             </View>
           </>

@@ -74,3 +74,11 @@ pacing *instruction*, anything touching medication decisions.
   go to a named, EU-hosted processor, with an opt-out in Profile. The health
   record itself stays local, and any further move requires rewriting this
   paragraph first.
+- Said out loud on 15 Sep 2026, not changed: the record sits in the app's
+  Documents folder, so it has always travelled in the phone's own iCloud or
+  computer backup — Apple's, encrypted, under the person's account, never
+  ours. That is the answer to "a lost phone is a lost record" (GROWTH.md)
+  without a server, and the policy now says so. The Apple Health cache was
+  moved to Caches, which iOS never backs up, because App Review 5.1.3
+  forbids personal health information in iCloud. Pattern still collects
+  nothing.

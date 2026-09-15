@@ -171,6 +171,9 @@ Three options, and the second is probably right:
    unless excluded. It is encrypted, Apple-held, and requires no server of yours —
    the privacy line survives, because *you* still collect nothing. **Verify the
    database is not excluded from backup**, then say so plainly.
+   *Decided 15 Sep 2026.* Verified: `pattern.db` lives in Documents, which iOS
+   backs up; the policy (in-app and `docs/privacy.html`) now says so. The Apple
+   Health cache moved to Caches, outside every backup (App Review 5.1.3).
 3. **Your own sync.** Breaks "no data collected" outright. Only with a deliberate,
    announced change of position — and it would be a different product.
 

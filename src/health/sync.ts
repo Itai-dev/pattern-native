@@ -33,7 +33,9 @@ import { HealthCategory, HealthDay, HealthService, LocalClock } from './types';
 /* setup state, as preferences — small, non-health values */
 const PREF_CATEGORIES = 'health.categories';
 const PREF_REQUESTED = 'health.requestedOn';
-const PREF_SYNCED_FROM = 'health.syncedFrom';
+/* the backfill marker is NOT a pref: it lives in the health file beside
+   the days, so that an empty file — a new phone, a purged cache — is
+   always read as "never filled". See db.getHealthSyncedFrom. */
 
 export function healthCategories(): HealthCategory[] {
   return db.getPref<HealthCategory[]>(PREF_CATEGORIES, []);
@@ -68,7 +70,7 @@ export async function syncHealth(service: HealthService, clock: LocalClock): Pro
     const today = todayISO();
     /* first pass reaches back the working span; later passes only the
        late-arrival window */
-    const already = db.getPref<string | null>(PREF_SYNCED_FROM, null);
+    const already = db.getHealthSyncedFrom();
     const from = already
       ? addDays(today, -(HEALTH_RESYNC_DAYS - 1))
       : addDays(today, -(HEALTH_BACKFILL_DAYS - 1));
@@ -82,7 +84,7 @@ export async function syncHealth(service: HealthService, clock: LocalClock): Pro
         if (Object.keys(day.coverage).length) db.putHealthDay(d, day);
       } catch { /* this day stays as it was; the next still runs */ }
     }
-    if (!already) db.setPref(PREF_SYNCED_FROM, from);
+    if (!already) db.setHealthSyncedFrom(from);
   } finally {
     syncing = false;
   }
