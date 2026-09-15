@@ -1006,14 +1006,15 @@ export default function HomeScreen({
       {offer === 'copy' && (
         <View style={[styles.card, styles.cardGap]}>
           <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Your record lives only on this iPhone
+            A reinstall would start this record over
           </Text>
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             {(lastCopy
               ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' after your last saved copy.'
               : unsaved + (unsaved === 1 ? ' day has' : ' days have') + ' never been saved anywhere else.')
-              + ' If Pattern is removed — by you, by a test build running out, with a lost phone —'
-              + ' they go with it. A copy you keep in Files or iCloud Drive does not.'}
+              + ' Your iPhone’s backup brings your record to a new phone, but not back into a'
+              + ' reinstall on this one — delete Pattern and these go with it. A copy you keep'
+              + ' in Files does not.'}
           </Text>
           <View style={styles.bgOfferActions}>
             <Press

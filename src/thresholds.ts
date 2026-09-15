@@ -444,10 +444,13 @@ export const QUICK_DEFAULT_AFTER = 3;
 /* ── the record's only copy ─────────────────────────────────── */
 
 /** days of record with no saved copy anywhere before Today says so.
- *  The record is one file inside the app's own container: deleting the
- *  app — by hand, after a TestFlight build expires, on a lost phone —
- *  deletes it, and nothing the app writes on its own survives that
- *  (see docs/ROADMAP.md, "a copy that survives deletion"). Seven: under
+ *  A LOST PHONE IS COVERED AND THIS IS NOT ABOUT THAT. The record sits
+ *  in Documents, which rides the phone's own iCloud or computer backup
+ *  (db.ts, healthConn). What that backup cannot reach is delete and
+ *  reinstall on the SAME phone: iOS hands the new install an empty
+ *  container and never consults the backup, so the record is gone while
+ *  the backup sits there intact. A saved copy is the only thing that
+ *  covers it (docs/ROADMAP.md, "the record's only copy"). Seven: under
  *  LIMITED_RECORD_DAYS the record draws no comparisons and is quick to
  *  re-enter, so a week is also the point at which losing it first
  *  costs something. The same count is the gap between "not now" and the

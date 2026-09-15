@@ -1296,11 +1296,11 @@ export default function App() {
                   ? 'Last copy saved ' + fmtDay(lastCopy.on) + ', holding '
                     + lastCopy.days + (lastCopy.days === 1 ? ' day. ' : ' days. ')
                   : 'No copy saved yet. ')
-                  + 'Your record is stored only on this iPhone, and deleting Pattern deletes it — '
-                  + 'a copy you save to Files or iCloud Drive is the one thing that survives that. '
-                  + 'Any imported Apple Health context stays here too, never travels in a backup, '
-                  + 'and can always be re-read from Health itself. Restoring lets you replace or '
-                  + 'merge; you decide before anything changes.'}
+                  + 'Your record rides in your iPhone’s own backup, so a new phone gets it back. '
+                  + 'A reinstall on this phone does not: iOS gives Pattern an empty start and never '
+                  + 'reads the backup, so a copy you saved yourself is the only way back. Apple '
+                  + 'Health context is kept out of both, and is re-read from Health instead. '
+                  + 'Restoring lets you replace or merge; you decide before anything changes.'}
               </Text>
               {/* which code is actually running — the end of guessing
                   whether an update has landed. updateId is null when the

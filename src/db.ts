@@ -7,6 +7,7 @@
  * — a year of daily use is a few hundred rows.
  */
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
+import { Directory, Paths } from 'expo-file-system';
 import { getMetric } from './metrics';
 import { addDays } from './model';
 import { EXPERIMENT_WHAT_MAX, Experiment } from './model';
@@ -21,6 +22,45 @@ import { SCALE_VERSION } from './painScale';
 import { PROTOCOL_REVIEW_DAYS } from './thresholds';
 
 let db: SQLiteDatabase | null = null;
+let healthDb: SQLiteDatabase | null = null;
+
+/* Where the record lives, and why it is two files.
+
+   pattern.db sits in Documents, which iOS includes in the phone's own
+   iCloud or computer backup. That is deliberate and now stated in the
+   privacy policy: a lost phone would otherwise be a lost record, and
+   Apple's backup — encrypted, under the person's own account, never
+   ours — is the only thing that brings two years of pain onto a
+   replacement phone without Pattern running a server (GROWTH.md, "the
+   backup problem", option 2).
+
+   The Apple Health context does NOT get to ride along. App Review 5.1.3
+   forbids storing personal health information in iCloud, and a table of
+   HealthKit-derived days inside a backed-up file is exactly that. So it
+   lives in its own database under Library/Caches, which iOS leaves out
+   of every backup — a new phone reads Health afresh rather than
+   inheriting readings it never took, which SPEC.md already required of
+   the export. iOS may purge Caches under storage pressure; everything
+   here is re-derived on the next open, so that is a delay, not a loss. */
+function healthConn(): SQLiteDatabase {
+  if (!healthDb) {
+    /* a file:// URI, which is what the native side parses; a trailing
+       slash would double up when the name is joined on, so it goes */
+    const dir = new Directory(Paths.cache, 'SQLite').uri.replace(/\/+$/, '');
+    healthDb = openDatabaseSync('pattern-health.db', undefined, dir);
+    healthDb.execSync(
+      'CREATE TABLE IF NOT EXISTS health_day (date TEXT PRIMARY KEY, json TEXT NOT NULL)'
+    );
+    /* the sync's own bookkeeping lives HERE, not in prefs: prefs are in
+       the backed-up file and this one is not, so a marker over there
+       saying "already backfilled" would survive onto a new phone, or
+       past a Caches purge, and leave the sync rebuilding a week where
+       it should rebuild the working span. Same file as the days it
+       describes, and clearHealthDays takes both. */
+    healthDb.execSync('CREATE TABLE IF NOT EXISTS health_meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)');
+  }
+  return healthDb;
+}
 
 function conn(): SQLiteDatabase {
   if (!db) {
@@ -118,9 +158,18 @@ function conn(): SQLiteDatabase {
        same reason days.logs is one: the shape is the domain's business,
        and the schema should not need a migration every time a field
        lands. */
-    db.execSync(
-      'CREATE TABLE IF NOT EXISTS health_day (date TEXT PRIMARY KEY, json TEXT NOT NULL)'
+    /* health_day lived here until 15 Sep 2026 — see healthConn. Dropping
+       it moves the readings out of the backed-up file; VACUUM is what
+       actually gives the pages back, since a dropped table's rows stay
+       readable in the file's free list until then. One-off: the query
+       finds nothing on the launch after. */
+    const legacy = db.getFirstSync<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'health_day'"
     );
+    if (legacy && legacy.n > 0) {
+      db.execSync('DROP TABLE health_day');
+      db.execSync('VACUUM');
+    }
     migrateWeeklyToFunc(db);
     migratePainScale(db);
   }
@@ -631,19 +680,19 @@ export function clearShadowEvals(): void {
 
 /* ── Apple Health context ────────────────────────────────────
    Normalized days from health/normalize.ts, keyed by local date.
-   Derived and rebuildable, so: not in backups, wiped with everything
-   else on delete-all, and safe to re-derive whenever Health data
-   arrives late. */
+   Derived and rebuildable, so: in neither the export nor the phone's
+   backup (its own file — see healthConn), wiped with everything else on
+   delete-all, and safe to re-derive whenever Health data arrives late. */
 
 export function putHealthDay(date: string, day: unknown): void {
-  conn().runSync(
+  healthConn().runSync(
     'INSERT OR REPLACE INTO health_day (date, json) VALUES (?, ?)',
     date, JSON.stringify(day)
   );
 }
 
 export function getHealthDay<T>(date: string): T | null {
-  const r = conn().getFirstSync<{ json: string }>(
+  const r = healthConn().getFirstSync<{ json: string }>(
     'SELECT json FROM health_day WHERE date = ?', date
   );
   if (!r) return null;
@@ -651,7 +700,7 @@ export function getHealthDay<T>(date: string): T | null {
 }
 
 export function getHealthDays<T>(): Record<string, T> {
-  const rows = conn().getAllSync<{ date: string; json: string }>(
+  const rows = healthConn().getAllSync<{ date: string; json: string }>(
     'SELECT date, json FROM health_day'
   );
   const out: Record<string, T> = {};
@@ -660,7 +709,22 @@ export function getHealthDays<T>(): Record<string, T> {
 }
 
 export function clearHealthDays(): void {
-  conn().runSync('DELETE FROM health_day');
+  healthConn().runSync('DELETE FROM health_day');
+  healthConn().runSync('DELETE FROM health_meta');
+}
+
+/** the first date the backfill reached, or null when this file has never
+ *  been filled — which is also what an empty file after a restore says */
+export function getHealthSyncedFrom(): string | null {
+  const r = healthConn().getFirstSync<{ v: string }>(
+    "SELECT v FROM health_meta WHERE k = 'syncedFrom'"
+  );
+  return r ? r.v : null;
+}
+export function setHealthSyncedFrom(iso: string): void {
+  healthConn().runSync(
+    "INSERT OR REPLACE INTO health_meta (k, v) VALUES ('syncedFrom', ?)", iso
+  );
 }
 
 /** off by default. Shadow rows are derived from health answers, so they
@@ -891,9 +955,10 @@ export function deleteAll(): void {
     c.runSync('DELETE FROM hypotheses');
     c.runSync('DELETE FROM protocols');
     c.runSync('DELETE FROM shadow_eval');
-    c.runSync('DELETE FROM health_day');
     c.runSync('DELETE FROM prefs');
   });
+  /* the other file; not in the transaction because it is not in the db */
+  clearHealthDays();
 }
 
 /** dev helper: normalize a single raw entry through the model (used by seeds) */
