@@ -176,7 +176,7 @@ export default function DayDetail({
                   accessibilityRole="button"
                   accessibilityLabel={'Delete the ' + fmtClock(l.h) + ' check-in'}
                 >
-                  <Text style={styles.deleteText}>Delete</Text>
+                  <Text style={styles.deleteText} allowFontScaling maxFontSizeMultiplier={1.15}>Delete</Text>
                 </Press>
               )}
             >
@@ -283,7 +283,7 @@ export default function DayDetail({
                       accessibilityRole="button"
                       accessibilityLabel={'Remove the answer to: ' + m!.name}
                     >
-                      <Text style={styles.deleteText}>Remove</Text>
+                      <Text style={styles.deleteText} allowFontScaling maxFontSizeMultiplier={1.15}>Remove</Text>
                     </Press>
                   )}
                 >
@@ -345,7 +345,7 @@ export default function DayDetail({
                     accessibilityRole="button"
                     accessibilityLabel={'Delete the ' + fmtClock(ev.h) + ' event'}
                   >
-                    <Text style={styles.deleteText}>Delete</Text>
+                    <Text style={styles.deleteText} allowFontScaling maxFontSizeMultiplier={1.15}>Delete</Text>
                   </Press>
                 )}
               >
@@ -635,8 +635,11 @@ const styles = StyleSheet.create({
      the row above and read as a red panel. Inset on every side, rounded
      like the app's buttons, and no taller than the row's own text. */
   deleteAction: {
-    width: 84, alignSelf: 'stretch', marginVertical: 8, marginLeft: 6,
-    borderRadius: radius.button, borderCurve: 'continuous',
+    /* a rounded SQUARE, centred on the row: the same size on a one-line
+       row and a three-line one, so it never fills a tall row and never
+       shrinks to a pill around its word */
+    width: 60, height: 60, alignSelf: 'center', marginLeft: 6,
+    borderRadius: 16, borderCurve: 'continuous',
     backgroundColor: color.destructive,
     alignItems: 'center', justifyContent: 'center',
   },
