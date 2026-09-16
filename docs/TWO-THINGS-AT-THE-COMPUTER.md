@@ -51,22 +51,15 @@ Committed 2026-09-08, all guarded so the current binary is unaffected:
 | Notification category "checkin" | `src/reminders.ts` | a **Check in** button on every prompt, on the iPhone and mirrored to the watch; tapping opens the question (the watch app IS the question) |
 
 **Build 48 (commit 0b9c4a0, 15 September) carries all three and is
-built** — but its TestFlight submission ERRORED in eighteen seconds
-with no error surfaced (submission 773d6d3b, 16 September). That is
-the signature from the HealthKit build in August: Apple's upload
-validator rejecting the IPA. The new thing in this build is the
-`com.apple.developer.healthkit.background-delivery` entitlement, and
-the stored provisioning profile predates it, so the likely cause is
-the first wall in the memory note — a profile without the capability.
-
-**What needs you, once:** on developer.apple.com → Identifiers →
-com.itaiagami.pattern → HealthKit, tick **Background Delivery**; then on
-expo.dev → pattern → Credentials → iOS → App Store, delete the stored
-provisioning profile (never the distribution certificate). Then build
-49 with `--auto-submit`; it mints a profile that carries the
-entitlement. If 49 also errors, download its IPA and read Info.plist
-and embedded.mobileprovision — the validator's real message is not
-surfaced by EAS.
+in App Store Connect.** A second  of it on 16 September
+errored with "Build number 48 for app version 1.3.0 has already been
+used" — which is App Store Connect saying the upload already happened,
+not a validator rejection.  did not show that first
+upload, so do not read that list as the record of what Apple has;
+App Store Connect → TestFlight is. Nothing to do at developer.apple.com:
+HealthKit's capability already carries the background-delivery
+entitlement key (the portal lists it under the (i)), so no profile
+step exists for it.
 
 None of the three has run on a device. The background-delivery path in
 particular is the library's promise that JS runs on a background wake;
