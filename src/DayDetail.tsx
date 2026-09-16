@@ -629,8 +629,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   chev: { color: color.textTertiary, fontSize: 20 },
+  /* A PILL, NOT A SLAB. The action used to fill the row's whole height
+     and width-88 with nothing around it; on a tall row (large text, a
+     check-in with places and words on three lines) it sat flush against
+     the row above and read as a red panel. Inset on every side, rounded
+     like the app's buttons, and no taller than the row's own text. */
   deleteAction: {
-    width: 88, minHeight: 56, backgroundColor: color.destructive,
+    width: 84, alignSelf: 'stretch', marginVertical: 8, marginLeft: 6,
+    borderRadius: radius.button, borderCurve: 'continuous',
+    backgroundColor: color.destructive,
     alignItems: 'center', justifyContent: 'center',
   },
   deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
