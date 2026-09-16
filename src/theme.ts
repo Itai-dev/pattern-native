@@ -18,10 +18,12 @@ export const color = {
   /** the soft terracotta this app uses for destructive TEXT — a warning
    *  that does not shout on a screen about pain */
   danger: '#E0795A',
-  /** iOS systemRed, for the one place the platform's own colour is the
-   *  clearer signal: the swipe-to-delete action, which people read by
-   *  colour before they read the word */
-  destructive: '#FF3B30',
+  /** the swipe-to-delete action: red, because people read that action
+   *  by colour before they read the word — but a softer red than iOS's
+   *  own #FF3B30, which as a full-height slab beside a pain record
+   *  shouted (16 Sep 2026). It is a pill now, not a slab, so it can be
+   *  quieter and still be the only red on the screen. */
+  destructive: '#F05A50',
   shieldOk: '#7CC9A6',
   /** the app's interactive tint — nav actions, links, selection */
   tint: '#5BA8FF',

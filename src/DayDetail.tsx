@@ -130,7 +130,9 @@ export default function DayDetail({
     onChanged();
   }, [dateIso, onChanged, rm]);
 
-  const summary = daySummary(logs);
+  /* the clock the rows use, so "7:04" above and "7:04 AM" below never
+     disagree about the same moment */
+  const summary = daySummary(logs, fmtClock);
 
   return (
     <View style={styles.wrap}>
@@ -176,7 +178,7 @@ export default function DayDetail({
                   accessibilityRole="button"
                   accessibilityLabel={'Delete the ' + fmtClock(l.h) + ' check-in'}
                 >
-                  <Text style={styles.deleteText}>Delete</Text>
+                  <Text style={styles.deleteText} allowFontScaling maxFontSizeMultiplier={1.15}>Delete</Text>
                 </Press>
               )}
             >
@@ -188,7 +190,14 @@ export default function DayDetail({
                 accessibilityLabel={fmtClock(l.h) + ', ' + speakScore(l.pain) +
                   (l.loc && l.loc.length ? ', ' + names(l.loc, LOC_NAMES) : '') +
                   (l.sym && l.sym.length ? ', ' + names(l.sym, SYMPTOM_NAMES) : '')}
-                accessibilityHint="Opens this check-in to edit. Swipe left to delete."
+                accessibilityHint="Opens this check-in to edit."
+                /* the swipe, as a rotor action: a screen reader has no
+                   swipe-left, and the hint used to describe a gesture it
+                   could not perform */
+                accessibilityActions={[{ name: 'delete', label: 'Delete this check-in' }]}
+                onAccessibilityAction={(e) => {
+                  if (e.nativeEvent.actionName === 'delete') deleteMoment(l.h);
+                }}
               >
                 <View style={[styles.swatch, { backgroundColor: painColor(l.pain) }]} />
                 <View>
@@ -283,7 +292,7 @@ export default function DayDetail({
                       accessibilityRole="button"
                       accessibilityLabel={'Remove the answer to: ' + m!.name}
                     >
-                      <Text style={styles.deleteText}>Remove</Text>
+                      <Text style={styles.deleteText} allowFontScaling maxFontSizeMultiplier={1.15}>Remove</Text>
                     </Press>
                   )}
                 >
@@ -291,6 +300,13 @@ export default function DayDetail({
                     style={styles.qRow}
                     accessible
                     accessibilityLabel={m!.name + ', ' + value + (a.note ? '. Note: ' + a.note : '')}
+                    accessibilityActions={[{ name: 'remove', label: 'Remove this answer' }]}
+                    onAccessibilityAction={(e) => {
+                      if (e.nativeEvent.actionName !== 'remove') return;
+                      db.clearAnswer(dateIso, id);
+                      force((n) => n + 1);
+                      onChanged();
+                    }}
                   >
                     <View style={styles.rowMid}>
                       <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -345,7 +361,7 @@ export default function DayDetail({
                     accessibilityRole="button"
                     accessibilityLabel={'Delete the ' + fmtClock(ev.h) + ' event'}
                   >
-                    <Text style={styles.deleteText}>Delete</Text>
+                    <Text style={styles.deleteText} allowFontScaling maxFontSizeMultiplier={1.15}>Delete</Text>
                   </Press>
                 )}
               >
@@ -356,7 +372,11 @@ export default function DayDetail({
                   accessibilityRole="button"
                   accessibilityLabel={fmtClock(ev.h) + ', ' + EVENT_LABELS[ev.kind] +
                     (ev.text ? ', ' + ev.text : '')}
-                  accessibilityHint="Opens this event to edit. Swipe left to delete."
+                  accessibilityHint="Opens this event to edit."
+                  accessibilityActions={[{ name: 'delete', label: 'Delete this event' }]}
+                  onAccessibilityAction={(e) => {
+                    if (e.nativeEvent.actionName === 'delete') deleteEvent(ev);
+                  }}
                 >
                   <Text style={styles.time}>{fmtClock(ev.h)}</Text>
                   <View style={styles.rowMid}>
@@ -629,11 +649,22 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   chev: { color: color.textTertiary, fontSize: 20 },
+  /* A PILL, NOT A SLAB. The action used to fill the row's whole height
+     and width-88 with nothing around it; on a tall row (large text, a
+     check-in with places and words on three lines) it sat flush against
+     the row above and read as a red panel. Inset on every side, rounded
+     like the app's buttons, and no taller than the row's own text. */
   deleteAction: {
-    width: 88, minHeight: 56, backgroundColor: color.destructive,
+    /* a rounded SQUARE, centred on the row: the same size on a one-line
+       row and a three-line one, so it never fills a tall row and never
+       shrinks to a pill around its word */
+    width: 76, height: 60, alignSelf: 'center', marginLeft: 6, marginRight: 2,
+    paddingHorizontal: 8,
+    borderRadius: 16, borderCurve: 'continuous',
+    backgroundColor: color.destructive,
     alignItems: 'center', justifyContent: 'center',
   },
-  deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
+  deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600', textAlign: 'center' },
   addEvent: {
     marginTop: 20, minHeight: 48, borderRadius: radius.button, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,

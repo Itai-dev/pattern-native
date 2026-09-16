@@ -922,11 +922,32 @@ ok('the sections cover every sided id once, and no legacy pair id', (() => {
   return !dup
     && sided.every((id) => seen[id])
     && ['head', 'neck', 'chest', 'belly', 'upperBack', 'lowerBack'].every((id) => seen[id])
+    /* the 16 Sep 2026 additions, once each */
+    && ['face', 'jaw', 'ribsL', 'ribsR', 'tailbone', 'buttockL', 'fingersR', 'shinL',
+      'heelR', 'toesL', 'leftSide', 'rightSide'].every((id) => seen[id])
     && !seen.knees && !seen.arms && !seen.legs      // legacy stays display-only
-    && !seen.allOver;                               // offered apart, not as anatomy
+    && !seen.allOver                                // offered apart, not as anatomy
+    /* the groin is under Hips and pelvis, not the belly; a buttock is not the back */
+    && model.LOC_SECTIONS.some((s) => s.title === 'Hips and pelvis'
+      && ['hipL', 'hipR', 'pelvis', 'groin', 'buttockL', 'buttockR'].every((id) => s.ids.indexOf(id) >= 0));
 })());
 ok('every offered id has a name to wear', (() => {
   return model.LOC_SECTIONS.every((s) => s.ids.every((id) => !!model.LOC_NAMES[id]));
+})());
+ok('every stored id except the legacy pairs and All over is offered somewhere', (() => {
+  const offered = {};
+  model.LOC_SECTIONS.forEach((s) => s.ids.forEach((id) => { offered[id] = true; }));
+  const legacy = ['shoulders', 'arms', 'hands', 'hips', 'legs', 'knees', 'feet', 'allOver'];
+  return model.LOCIDS.every((id) => offered[id] || legacy.indexOf(id) >= 0);
+})());
+ok('the new pairs read back as one word, and collapse to the chip a person would have reached for', (() => {
+  return model.readLocSelection(['heelL', 'heelR']) === 'Heels'
+    && model.readLocSelection(['ribsL', 'ribsR', 'jaw']) === 'Ribs · Jaw'
+    && model.collapseSidedLocs(['fingersL', 'tailbone', 'leftSide']).join(',') === 'hands,lowerBack,leftSide';
+})());
+ok('the new ids survive the cleaner', (() => {
+  const e = model.cleanEntry({ pain: 4, cap: null, note: '', logs: [{ h: 600, pain: 4, loc: ['jaw', 'toesR', 'nonsense'] }] });
+  return e && e.logs[0].loc.join(',') === 'jaw,toesR';
 })());
 ok('a note written at the where step lands on the moment, trimmed and capped', (() => {
   const e = model.applyMoment(null, 600, 5, ['knees'], null,

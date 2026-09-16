@@ -8,7 +8,10 @@
  * questions off, they just stop answering them, and on a good week they
  * start again. So the flow watches. Three quick check-ins in a row and
  * Log it leads; one walk into the details and Continue leads next time.
- * The two-segment switch on the pain step is the same decision made by
+ * (Until 16 Sep 2026 a two-segment switch on the pain step let a person
+ * make this choice by hand; it duplicated the two buttons beneath it and
+ * went. chooseMode stays for the day a control wants it back.)
+ * The learned mode is the same decision made by
  * hand, for the person who knows today already.
  *
  * WHAT THIS CHANGES AND WHAT IT DOES NOT. Only which of the two buttons

@@ -67,7 +67,9 @@ export interface Moment {
    *  carry no flag and are read as the unknown they are. */
   qAsked?: 1;
   /** what else was going on at this moment — fatigue, fog, stiffness —
-   *  from a closed list of five, tapped on the pain screen itself.
+   *  from a closed list of five, tapped on the About today screen
+   *  (they sat under the number for two days in September and made
+   *  the one-question screen a form).
    *  These are SYMPTOMS, not causes: "brain fog" is a fact about the
    *  moment the way "aching" is, and it is recorded and shown back as
    *  one. Never fed to the engine, for the same reason the attributions
@@ -156,8 +158,9 @@ export const LOC_NAMES: Record<string, string> = {
      "Right wrist" was unrecordable: no wrist, no sides. These are
      ADDITIVE — every id above stays valid and displayed, old entries
      never migrate, and a restored backup keeps whichever vocabulary it
-     was recorded in. The body map writes these; the legacy ids remain
-     the words old data speaks. */
+     was recorded in. The body map wrote these until 2026-09-16; the
+     sectioned chips write them now; the legacy ids remain the words
+     old data speaks. */
   shoulderL: 'Left shoulder', shoulderR: 'Right shoulder',
   armL: 'Left upper arm', armR: 'Right upper arm',
   elbowL: 'Left elbow', elbowR: 'Right elbow',
@@ -170,6 +173,24 @@ export const LOC_NAMES: Record<string, string> = {
   calfL: 'Left calf', calfR: 'Right calf',
   ankleL: 'Left ankle', ankleR: 'Right ankle',
   footL: 'Left foot', footR: 'Right foot',
+
+  /* ── the rest of the body, added 2026-09-16 when the body map was
+     retired for sectioned chips ────────────────────────────
+     A figure could only offer what was drawn on it; a list can offer
+     what people actually name — the jaw, the ribs, the tailbone, a
+     heel, one whole side. Additive like the sided set above: nothing
+     old moves, and a chip is a word the record stores, never a claim
+     about what the pain is. */
+  face: 'Face', jaw: 'Jaw', backOfHead: 'Back of the head',
+  ribsL: 'Left ribs', ribsR: 'Right ribs',
+  pelvis: 'Pelvis', groin: 'Groin',
+  midBack: 'Mid back', tailbone: 'Tailbone',
+  buttockL: 'Left buttock', buttockR: 'Right buttock',
+  fingersL: 'Left fingers', fingersR: 'Right fingers',
+  shinL: 'Left shin', shinR: 'Right shin',
+  heelL: 'Left heel', heelR: 'Right heel',
+  toesL: 'Left toes', toesR: 'Right toes',
+  leftSide: 'Left side of the body', rightSide: 'Right side of the body',
 };
 
 /* Legacy paired ids → their sided pair, for the PREFILL only. A person
@@ -203,6 +224,12 @@ const LOC_PAIRS: [string, string, string][] = [
   ['calfL', 'calfR', 'Calves'],
   ['ankleL', 'ankleR', 'Ankles'],
   ['footL', 'footR', 'Feet'],
+  ['ribsL', 'ribsR', 'Ribs'],
+  ['buttockL', 'buttockR', 'Buttocks'],
+  ['fingersL', 'fingersR', 'Fingers'],
+  ['shinL', 'shinR', 'Shins'],
+  ['heelL', 'heelR', 'Heels'],
+  ['toesL', 'toesR', 'Toes'],
 ];
 
 export interface LocPart {
@@ -268,6 +295,15 @@ const LOC_SIDED_FAMILY: Record<string, string> = {
   thighL: 'legs', thighR: 'legs', calfL: 'legs', calfR: 'legs',
   kneeL: 'knees', kneeR: 'knees',
   ankleL: 'feet', ankleR: 'feet', footL: 'feet', footR: 'feet',
+  /* the 2026-09-16 additions, each under the coarse chip a person
+     would have reached for before it existed */
+  face: 'head', jaw: 'head', backOfHead: 'head',
+  ribsL: 'chest', ribsR: 'chest',
+  pelvis: 'hips', groin: 'hips', buttockL: 'hips', buttockR: 'hips',
+  midBack: 'upperBack', tailbone: 'lowerBack',
+  fingersL: 'hands', fingersR: 'hands',
+  shinL: 'legs', shinR: 'legs',
+  heelL: 'feet', heelR: 'feet', toesL: 'feet', toesR: 'feet',
 };
 
 /** a location set spoken in the coarse vocabulary — for the collapsed
@@ -283,28 +319,38 @@ export function collapseSidedLocs(ids: string[]): string[] {
   return out;
 }
 
-/* the expanded view: five anatomical sections offering the full sided
-   vocabulary. Sections are what lets thirty options stay a question
-   instead of a wall — the eye jumps to "Legs and feet" the way a
-   finger jumped to the figure's leg. */
+/* the expanded view: seven anatomical sections offering the whole
+   vocabulary, top to bottom, left before right. Sections are what lets
+   fifty options stay a question instead of a wall — the eye jumps to
+   "Legs and feet" the way a finger jumped to the figure's leg. The
+   body map that stood here from August to 16 Sep 2026 could only offer
+   what was drawn on it and asked a hurting hand for a 14-point target;
+   a list offers everything and a 44-point chip. "All over" is not in
+   a section: it is a coarse chip, always on screen. */
 export const LOC_SECTIONS: { title: string; ids: string[] }[] = [
-  { title: 'Head and neck', ids: ['head', 'neck'] },
-  { title: 'Chest and belly', ids: ['chest', 'belly'] },
-  { title: 'Back', ids: ['upperBack', 'lowerBack'] },
+  { title: 'Head and neck', ids: ['head', 'face', 'jaw', 'backOfHead', 'neck'] },
+  { title: 'Chest and belly', ids: ['chest', 'ribsL', 'ribsR', 'belly'] },
+  { title: 'Back', ids: ['upperBack', 'midBack', 'lowerBack', 'tailbone'] },
+  /* where a person looks for the groin or a buttock: not under the
+     belly, not under the back */
+  { title: 'Hips and pelvis', ids: ['hipL', 'hipR', 'pelvis', 'groin', 'buttockL', 'buttockR'] },
   {
     title: 'Arms and hands',
     ids: [
       'shoulderL', 'shoulderR', 'armL', 'armR', 'elbowL', 'elbowR',
       'forearmL', 'forearmR', 'wristL', 'wristR', 'handL', 'handR',
+      'fingersL', 'fingersR',
     ],
   },
   {
     title: 'Legs and feet',
     ids: [
-      'hipL', 'hipR', 'thighL', 'thighR', 'kneeL', 'kneeR',
-      'calfL', 'calfR', 'ankleL', 'ankleR', 'footL', 'footR',
+      'thighL', 'thighR', 'kneeL', 'kneeR',
+      'shinL', 'shinR', 'calfL', 'calfR', 'ankleL', 'ankleR',
+      'heelL', 'heelR', 'footL', 'footR', 'toesL', 'toesR',
     ],
   },
+  { title: 'One side of the body', ids: ['leftSide', 'rightSide'] },
 ];
 export const FACTOR_NAMES: Record<string, string> = {
   sleep: 'Sleep', stress: 'Stress', work: 'Work', sitting: 'Long sitting',
@@ -811,18 +857,29 @@ export function cleanQuality(a: unknown): string[] | undefined {
 }
 
 /* ── symptoms alongside the pain ─────────────────────────────
-   Five, and the five the chronic-pain communities keep naming as what
-   travels with a bad day. They sit on the pain screen so a bad-day
-   check-in is one slide and a tap or two, with no typing and no
-   second screen. A closed list on purpose: this is the "associated
-   symptoms" answer a clinician asks for, not a symptom tracker, and
+   The "associated symptoms" answer a clinician asks for, as chips on
+   About today. A closed list on purpose: not a symptom tracker, and
    anything finer belongs in a note. Ids are storage words and never
-   change; the labels are what the user reads. */
+   change; the labels are what the user reads.
+
+   THE DICTIONARY IS FIVE, THE QUESTION IS THREE. Two of the five
+   shipped for two days (14–16 Sep 2026) and were retired from the
+   question, not from the dictionary: "Slept badly" is a claim about
+   last night under a heading that says "right now", and Health
+   measures the night better than a chip; "Low mood" doubles State of
+   Mind and edges into an attribution, which the app does not ask a
+   person to make. Both ids STAY here so the answers already recorded
+   keep their words on the day and in the report — cleanIds drops any
+   id it does not know, so removing them would have erased those
+   answers on the next write, silently (see removeMoment's history). */
 export const SYMPTOM_NAMES: Record<string, string> = {
   fatigue: 'Fatigue', fog: 'Brain fog', sleep: 'Slept badly',
   stiffness: 'Stiffness', mood: 'Low mood',
 };
 export const SYMPTOMIDS = Object.keys(SYMPTOM_NAMES);
+/** the ids the check-in offers — symptoms in the clinical sense, that
+ *  no connected source measures, that fit one row */
+export const SYMPTOMS_ASKED = ['fatigue', 'fog', 'stiffness'];
 
 export function cleanSymptoms(a: unknown): string[] | undefined {
   return cleanIds(a, SYMPTOMIDS);
@@ -939,7 +996,10 @@ export function dailyAverage(e: Entry | null | undefined): number | null {
  *    past DAY_SHAPE_MIN_DELTA — the same gate the Today card uses, for
  *    the same reason. Below it the day just ends, undescribed.
  */
-export function daySummary(logs: Moment[]): string | null {
+/** @param fmt how a minute-of-day is printed. Defaults to the fixed
+ *  24-hour form the tests pin; a screen passes its own locale-aware
+ *  clock so the sentence and the rows under it agree. */
+export function daySummary(logs: Moment[], fmt: (h: number) => string = fmtTime): string | null {
   if (!logs.length) return null;
   const sorted = logs.slice().sort((a, b) => a.h - b.h);
   const n = sorted.length;
@@ -948,11 +1008,11 @@ export function daySummary(logs: Moment[]): string | null {
   const high = sorted.reduce((m, l) => (l.pain > m ? l.pain : m), 0);
 
   if (n === 1) {
-    return 'One check-in at ' + fmtTime(first.h) + ' — '
+    return 'One check-in at ' + fmt(first.h) + ' — '
       + formatScore(first.pain) + ', ' + painLabel(first.pain) + '.';
   }
 
-  let s = n + ' check-ins between ' + fmtTime(first.h) + ' and ' + fmtTime(last.h);
+  let s = n + ' check-ins between ' + fmt(first.h) + ' and ' + fmt(last.h);
   s += low === high
     ? ', all at ' + formatScore(low)
     : ', from ' + formatScore(low) + ' to ' + formatScore(high);

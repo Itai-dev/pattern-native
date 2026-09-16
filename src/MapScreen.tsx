@@ -21,7 +21,8 @@
 import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { color, font, radius as radii, size } from './theme';
-import { Entries, checkinCount, dailyAverage, iso, todayISO } from './model';
+import { Entries, checkinCount, dailyAverage, dateFromISO, iso, todayISO } from './model';
+import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
 import { formatCheckins, formatScore, inkOn, painColor, speakScore, themeBrand } from './painScale';
 import { Press } from './motion';
 import { InfoTitle } from './InfoTip';
@@ -179,6 +180,14 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                 const n = e ? checkinCount(e) : 0;
                 const isToday = dISO === t;
                 const future = dISO > t;
+                /* an empty day inside the retro window opens too — the
+                   day screen offers "Add a check-in for this day" there,
+                   and the calendar was the only place a person would look
+                   for a day they forgot; with it disabled, the sole route
+                   to that day was swiping the pager from a day that had
+                   data */
+                const daysBack = Math.round((dateFromISO(t).getTime() - dateFromISO(dISO).getTime()) / 86400000);
+                const openable = !future && (!!e || daysBack <= RETRO_CHECKIN_MAX_DAYS);
                 const dayNum = Number(dISO.slice(8, 10));
 
                 const label = new Date(dISO.replace(/-/g, '/')).toDateString().slice(0, 10) +
@@ -189,13 +198,14 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                 return (
                   <Press
                     key={dISO}
-                    disabled={future || !e}
+                    disabled={!openable}
                     onPress={() => onDayPress(dISO)}
                     pressScale={0.96}
                     pressOpacity={1}
                     accessibilityRole="button"
                     accessibilityLabel={(isToday ? 'Today, ' : '') + label}
-                    accessibilityHint={e ? 'Opens the day' : undefined}
+                    accessibilityHint={e ? 'Opens the day'
+                      : openable ? 'Opens the day, to add a check-in from memory' : undefined}
                     style={[styles.cell, { width: cell, height: cellH }]}
                   >
                     {/* the date lives OUTSIDE the shape — a calendar first,

@@ -92,6 +92,7 @@ export default function ExperimentSheet({ onDone, onClose }: ExperimentSheetProp
               key={ex}
               onPress={() => { Haptics.selectionAsync().catch(() => {}); setWhat(ex); }}
               pressOpacity={0.8}
+              hitSlop={6}
               style={[styles.chip, what === ex && { backgroundColor: brand, borderColor: brand }]}
               accessibilityRole="button"
               accessibilityLabel={'Try: ' + ex}

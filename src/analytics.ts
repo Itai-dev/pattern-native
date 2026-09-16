@@ -31,7 +31,10 @@ import * as db from './db';
 const APP_KEY = 'A-EU-5124485143';
 /** the language tag iOS reports, or 'en' where Intl is unavailable */
 function deviceLocale(): string {
-  try { return Intl.DateTimeFormat().resolvedOptions().locale || 'en'; } catch { return 'en'; }
+  /* the language subtag only — "he", not "he-IL": the policy says the
+     language setting is sent, and a region is a place */
+  try { return (Intl.DateTimeFormat().resolvedOptions().locale || 'en').split('-')[0] || 'en'; }
+  catch { return 'en'; }
 }
 
 const INGEST_URL = 'https://eu.aptabase.com/api/v0/event';

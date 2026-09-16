@@ -312,6 +312,14 @@ is meant to predict.
 
 ## 8. Body map
 
+*Retired 16 Sep 2026.* The figure could only offer what was drawn on
+it and asked a hurting hand for a 14-point target. The where step now
+offers the coarse chips as before, and "Show every place" adds seven
+anatomical sections of chips covering the whole body with laterality
+(`LOC_SECTIONS` in `src/model.ts`) — the same stored vocabulary,
+extended additively (jaw, ribs, tailbone, heels, toes, one side of the
+body). The rules below still hold for the chips.
+
 - First relevant check-in asks for active pain areas.
 - Later check-ins show *Same areas as last time?* — explicit **Same / Change / Skip**.
 - Previous areas may be shown as reference but **must not be pre-selected.** This replaces
