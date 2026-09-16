@@ -860,8 +860,10 @@ pair only with the previous night and previous day; evenings with hours
 before the check-in; one pair per day per question, first-morning /
 last-evening fixed outcomes so repeated check-ins never inflate a group) →
 `engine.ts` (outer terciles of the person's own distribution, gates named in
-`thresholds.ts`: 14 paired days, 5 per group, real factor spread, 1.5-point
-delta; verdicts `insufficient | observation | possible | fading` and nothing
+`thresholds.ts`: 18 paired days, 5 per group, real factor spread, 1.5-point
+delta, and the direction holding in both halves of the record — §13.3's
+condition 4, built 16 Sep 2026 after a year as a constant nothing read;
+verdicts `insufficient | observation | possible | fading` and nothing
 else). `noticed.ts` licenses associations from the Health CATEGORIES the
 user connected — consent lives in the Health setup itself (Pattern's
 category sheet plus Apple's per-type sheet), and demanding a second

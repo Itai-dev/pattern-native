@@ -201,19 +201,50 @@ export const EXPERIMENT_REOFFER_DAYS = 14;
    not evidence either way. */
 
 /** distinct paired days (factor value AND the right pain window on the
- *  same person-day) before any comparison is attempted */
-export const HEALTH_MIN_PAIRED_DAYS = 14;
+ *  same person-day) before any comparison is attempted. Eighteen, up
+ *  from fourteen on 16 Sep 2026: the direction-stability check below
+ *  splits the record in two and needs HEALTH_HALF_MIN_N days in each
+ *  tercile of each half, and 18 is the smallest count where a half's
+ *  tercile (floor(9/3)) holds three. At fourteen the gate could be
+ *  waited for and never passed, and the "N of 14" progress line would
+ *  have been a promise the engine could not keep. */
+export const HEALTH_MIN_PAIRED_DAYS = 18;
 
 /** Days required in EACH tercile group. Five, not the protocol's eight:
  *  with a within-person daily-pain SD of 1.5–2.0, two groups of five have
  *  a difference SE of 0.95–1.26, so the 1.5-point delta below sits at
  *  z ≈ 1.2–1.6 — a noise-only difference clears it roughly 6–12% of the
- *  time per comparison, and there are at most four health comparisons,
- *  each user-confirmed, never a scan. Eight per group would need ~24
- *  paired mornings under a tercile split — most of a month of joint
- *  coverage before Pattern could say anything, which fails the person
- *  the feature exists for. The looser gate is priced, not overlooked. */
+ *  time per comparison. Eight per group would need ~24 paired mornings
+ *  under a tercile split — most of a month of joint coverage before
+ *  Pattern could say anything, which fails the person the feature
+ *  exists for. The looser gate is priced, not overlooked.
+ *
+ *  HOW MANY COMPARISONS. Not four: CATEGORY_ASSOCIATIONS (noticed.ts)
+ *  licenses up to TEN — one for sleep, three for movement, two for
+ *  workouts, one for mind, three for nutrition — and only the categories
+ *  a person connected are examined, so the count is theirs: one for
+ *  sleep alone, ten for everything. strongestPossible then shows the
+ *  largest |delta| among them, which is the comparison most likely to
+ *  be the lucky one, and its printed delta is biased upward for the
+ *  same reason. At 6–12% per comparison, ten independent ones would put
+ *  a spurious card in front of half or more of the people with no real
+ *  pattern; that is what the stability check below is for, and why it
+ *  is a gate and not a footnote. It does not make the number small. The
+ *  noise harness SPEC §13.9 asks for has still not been built, and
+ *  until it runs, the per-comparison rate is arithmetic, not
+ *  measurement. */
 export const HEALTH_MIN_GROUP_DAYS = 5;
+
+/** DIRECTION STABILITY (SPEC §13.3, condition 4). The record is split
+ *  in two by date, the same groups are formed in each half, and the
+ *  sign of the difference must be the same in both. Each half's groups
+ *  must hold this many days; a half with fewer has no direction to
+ *  agree with, and the whole check fails closed. Three, the protocol
+ *  rule's number: a 2-vs-2 comparison has no sign worth the name. A
+ *  difference that flips between the first and second half is exactly
+ *  what a lucky fortnight looks like, and it is the cheapest of the
+ *  gates to fail honestly — nothing is shown, the pairs keep counting. */
+export const HEALTH_HALF_MIN_N = PATTERN_HALF_MIN_N;
 
 /** points of mean pain between the groups — the same bar as the
  *  protocol rule, for the same reason */

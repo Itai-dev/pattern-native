@@ -46,6 +46,7 @@ import {
   HEALTH_CAFFEINE_MIN_SPREAD_MG, HEALTH_MIND_MIN_SPREAD, HEALTH_SLEEP_MIN_SPREAD_MINUTES,
   HEALTH_STEPS_MIN_SPREAD, HEALTH_WATER_MIN_SPREAD_ML,
   HEALTH_STAND_MIN_SPREAD_MINUTES, HEALTH_WORKOUT_MIN_SPREAD_MINUTES,
+  HEALTH_HALF_MIN_N,
 } from '../thresholds';
 import { PairKind, PairedDay } from './windows';
 import { valenceWord } from './context';
@@ -150,8 +151,39 @@ export function evaluate(
   /* and the pain difference must clear the same bar every comparison
      in this app clears */
   if (Math.abs(delta) < HEALTH_MIN_DELTA) return fade(full);
+  /* and the direction must survive a split of the record: the same
+     sign in the first half of the paired days and in the second. A
+     difference that only exists in one fortnight is the shape of luck.
+     Fails closed — a half too thin to form its groups is a no. */
+  if (!directionStable(kind, pairs, delta)) return fade(full);
 
   return { ...full, verdict: 'possible' };
+}
+
+/** the groups of one half of the record, by the same construction the
+ *  whole uses — categorical: without vs with; otherwise outer terciles */
+function groupsOf(kind: PairKind, sorted: PairedDay[]): [PairedDay[], PairedDay[]] {
+  if (isCategorical(kind)) {
+    return [sorted.filter((p) => p.factor === 0), sorted.filter((p) => p.factor > 0)];
+  }
+  const third = Math.floor(sorted.length / 3);
+  return [sorted.slice(0, third), sorted.slice(sorted.length - third)];
+}
+
+/** SPEC §13.3 condition 4: does the sign of the difference hold in both
+ *  halves of the record, split by date, each half's groups holding at
+ *  least HEALTH_HALF_MIN_N days? Exported for the tests. */
+export function directionStable(kind: PairKind, pairs: PairedDay[], delta: number): boolean {
+  if (!delta) return false;
+  const byDate = pairs.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const mid = Math.floor(byDate.length / 2);
+  const halves = [byDate.slice(0, mid), byDate.slice(mid)];
+  return halves.every((half) => {
+    const [lowG, highG] = groupsOf(kind, half.slice().sort((a, b) => a.factor - b.factor));
+    if (lowG.length < HEALTH_HALF_MIN_N || highG.length < HEALTH_HALF_MIN_N) return false;
+    const d = mean(highG.map((p) => p.pain)) - mean(lowG.map((p) => p.pain));
+    return d !== 0 && (d > 0) === (delta > 0);
+  });
 }
 
 /* ── the early look ─────────────────────────────────────────
