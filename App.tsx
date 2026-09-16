@@ -94,7 +94,7 @@ function todayTitle(): string {
 }
 
 /** The floating return pill — the tab bar's glass, one word of it.
- *  Top right, under the headline, where the eye goes for "take me back";
+ *  In the header row beside the share button, where the eye goes for "take me back";
  *  the availability check is guarded for the same reason the tab bar's
  *  is: it throws on binaries that predate the native module. */
 const PILL_LIQUID = (() => {
@@ -824,6 +824,19 @@ export default function App() {
               {/* the Log pill that lived here is gone: the floating bar
                   carries the same door in thumb reach, and two buttons
                   for one action on one screen was one too many */}
+              {/* THE WAY BACK UP, IN THE ROW. It used to float at a fixed
+                  78pt from the top, which is where the header's own
+                  buttons sit once the large title wraps or Dynamic Type
+                  grows — the pill landed on the share and profile
+                  buttons. In the row it takes its place beside them and
+                  the row does the laying out, at every text size. */}
+              {tab === 'trends' && recordAway && (
+                <GlassPill
+                  onPress={() => recordScroll.current?.scrollTo({ y: 0, animated: true })}
+                  label="Top ↑"
+                  accessibilityLabel="Back to the top of the record"
+                />
+              )}
               {tab === 'trends' && (
                 <Pressable
                   onPress={shareTrends}
@@ -962,14 +975,6 @@ export default function App() {
               onAddEvent={(d) => { setEditEvent(null); setEventDate(d); setSheet('event'); }}
               onClose={() => setDayScreen(null)}
               editNoteOnOpen={dayNote}
-            />
-          )}
-
-          {tab === 'trends' && recordAway && (
-            <GlassPill
-              onPress={() => recordScroll.current?.scrollTo({ y: 0, animated: true })}
-              label="Top ↑"
-              accessibilityLabel="Back to the top of the record"
             />
           )}
 
@@ -1375,10 +1380,9 @@ const styles = StyleSheet.create({
      21pt across, 1.9pt lines — because it sits in the same family of
      controls and was previously a lighter, smaller drawing that read as a
      different set of marks. */
-  /* hovers top right, under the headline, only on Record and only once
-     you have left — glass, so it sits over the grids without occluding */
+  /* in the header row, only on Patterns and only once you have scrolled
+     away — glass like the tab bar, one word of it */
   backToToday: {
-    position: 'absolute', top: 78, right: size.pageX,
     borderRadius: 19, borderCurve: 'continuous', overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
   },

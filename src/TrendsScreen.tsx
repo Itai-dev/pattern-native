@@ -379,6 +379,11 @@ function Direction({ first, second }: { first: number; second: number }) {
    who wants their days back needs a range that still shows them. It is
    offered only once the record is longer than it (see `ranges`), so a
    short record never sees a fourth segment. */
+/** how many first-days lists stay open before the fold — two: enough
+ *  to see what the section is, few enough that it is a section and not
+ *  the card */
+const FIRST_DAYS_OPEN = 2;
+
 const RANGES: { key: string; label: string; days: number }[] = [
   { key: 'w', label: 'Week', days: 7 },
   { key: 'm', label: 'Month', days: 30 },
@@ -817,6 +822,12 @@ export default function TrendsScreen({
      opened the tables yesterday has not asked to see them every day. */
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
+  /* THE FIRST DAYS, FOLDED. Ten comparisons can be licensed at once, and
+     in the first week every one of them has one to three paired days —
+     ten titled lists of dates, each closed by the same caption, was the
+     wall of text on the second card. Two stay open; the rest are one
+     tap away; the caption is said once, under all of them. */
+  const [firstOpen, setFirstOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -947,14 +958,17 @@ export default function TrendsScreen({
       : undefined)
     : null;
   const doseFirst = dz?.first || [];
-  /* what is still short of even an early look, as one line — the
-     rows it replaced said the same thing four times over */
+  /* what has no paired day at all yet, as names — one to three paired
+     days are listed above as the first days, four and more are drawn
+     as early looks, so what remains here is at zero by construction,
+     and "sleep 0 of 18 · water 0 of 18 · …" was eight zeros in a row
+     saying nothing a name alone does not */
   const collecting = healthWaiting
     .filter((p) => !early.some((e) => e.kind === p.kind) && !first.some((e) => e.kind === p.kind))
-    .map((p) => groupLabels(p.kind).factor.toLowerCase() + ' ' + p.pairedDays + ' of ' + p.needed)
+    .map((p) => groupLabels(p.kind).factor.toLowerCase())
     .concat(doseWaiting
       .filter((p) => !doseEarly.some((e) => e.medId === p.medId) && !doseFirst.some((e) => e.medId === p.medId))
-      .map((p) => p.med + ' ' + p.pairs + ' of ' + p.needed));
+      .map((p) => p.med));
   const collectingShown = collecting;
   const anythingOut = !!bestCopy || !!budgetCard || !!(healthNoticed && healthNoticed.fading.length)
     || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
@@ -1187,11 +1201,16 @@ export default function TrendsScreen({
                 </Text>
                 <GroupBars a={e} />
                 <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.evidence} {EARLY_NOTE}
+                  {c.evidence}
                 </Text>
               </View>
             );
           })}
+          {early.length > 0 && (
+            <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {EARLY_NOTE}
+            </Text>
+          )}
           {doseEarly.map((e) => (
             <View key={'de.' + e.medId} style={styles.subBlock}>
               <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -1209,7 +1228,7 @@ export default function TrendsScreen({
               number, the mood and the evening's, the dose and the two
               numbers around it. What was entered beside what Health
               measured, and a caption saying when a picture starts. */}
-          {first.map((fd) => (
+          {(firstOpen ? first : first.slice(0, FIRST_DAYS_OPEN)).map((fd) => (
             <View key={'f.' + fd.kind} style={styles.subBlock}>
               <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
                 {firstTitle(fd.kind)}
@@ -1223,11 +1242,26 @@ export default function TrendsScreen({
                   <Text style={styles.firstNum}>{formatScore(p.pain)}</Text>
                 </Text>
               ))}
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {FIRST_NOTE}
-              </Text>
             </View>
           ))}
+          {!firstOpen && first.length > FIRST_DAYS_OPEN && (
+            <Press
+              onPress={() => setFirstOpen(true)}
+              pressOpacity={0.7}
+              style={styles.more}
+              accessibilityRole="button"
+              accessibilityLabel={'Show ' + (first.length - FIRST_DAYS_OPEN) + ' more first-days lists'}
+            >
+              <Text style={styles.moreText}>
+                Show {first.length - FIRST_DAYS_OPEN} more ›
+              </Text>
+            </Press>
+          )}
+          {first.length > 0 && (
+            <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {FIRST_NOTE}
+            </Text>
+          )}
           {doseFirst.map((fd) => (
             <View key={'df.' + fd.medId} style={styles.subBlock}>
               <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -1295,8 +1329,9 @@ export default function TrendsScreen({
             <View style={styles.subBlock}>
               {collectingShown.length > 0 && (
                 <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Collecting: {collectingShown.join(' · ')}. A comparison needs the days on both
-                  sides of it — a morning check-in for sleep, an evening one for movement.
+                  No paired day yet for {collectingShown.join(', ')}. A comparison needs the
+                  days on both sides of it — a morning check-in for sleep, an evening one for
+                  movement.
                 </Text>
               )}
             </View>

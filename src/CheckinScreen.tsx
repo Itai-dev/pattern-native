@@ -94,6 +94,11 @@ import {
 } from './checkinMode';
 
 const SQUARE = 150;
+/** the square's floor when the screen is short of room — under this the
+ *  hue stops reading as a field and becomes a swatch */
+const SQUARE_MIN = 88;
+/** air kept between the square's block and what sits above and below it */
+const SQUARE_GAP = 12;
 
 /** the body map's height inside the where step — the onboarding figure's
  *  size, which was drawn for a take-your-time screen and reads at it */
@@ -175,6 +180,21 @@ export default function CheckinScreen({
      so an untouched control and an untouched square agree with each other.
      Both are dimmed until a value is actually chosen. */
   const progress = useSharedValue(edit ? edit.pain : 5);
+  /* THE SQUARE GIVES WAY FIRST. The pain step is a column: title, then
+     the middle (square, number, word, the five chips), then the slider
+     and the button. The middle is flex: 1 and centres its content, so
+     when the content is taller than the room — a large text size, a
+     short phone, the chips wrapping to three rows — it spills equally
+     over the title above and the slider below, and the square ends up
+     covering the question. Measured, the square is the one thing here
+     with no information in its size, so it is what shrinks: the room
+     minus everything else in the middle, floored at SQUARE_MIN. */
+  const [middleH, setMiddleH] = useState(0);
+  const [aboveH, setAboveH] = useState(0);
+  const [belowH, setBelowH] = useState(0);
+  const square = middleH && belowH
+    ? Math.max(SQUARE_MIN, Math.min(SQUARE, middleH - aboveH - belowH - SQUARE_GAP))
+    : SQUARE;
   /* when the flow opened, for the one number the funnel needs: seconds
      to a finished check-in. The clock, never the content. */
   const [openedAt] = useState(() => Date.now());
@@ -912,9 +932,9 @@ export default function CheckinScreen({
 
       <GestureDetector gesture={stepSwipe}>
       {step === 'pain' ? (
-        <View style={styles.middle}>
+        <View style={styles.middle} onLayout={(e) => setMiddleH(e.nativeEvent.layout.height)}>
           {timed && (
-            <>
+            <View style={styles.above} onLayout={(e) => setAboveH(e.nativeEvent.layout.height)}>
               <Press
                 onPress={() => setShowTimePicker((v) => !v)}
                 pressOpacity={0.7}
@@ -938,15 +958,16 @@ export default function CheckinScreen({
                   }}
                 />
               )}
-            </>
+            </View>
           )}
           <View
             accessible
             accessibilityRole="image"
             accessibilityLabel={'Pain ' + speakScore(pain)}
           >
-            <PainShape progress={progress} size={SQUARE} />
+            <PainShape progress={progress} size={square} />
           </View>
+          <View style={styles.below} onLayout={(e) => setBelowH(e.nativeEvent.layout.height)}>
           {/* the number and the word carry the value; colour never carries
               it alone */}
           <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>
@@ -975,6 +996,7 @@ export default function CheckinScreen({
             <View style={styles.chipCloud}>
               {chipRow(SYMPTOMIDS, SYMPTOM_NAMES, sym, setSym, true)}
             </View>
+          </View>
           </View>
         </View>
       ) : step === 'today' ? (
@@ -1222,6 +1244,10 @@ const styles = StyleSheet.create({
   },
   hint: { color: color.textTertiary, fontSize: font.subheadline, textAlign: 'center', marginTop: 8 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  /* the two measured halves around the square — stretched so the chips
+     can centre inside, centred so the column reads as one */
+  above: { alignSelf: 'stretch', alignItems: 'center' },
+  below: { alignSelf: 'stretch', alignItems: 'center' },
   /* quiet position marker: neutral segments, filled up to here in
      white — never the pain palette, which would hand a hue a meaning
      this bar does not have */
