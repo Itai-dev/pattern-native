@@ -28,8 +28,16 @@ import WatchConnectivity
 struct PatternWatchApp: App {
   var body: some Scene {
     WindowGroup {
-      CheckinView()
-        .onAppear { WatchSync.shared.activate() }
+      /* two pages, side by side: the check-in first, the week a swipe
+         to the left. Horizontal paging, not vertical — the crown is the
+         check-in's control, and a vertical page style would take it
+         for turning pages. */
+      TabView {
+        CheckinView()
+        WeekView()
+      }
+      .tabViewStyle(.page)
+      .onAppear { WatchSync.shared.activate() }
     }
   }
 }
@@ -39,6 +47,11 @@ struct WatchPalette {
   let ramp: [Color]
   let ink: [Color]
   let words: [String]
+  /* the last seven days as fills, nil for a day with nothing recorded;
+     empty when the phone that pushed this predates the week (16 Sep
+     2026) — optional, never a reason to reject the palette */
+  let week: [Color?]
+  let letters: [String]
 
   /* parse strictly: a context from a newer phone with a shape this
      build does not know is ignored, never half-read. Eleven of each or
@@ -58,6 +71,16 @@ struct WatchPalette {
     self.ramp = colors
     self.ink = inks
     self.words = words
+    if let w = ctx["week"] as? [String], w.count == 7,
+       let l = ctx["weekLetters"] as? [String], l.count == 7 {
+      /* '' is a day with nothing; a hex that fails to parse is treated
+         the same, never as a colour it is not */
+      self.week = w.map { $0.isEmpty ? nil : Color(hex: $0) }
+      self.letters = l
+    } else {
+      self.week = []
+      self.letters = []
+    }
   }
 
   /* named apart from the stored arrays on purpose: a method `ink(_:)`

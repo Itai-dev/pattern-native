@@ -970,7 +970,18 @@ export default function CheckinScreen({
             /* monotonic: the Health line under the word changes with the
                value, and a square that resized on every slider move was
                jitter on exactly the screens this measuring exists for */
-            onLayout={(e) => setBelowH((h) => Math.max(h, e.nativeEvent.layout.height))}
+            onLayout={(e) => {
+              /* READ THE EVENT NOW, NOT IN THE UPDATER. React Native pools
+                 its synthetic events: once the handler returns, the
+                 event's fields are nulled for reuse, and a functional
+                 state updater runs later, at the next render. Reading
+                 e.nativeEvent inside it read null.layout — a TypeError
+                 during render, no boundary above it, and in a release
+                 build that is RCTFatal: the 16 Sep Log crash. The height
+                 is copied out first; the updater sees a number. */
+              const h = e.nativeEvent.layout.height;
+              setBelowH((prev) => Math.max(prev, h));
+            }}
           >
           {/* the number and the word carry the value; colour never carries
               it alone */}

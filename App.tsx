@@ -425,6 +425,8 @@ export default function App() {
     setEvents(db.getEvents());
     /* one place to feed the widget, so no screen has to remember to */
     refreshWidget(next);
+    /* and the watch's week strip, which is drawn from the same days */
+    pushWatchContext(next);
     /* and to rebuild the reminder queue — a check-in just made silences
        today's slot in its part of the day. Never prompts. */
     syncReminders().catch(() => {});

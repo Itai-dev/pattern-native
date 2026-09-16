@@ -1,6 +1,6 @@
 /**
  * Turn the crown — or tap the square — watch it take its colour, tap
- * the check, and three seconds later it is sent.
+ * the check, and it is sent.
  *
  * THE SQUARE IS THE APP'S OWN. On the phone, PainShape is "one solid
  * rounded square" whose fill rides the brightness ramp under the
@@ -29,12 +29,13 @@
  * confirmed, and the record's whole claim is that the number is what
  * the user entered. The pause earns the check; the tap is the entry.
  *
- * AND THE ENTRY CAN BE TAKEN BACK, FOR THREE SECONDS. The check-tap
- * itself can be a brushed sleeve, and there was no way back from the
- * wrist once it had gone. Now the send is held behind an Undo for a
- * short count, then goes; Undo returns to choosing with the value
- * intact. Three seconds: long enough to notice, short enough that the
- * arm is not held up waiting.
+ * THE TAP SENDS, AT ONCE. There was a three-second Undo behind the
+ * check (5–16 Sep 2026), against a brushed sleeve; the founder's call
+ * was that an arm held up for a countdown after every check-in cost
+ * more than the rare brush, and the settle before the check already
+ * asks for a deliberate pause. So the check appears sooner, the tap
+ * sends, the mark shows, and the wrist is done. A wrong number is
+ * corrected on the phone, where every check-in can be edited.
  *
  * WHAT HAPPENS NEXT IS SAID. The phone's app writes the record, and it
  * does that when it next opens — a check-in made on a walk does not
@@ -53,14 +54,13 @@
 import SwiftUI
 import WatchKit
 
-/** how long an Undo is offered before the check-in is sent */
-private let UNDO_SECONDS: Double = 3.0
 /** how long the sent confirmation stays before the view resets */
 private let SENT_SECONDS: Double = 1.8
 /** stillness that earns the check — long enough that mid-turn
  *  hesitation does not flash it, short enough that it never feels
- *  withheld */
-private let SETTLE_SECONDS: Double = 0.9
+ *  withheld. Was 0.9; halved on 16 Sep 2026 because on the wrist the
+ *  wait read as the app hesitating, not the person. */
+private let SETTLE_SECONDS: Double = 0.45
 
 struct CheckinView: View {
   @ObservedObject private var sync = WatchSync.shared
@@ -77,9 +77,6 @@ struct CheckinView: View {
   @State private var settled = false
   @State private var settleTask: DispatchWorkItem?
 
-  /* the check has been tapped and the send is counting down */
-  @State private var pending = false
-  @State private var sendTask: DispatchWorkItem?
   /* the send happened; the confirmation is showing */
   @State private var sent = false
 
@@ -110,29 +107,16 @@ struct CheckinView: View {
     }
   }
 
+  /* the tap is the entry: sent now, marked now, one success tap on the
+     wrist to say so */
   private func confirm() {
-    pending = true
-    WKInterfaceDevice.current().play(.click)
-    let task = DispatchWorkItem {
-      WatchSync.shared.send(pain: value)
-      WKInterfaceDevice.current().play(.success)
-      pending = false
-      sent = true
-    }
-    sendTask = task
-    DispatchQueue.main.asyncAfter(deadline: .now() + UNDO_SECONDS, execute: task)
-  }
-
-  private func undo() {
-    sendTask?.cancel()
-    sendTask = nil
-    pending = false
-    WKInterfaceDevice.current().play(.click)
+    WatchSync.shared.send(pain: value)
+    WKInterfaceDevice.current().play(.success)
+    sent = true
   }
 
   private func reset() {
     sent = false
-    pending = false
     touched = false
     settled = false
     crown = 5
@@ -146,7 +130,7 @@ struct CheckinView: View {
         Image(systemName: "checkmark")
           .font(.system(size: 40, weight: .semibold))
           .foregroundStyle(.white)
-        Text("Lands in Pattern when your iPhone next opens it.")
+        Text("Sent. It lands in Pattern when your iPhone next opens it.")
           .font(.caption2)
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)
@@ -188,33 +172,25 @@ struct CheckinView: View {
                to use. */
             HStack(spacing: 0) {
               Color.clear.contentShape(Rectangle())
-                .onTapGesture { if !pending { step(-1) } }
+                .onTapGesture { step(-1) }
                 .accessibilityLabel("One less")
               Color.clear.contentShape(Rectangle())
-                .onTapGesture { if !pending { step(1) } }
+                .onTapGesture { step(1) }
                 .accessibilityLabel("One more")
             }
           }
           .frame(width: side, height: side)
           .animation(.easeOut(duration: 0.15), value: value)
 
-          Text(pending ? "sending…" : caption)
+          Text(caption)
             .font(.footnote)
             .foregroundStyle(.secondary)
             .frame(height: 18)
 
-          /* a fixed slot for the check — or the Undo — so the square
-             never moves when either arrives or leaves */
+          /* a fixed slot for the check, so the square never moves when
+             it arrives or leaves */
           ZStack {
-            if pending {
-              Button(action: undo) {
-                Text("Undo")
-                  .font(.system(size: 15, weight: .semibold))
-              }
-              .buttonStyle(.bordered)
-              .tint(.white)
-              .transition(.opacity)
-            } else if settled && touched {
+            if settled && touched {
               Button(action: confirm) {
                 Image(systemName: "checkmark")
                   .font(.system(size: 20, weight: .semibold))
@@ -226,8 +202,7 @@ struct CheckinView: View {
             }
           }
           .frame(height: 44)
-          .animation(.easeInOut(duration: 0.2), value: settled)
-          .animation(.easeInOut(duration: 0.2), value: pending)
+          .animation(.easeInOut(duration: 0.15), value: settled)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
@@ -236,12 +211,7 @@ struct CheckinView: View {
         $crown, from: 0, through: 10, by: 1,
         sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true
       )
-      .onChange(of: crown) {
-        /* a turn during the countdown is a change of mind: take the
-           send back and go on choosing from where the crown is now */
-        if pending { undo() }
-        changed()
-      }
+      .onChange(of: crown) { changed() }
     }
   }
 }

@@ -1349,6 +1349,19 @@ ok('each ink is what inkOn would pick for that score', (() => {
   const c = wctx.watchContext();
   return c.ink.every((hex, i) => hex === scale.inkOn(i));
 })());
+ok('the week rides along: seven fills, today last, an empty string for a day with nothing', (() => {
+  const e = { '2026-09-16': { pain: 6, cap: null, note: '', logs: [{ h: 600, pain: 6 }] },
+    '2026-09-14': { pain: 3, cap: null, note: '', logs: [{ h: 600, pain: 2 }, { h: 900, pain: 4 }] } };
+  const c = wctx.watchContext(e, '2026-09-16');
+  return c.week.length === 7 && c.weekLetters.length === 7
+    && c.week[6] === scale.painColor(6) && c.week[4] === scale.painColor(3)
+    && c.week[5] === '' && c.week[0] === ''
+    && c.weekLetters[6] === 'W' && c.weekLetters[0] === 'T';
+})());
+ok('with no record the week is seven empty strings, never seven zeros', (() => {
+  const c = wctx.watchContext();
+  return c.week.length === 7 && c.week.every((f) => f === '');
+})());
 ok('each word is painLabel for that score — one vocabulary', (() => {
   const c = wctx.watchContext();
   return c.words.every((w, i) => w === scale.painLabel(i));
