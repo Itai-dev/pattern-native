@@ -932,7 +932,23 @@ export default function CheckinScreen({
 
       <GestureDetector gesture={stepSwipe}>
       {step === 'pain' ? (
-        <View style={styles.middle} onLayout={(e) => setMiddleH(e.nativeEvent.layout.height)}>
+        /* AND WHEN EVEN THAT IS NOT ENOUGH, IT SCROLLS. At the largest
+            text sizes the five chips wrap to three rows of 48pt and the
+            number alone is seventy; the square at its floor still leaves
+            the middle taller than the room, and a centred View spills
+            equally over the mode switch above and the slider below. A
+            ScrollView clips instead: what fits is centred exactly as
+            before, what does not is one short scroll away, and the
+            slider and the button never move. The today step has used
+            the same shape inside the same gesture since it was built. */
+        <ScrollView
+          style={styles.middleScroll}
+          contentContainerStyle={styles.middleContent}
+          onLayout={(e) => setMiddleH(e.nativeEvent.layout.height)}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {timed && (
             <View style={styles.above} onLayout={(e) => setAboveH(e.nativeEvent.layout.height)}>
               <Press
@@ -998,7 +1014,7 @@ export default function CheckinScreen({
             </View>
           </View>
           </View>
-        </View>
+        </ScrollView>
       ) : step === 'today' ? (
         /* the one scrollable screen: the period's questions first (they
            are the ones with something to compare against), then the
@@ -1244,6 +1260,10 @@ const styles = StyleSheet.create({
   },
   hint: { color: color.textTertiary, fontSize: font.subheadline, textAlign: 'center', marginTop: 8 },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  /* the pain step's middle as a scroller: the frame takes the room, the
+     content centres in it while it fits and scrolls once it does not */
+  middleScroll: { flex: 1, alignSelf: 'stretch' },
+  middleContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
   /* the two measured halves around the square — stretched so the chips
      can centre inside, centred so the column reads as one */
   above: { alignSelf: 'stretch', alignItems: 'center' },
