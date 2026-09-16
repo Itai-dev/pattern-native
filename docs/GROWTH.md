@@ -53,31 +53,36 @@ where the first retention experiment belongs.
 
 ---
 
-## 2. The blocker: you cannot see retention
+## 2. The blocker: you cannot see retention — BUILT 24 Aug 2026
 
-There are no analytics. That is correct for privacy and fatal for this plan —
-"optimise retention" without measurement is a vibe.
+*Rewritten 16 Sep 2026; the section below described a gap that had been
+closed three weeks earlier and was still being read as a gate.*
 
-`SPEC.md` §21 already defines the privacy-safe event set: behaviour only, never
-the content of a health answer. It has never been built.
+Analytics shipped on 24 August 2026 (`src/analytics.ts`): Aptabase,
+EU-hosted, named in the policy, opt-out in Profile, on by default. The
+event list is a closed TypeScript union and every value is a number, a
+boolean or a string capped at 24 characters — both enforced in code, not
+in prose. The identifier is per cold start; there is no installation id.
 
-**Build it before recruiting anyone beyond friends.** The minimum that makes the
-gates below decidable:
+What is actually counted (the union in `analytics.ts` is the authority;
+this list is the summary): `app_open`, `day_active`,
+`onboarding_completed`, `first_checkin`, `checkin_completed` (seconds,
+whether context was added, whether the slider moved),
+`checkin_abandoned`, the check-in steps walked or skipped, event and
+experiment lifecycle, Health connected (a count of categories),
+reminders on/off, PDF made and shared, appointment set, widget and
+Watch use. Never: a pain score, a note, a body area, an answer, a
+medication, a phrase.
 
-- `install`, `onboarding_completed`, `first_checkin` (with seconds since install)
-- `checkin_completed` — with duration, and whether context was added
-- `day_active` — the one event that makes a retention curve possible
-- `focus_started`, `focus_review_seen`, `focus_changed`
-- `report_previewed`, `pdf_shared`
-- `reminder_enabled`, and which slot
-- `trends_opened`, `history_opened`
+What the retention curve still lacks: `day_active` exists, so week-4
+retention is computable in the Aptabase dashboard; nothing exports it
+yet, and nobody has looked. **Look before recruiting beyond friends** —
+the number is the gate for Step 3, and it is now a query, not a build.
 
-Never: a pain score, a note, a body area, a factor answer, a hypothesis.
-
-**Choose a processor that can be named plainly in the privacy policy**, or
-self-host. The policy currently says "Pattern does not currently collect product
-analytics at all; if that ever changes, it will measure actions… and this page
-will be updated first." That sentence is a promise with a date on it.
+Still open from the original list: `trends_opened` and `history_opened`
+are not events (Trends is a pager tab, always mounted, so "opened" would
+need a scroll-into-view signal). Decide whether that matters before
+Step 3; it probably does not.
 
 ---
 

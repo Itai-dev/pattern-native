@@ -12,30 +12,31 @@ import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Press } from './motion';
 import { color, font } from './theme';
 
-export const PRIVACY_UPDATED = '15 September 2026';
+export const PRIVACY_UPDATED = '16 September 2026';
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'What stays on your device',
     body: [
-      'Every check-in: pain score, time, body areas, quality words. Everything you write: notes, what you tried, what you want to understand. Your answers to the daily questions, and which questions were asked or skipped. Events, reminders, and your app preferences.',
+      'Every check-in: pain score, time, body areas, quality words. Everything you write: notes, what you tried, the one thing you are testing for a fortnight. Your answers to the daily questions, and which questions were asked or skipped. Events, reminders, and your app preferences.',
       'This lives in a database inside the app’s own storage, protected by your device’s encryption and passcode. Deleting Pattern deletes all of it.',
       'Your record is part of your iPhone’s own backup — iCloud Backup, or a backup to a computer — if you have one turned on. That backup is Apple’s, made and encrypted under your Apple Account; Pattern does not make it, cannot see it and cannot turn it off. It is what brings your record back on a new phone, and it is the only copy anywhere other than the one you export yourself.',
     ],
   },
   {
-    title: 'The one thing that is sent',
+    title: 'What is sent',
     body: [
       'Pattern counts anonymous usage events so we can tell whether the app is actually being used — for example that a check-in was completed, roughly how many seconds it took, and whether the record was opened.',
       'These counts never contain anything you told us about your body. No pain score, no body area, no answer, no note, no free text of any kind. This is enforced in the code: event names come from a fixed list, and any accompanying value is a number, a true-or-false, or a string capped at 24 characters — long enough for “evening”, far too short for anything a person wrote about themselves.',
-      'Events are sent to Aptabase, an open-source analytics service, on servers in the European Union. They are tied to a random identifier generated on your device that is linked to nothing and to no one. Alongside each event, Aptabase records the standard technical context: your operating system version, the app version, and your device’s general locale.',
+      'Events are sent to Aptabase, an open-source analytics service, on servers in the European Union. They are tied to a session identifier that changes every time the app starts and is linked to nothing and to no one; there is no lasting identifier for your device or for you. Alongside each event, Aptabase records the standard technical context: your operating system version, the app version, and your device’s language setting.',
       'You can turn this off. Open Profile and switch off “Share anonymous usage counts”. Nothing is sent after that.',
+      'Separately, when Pattern opens it asks Expo’s update service whether a newer version of the app’s code is available, the way many apps update between App Store releases. That request carries the app’s version and platform and an installation identifier for the update system — never anything from your record, and it is not analytics.',
     ],
   },
   {
     title: 'What we never do',
     body: [
-      'No advertising, and no advertising identifiers. No selling or sharing of data with anyone, for any purpose. No third-party trackers or SDKs beyond the analytics named above. No location tracking. No contact list, photo, or microphone access.',
+      'No advertising, and no advertising identifiers. No selling or sharing of data with anyone, for any purpose. No third-party trackers or SDKs beyond the analytics named above. No location tracking. No contact list, photo, or microphone access. Calendar access only if you turn it on, and then read-only.',
     ],
   },
   {
@@ -48,6 +49,12 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: 'Apple Health',
     body: [
       'If you connect Apple Health, Pattern reads only the categories you choose, never writes to Health, and keeps what it reads on this iPhone — apart from your record, in a place iOS leaves out of backups, so a new phone reads Health afresh rather than inheriting readings it never took. It is not in the backup file you export, and it is removed when you disconnect.',
+    ],
+  },
+  {
+    title: 'Your calendar',
+    body: [
+      'If you turn on “Use my calendar” in Profile, Pattern reads the titles and times of your calendar events on this iPhone, to ask about your pain after the ones that read as exertion and to show what is booked against your own record. It never writes to your calendar — the one action it offers opens Apple’s own event editor. What it reads is not stored, is not in your backup file, and is not sent anywhere.',
     ],
   },
   {
@@ -105,9 +112,8 @@ export default function PrivacySheet({ onDone, contactEmail }: PrivacySheetProps
         </Text>
         <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
           Nothing you record about your body is ever sent to Pattern. Your pain
-          scores, body areas, descriptions, notes, answers and hypotheses are
-          stored on your iPhone, and Pattern has no server that could receive
-          them.
+          scores, body areas, descriptions, notes and answers are stored on
+          your iPhone, and Pattern has no server that could receive them.
         </Text>
         <Text style={styles.p} allowFontScaling maxFontSizeMultiplier={1.4}>
           Pattern has no accounts, no login, and no cloud sync of its own.

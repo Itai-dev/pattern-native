@@ -13,6 +13,28 @@
       "appleTeamId": "WZ6VU6BWNG",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeProductInteraction",
+            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAnalytics"
+            ]
+          }
+        ],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -31,14 +53,15 @@
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Pattern reads only the Health data you choose — sleep, activity, workouts, State of Mind, water, caffeine and drinks, and the doses of medications you choose — to add context beside your pain record. It never writes to Health, and everything it reads stays on this iPhone.",
-          "NSHealthUpdateUsageDescription": "Pattern never writes to Apple Health and never asks for write access. This text exists only because the underlying library includes write APIs; you will not see a write permission request.",
+          "NSHealthUpdateUsageDescription": "Pattern does not write to Apple Health and does not need permission to. If this request ever appears, you can decline it: nothing in Pattern depends on it.",
           "background": true
         }
       ],
       [
         "expo-calendar",
         {
-          "calendarPermission": "Pattern reads the titles and times of your calendar events to ask about your pain after the ones that read as exertion — a class, physio, a long drive. It never writes to your calendar, and nothing leaves this iPhone."
+          "calendarPermission": "Pattern reads the titles and times of your calendar events to ask about your pain after the ones that read as exertion — a class, physio, a long drive. It never writes to your calendar, and nothing leaves this iPhone.",
+          "remindersPermission": "Pattern does not use your Reminders and never asks for them. If this request ever appears, you can decline it: nothing in Pattern depends on it."
         }
       ],
       "expo-sqlite",

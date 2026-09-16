@@ -29,6 +29,11 @@ import * as db from './db';
 
 /* set when the Aptabase app is created; empty = analytics entirely off */
 const APP_KEY = 'A-EU-5124485143';
+/** the language tag iOS reports, or 'en' where Intl is unavailable */
+function deviceLocale(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().locale || 'en'; } catch { return 'en'; }
+}
+
 const INGEST_URL = 'https://eu.aptabase.com/api/v0/event';
 
 /** every event Pattern may ever count — a closed list, on purpose */
@@ -124,7 +129,11 @@ export function track(name: EventName, props?: Record<string, PropValue>): void 
       eventName: name,
       systemProps: {
         isDebug: __DEV__,
-        locale: 'en',
+        /* the device's language setting — what the policy says is sent,
+           and the one thing that tells us whether non-English speakers
+           arrive (GROWTH.md §7). A setting, never a place: no region
+           finer than what the language tag carries. */
+        locale: deviceLocale(),
         osName: Platform.OS === 'ios' ? 'iOS' : 'Android',
         osVersion: String(Platform.Version),
         appVersion: Constants.expoConfig?.version || '?',
