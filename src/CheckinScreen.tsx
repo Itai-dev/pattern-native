@@ -85,7 +85,7 @@ import {
 } from './painScale';
 import {
   LOC_CHIP_IDS, LOC_NAMES, Moment, MomentMeta, QUALITYIDS,
-  QUALITY_NAMES, SYMPTOMIDS, SYMPTOM_NAMES, answerOf, collapseSidedLocs, defaultLocs, logsOf,
+  QUALITY_NAMES, SYMPTOMS_ASKED, SYMPTOM_NAMES, answerOf, collapseSidedLocs, defaultLocs, logsOf,
   minutesNow, nowMeta, todayISO,
 } from './model';
 import { fmtClock } from './clock';
@@ -1007,7 +1007,7 @@ export default function CheckinScreen({
             </View>
           )}
 
-          {/* THE BAD-DAY PATH, ON THE THIRD SCREEN. Five symptoms —
+          {/* THE BAD-DAY PATH, ON THE THIRD SCREEN. Three symptoms —
               fatigue, fog, stiffness — beside the words for the pain,
               where the other descriptions of the moment already live.
               Optional and tri-state (see Moment.sym): this screen
@@ -1020,7 +1020,12 @@ export default function CheckinScreen({
               Also right now
             </Text>
             <View style={styles.chipCloud}>
-              {chipRow(SYMPTOMIDS, SYMPTOM_NAMES, sym, setSym, true)}
+              {/* the three asked, plus any retired id this moment already
+                  carries — an edit must show what it is about to keep */}
+              {chipRow(
+                SYMPTOMS_ASKED.concat(sym.filter((id) => SYMPTOMS_ASKED.indexOf(id) < 0)),
+                SYMPTOM_NAMES, sym, setSym, true
+              )}
             </View>
           </View>
 

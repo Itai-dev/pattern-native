@@ -813,18 +813,29 @@ export function cleanQuality(a: unknown): string[] | undefined {
 }
 
 /* ── symptoms alongside the pain ─────────────────────────────
-   Five, and the five the chronic-pain communities keep naming as what
-   travels with a bad day. They sit on the pain screen so a bad-day
-   check-in is one slide and a tap or two, with no typing and no
-   second screen. A closed list on purpose: this is the "associated
-   symptoms" answer a clinician asks for, not a symptom tracker, and
+   The "associated symptoms" answer a clinician asks for, as chips on
+   About today. A closed list on purpose: not a symptom tracker, and
    anything finer belongs in a note. Ids are storage words and never
-   change; the labels are what the user reads. */
+   change; the labels are what the user reads.
+
+   THE DICTIONARY IS FIVE, THE QUESTION IS THREE. Two of the five
+   shipped for two days (14–16 Sep 2026) and were retired from the
+   question, not from the dictionary: "Slept badly" is a claim about
+   last night under a heading that says "right now", and Health
+   measures the night better than a chip; "Low mood" doubles State of
+   Mind and edges into an attribution, which the app does not ask a
+   person to make. Both ids STAY here so the answers already recorded
+   keep their words on the day and in the report — cleanIds drops any
+   id it does not know, so removing them would have erased those
+   answers on the next write, silently (see removeMoment's history). */
 export const SYMPTOM_NAMES: Record<string, string> = {
   fatigue: 'Fatigue', fog: 'Brain fog', sleep: 'Slept badly',
   stiffness: 'Stiffness', mood: 'Low mood',
 };
 export const SYMPTOMIDS = Object.keys(SYMPTOM_NAMES);
+/** the ids the check-in offers — symptoms in the clinical sense, that
+ *  no connected source measures, that fit one row */
+export const SYMPTOMS_ASKED = ['fatigue', 'fog', 'stiffness'];
 
 export function cleanSymptoms(a: unknown): string[] | undefined {
   return cleanIds(a, SYMPTOMIDS);
