@@ -505,6 +505,11 @@ export const APPOINTMENT_REASK_DAYS = 30;
  *  rounding, not a direction, and naming one would be reading the noise. */
 export const DIRECTION_SAME_BELOW = 0.25;
 
+/** how many first-days lists on Patterns stay open before the fold —
+ *  two: enough to see what the section is, few enough that it is a
+ *  section and not the card. Ten can be licensed at once. */
+export const FIRST_DAYS_OPEN = 2;
+
 /** how many quick check-ins in a row before the pain step leads with
  *  Log it instead of Continue. Three: one is a bad moment, two is a bad
  *  day, three is how this person is checking in at the moment — and the

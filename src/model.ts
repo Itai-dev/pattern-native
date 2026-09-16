@@ -319,7 +319,7 @@ export function collapseSidedLocs(ids: string[]): string[] {
   return out;
 }
 
-/* the expanded view: six anatomical sections offering the whole
+/* the expanded view: seven anatomical sections offering the whole
    vocabulary, top to bottom, left before right. Sections are what lets
    fifty options stay a question instead of a wall — the eye jumps to
    "Legs and feet" the way a finger jumped to the figure's leg. The
@@ -329,11 +329,11 @@ export function collapseSidedLocs(ids: string[]): string[] {
    a section: it is a coarse chip, always on screen. */
 export const LOC_SECTIONS: { title: string; ids: string[] }[] = [
   { title: 'Head and neck', ids: ['head', 'face', 'jaw', 'backOfHead', 'neck'] },
-  { title: 'Chest and belly', ids: ['chest', 'ribsL', 'ribsR', 'belly', 'pelvis', 'groin'] },
-  {
-    title: 'Back',
-    ids: ['upperBack', 'midBack', 'lowerBack', 'tailbone', 'buttockL', 'buttockR'],
-  },
+  { title: 'Chest and belly', ids: ['chest', 'ribsL', 'ribsR', 'belly'] },
+  { title: 'Back', ids: ['upperBack', 'midBack', 'lowerBack', 'tailbone'] },
+  /* where a person looks for the groin or a buttock: not under the
+     belly, not under the back */
+  { title: 'Hips and pelvis', ids: ['hipL', 'hipR', 'pelvis', 'groin', 'buttockL', 'buttockR'] },
   {
     title: 'Arms and hands',
     ids: [
@@ -345,7 +345,7 @@ export const LOC_SECTIONS: { title: string; ids: string[] }[] = [
   {
     title: 'Legs and feet',
     ids: [
-      'hipL', 'hipR', 'thighL', 'thighR', 'kneeL', 'kneeR',
+      'thighL', 'thighR', 'kneeL', 'kneeR',
       'shinL', 'shinR', 'calfL', 'calfR', 'ankleL', 'ankleR',
       'heelL', 'heelR', 'footL', 'footR', 'toesL', 'toesR',
     ],
@@ -996,7 +996,10 @@ export function dailyAverage(e: Entry | null | undefined): number | null {
  *    past DAY_SHAPE_MIN_DELTA — the same gate the Today card uses, for
  *    the same reason. Below it the day just ends, undescribed.
  */
-export function daySummary(logs: Moment[]): string | null {
+/** @param fmt how a minute-of-day is printed. Defaults to the fixed
+ *  24-hour form the tests pin; a screen passes its own locale-aware
+ *  clock so the sentence and the rows under it agree. */
+export function daySummary(logs: Moment[], fmt: (h: number) => string = fmtTime): string | null {
   if (!logs.length) return null;
   const sorted = logs.slice().sort((a, b) => a.h - b.h);
   const n = sorted.length;
@@ -1005,11 +1008,11 @@ export function daySummary(logs: Moment[]): string | null {
   const high = sorted.reduce((m, l) => (l.pain > m ? l.pain : m), 0);
 
   if (n === 1) {
-    return 'One check-in at ' + fmtTime(first.h) + ' — '
+    return 'One check-in at ' + fmt(first.h) + ' — '
       + formatScore(first.pain) + ', ' + painLabel(first.pain) + '.';
   }
 
-  let s = n + ' check-ins between ' + fmtTime(first.h) + ' and ' + fmtTime(last.h);
+  let s = n + ' check-ins between ' + fmt(first.h) + ' and ' + fmt(last.h);
   s += low === high
     ? ', all at ' + formatScore(low)
     : ', from ' + formatScore(low) + ' to ' + formatScore(high);

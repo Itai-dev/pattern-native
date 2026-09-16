@@ -112,7 +112,7 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
         ) : (
           <>
             <Text style={styles.headline} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Help Pattern ask less
+              Fewer questions, with Apple Health
             </Text>
             <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
               Connect Apple Health to let Pattern quietly compare your pain with

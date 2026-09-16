@@ -11,7 +11,7 @@
  *   2. Where?            — your usual places as chips, one tap each, and
  *                          every place, in sections, behind "Show every place" for anything
  *                          sided or specific.
- *   3. About today       — one scrollable screen, only when something is
+ *   3. About today       — one scrollable screen: the symptoms at every check-in, and
  *                          due: how much pain limited the day (evenings,
  *                          once) and how it feels (SOCRATES "Character",
  *                          once a day). THE FOCUS'S QUESTIONS AND THE
@@ -195,8 +195,14 @@ export default function CheckinScreen({
 
   /* "today" is the day being WRITTEN — usually the calendar's today,
      sometimes a remembered day inside the retro window */
-  const today = dateIso || todayISO();
-  const retro = today !== todayISO();
+  /* FROZEN WHEN THE SHEET OPENS. Both used to be recomputed on every
+     render; a check-in begun at 23:58 and finished at 00:02 then wrote
+     its moment onto the new day at the new minute, left an orphan on
+     the old one, and switched the screen into its remembered-day mode
+     mid-flow. The day a person started describing is the day they are
+     describing. */
+  const [today] = useState(() => dateIso || todayISO());
+  const [retro] = useState(() => (dateIso || todayISO()) !== todayISO());
 
   /* a retro entry describes a time the user names; midday is only the
      picker's starting point, and the control is on screen the whole
@@ -205,7 +211,12 @@ export default function CheckinScreen({
   const [retroMinutes, setRetroMinutes] = useState(edit ? edit.h : 12 * 60);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const timed = retro || editing;
-  const minutes = timed ? retroMinutes : (now != null ? now : minutesNow());
+  const minutes = timed ? retroMinutes
+    : now != null ? now
+    /* past midnight with the sheet still open, the check-in is still
+       about the day it started on: 23:59 of that day, not 00:02 of a
+       day that has not been lived yet */
+    : todayISO() === today ? minutesNow() : 1439;
   const [showAllChips, setShowAllChips] = useState(false);
 
   /* THE STAMPS ON A WRITE. A new moment is stamped now; an edit keeps
@@ -388,10 +399,16 @@ export default function CheckinScreen({
      less to a comparison than a place. The last two steps are both
      optional either way, so the only thing the order decides is which
      one a person answers before they stop. */
-  /* the third screen exists only when something is due on it. A retro
-     check-in never has one: the day-scoped questions stay in the
-     present. An edit has one only for the moment's own words. */
-  const askToday = askIds.length > 0 || askFeel;
+  /* THE THIRD SCREEN ALWAYS EXISTS on the detailed path, because the
+     symptom question lives there and is put at every check-in, as it
+     was when it sat under the number. It used to exist only when a
+     day-scoped question or the words were due — which, once the chips
+     moved, made symptoms unreachable on a remembered day, on an edit of
+     a moment with no words, and on the day's later check-ins, and left
+     a mis-tapped "Fatigue" with no way to take it back. The day-scoped
+     questions still stay in the present (askIds is empty for a
+     remembered day); what the screen holds is decided block by block. */
+  const askToday = true;
   const limitationDue = !editing && askIds.indexOf(LIMITATION_ID) >= 0;
   /* WHICH BUTTON IS FILLED on the pain step. THE LEARNED MODE, WITHOUT A
      CONTROL: three quick check-ins in a row bring "Log it" forward, one
@@ -418,9 +435,7 @@ export default function CheckinScreen({
     : logsOf(db.getDay(today)).filter((l) => l.h !== writtenAt)
       .reduce<number | null>((m, l) => (m == null || l.pain > m ? l.pain : m), null);
   const askWhere = !whereDoneToday || (painSoFar != null && pain >= painSoFar + WHERE_REASK_DELTA);
-  const order: Step[] = retro && !editing
-    ? (askWhere ? ['pain', 'where'] : ['pain'])
-    : (askWhere ? ['pain', 'where', 'today'] : ['pain', 'today']);
+  const order: Step[] = askWhere ? ['pain', 'where', 'today'] : ['pain', 'today'];
   const stepsShown = order.filter((s) => s !== 'today' || askToday);
   /* Continue leads only when there is somewhere to continue to */
   const detailsLead = modeApplies ? modeLead === 'detailed' && stepsShown.length > 1
@@ -439,7 +454,8 @@ export default function CheckinScreen({
      blank form rather than declining. Same tap, same stored skip — but
      now the button admits it, which is the difference between an
      optional question and one the user could not get past. */
-  const anyAnswered = askIds.some((id) => answers[id] !== undefined) || quality.length > 0;
+  const anyAnswered = askIds.some((id) => answers[id] !== undefined) || quality.length > 0
+    || sym.length > 0;
 
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
@@ -910,6 +926,9 @@ export default function CheckinScreen({
           onLayout={(e) => setMiddleH(e.nativeEvent.layout.height)}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          /* a UIDatePicker wheel inside a vertical scroller competes with
+             it for the drag; while the wheel is up, the scroller yields */
+          scrollEnabled={!showTimePicker}
           keyboardShouldPersistTaps="handled"
         >
           {timed && (
@@ -946,7 +965,13 @@ export default function CheckinScreen({
           >
             <PainShape progress={progress} size={square} />
           </View>
-          <View style={styles.below} onLayout={(e) => setBelowH(e.nativeEvent.layout.height)}>
+          <View
+            style={styles.below}
+            /* monotonic: the Health line under the word changes with the
+               value, and a square that resized on every slider move was
+               jitter on exactly the screens this measuring exists for */
+            onLayout={(e) => setBelowH((h) => Math.max(h, e.nativeEvent.layout.height))}
+          >
           {/* the number and the word carry the value; colour never carries
               it alone */}
           <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>

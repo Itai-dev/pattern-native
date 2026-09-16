@@ -133,6 +133,8 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
       accessibilityRole={role}
       accessibilityState={role === 'radio' ? { selected: on } : { checked: on }}
       accessibilityLabel={label}
+      /* the chip draws at ~36pt; the hand that taps it gets 44 */
+      hitSlop={6}
       style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
     >
       <Text style={[styles.chipText, on && styles.chipTextOn]}

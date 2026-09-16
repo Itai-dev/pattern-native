@@ -52,7 +52,7 @@ import {
 } from './health/doses';
 import { DigestCard, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
-import { DIRECTION_SAME_BELOW } from './thresholds';
+import { DIRECTION_SAME_BELOW, FIRST_DAYS_OPEN } from './thresholds';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const shortDate = (iso: string) => {
@@ -379,11 +379,6 @@ function Direction({ first, second }: { first: number; second: number }) {
    who wants their days back needs a range that still shows them. It is
    offered only once the record is longer than it (see `ranges`), so a
    short record never sees a fourth segment. */
-/** how many first-days lists stay open before the fold — two: enough
- *  to see what the section is, few enough that it is a section and not
- *  the card */
-const FIRST_DAYS_OPEN = 2;
-
 const RANGES: { key: string; label: string; days: number }[] = [
   { key: 'w', label: 'Week', days: 7 },
   { key: 'm', label: 'Month', days: 30 },
@@ -958,18 +953,24 @@ export default function TrendsScreen({
       : undefined)
     : null;
   const doseFirst = dz?.first || [];
-  /* what has no paired day at all yet, as names — one to three paired
-     days are listed above as the first days, four and more are drawn
-     as early looks, so what remains here is at zero by construction,
-     and "sleep 0 of 18 · water 0 of 18 · …" was eight zeros in a row
-     saying nothing a name alone does not */
-  const collecting = healthWaiting
+  /* what is still short of a picture, in two truthful lists. One to
+     three paired days are listed above as the first days and four or
+     more are usually drawn as early looks — but an early look also
+     needs both groups to hold EARLY_MIN_GROUP_DAYS, so a fortnight of
+     covered days with one workout has fourteen paired days and no
+     picture. Those keep their count ("workouts 14 of 18"); only what
+     has no paired day at all is named without a number, because
+     "sleep 0 of 18 · water 0 of 18 · …" was eight zeros saying nothing
+     a name does not. */
+  const waiting = healthWaiting
     .filter((p) => !early.some((e) => e.kind === p.kind) && !first.some((e) => e.kind === p.kind))
-    .map((p) => groupLabels(p.kind).factor.toLowerCase())
+    .map((p) => ({ name: groupLabels(p.kind).factor.toLowerCase(), have: p.pairedDays, need: p.needed }))
     .concat(doseWaiting
       .filter((p) => !doseEarly.some((e) => e.medId === p.medId) && !doseFirst.some((e) => e.medId === p.medId))
-      .map((p) => p.med));
-  const collectingShown = collecting;
+      .map((p) => ({ name: p.med, have: p.pairs, need: p.needed })));
+  const notYetPaired = waiting.filter((w) => w.have === 0).map((w) => w.name);
+  const stillCounting = waiting.filter((w) => w.have > 0).map((w) => w.name + ' ' + w.have + ' of ' + w.need);
+  const collectingShown = notYetPaired.concat(stillCounting);
   const anythingOut = !!bestCopy || !!budgetCard || !!(healthNoticed && healthNoticed.fading.length)
     || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
     || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0
@@ -1327,11 +1328,17 @@ export default function TrendsScreen({
 
           {collectingShown.length > 0 && (
             <View style={styles.subBlock}>
-              {collectingShown.length > 0 && (
+              {notYetPaired.length > 0 && (
                 <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  No paired day yet for {collectingShown.join(', ')}. A comparison needs the
+                  No paired day yet for {notYetPaired.join(', ')}. A comparison needs the
                   days on both sides of it — a morning check-in for sleep, an evening one for
                   movement.
+                </Text>
+              )}
+              {stillCounting.length > 0 && (
+                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  Still counting: {stillCounting.join(' · ')} — paired days on both sides of
+                  the comparison, a few of each, before a picture can be drawn.
                 </Text>
               )}
             </View>
@@ -1362,7 +1369,7 @@ export default function TrendsScreen({
             <InfoTip
               label="About days like this"
               text={'Your ' + data.days.length + ' logged ' + (data.days.length === 1 ? 'day' : 'days')
-                + ', grouped by how they averaged. This is the figure here that rises as things get easier.'}
+                + ', grouped by how they averaged — the same days as the chart, counted by band. It says how many days were like this, not how you are doing.'}
             />
           </>
         )}

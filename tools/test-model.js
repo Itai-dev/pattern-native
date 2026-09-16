@@ -926,7 +926,10 @@ ok('the sections cover every sided id once, and no legacy pair id', (() => {
     && ['face', 'jaw', 'ribsL', 'ribsR', 'tailbone', 'buttockL', 'fingersR', 'shinL',
       'heelR', 'toesL', 'leftSide', 'rightSide'].every((id) => seen[id])
     && !seen.knees && !seen.arms && !seen.legs      // legacy stays display-only
-    && !seen.allOver;                               // offered apart, not as anatomy
+    && !seen.allOver                                // offered apart, not as anatomy
+    /* the groin is under Hips and pelvis, not the belly; a buttock is not the back */
+    && model.LOC_SECTIONS.some((s) => s.title === 'Hips and pelvis'
+      && ['hipL', 'hipR', 'pelvis', 'groin', 'buttockL', 'buttockR'].every((id) => s.ids.indexOf(id) >= 0));
 })());
 ok('every offered id has a name to wear', (() => {
   return model.LOC_SECTIONS.every((s) => s.ids.every((id) => !!model.LOC_NAMES[id]));

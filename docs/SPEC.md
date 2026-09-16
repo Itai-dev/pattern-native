@@ -314,7 +314,7 @@ is meant to predict.
 
 *Retired 16 Sep 2026.* The figure could only offer what was drawn on
 it and asked a hurting hand for a 14-point target. The where step now
-offers the coarse chips as before, and "Show every place" adds six
+offers the coarse chips as before, and "Show every place" adds seven
 anatomical sections of chips covering the whole body with laterality
 (`LOC_SECTIONS` in `src/model.ts`) — the same stored vocabulary,
 extended additively (jaw, ribs, tailbone, heels, toes, one side of the

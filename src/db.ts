@@ -172,8 +172,30 @@ function conn(): SQLiteDatabase {
     }
     migrateWeeklyToFunc(db);
     migratePainScale(db);
+    forgetShownFindings(db, 'health.shownReset.2026-09-16');
   }
   return db;
+}
+
+/** THE GATES MOVED, THE RECORD DID NOT. A finding remembered as "shown"
+ *  that stops clearing the gates is told to the user as one that has
+ *  stopped holding — "the earlier association with sleep hasn't stayed
+ *  consistent". On 16 Sep 2026 the paired-days gate rose from 14 to 18
+ *  and a direction-stability check was added; a person whose sleep
+ *  finding still stood at 15 pairs would have read, on the next open,
+ *  that their pattern had faded, with nothing in their record changed.
+ *  AGENTS.md: between two opens nothing changes except data the user
+ *  added. So the memory of what was shown is cleared once, under a key
+ *  naming the change: a finding that still clears the new gates shows
+ *  again as possible and is re-remembered; one that does not simply
+ *  goes quiet, as if it had never been claimed. */
+function forgetShownFindings(database: SQLiteDatabase, key: string): void {
+  const done = database.getFirstSync<{ v: string }>('SELECT v FROM prefs WHERE k = ?', key);
+  if (done) return;
+  database.withTransactionSync(() => {
+    database.runSync('DELETE FROM prefs WHERE k IN (?, ?)', 'health.shownKinds', 'health.shownDoses');
+    database.runSync('INSERT OR REPLACE INTO prefs (k, v) VALUES (?, ?)', key, 'true');
+  });
 }
 
 /* ── preferences (small JSON values, never entry data) ─────── */

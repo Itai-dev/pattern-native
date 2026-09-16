@@ -75,9 +75,12 @@ const MIN_SCALE = 0.94;
  *  it is a blank surface, so a swipe never crosses a dark gap */
 const READABLE = 0.35;
 
-/** how far back the pager goes. Ninety days is a season — longer than
- *  anyone swipes, and the calendar in Trends is still the way to
- *  anything older. */
+/** how far back the pager goes ON ITS OWN. Ninety days is a season —
+ *  longer than anyone swipes. The window always reaches the day it was
+ *  opened on, though: the calendar offers two years, and a tap on a
+ *  day past the ninety used to land on the wrong day, silently
+ *  (indexOf gave -1, the clamp made it 0, and the oldest page of the
+ *  window wore that day's title). */
 const MAX_PAGES = 90;
 
 /** the plot's drawing height. Tall enough that a one-point difference is
@@ -283,7 +286,9 @@ export default function DayScreen({
     const first = keys.length ? keys[0] : t;
     const oldest = dateFromISO(first < dateIso ? first : dateIso);
     const span = Math.round((dateFromISO(t).getTime() - oldest.getTime()) / 86400000) + 1;
-    const n = Math.max(1, Math.min(MAX_PAGES, span));
+    /* the pages needed to reach the opened day, whatever the cap */
+    const toDate = Math.round((dateFromISO(t).getTime() - dateFromISO(dateIso).getTime()) / 86400000) + 1;
+    const n = Math.max(1, Math.min(span, Math.max(MAX_PAGES, toDate)));
     const out: string[] = [];
     for (let i = n - 1; i >= 0; i--) {
       const d = dateFromISO(t);

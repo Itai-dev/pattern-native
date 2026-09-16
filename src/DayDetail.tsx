@@ -130,7 +130,9 @@ export default function DayDetail({
     onChanged();
   }, [dateIso, onChanged, rm]);
 
-  const summary = daySummary(logs);
+  /* the clock the rows use, so "7:04" above and "7:04 AM" below never
+     disagree about the same moment */
+  const summary = daySummary(logs, fmtClock);
 
   return (
     <View style={styles.wrap}>
@@ -188,7 +190,14 @@ export default function DayDetail({
                 accessibilityLabel={fmtClock(l.h) + ', ' + speakScore(l.pain) +
                   (l.loc && l.loc.length ? ', ' + names(l.loc, LOC_NAMES) : '') +
                   (l.sym && l.sym.length ? ', ' + names(l.sym, SYMPTOM_NAMES) : '')}
-                accessibilityHint="Opens this check-in to edit. Swipe left to delete."
+                accessibilityHint="Opens this check-in to edit."
+                /* the swipe, as a rotor action: a screen reader has no
+                   swipe-left, and the hint used to describe a gesture it
+                   could not perform */
+                accessibilityActions={[{ name: 'delete', label: 'Delete this check-in' }]}
+                onAccessibilityAction={(e) => {
+                  if (e.nativeEvent.actionName === 'delete') deleteMoment(l.h);
+                }}
               >
                 <View style={[styles.swatch, { backgroundColor: painColor(l.pain) }]} />
                 <View>
@@ -291,6 +300,13 @@ export default function DayDetail({
                     style={styles.qRow}
                     accessible
                     accessibilityLabel={m!.name + ', ' + value + (a.note ? '. Note: ' + a.note : '')}
+                    accessibilityActions={[{ name: 'remove', label: 'Remove this answer' }]}
+                    onAccessibilityAction={(e) => {
+                      if (e.nativeEvent.actionName !== 'remove') return;
+                      db.clearAnswer(dateIso, id);
+                      force((n) => n + 1);
+                      onChanged();
+                    }}
                   >
                     <View style={styles.rowMid}>
                       <Text style={styles.rowScore} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -356,7 +372,11 @@ export default function DayDetail({
                   accessibilityRole="button"
                   accessibilityLabel={fmtClock(ev.h) + ', ' + EVENT_LABELS[ev.kind] +
                     (ev.text ? ', ' + ev.text : '')}
-                  accessibilityHint="Opens this event to edit. Swipe left to delete."
+                  accessibilityHint="Opens this event to edit."
+                  accessibilityActions={[{ name: 'delete', label: 'Delete this event' }]}
+                  onAccessibilityAction={(e) => {
+                    if (e.nativeEvent.actionName === 'delete') deleteEvent(ev);
+                  }}
                 >
                   <Text style={styles.time}>{fmtClock(ev.h)}</Text>
                   <View style={styles.rowMid}>
