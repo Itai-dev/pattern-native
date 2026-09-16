@@ -698,6 +698,10 @@ export function setHealthSyncedFrom(iso: string): void {
     "INSERT OR REPLACE INTO health_meta (k, v) VALUES ('syncedFrom', ?)", iso
   );
 }
+/** back to "never filled" — the next sync backfills the whole span */
+export function clearHealthSyncedFrom(): void {
+  healthConn().runSync("DELETE FROM health_meta WHERE k = 'syncedFrom'");
+}
 
 /** off by default. Shadow rows are derived from health answers, so they
  *  travel only when the person carrying them says so. */
@@ -917,8 +921,18 @@ export function exportBackup(todayIso: string): string {
   return JSON.stringify(out, null, 2);
 }
 
+/** preferences that are a PRIVACY CHOICE rather than part of the
+ *  record, and so survive "Delete everything". Analytics defaults to on
+ *  when the row is absent, so wiping prefs wholesale turned analytics
+ *  back on for exactly the person who had just turned it off and then
+ *  deleted their record — the most privacy-motivated sequence there is. */
+const SURVIVES_DELETE = ['analytics.enabled'];
+
 export function deleteAll(): void {
   const c = conn();
+  const kept = SURVIVES_DELETE
+    .map((k) => c.getFirstSync<{ k: string; v: string }>('SELECT k, v FROM prefs WHERE k = ?', k))
+    .filter((r): r is { k: string; v: string } => !!r);
   c.withTransactionSync(() => {
     c.runSync('DELETE FROM days');
     c.runSync('DELETE FROM events');
@@ -928,6 +942,7 @@ export function deleteAll(): void {
     c.runSync('DELETE FROM protocols');
     c.runSync('DELETE FROM shadow_eval');
     c.runSync('DELETE FROM prefs');
+    kept.forEach((r) => c.runSync('INSERT INTO prefs (k, v) VALUES (?, ?)', r.k, r.v));
   });
   /* the other file; not in the transaction because it is not in the db */
   clearHealthDays();

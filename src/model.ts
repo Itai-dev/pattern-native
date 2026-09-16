@@ -388,6 +388,11 @@ export function cleanLogs(l: unknown): Moment[] | undefined {
     out.push(v);
   };
   if (Array.isArray(l)) {
+    /* [] is a fact, not an absence: the day's moments were all deleted
+       (see removeMoment). It must come back as [] or the placeholder
+       `pain` beside it would read as a legacy value again after one
+       backup round-trip or one ordinary write, which re-reads the row. */
+    if (!l.length) return [];
     l.forEach((v) => { if (v) push(v as Record<string, unknown>, v.h, v.pain, v.loc, v.q); });
   } else {
     (['m', 'd', 'e'] as const).forEach((s) => {
@@ -673,9 +678,30 @@ export function removeMoment(prev: Entry, h: number): Entry | null {
     || prev.factors !== undefined
     || hasCtx(prev);
   if (!anchored) return null;
-  const e: Entry = { ...prev };
-  delete e.logs;
+  /* EMPTIED, NOT LEGACY. A day whose every moment was deleted must not
+     read as a day with one reading — but `pain` is a required column,
+     and `logs` absent is how a pre-timestamp record says "one value,
+     no moments". So the emptied day keeps `logs: []` as the marker
+     that its readings are gone, and `pain` becomes a placeholder no
+     screen reads: legacyDayValue() returns null for it, dailyAverage()
+     and checkinCount() follow, and a moment written later starts from
+     its own number (applyMoment's floor is 0 here). The mistyped 9 a
+     person deleted used to stay in the calendar square, the day screen,
+     the report average and the PDF chart with nothing showing where it
+     came from — "the number is what the user entered", broken by a
+     delete. */
+  const e: Entry = { ...prev, logs: [], pain: 0 };
   return e;
+}
+
+/** the value a day carries with NO timestamped moments behind it — a
+ *  legacy record or an old backup — or null when the day either has
+ *  moments (read those) or had them all deleted (`logs: []`). The one
+ *  place that decides whether a bare `pain` is an answer or a placeholder;
+ *  every screen that would otherwise read `e.pain` goes through here. */
+export function legacyDayValue(e: Entry | null | undefined): number | null {
+  if (!e || e.logs !== undefined) return null;
+  return typeof e.pain === 'number' ? e.pain : null;
 }
 
 /* ── events: flares, treatments, notable moments ─────────────
@@ -876,8 +902,9 @@ export function defaultLocs(entries: Entries, todayIso: string, horizon = 14): s
 export function checkinCount(e: Entry | null | undefined): number {
   if (!e) return 0;
   const logs = logsOf(e);
-  // a legacy day carries a value with no moments behind it — still one answer
-  return logs.length ? logs.length : 1;
+  // a legacy day carries a value with no moments behind it — still one
+  // answer; an emptied day (logs: []) carries none
+  return logs.length ? logs.length : legacyDayValue(e) == null ? 0 : 1;
 }
 
 /** the mean of a day's check-ins, or the day value when there are no
@@ -885,7 +912,7 @@ export function checkinCount(e: Entry | null | undefined): number {
 export function dailyAverage(e: Entry | null | undefined): number | null {
   if (!e) return null;
   const logs = logsOf(e);
-  if (!logs.length) return typeof e.pain === 'number' ? e.pain : null;
+  if (!logs.length) return legacyDayValue(e);
   const sum = logs.reduce((s, l) => s + l.pain, 0);
   return Math.round((sum / logs.length) * 10) / 10;
 }

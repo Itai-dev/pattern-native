@@ -64,9 +64,6 @@ export interface OnboardingResult {
    *  is always empty from here — the focus flow asks on the day it
    *  can use the answer */
   suspicions: string[];
-  /** the step (0-based) the person left from, when they took the
-   *  shortcut to the first check-in; undefined = walked the whole way */
-  skippedAt?: number;
 }
 
 export interface OnboardingScreenProps {
@@ -99,13 +96,12 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
      (8 Sep 2026): the app asks about pain and lets Health say the rest. */
   const lastStep = review ? 0 : 1;
 
-  const result = (skippedAt?: number): OnboardingResult => ({
+  const result = (): OnboardingResult => ({
     understand: '',
     where: collapseSidedLocs(where),
     duration, diagnosis,
     diagnosisText: diagnosisText.trim(),
     suspicions: [], connectHealth: false,
-    ...(skippedAt !== undefined ? { skippedAt } : {}),
   });
 
   const advance = () => {
@@ -114,17 +110,14 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
     else onDone(result());
   };
 
-  /* A WAY OUT, from the second screen on. Someone who installed this
-     during a flare should not have to finish a questionnaire to reach
-     the one thing it is for. Everything after the first screen is
-     optional and stores as skipped either way; this is the same door,
-     earlier. The first screen is not skippable: the promise and the red
-     flags are the two things a person must have seen. */
-  const skipToCheckin = () => {
-    Haptics.selectionAsync().catch(() => {});
-    onDone(result(step));
-  };
-  const canSkip = !review && step >= 1 && step < lastStep;
+  /* There is no separate skip. With two screens, the second IS the last,
+     and its one button — "Start my first check-in" — already leaves with
+     whatever was filled in, everything on it being optional. The
+     "Skip the rest" door from the three-screen days survived the cut as
+     a condition (step ≥ 1 && step < 1) that nothing could satisfy, and
+     the analytics event it fired could never fire; both are gone rather
+     than left looking like a feature. Someone who installs this during a
+     flare reaches the check-in in two taps either way. */
 
   const toggleIn = (list: string[], set: (v: string[]) => void, id: string) => {
     Haptics.selectionAsync().catch(() => {});
@@ -291,21 +284,6 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
           </Text>
         </Press>
 
-        {canSkip && (
-          <Press
-            onPress={skipToCheckin}
-            pressOpacity={0.7}
-            style={styles.skipBtn}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Skip the rest and start your first check-in"
-          >
-            <Text style={styles.skipText} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Skip the rest and check in
-            </Text>
-          </Press>
-        )}
-
         <View style={styles.dots}>
           {(review ? [0] : [0, 1]).map((i) => (
             <View
@@ -374,11 +352,4 @@ const styles = StyleSheet.create({
     fontSize: font.body, lineHeight: 22, textAlignVertical: 'top',
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
   },
-  skipHint: {
-    color: color.textTertiary, fontSize: font.footnote,
-    textAlign: 'center', marginTop: 12,
-  },
-  /* the quiet door: tint, no chrome, a full-height tap target */
-  skipBtn: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
-  skipText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 });

@@ -168,7 +168,31 @@ const withCtx = model.applyMoment(
 ok('the write carries context forward', model.hasCtx(withCtx));
 ok('deleting the only moment KEEPS a day holding context', (() => {
   const after = model.removeMoment(withCtx, 600);
-  return after !== null && model.valueOf(after, 'stress.level.v1') === 'high' && !after.logs;
+  // logs: [] is the emptied-day marker — present, empty, and never a value
+  return after !== null && model.valueOf(after, 'stress.level.v1') === 'high' && Array.isArray(after.logs) && after.logs.length === 0;
+})());
+ok('an emptied day carries NO value: not in the average, not in the count', (() => {
+  const after = model.removeMoment(withCtx, 600);
+  return after !== null
+    && model.dailyAverage(after) === null
+    && model.checkinCount(after) === 0
+    && model.legacyDayValue(after) === null;
+})());
+ok('the emptied marker survives a round trip through cleanEntry (every write re-reads the row)', (() => {
+  const after = model.removeMoment(withCtx, 600);
+  const back = model.cleanEntry(JSON.parse(JSON.stringify(after)));
+  return back !== null && Array.isArray(back.logs) && back.logs.length === 0
+    && model.dailyAverage(back) === null && model.checkinCount(back) === 0;
+})());
+ok('a moment written after the emptying starts from its own number, not the deleted peak', (() => {
+  const nine = model.applyMoment({ pain: 0, cap: null, note: 'sore' }, 600, 9);
+  const emptied = model.removeMoment(nine, 600);
+  const again = model.applyMoment(emptied, 660, 3);
+  return emptied !== null && again.pain === 3 && model.dailyAverage(again) === 3;
+})());
+ok('a legacy day — a value with no moments — still reads as one answer', (() => {
+  const legacy = { pain: 6, cap: null, note: '' };
+  return model.legacyDayValue(legacy) === 6 && model.dailyAverage(legacy) === 6 && model.checkinCount(legacy) === 1;
 })());
 ok('a note still anchors a day, as it always did', (() => {
   const e = model.applyMoment({ pain: 4, cap: null, note: 'sore' }, 600, 4);

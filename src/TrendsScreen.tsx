@@ -52,6 +52,7 @@ import {
 } from './health/doses';
 import { DigestCard, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
+import { DIRECTION_SAME_BELOW } from './thresholds';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const shortDate = (iso: string) => {
@@ -353,7 +354,7 @@ function MiniChart({
 function Direction({ first, second }: { first: number; second: number }) {
   const delta = first - second;
   const size = Math.abs(delta);
-  const same = size < 0.25;
+  const same = size < DIRECTION_SAME_BELOW;
   const better = delta > 0;
   return (
     <View style={styles.direction}>

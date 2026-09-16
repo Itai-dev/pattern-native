@@ -36,9 +36,6 @@ export type EventName =
   | 'app_open'
   | 'day_active'
   | 'onboarding_completed'
-  /* left early for the first check-in, from which step — the number
-     of the screen, never anything typed on it */
-  | 'onboarding_skipped'
   | 'first_checkin'
   | 'checkin_completed'
   | 'checkin_abandoned'

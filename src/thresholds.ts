@@ -433,6 +433,47 @@ export const BG_PROMPT_STALE_MIN = 45;
  *  locating, not the slider's ordinary drift */
 export const WHERE_REASK_DELTA = 2;
 
+/* ── the clinician PDF ─────────────────────────────────────── */
+
+/** the window the PDF covers when it is made from the appointment card
+ *  rather than from Patterns. Three months: RESEARCH.md's "how were the
+ *  last three months?" is the question the report exists to answer
+ *  better than memory, and it matches the widest fixed range on
+ *  Patterns, so the two doors produce the same document. It used to
+ *  inherit whatever range Patterns last showed — a week, if the person
+ *  had tapped Week — or the whole record when Patterns had never been
+ *  opened, and nothing on the card said which. */
+export const REPORT_DEFAULT_WINDOW_DAYS = 90;
+
+/* ── Today's offers ────────────────────────────────────────── */
+
+/** logged days before each offer may appear on Today. Ordered by how
+ *  much each pays back a new user; the reminder is offered on the first
+ *  check-in, so it has no constant here. The background waits three
+ *  days because five minutes of history right after onboarding was the
+ *  first thing every tester dismissed; the widget waits longest because
+ *  a lock screen is worth explaining only to someone who has come back. */
+export const HEALTH_OFFER_AFTER_DAYS = 2;
+export const BACKGROUND_OFFER_AFTER_DAYS = 3;
+export const APPOINTMENT_OFFER_AFTER_DAYS = 4;
+export const WIDGET_OFFER_AFTER_DAYS = 5;
+
+/** how many days before an appointment the summary is offered — two:
+ *  enough to read it, not enough to forget it */
+export const APPOINTMENT_LEAD_DAYS = 2;
+
+/** how long after a date passes, or after "not now", before the
+ *  appointment question is asked again — appointments recur, and a
+ *  month is not nagging */
+export const APPOINTMENT_REASK_DAYS = 30;
+
+/** below this, the two halves of a window are called "about the same"
+ *  on Patterns rather than given a direction. A quarter of a point is
+ *  under the scale's own resolution — a day is logged in whole numbers
+ *  and the halves are means of a handful of them — so a smaller gap is
+ *  rounding, not a direction, and naming one would be reading the noise. */
+export const DIRECTION_SAME_BELOW = 0.25;
+
 /** how many quick check-ins in a row before the pain step leads with
  *  Log it instead of Continue. Three: one is a bad moment, two is a bad
  *  day, three is how this person is checking in at the moment — and the

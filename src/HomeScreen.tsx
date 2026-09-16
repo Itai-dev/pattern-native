@@ -37,7 +37,7 @@ import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
-  Entries, LOC_NAMES, Moment, QUALITY_NAMES, SYMPTOM_NAMES, addDays, checkinCount, logsOf,
+  Entries, LOC_NAMES, Moment, QUALITY_NAMES, SYMPTOM_NAMES, addDays, checkinCount, legacyDayValue, logsOf,
   todayISO,
 } from './model';
 import { fmtDay } from './DayScreen';
@@ -48,7 +48,11 @@ import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
 import { ExperimentState, experimentCopy } from './experiment';
-import { EXPERIMENT_OFFER_AFTER_DAYS, EXPERIMENT_REOFFER_DAYS } from './thresholds';
+import {
+  APPOINTMENT_LEAD_DAYS, APPOINTMENT_OFFER_AFTER_DAYS, APPOINTMENT_REASK_DAYS,
+  BACKGROUND_OFFER_AFTER_DAYS, EXPERIMENT_OFFER_AFTER_DAYS, EXPERIMENT_REOFFER_DAYS,
+  HEALTH_OFFER_AFTER_DAYS, WIDGET_OFFER_AFTER_DAYS,
+} from './thresholds';
 
 /* ── when Today may ask for something ────────────────────────
    Three offers live on this screen, and at most ONE shows at a time:
@@ -62,16 +66,6 @@ import { EXPERIMENT_OFFER_AFTER_DAYS, EXPERIMENT_REOFFER_DAYS } from './threshol
    onboarding screens was the first thing every tester dismissed. The
    widget waits longest, because a lock screen is worth explaining only
    to someone who has come back. */
-const HEALTH_OFFER_AFTER_DAYS = 2;
-const BACKGROUND_OFFER_AFTER_DAYS = 3;
-const APPOINTMENT_OFFER_AFTER_DAYS = 4;
-const WIDGET_OFFER_AFTER_DAYS = 5;
-/** how many days before an appointment the summary is offered — two:
- *  enough to read it, not enough to forget it */
-const APPOINTMENT_LEAD_DAYS = 2;
-/** how long after a date passes, or after "not now", before asking
- *  again — appointments recur, and a month is not nagging */
-const APPOINTMENT_REASK_DAYS = 30;
 import {
   dayShape, formatCheckins, formatScore, painColor, painLabel, speakScore,
 } from './painScale';
@@ -218,7 +212,7 @@ export default function HomeScreen({
      answer this person gave, so the card shows it; what it cannot show is
      a time, because there never was one. Without this branch a restored
      day reads as "no check-ins yet today" over a day that has one. */
-  const dayOnly = !latest && entry && typeof entry.pain === 'number' ? entry.pain : null;
+  const dayOnly = !latest ? legacyDayValue(entry) : null;
   const value = latest ? latest.pain : dayOnly;
   const details = latest ? detailsOf(latest) : [];
   /* the day's note, read from the entry — shown as a line so the user
@@ -615,8 +609,8 @@ export default function HomeScreen({
             {appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)}
           </Text>
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Your summary is ready whenever you want it — the numbers, your
-            background, your own question, and what they do and don’t mean.
+            Your summary of the last three months is ready whenever you want
+            it — the numbers, your background, and what they do and don’t mean.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
