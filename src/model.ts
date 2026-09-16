@@ -67,7 +67,9 @@ export interface Moment {
    *  carry no flag and are read as the unknown they are. */
   qAsked?: 1;
   /** what else was going on at this moment — fatigue, fog, stiffness —
-   *  from a closed list of five, tapped on the pain screen itself.
+   *  from a closed list of five, tapped on the About today screen
+   *  (they sat under the number for two days in September and made
+   *  the one-question screen a form).
    *  These are SYMPTOMS, not causes: "brain fog" is a fact about the
    *  moment the way "aching" is, and it is recorded and shown back as
    *  one. Never fed to the engine, for the same reason the attributions

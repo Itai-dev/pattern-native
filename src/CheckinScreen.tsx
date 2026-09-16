@@ -90,7 +90,7 @@ import {
 } from './model';
 import { fmtClock } from './clock';
 import {
-  CheckinMode, ModeState, PREF_CHECKIN_MODE, afterCheckin, chooseMode, cleanModeState,
+  CheckinMode, ModeState, PREF_CHECKIN_MODE, afterCheckin, cleanModeState,
 } from './checkinMode';
 
 const SQUARE = 150;
@@ -161,21 +161,16 @@ export default function CheckinScreen({
   const choose = (v: number) => { setPain(v); setMoved(true); };
   const [quality, setQuality] = useState<string[]>(edit && edit.q ? edit.q.slice() : []);
   const [loc, setLoc] = useState<string[]>(edit && edit.loc ? edit.loc.slice() : []);
-  /* what else is going on, from the five chips under the number. They
-     live on the pain step so a bad day is one slide and a tap; an edit
-     opens with the moment's own marks. */
+  /* what else is going on, from the five chips on About today — they
+     sat under the number for two days (14–16 Sep) and turned the one-
+     question screen into a form; an edit opens with the moment's own
+     marks. */
   const [sym, setSym] = useState<string[]>(edit && edit.sym ? edit.sym.slice() : []);
   const [writtenAt, setWrittenAt] = useState<number | null>(edit ? edit.h : null);
   /* which button leads on the pain step, learned from the last few
      check-ins or chosen on the switch — see checkinMode.ts */
-  const [modeState, setModeState] = useState<ModeState>(() =>
+  const [modeState] = useState<ModeState>(() =>
     cleanModeState(db.getPref<unknown>(PREF_CHECKIN_MODE, null)));
-  const pickMode = (m: CheckinMode) => {
-    Haptics.selectionAsync().catch(() => {});
-    const next = chooseMode(m);
-    setModeState(next);
-    db.setPref(PREF_CHECKIN_MODE, next);
-  };
   /* the shape starts at the middle of the ramp, where the thumb parks,
      so an untouched control and an untouched square agree with each other.
      Both are dimmed until a value is actually chosen. */
@@ -226,11 +221,12 @@ export default function CheckinScreen({
       ? { sv: SCALE_VERSION, ...(edit!.ts !== undefined ? { ts: edit!.ts } : {}),
           ...(edit!.tz !== undefined ? { tz: edit!.tz } : {}) }
       : nowMeta(SCALE_VERSION)),
-    /* the chips are on the pain screen, so every write from here answers
-       them — an empty list is "nothing applied", and marks the moment as
-       asked. That includes the later steps' rewrites: the answer must not
-       vanish because the where step wrote the moment again. */
-    sym,
+    /* `sym` is NOT here by default: the chips live on About today, so
+       only that screen's write answers them (an empty list there is
+       "nothing applied"). A write that leaves it undefined keeps
+       whatever the moment already carried — applyMoment's rule — so an
+       edit saved from the number, or the where step's rewrite, never
+       strips an answer already given. */
     ...(extra || {}),
   });
 
@@ -402,13 +398,18 @@ export default function CheckinScreen({
      present. An edit has one only for the moment's own words. */
   const askToday = askIds.length > 0 || askFeel;
   const limitationDue = !editing && askIds.indexOf(LIMITATION_ID) >= 0;
-  /* WHICH BUTTON IS FILLED on the pain step. A learned or chosen mode
-     decides; before anything is learned the app's own rule holds — the
-     number leads, except in the evening when the limitation question
-     does. A remembered day and an edit keep the plain rule: the switch
-     is about how you check in today, and neither of those is that. */
+  /* WHICH BUTTON IS FILLED on the pain step. THE LEARNED MODE, WITHOUT A
+     CONTROL: three quick check-ins in a row bring "Log it" forward, one
+     walk into the details brings "Continue"; before anything is learned
+     the app's own rule holds — the number leads, except in the evening
+     when the limitation question does. The Quick/Detailed switch that
+     sat under the title (14–16 Sep) said the same thing the two buttons
+     below already say, and was the first of four things that made the
+     one-question screen a form. A remembered day and an edit keep the
+     plain rule: the mode is about how you check in today, and neither
+     of those is that. */
   const modeLead: CheckinMode = modeState.mode || (limitationDue ? 'detailed' : 'quick');
-  const showModeSwitch = !editing && !retro;
+  const modeApplies = !editing && !retro;
   /* WHERE, WHEN NEEDED. The first check-in of a day asks where; the
      next ones do not, unless the number has jumped WHERE_REASK_DELTA
      above anything earlier that day — a change worth locating. A
@@ -427,7 +428,7 @@ export default function CheckinScreen({
     : (askWhere ? ['pain', 'where', 'today'] : ['pain', 'today']);
   const stepsShown = order.filter((s) => s !== 'today' || askToday);
   /* Continue leads only when there is somewhere to continue to */
-  const detailsLead = showModeSwitch ? modeLead === 'detailed' && stepsShown.length > 1
+  const detailsLead = modeApplies ? modeLead === 'detailed' && stepsShown.length > 1
     : limitationDue;
   const isLast = stepsShown.indexOf(step) === stepsShown.length - 1;
 
@@ -448,7 +449,7 @@ export default function CheckinScreen({
   /** write the moment as it currently stands. Called at every step end, so
    *  the record is durable from the first one and each later step edits
    *  the same moment rather than adding another. */
-  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean; qAsked?: boolean }) => {
+  const persist = (opts?: { locAsked?: boolean; locSkipped?: boolean; qAsked?: boolean; sym?: string[] }) => {
     if (writtenAt == null) return;
     db.writeMoment(today, writtenAt, pain, loc, quality, meta(opts));
   };
@@ -507,7 +508,7 @@ export default function CheckinScreen({
     );
     setWrittenAt(minutes);
     learn('quick');
-    counted(sym.length > 0);
+    counted(false);
     setStep('done');
   };
 
@@ -522,7 +523,9 @@ export default function CheckinScreen({
     if (step === 'where') persist({ locAsked: true });
     else if (step === 'today') {
       if (askIds.length) persistAnswers();
-      if (askFeel) persist({ qAsked: true });
+      /* the screen was shown, so the symptoms were asked — with or
+         without the words question beside them */
+      persist({ ...(askFeel ? { qAsked: true } : {}), sym });
     }
   };
 
@@ -894,41 +897,6 @@ export default function CheckinScreen({
       )}
       {hint && <Text style={styles.hint}>{hint}</Text>}
 
-      {/* THE SWITCH. Quick or detailed, one tap, under the title where
-          the decision about today gets made before the slider moves. It
-          changes which button below is filled, nothing else: both paths
-          stay a tap away, and the record is the same either way. It also
-          moves on its own — three quick check-ins in a row bring Quick,
-          one walk into the details brings Detailed — so most people
-          never touch it; it is here for the person who already knows.
-          Not shown while editing or writing a remembered day: neither is
-          how you are checking in today. */}
-      {step === 'pain' && showModeSwitch && stepsShown.length > 1 && (
-        <View style={[styles.sideSwitch, styles.modeSwitch]} accessibilityRole="radiogroup"
-          accessibilityLabel="How much to record this time">
-          {(['quick', 'detailed'] as CheckinMode[]).map((m) => {
-            const on = modeLead === m;
-            return (
-              <Press
-                key={m}
-                onPress={() => { if (!on) pickMode(m); }}
-                pressOpacity={0.8}
-                style={[styles.sideItem, styles.modeItem, on && styles.sideItemOn]}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: on, selected: on }}
-                accessibilityLabel={m === 'quick'
-                  ? 'Quick: just the number'
-                  : 'Detailed: where it hurts, and more'}
-              >
-                <Text style={[styles.sideText, on && styles.sideTextOn]}
-                  allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {m === 'quick' ? 'Quick' : 'Detailed'}
-                </Text>
-              </Press>
-            );
-          })}
-        </View>
-      )}
 
       <GestureDetector gesture={stepSwipe}>
       {step === 'pain' ? (
@@ -997,22 +965,6 @@ export default function CheckinScreen({
               {t}
             </Text>
           ))}
-          {/* THE BAD-DAY PATH. Five chips under the number, on the same
-              screen, so "pain 7, fatigue, fog" is one slide and two taps
-              with no typing — the check-in a person in a flare can
-              actually finish. Optional and tri-state (see Moment.sym),
-              never demanded: Log it is the same button whether or not
-              anything here is tapped, and a pain-only check-in is as
-              complete as it ever was. The targets are 48pt because the
-              hands doing the tapping are the ones that hurt. */}
-          <View style={styles.symBlock}>
-            <Text style={styles.symTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Also right now
-            </Text>
-            <View style={styles.chipCloud}>
-              {chipRow(SYMPTOMIDS, SYMPTOM_NAMES, sym, setSym, true)}
-            </View>
-          </View>
           </View>
         </ScrollView>
       ) : step === 'today' ? (
@@ -1054,6 +1006,23 @@ export default function CheckinScreen({
               )}
             </View>
           )}
+
+          {/* THE BAD-DAY PATH, ON THE THIRD SCREEN. Five symptoms —
+              fatigue, fog, stiffness — beside the words for the pain,
+              where the other descriptions of the moment already live.
+              Optional and tri-state (see Moment.sym): this screen
+              shown is the question put, an empty pick is "nothing
+              applied", and a check-in that stopped at the number was
+              never asked. The targets are 48pt because the hands doing
+              the tapping are the ones that hurt. */}
+          <View style={styles.todayBlock}>
+            <Text style={styles.todayTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Also right now
+            </Text>
+            <View style={styles.chipCloud}>
+              {chipRow(SYMPTOMIDS, SYMPTOM_NAMES, sym, setSym, true)}
+            </View>
+          </View>
 
         </ScrollView>
       ) : (
@@ -1402,20 +1371,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8,
   },
   sideItemOn: { backgroundColor: color.bgSegmentActive },
-  /* the quick/detailed switch: the same segmented control, narrowed and
-     centred under the title — a small decision, drawn small */
-  modeSwitch: { alignSelf: 'center', marginTop: 14, minWidth: 220 },
-  modeItem: { minHeight: 48, paddingHorizontal: 18 },
   sideText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   sideTextOn: { color: color.textPrimary },
   chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderCurve: 'continuous', borderWidth: 1 },
-  /* the symptom chips under the number: a quiet caption, and chips
-     taller than the where step's — 48pt is the floor for a hand that
-     hurts, and these are the chips most likely to be tapped on a bad
+  /* the symptom chips: taller than the where step's — 48pt is the
+     floor for a hand that hurts, and these are the chips most likely
+     to be tapped on a bad
      day. White when chosen would say nothing; they take the check-in's
      own pain colour like every other chip, because they belong to it. */
-  symBlock: { alignSelf: 'stretch', alignItems: 'center', marginTop: 22, gap: 10 },
-  symTitle: { color: color.textTertiary, fontSize: font.footnote, fontWeight: '600' },
   chipBig: { minHeight: 48, justifyContent: 'center' },
   chipText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
   bottom: { flexShrink: 0 },
