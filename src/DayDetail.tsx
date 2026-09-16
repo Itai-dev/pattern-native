@@ -638,12 +638,13 @@ const styles = StyleSheet.create({
     /* a rounded SQUARE, centred on the row: the same size on a one-line
        row and a three-line one, so it never fills a tall row and never
        shrinks to a pill around its word */
-    width: 60, height: 60, alignSelf: 'center', marginLeft: 6,
+    width: 76, height: 60, alignSelf: 'center', marginLeft: 6, marginRight: 2,
+    paddingHorizontal: 8,
     borderRadius: 16, borderCurve: 'continuous',
     backgroundColor: color.destructive,
     alignItems: 'center', justifyContent: 'center',
   },
-  deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600' },
+  deleteText: { color: '#FFFFFF', fontSize: font.subheadline, fontWeight: '600', textAlign: 'center' },
   addEvent: {
     marginTop: 20, minHeight: 48, borderRadius: radius.button, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
