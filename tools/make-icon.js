@@ -1,13 +1,10 @@
-/* Pattern's iOS app icon at App Store resolution (1024): THE SLIDER.
-   The one control every check-in touches — a grey track and a white
-   thumb parked at the middle, where an untouched check-in starts. White
-   on black, because a control is white on every theme and the icon
-   carries no score; the glowing blue square it replaced (16 Sep 2026)
-   was, in the Blue theme, literally the colour of pain 5. Flat, no
-   glow: the glow belongs to the pain square, not to a control. Full-
-   bleed black: iOS masks its own corners. Values are fractions of the
-   icon edge, drawn thicker than the on-screen slider so the mark still
-   reads at 60 points on a home screen.
+/* Pattern's iOS app icon at App Store resolution (1024), rendered from
+   assets/icon.svg — the source of truth, drawn by Itai (17 Sep 2026):
+   three rounded bars on black, light to dark blue left to right, the
+   Patterns tab's own glyph. Full-bleed black: iOS masks its own corners.
+
+   The slider icon of 16 Sep and the glowing square before it are in
+   git history; this file only renders whatever the SVG says.
 
    Run:  node tools/make-icon.js
    (needs a local Chrome; renders headless, no npm dependency) */
@@ -16,23 +13,18 @@ const fs = require('fs');
 const { execFileSync } = require('child_process');
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const SVG = path.resolve(__dirname, '../assets/icon.svg');
 
-/* the on-screen palette: bgSegmentTrack-ish grey for the track, so the
-   icon and the slider on the pain step are the same object */
-const TRACK = { c: '#3A3A3C', w: 0.72, h: 0.07 };
-const THUMB = { c: '#FFFFFF', d: 0.36 };
-
+/** the SVG inline, scaled about the centre on a black ground */
 function markup(size, scale) {
   const k = scale || 1;
-  const tw = TRACK.w * size * k, th = TRACK.h * size * k;
-  const td = THUMB.d * size * k;
-  const rect = (w, h, c) =>
-    '<div style="position:absolute;left:' + (size - w) / 2 + 'px;top:' + (size - h) / 2 + 'px;' +
-    'width:' + w + 'px;height:' + h + 'px;border-radius:' + h / 2 + 'px;background:' + c + '"></div>';
+  const svg = fs.readFileSync(SVG, 'utf8');
+  const w = size * k, off = (size - w) / 2;
   return '<!doctype html><html><body style="margin:0;background:#000">' +
     '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;background:#000;overflow:hidden">' +
-    rect(tw, th, TRACK.c) + rect(td, td, THUMB.c) +
-    '</div></body></html>';
+    '<div style="position:absolute;left:' + off + 'px;top:' + off + 'px;width:' + w + 'px;height:' + w + 'px">' +
+    svg.replace(/<svg /, '<svg style="width:100%;height:100%" ') +
+    '</div></div></body></html>';
 }
 
 const JOBS = [
