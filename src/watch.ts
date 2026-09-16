@@ -20,7 +20,7 @@
  * our own watch app is honest, inventing a value for it is not.
  */
 import * as db from './db';
-import { momentFromEpoch, nowMeta } from './model';
+import { Entries, momentFromEpoch, nowMeta, todayISO } from './model';
 import { SCALE_VERSION } from './painScale';
 import { watchContext } from './watchContext';
 
@@ -88,9 +88,12 @@ export function onWatchCheckin(listener: () => void): () => void {
  * else, receiving this JS over the air). Either way the watch keeps
  * its white number and the record is untouched.
  */
-export function pushWatchContext(): void {
+export function pushWatchContext(entries?: Entries): void {
   if (!bridge || typeof bridge.setContext !== 'function') return;
-  try { bridge.setContext(watchContext()); } catch {
+  /* the week rides along, so the push happens on every write too —
+     see App's refresh(); a caller that has the entries hands them over
+     rather than reading the record twice */
+  try { bridge.setContext(watchContext(entries || db.getAll(), todayISO())); } catch {
     /* the watch is a nicety; the record is the product */
   }
 }
