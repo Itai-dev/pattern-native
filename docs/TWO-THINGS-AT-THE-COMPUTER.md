@@ -51,10 +51,10 @@ Committed 2026-09-08, all guarded so the current binary is unaffected:
 | Notification category "checkin" | `src/reminders.ts` | a **Check in** button on every prompt, on the iPhone and mirrored to the watch; tapping opens the question (the watch app IS the question) |
 
 **Build 48 (commit 0b9c4a0, 15 September) carries all three and is
-in App Store Connect.** A second  of it on 16 September
+in App Store Connect.** A second `eas submit` of it on 16 September
 errored with "Build number 48 for app version 1.3.0 has already been
 used" — which is App Store Connect saying the upload already happened,
-not a validator rejection.  did not show that first
+not a validator rejection. `eas submit:list` did not show that first
 upload, so do not read that list as the record of what Apple has;
 App Store Connect → TestFlight is. Nothing to do at developer.apple.com:
 HealthKit's capability already carries the background-delivery
