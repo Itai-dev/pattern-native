@@ -9,7 +9,7 @@
  *                          the screen then offers Log it as plainly as
  *                          it offers Add details.
  *   2. Where?            — your usual places as chips, one tap each, and
- *                          the body map behind "Show more" for anything
+ *                          every place, in sections, behind "Show every place" for anything
  *                          sided or specific.
  *   3. About today       — one scrollable screen, only when something is
  *                          due: how much pain limited the day (evenings,
@@ -54,7 +54,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text,
-  TextInput, View, useWindowDimensions,
+  TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -65,7 +65,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { fmtDay } from './DayScreen';
-import BodyMap from './BodyMap';
 import Slider from './Slider';
 import PainShape from './PainShape';
 import * as db from './db';
@@ -84,7 +83,7 @@ import {
   painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
 import {
-  LOC_CHIP_IDS, LOC_NAMES, Moment, MomentMeta, QUALITYIDS,
+  LOC_CHIP_IDS, LOC_NAMES, LOC_SECTIONS, Moment, MomentMeta, QUALITYIDS,
   QUALITY_NAMES, SYMPTOMS_ASKED, SYMPTOM_NAMES, answerOf, collapseSidedLocs, defaultLocs, logsOf,
   minutesNow, nowMeta, todayISO,
 } from './model';
@@ -100,9 +99,6 @@ const SQUARE_MIN = 88;
 /** air kept between the square's block and what sits above and below it */
 const SQUARE_GAP = 12;
 
-/** the body map's height inside the where step — the onboarding figure's
- *  size, which was drawn for a take-your-time screen and reads at it */
-const MAP_H = 400;
 
 /* THREE SCREENS, NEVER MORE. Pain, where, and "About today" — one
    scrollable screen holding whatever the day still asks: the period's
@@ -256,7 +252,6 @@ export default function CheckinScreen({
     const e = db.getExperiment();
     return e ? experimentQuestion(e) : null;
   });
-  const { width: winW } = useWindowDimensions();
   /* what Health already has for today, read once — a hint above a
      question, never an answer to it */
   const [healthToday] = useState<HealthDay | null>(() => db.getHealthDay<HealthDay>(today));
@@ -1032,7 +1027,7 @@ export default function CheckinScreen({
         </ScrollView>
       ) : (
         /* The main places, your usual ones first — the daily answer in
-           a couple of taps. "Show more" ADDS the specific sided
+           a couple of taps. "Show every place" ADDS the specific sided
            vocabulary below in anatomical sections; the main chips stay
            where they are, because more precision must never rearrange
            what is already on screen. The two levels coexist in one
@@ -1064,12 +1059,14 @@ export default function CheckinScreen({
           <View style={styles.chipCloud}>
             {chipRow(ranked.loc, LOC_NAMES, loc, setLoc)}
           </View>
-          {/* "Show more" opens THE BODY MAP — the same figure onboarding
-              used to carry, speaking the sided vocabulary the record
-              stores. It replaces five sections of twenty-four chips,
-              which was the wall the map was built to spare people. The
-              coarse chips above stay; both levels share one selection,
-              and a mark wears the check-in's own pain colour. */}
+          {/* "Show every place" ADDS the whole vocabulary below, in
+              anatomical sections, left before right. The body map that
+              stood here (Aug – 16 Sep 2026) could only offer what was
+              drawn on it — no jaw, no ribs, no heel, no one whole side
+              — and asked a hurting hand for a 14-point target; the
+              chips offer everything at 44 points and read as words. The
+              coarse chips above stay; both levels share one selection;
+              a chosen chip wears the check-in's own pain colour. */}
           {!locExpanded ? (
             <Press
               onPress={() => {
@@ -1079,21 +1076,21 @@ export default function CheckinScreen({
               style={styles.more}
               pressOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Show the body map, to mark specific places, left and right"
+              accessibilityLabel="Show every place, left and right, in sections"
             >
-              <Text style={styles.moreText}>Show the body map ›</Text>
+              <Text style={styles.moreText}>Show every place ›</Text>
             </Press>
           ) : (
-            <View style={{ height: MAP_H, marginTop: 10 }}>
-              <BodyMap
-                selected={loc}
-                onChange={setLoc}
-                tint={painColor(pain)}
-                ink={inkOn(pain)}
-                containerWidth={winW - 56}
-                containerHeight={MAP_H}
-              />
-            </View>
+            LOC_SECTIONS.map((sec) => (
+              <View key={sec.title}>
+                <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {sec.title}
+                </Text>
+                <View style={styles.chipCloud}>
+                  {chipRow(sec.ids, LOC_NAMES, loc, setLoc)}
+                </View>
+              </View>
+            ))
           )}
         </ScrollView>
       )}

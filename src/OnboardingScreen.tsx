@@ -22,8 +22,9 @@
  * commits to no schedule, changes no behaviour, and goes into the
  * doctor summary in their own words whatever else happens.
  *
- * What went, and where. The body map now lives in the check-in's where
- * step, doing daily work instead of day-zero work. The suspicions chips
+ * What went, and where. The body map moved to the check-in's where
+ * step, and on 16 Sep 2026 gave way there to sectioned chips covering
+ * the whole body. The suspicions chips
  * went with the focus flow, which already shows the whole library on
  * the day it is offered; asking them here a week early bought a name
  * for one card and cost a screen. The Health ask is a card on Today.

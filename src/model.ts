@@ -158,8 +158,9 @@ export const LOC_NAMES: Record<string, string> = {
      "Right wrist" was unrecordable: no wrist, no sides. These are
      ADDITIVE — every id above stays valid and displayed, old entries
      never migrate, and a restored backup keeps whichever vocabulary it
-     was recorded in. The body map writes these; the legacy ids remain
-     the words old data speaks. */
+     was recorded in. The body map wrote these until 2026-09-16; the
+     sectioned chips write them now; the legacy ids remain the words
+     old data speaks. */
   shoulderL: 'Left shoulder', shoulderR: 'Right shoulder',
   armL: 'Left upper arm', armR: 'Right upper arm',
   elbowL: 'Left elbow', elbowR: 'Right elbow',
@@ -172,6 +173,24 @@ export const LOC_NAMES: Record<string, string> = {
   calfL: 'Left calf', calfR: 'Right calf',
   ankleL: 'Left ankle', ankleR: 'Right ankle',
   footL: 'Left foot', footR: 'Right foot',
+
+  /* ── the rest of the body, added 2026-09-16 when the body map was
+     retired for sectioned chips ────────────────────────────
+     A figure could only offer what was drawn on it; a list can offer
+     what people actually name — the jaw, the ribs, the tailbone, a
+     heel, one whole side. Additive like the sided set above: nothing
+     old moves, and a chip is a word the record stores, never a claim
+     about what the pain is. */
+  face: 'Face', jaw: 'Jaw', backOfHead: 'Back of the head',
+  ribsL: 'Left ribs', ribsR: 'Right ribs',
+  pelvis: 'Pelvis', groin: 'Groin',
+  midBack: 'Mid back', tailbone: 'Tailbone',
+  buttockL: 'Left buttock', buttockR: 'Right buttock',
+  fingersL: 'Left fingers', fingersR: 'Right fingers',
+  shinL: 'Left shin', shinR: 'Right shin',
+  heelL: 'Left heel', heelR: 'Right heel',
+  toesL: 'Left toes', toesR: 'Right toes',
+  leftSide: 'Left side of the body', rightSide: 'Right side of the body',
 };
 
 /* Legacy paired ids → their sided pair, for the PREFILL only. A person
@@ -205,6 +224,12 @@ const LOC_PAIRS: [string, string, string][] = [
   ['calfL', 'calfR', 'Calves'],
   ['ankleL', 'ankleR', 'Ankles'],
   ['footL', 'footR', 'Feet'],
+  ['ribsL', 'ribsR', 'Ribs'],
+  ['buttockL', 'buttockR', 'Buttocks'],
+  ['fingersL', 'fingersR', 'Fingers'],
+  ['shinL', 'shinR', 'Shins'],
+  ['heelL', 'heelR', 'Heels'],
+  ['toesL', 'toesR', 'Toes'],
 ];
 
 export interface LocPart {
@@ -270,6 +295,15 @@ const LOC_SIDED_FAMILY: Record<string, string> = {
   thighL: 'legs', thighR: 'legs', calfL: 'legs', calfR: 'legs',
   kneeL: 'knees', kneeR: 'knees',
   ankleL: 'feet', ankleR: 'feet', footL: 'feet', footR: 'feet',
+  /* the 2026-09-16 additions, each under the coarse chip a person
+     would have reached for before it existed */
+  face: 'head', jaw: 'head', backOfHead: 'head',
+  ribsL: 'chest', ribsR: 'chest',
+  pelvis: 'hips', groin: 'hips', buttockL: 'hips', buttockR: 'hips',
+  midBack: 'upperBack', tailbone: 'lowerBack',
+  fingersL: 'hands', fingersR: 'hands',
+  shinL: 'legs', shinR: 'legs',
+  heelL: 'feet', heelR: 'feet', toesL: 'feet', toesR: 'feet',
 };
 
 /** a location set spoken in the coarse vocabulary — for the collapsed
@@ -285,28 +319,38 @@ export function collapseSidedLocs(ids: string[]): string[] {
   return out;
 }
 
-/* the expanded view: five anatomical sections offering the full sided
-   vocabulary. Sections are what lets thirty options stay a question
-   instead of a wall — the eye jumps to "Legs and feet" the way a
-   finger jumped to the figure's leg. */
+/* the expanded view: six anatomical sections offering the whole
+   vocabulary, top to bottom, left before right. Sections are what lets
+   fifty options stay a question instead of a wall — the eye jumps to
+   "Legs and feet" the way a finger jumped to the figure's leg. The
+   body map that stood here from August to 16 Sep 2026 could only offer
+   what was drawn on it and asked a hurting hand for a 14-point target;
+   a list offers everything and a 44-point chip. "All over" is not in
+   a section: it is a coarse chip, always on screen. */
 export const LOC_SECTIONS: { title: string; ids: string[] }[] = [
-  { title: 'Head and neck', ids: ['head', 'neck'] },
-  { title: 'Chest and belly', ids: ['chest', 'belly'] },
-  { title: 'Back', ids: ['upperBack', 'lowerBack'] },
+  { title: 'Head and neck', ids: ['head', 'face', 'jaw', 'backOfHead', 'neck'] },
+  { title: 'Chest and belly', ids: ['chest', 'ribsL', 'ribsR', 'belly', 'pelvis', 'groin'] },
+  {
+    title: 'Back',
+    ids: ['upperBack', 'midBack', 'lowerBack', 'tailbone', 'buttockL', 'buttockR'],
+  },
   {
     title: 'Arms and hands',
     ids: [
       'shoulderL', 'shoulderR', 'armL', 'armR', 'elbowL', 'elbowR',
       'forearmL', 'forearmR', 'wristL', 'wristR', 'handL', 'handR',
+      'fingersL', 'fingersR',
     ],
   },
   {
     title: 'Legs and feet',
     ids: [
       'hipL', 'hipR', 'thighL', 'thighR', 'kneeL', 'kneeR',
-      'calfL', 'calfR', 'ankleL', 'ankleR', 'footL', 'footR',
+      'shinL', 'shinR', 'calfL', 'calfR', 'ankleL', 'ankleR',
+      'heelL', 'heelR', 'footL', 'footR', 'toesL', 'toesR',
     ],
   },
+  { title: 'One side of the body', ids: ['leftSide', 'rightSide'] },
 ];
 export const FACTOR_NAMES: Record<string, string> = {
   sleep: 'Sleep', stress: 'Stress', work: 'Work', sitting: 'Long sitting',
