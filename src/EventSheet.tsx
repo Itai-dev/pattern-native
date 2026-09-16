@@ -30,11 +30,16 @@ import { color, font, size } from './theme';
 export interface EventSheetProps {
   /** present = edit this event instead of creating a new one */
   event?: PainEvent | null;
+  /** the day a NEW event belongs to, when the sheet was opened from a
+   *  day other than today. Absent = today. Without it every event
+   *  added from a past day's screen was filed under today — and the
+   *  PDF put last Tuesday's flare on the day the person wrote it up. */
+  date?: string | null;
   onDone: () => void;
   onClose: () => void;
 }
 
-export default function EventSheet({ event, onDone, onClose }: EventSheetProps) {
+export default function EventSheet({ event, date: forDate, onDone, onClose }: EventSheetProps) {
   const editing = !!(event && event.id != null);
   const [kind, setKind] = useState<EventKind>(event ? event.kind : 'flare');
   const [minutes, setMinutes] = useState(event ? event.h : minutesNow());
@@ -59,7 +64,7 @@ export default function EventSheet({ event, onDone, onClose }: EventSheetProps) 
   const [saving, setSaving] = useState(false);
   const savedRef = useRef(false);
 
-  const date = event ? event.date : todayISO();
+  const date = event ? event.date : forDate || todayISO();
   const dayCheckins = checkinCount(db.getDay(date));
 
   /* one tap, one event: the ref blocks the double-fire a fast second tap

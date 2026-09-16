@@ -39,6 +39,19 @@ export const SLOTS_PREF = 'reminders.slots';
    before iOS has ever granted permission — silently dropped, with the user
    never prompted and never nudged. Turning one on is also what makes the
    permission question arrive at a moment that explains itself. */
+/** the master switch, as a pure step. Off turns every slot off. On
+ *  brings back the slots that were on when it was last turned off —
+ *  the schedule a person built is theirs to keep across a pause — and
+ *  falls back to the evening slot only when nothing is remembered,
+ *  which is the first time. It used to put every "on" back to evening
+ *  alone, so a Morning + Evening schedule came back as Evening after
+ *  one off-and-on, while the comment above it promised the opposite. */
+export function slotsAfterMaster(slots: Slot[], on: boolean, remembered: Slot['key'][]): Slot[] {
+  if (!on) return slots.map((sl) => ({ ...sl, on: false }));
+  const keys = remembered.length ? remembered : ['e' as const];
+  return slots.map((sl) => ({ ...sl, on: keys.indexOf(sl.key) >= 0 }));
+}
+
 export const DEFAULT_SLOTS: Slot[] = [
   { key: 'm', hour: 8, minute: 0, on: false },
   { key: 'd', hour: 13, minute: 0, on: false },
@@ -143,6 +156,16 @@ export function slotDates(
  *  and after-dose prompts (see health/prompts.ts) — and today's are
  *  filtered by the same "already answered" rule. Seven days at most
  *  PROMPTS_MAX_PER_DAY is thirty-five, inside iOS's sixty-four. */
+/** one request, its failure kept to itself. The queue is cancelled
+ *  wholesale before it is rebuilt, so a single rejection part-way — a
+ *  date iOS refuses, a transient error — used to abort the loop and
+ *  leave the phone with a partly or wholly empty queue, and every
+ *  caller swallows the error, so nothing said so until the next
+ *  foreground. The rest of the week is worth more than the one slot. */
+async function scheduleOne(req: Notifications.NotificationRequestInput): Promise<void> {
+  try { await Notifications.scheduleNotificationAsync(req); } catch { /* this one, not the week */ }
+}
+
 export async function reschedule(
   slots: Slot[], todayIso: string, todayMinutes: number[], nowMinutes: number,
   planner?: (dateIso: string) => Prompt[]
@@ -155,7 +178,7 @@ export async function reschedule(
         if (d === 0 && !dueToday(p, todayMinutes, nowMinutes)) continue;
         const parts = dateIso.split('-');
         const when = new Date(+parts[0], +parts[1] - 1, +parts[2], Math.floor(p.h / 60), p.h % 60, 0, 0);
-        await Notifications.scheduleNotificationAsync({
+        await scheduleOne({
           identifier: 'pattern-' + p.key + '-' + dateIso,
           content: { title: 'Pattern', body: p.body || COPY[p.kind], categoryIdentifier: CHECKIN_CATEGORY },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
@@ -169,7 +192,7 @@ export async function reschedule(
     for (const dateIso of slotDates(s, todayIso, todayMinutes, nowMinutes)) {
       const p = dateIso.split('-');
       const when = new Date(+p[0], +p[1] - 1, +p[2], s.hour, s.minute, 0, 0);
-      await Notifications.scheduleNotificationAsync({
+      await scheduleOne({
         identifier: 'pattern-' + s.key + '-' + dateIso,
         content: { title: 'Pattern', body: COPY[s.key], categoryIdentifier: CHECKIN_CATEGORY },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },

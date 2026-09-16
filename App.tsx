@@ -54,6 +54,7 @@ import { syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
 import { Moment, PainEvent, ValidBackup, addDays, iso, minutesNow, todayISO } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
+import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
@@ -93,7 +94,7 @@ function todayTitle(): string {
 }
 
 /** The floating return pill — the tab bar's glass, one word of it.
- *  Top right, under the headline, where the eye goes for "take me back";
+ *  In the header row beside the share button, where the eye goes for "take me back";
  *  the availability check is guarded for the same reason the tab bar's
  *  is: it throws on binaries that predate the native module. */
 const PILL_LIQUID = (() => {
@@ -318,9 +319,6 @@ export default function App() {
     const all = noticedAssociations(
       entries, healthDays, healthCategories(), shown);
     const best = strongestPossible(all);
-    if (best && shown.indexOf(best.kind) < 0) {
-      db.setPref('health.shownKinds', shown.concat(best.kind));
-    }
     const fading = all.filter((a) => a.verdict === 'fading');
     /* every association whose groups actually formed — Trends draws the
        comparison itself, claim or no claim; the claim stays gated */
@@ -337,9 +335,6 @@ export default function App() {
     const shownDoses = db.getPref<string[]>('health.shownDoses', []);
     const doseAll = meds ? doseAssociations(entries, healthDays, shownDoses) : [];
     const doseBest = strongestDose(doseAll);
-    if (doseBest && shownDoses.indexOf(doseBest.medId) < 0) {
-      db.setPref('health.shownDoses', shownDoses.concat(doseBest.medId));
-    }
     const doses = {
       best: doseBest,
       fading: doseAll.filter((a) => a.verdict === 'fading'),
@@ -357,6 +352,24 @@ export default function App() {
     const budget = loadBudgetFor(entries, healthDays, all);
     return { best, fading, groups, progress, early, first, doses, budget };
   }, [entries, healthDays]);
+  /* "Shown" is written AFTER the render, as an effect — a memo is not a
+     commit, and React may run or throw away a render without committing
+     it, which had a finding marked as seen before any screen had drawn
+     it, and later "fading out loud" about something nobody was shown.
+     The mark itself is honest: both tabs stay mounted in the pager, so
+     the moment a finding is the best one, Patterns is rendering it. */
+  useEffect(() => {
+    const best = healthNoticed.best;
+    if (best) {
+      const shown = db.getPref<PairKind[]>('health.shownKinds', []);
+      if (shown.indexOf(best.kind) < 0) db.setPref('health.shownKinds', shown.concat(best.kind));
+    }
+    const doseBest = healthNoticed.doses.best;
+    if (doseBest) {
+      const shownDoses = db.getPref<string[]>('health.shownDoses', []);
+      if (shownDoses.indexOf(doseBest.medId) < 0) db.setPref('health.shownDoses', shownDoses.concat(doseBest.medId));
+    }
+  }, [healthNoticed]);
 
   /* THE EXPERIMENT, read against the record on every render that
      matters — entries change, a day passes, one starts or ends. The
@@ -402,6 +415,9 @@ export default function App() {
      of it and the day is still there underneath when it dismisses. The
      whole reopen-after-dismiss dance the day sheet needed went with it. */
   const [editEvent, setEditEvent] = useState<PainEvent | null>(null);
+  /* the day a new event is for — set by the day screen, cleared by
+     every other door, so an event opened from Today is today's */
+  const [eventDate, setEventDate] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     const next = db.getAll();
@@ -502,6 +518,7 @@ export default function App() {
      the run they belong to. */
   const startEditEvent = useCallback((ev: PainEvent) => {
     setEditEvent(ev);
+    setEventDate(null);
     setSheet('event');
   }, []);
 
@@ -526,12 +543,12 @@ export default function App() {
   const [trendsSpan, setTrendsSpan] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
 
-  const makePdf = useCallback(async (includeNotes: boolean) => {
+  const makePdf = useCallback(async (includeNotes: boolean, windowDays: number) => {
     setSharing(true);
     try {
       const data = buildReportData({
         entries, events, func: [], goalText: null,
-        todayIso: todayISO(), windowDays: trendsSpan || 36500,
+        todayIso: todayISO(), windowDays,
         includeNotes,
         /* written FOR the report, so it rides every share — the sheet that
            collects it says so in its first sentence */
@@ -568,9 +585,14 @@ export default function App() {
     } finally {
       setSharing(false);
     }
-  }, [entries, events, trendsSpan, healthNoticed]);
+  }, [entries, events, healthNoticed]);
 
-  const shareTrends = useCallback(() => {
+  /* THE WINDOW IS THE CALLER'S. Patterns shares the range it is showing;
+     the appointment card shares the last three months. It used to be
+     whatever Patterns last showed, which made the appointment PDF a
+     week long if Week had been tapped, and the whole record if Patterns
+     had never been opened — with nothing saying which. */
+  const shareRecord = useCallback((windowDays: number) => {
     if (sharing) return;
     /* Day notes ride along only on an explicit yes, asked at every share
        rather than remembered from the last one. They are written with no
@@ -578,22 +600,27 @@ export default function App() {
        THIS copy — a doctor's PDF and one for a work absence claim are not
        the same share. No notes in the window, no question. */
     const start = new Date();
-    start.setDate(start.getDate() - ((trendsSpan || 36500) - 1));
+    start.setDate(start.getDate() - (windowDays - 1));
     const startIso = iso(start);
     const hasNotes = Object.keys(entries)
       .some((k) => k >= startIso && !!(entries[k].note || '').trim());
-    if (!hasNotes) { makePdf(false); return; }
+    if (!hasNotes) { makePdf(false, windowDays); return; }
     Alert.alert(
       'Include your day notes?',
       'Notes you wrote on your days can go into the PDF, word for word, ' +
       'in their own section. The numbers and charts are included either way.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Without notes', onPress: () => makePdf(false) },
-        { text: 'Include notes', onPress: () => makePdf(true) },
+        { text: 'Without notes', onPress: () => makePdf(false, windowDays) },
+        { text: 'Include notes', onPress: () => makePdf(true, windowDays) },
       ]
     );
-  }, [entries, trendsSpan, sharing, makePdf]);
+  }, [entries, sharing, makePdf]);
+  /* the two doors, each naming its window */
+  const shareTrends = useCallback(
+    () => shareRecord(trendsSpan || REPORT_DEFAULT_WINDOW_DAYS), [shareRecord, trendsSpan]);
+  const shareForAppointment = useCallback(
+    () => shareRecord(REPORT_DEFAULT_WINDOW_DAYS), [shareRecord]);
 
   const pickTheme = useCallback((id: PainThemeId) => {
     setPainTheme(id);
@@ -749,8 +776,6 @@ export default function App() {
             onDone={(r) => {
               /* counts only, never content — the closed-list rule */
               track('onboarding_completed', { where: r.where.length });
-              /* and from which screen they left early, when they did */
-              if (r.skippedAt !== undefined) track('onboarding_skipped', { step: r.skippedAt });
               db.setPref('onboarded', true);
               setOnboarded(true);
               /* usual places, for the first check-in's offer — a record
@@ -818,6 +843,19 @@ export default function App() {
               {/* the Log pill that lived here is gone: the floating bar
                   carries the same door in thumb reach, and two buttons
                   for one action on one screen was one too many */}
+              {/* THE WAY BACK UP, IN THE ROW. It used to float at a fixed
+                  78pt from the top, which is where the header's own
+                  buttons sit once the large title wraps or Dynamic Type
+                  grows — the pill landed on the share and profile
+                  buttons. In the row it takes its place beside them and
+                  the row does the laying out, at every text size. */}
+              {tab === 'trends' && recordAway && (
+                <GlassPill
+                  onPress={() => recordScroll.current?.scrollTo({ y: 0, animated: true })}
+                  label="Top ↑"
+                  accessibilityLabel="Back to the top of the record"
+                />
+              )}
               {tab === 'trends' && (
                 <Pressable
                   onPress={shareTrends}
@@ -883,7 +921,7 @@ export default function App() {
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
                 onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
-                onShare={shareTrends}
+                onShare={shareForAppointment}
                 appointment={appointment}
                 healthDays={healthDays}
                 ahead={ahead}
@@ -955,17 +993,9 @@ export default function App() {
                 setSheet('checkin');
               }}
               onEditEvent={startEditEvent}
-              onAddEvent={() => { setEditEvent(null); setSheet('event'); }}
+              onAddEvent={(d) => { setEditEvent(null); setEventDate(d); setSheet('event'); }}
               onClose={() => setDayScreen(null)}
               editNoteOnOpen={dayNote}
-            />
-          )}
-
-          {tab === 'trends' && recordAway && (
-            <GlassPill
-              onPress={() => recordScroll.current?.scrollTo({ y: 0, animated: true })}
-              label="Top ↑"
-              accessibilityLabel="Back to the top of the record"
             />
           )}
 
@@ -987,7 +1017,7 @@ export default function App() {
             /* the event sheet presents after this one has gone, the same
                sequencing every sheet swap in this app uses */
             onEvent={() => {
-              afterDismiss.current = () => { setEditEvent(null); setSheet('event'); };
+              afterDismiss.current = () => { setEditEvent(null); setEventDate(null); setSheet('event'); };
               closeSheet();
             }}
           />
@@ -1000,7 +1030,7 @@ export default function App() {
           onRequestClose={closeSheet}
           onDismiss={runAfterDismiss}
         >
-          <EventSheet event={editEvent} onDone={closeSheet} onClose={closeSheet} />
+          <EventSheet event={editEvent} date={eventDate} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         <Modal
@@ -1378,10 +1408,9 @@ const styles = StyleSheet.create({
      21pt across, 1.9pt lines — because it sits in the same family of
      controls and was previously a lighter, smaller drawing that read as a
      different set of marks. */
-  /* hovers top right, under the headline, only on Record and only once
-     you have left — glass, so it sits over the grids without occluding */
+  /* in the header row, only on Patterns and only once you have scrolled
+     away — glass like the tab bar, one word of it */
   backToToday: {
-    position: 'absolute', top: 78, right: size.pageX,
     borderRadius: 19, borderCurve: 'continuous', overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
   },

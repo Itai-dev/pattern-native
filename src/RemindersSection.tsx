@@ -25,9 +25,10 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { EASE_OUT, reduceMotion } from './motion';
 import { track } from './analytics';
-import { Slot } from './reminders';
+import { Slot, slotsAfterMaster } from './reminders';
 import {
-  adaptiveOn, applySlots, describePlan, plannedToday, savedSlots, setAdaptive, syncReminders,
+  adaptiveOn, applySlots, describePlan, plannedToday, recallOn, rememberOn, savedSlots, setAdaptive,
+  syncReminders,
 } from './reminderSchedule';
 import { fmtClock } from './clock';
 import { color, font, radius } from './theme';
@@ -89,13 +90,14 @@ export default function RemindersSection() {
     apply(slots);
   };
 
-  /* the master switch: on = the evening slot at its saved time, off = all
-     of them. It never forgets a customised schedule — the slot config
-     stays in prefs, and only the on-flags move. */
+  /* the master switch: off = all of them, on = the ones that were on
+     before the last off (evening alone the first time). It never forgets
+     a customised schedule — the hours stay in the slot prefs, and which
+     slots were on is remembered at the moment they are turned off. */
   const toggleAll = (on: boolean) => {
     Haptics.selectionAsync().catch(() => {});
-    if (!on) apply(slots.map((sl) => ({ ...sl, on: false })));
-    else apply(slots.map((sl) => ({ ...sl, on: sl.key === 'e' })));
+    if (!on) rememberOn(slots);
+    apply(slotsAfterMaster(slots, on, recallOn()));
   };
 
   const toggle = (key: Slot['key'], on: boolean) => {

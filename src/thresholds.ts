@@ -201,19 +201,50 @@ export const EXPERIMENT_REOFFER_DAYS = 14;
    not evidence either way. */
 
 /** distinct paired days (factor value AND the right pain window on the
- *  same person-day) before any comparison is attempted */
-export const HEALTH_MIN_PAIRED_DAYS = 14;
+ *  same person-day) before any comparison is attempted. Eighteen, up
+ *  from fourteen on 16 Sep 2026: the direction-stability check below
+ *  splits the record in two and needs HEALTH_HALF_MIN_N days in each
+ *  tercile of each half, and 18 is the smallest count where a half's
+ *  tercile (floor(9/3)) holds three. At fourteen the gate could be
+ *  waited for and never passed, and the "N of 14" progress line would
+ *  have been a promise the engine could not keep. */
+export const HEALTH_MIN_PAIRED_DAYS = 18;
 
 /** Days required in EACH tercile group. Five, not the protocol's eight:
  *  with a within-person daily-pain SD of 1.5–2.0, two groups of five have
  *  a difference SE of 0.95–1.26, so the 1.5-point delta below sits at
  *  z ≈ 1.2–1.6 — a noise-only difference clears it roughly 6–12% of the
- *  time per comparison, and there are at most four health comparisons,
- *  each user-confirmed, never a scan. Eight per group would need ~24
- *  paired mornings under a tercile split — most of a month of joint
- *  coverage before Pattern could say anything, which fails the person
- *  the feature exists for. The looser gate is priced, not overlooked. */
+ *  time per comparison. Eight per group would need ~24 paired mornings
+ *  under a tercile split — most of a month of joint coverage before
+ *  Pattern could say anything, which fails the person the feature
+ *  exists for. The looser gate is priced, not overlooked.
+ *
+ *  HOW MANY COMPARISONS. Not four: CATEGORY_ASSOCIATIONS (noticed.ts)
+ *  licenses up to TEN — one for sleep, three for movement, two for
+ *  workouts, one for mind, three for nutrition — and only the categories
+ *  a person connected are examined, so the count is theirs: one for
+ *  sleep alone, ten for everything. strongestPossible then shows the
+ *  largest |delta| among them, which is the comparison most likely to
+ *  be the lucky one, and its printed delta is biased upward for the
+ *  same reason. At 6–12% per comparison, ten independent ones would put
+ *  a spurious card in front of half or more of the people with no real
+ *  pattern; that is what the stability check below is for, and why it
+ *  is a gate and not a footnote. It does not make the number small. The
+ *  noise harness SPEC §13.9 asks for has still not been built, and
+ *  until it runs, the per-comparison rate is arithmetic, not
+ *  measurement. */
 export const HEALTH_MIN_GROUP_DAYS = 5;
+
+/** DIRECTION STABILITY (SPEC §13.3, condition 4). The record is split
+ *  in two by date, the same groups are formed in each half, and the
+ *  sign of the difference must be the same in both. Each half's groups
+ *  must hold this many days; a half with fewer has no direction to
+ *  agree with, and the whole check fails closed. Three, the protocol
+ *  rule's number: a 2-vs-2 comparison has no sign worth the name. A
+ *  difference that flips between the first and second half is exactly
+ *  what a lucky fortnight looks like, and it is the cheapest of the
+ *  gates to fail honestly — nothing is shown, the pairs keep counting. */
+export const HEALTH_HALF_MIN_N = PATTERN_HALF_MIN_N;
 
 /** points of mean pain between the groups — the same bar as the
  *  protocol rule, for the same reason */
@@ -432,6 +463,47 @@ export const BG_PROMPT_STALE_MIN = 45;
  *  "where" is asked again that day. Two points: a change worth
  *  locating, not the slider's ordinary drift */
 export const WHERE_REASK_DELTA = 2;
+
+/* ── the clinician PDF ─────────────────────────────────────── */
+
+/** the window the PDF covers when it is made from the appointment card
+ *  rather than from Patterns. Three months: RESEARCH.md's "how were the
+ *  last three months?" is the question the report exists to answer
+ *  better than memory, and it matches the widest fixed range on
+ *  Patterns, so the two doors produce the same document. It used to
+ *  inherit whatever range Patterns last showed — a week, if the person
+ *  had tapped Week — or the whole record when Patterns had never been
+ *  opened, and nothing on the card said which. */
+export const REPORT_DEFAULT_WINDOW_DAYS = 90;
+
+/* ── Today's offers ────────────────────────────────────────── */
+
+/** logged days before each offer may appear on Today. Ordered by how
+ *  much each pays back a new user; the reminder is offered on the first
+ *  check-in, so it has no constant here. The background waits three
+ *  days because five minutes of history right after onboarding was the
+ *  first thing every tester dismissed; the widget waits longest because
+ *  a lock screen is worth explaining only to someone who has come back. */
+export const HEALTH_OFFER_AFTER_DAYS = 2;
+export const BACKGROUND_OFFER_AFTER_DAYS = 3;
+export const APPOINTMENT_OFFER_AFTER_DAYS = 4;
+export const WIDGET_OFFER_AFTER_DAYS = 5;
+
+/** how many days before an appointment the summary is offered — two:
+ *  enough to read it, not enough to forget it */
+export const APPOINTMENT_LEAD_DAYS = 2;
+
+/** how long after a date passes, or after "not now", before the
+ *  appointment question is asked again — appointments recur, and a
+ *  month is not nagging */
+export const APPOINTMENT_REASK_DAYS = 30;
+
+/** below this, the two halves of a window are called "about the same"
+ *  on Patterns rather than given a direction. A quarter of a point is
+ *  under the scale's own resolution — a day is logged in whole numbers
+ *  and the halves are means of a handful of them — so a smaller gap is
+ *  rounding, not a direction, and naming one would be reading the noise. */
+export const DIRECTION_SAME_BELOW = 0.25;
 
 /** how many quick check-ins in a row before the pain step leads with
  *  Log it instead of Continue. Three: one is a bad moment, two is a bad

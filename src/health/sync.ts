@@ -46,6 +46,15 @@ export function healthRequestedOn(): string | null {
 /** the sheet has been completed for these categories — the most the
  *  app is allowed to remember about authorization */
 export function markHealthRequested(categories: HealthCategory[]): void {
+  /* A category the record has not seen before starts its history from
+     scratch, so the watermark goes: the next pass reaches back the full
+     backfill span instead of the ten-day late-arrival window. Without
+     this, "Update what Pattern reads" gave a newly added kind ten days
+     of history and left it under the paired-days gate for weeks;
+     re-fetching the kinds already stored is the price, and putHealthDay
+     simply overwrites them with the same facts. */
+  const before = healthCategories();
+  if (categories.some((c) => before.indexOf(c) < 0)) db.clearHealthSyncedFrom();
   db.setPref(PREF_CATEGORIES, categories);
   db.setPref(PREF_REQUESTED, todayISO());
 }

@@ -50,6 +50,18 @@ Committed 2026-09-08, all guarded so the current binary is unaffected:
 | expo-calendar + `NSCalendarsUsageDescription` | `app.json` plugin list, `src/calendar.ts` | "Use my calendar" in Profile: an after-event prompt for entries that read as exertion |
 | Notification category "checkin" | `src/reminders.ts` | a **Check in** button on every prompt, on the iPhone and mirrored to the watch; tapping opens the question (the watch app IS the question) |
 
-None of it has run on a device. The background-delivery path in
+**Build 48 (commit 0b9c4a0, 15 September) carries all three and is
+in App Store Connect.** A second `eas submit` of it on 16 September
+errored with "Build number 48 for app version 1.3.0 has already been
+used" — which is App Store Connect saying the upload already happened,
+not a validator rejection. `eas submit:list` did not show that first
+upload, so do not read that list as the record of what Apple has;
+App Store Connect → TestFlight is. Nothing to do at developer.apple.com:
+HealthKit's capability already carries the background-delivery
+entitlement key (the portal lists it under the (i)), so no profile
+step exists for it.
+
+None of the three has run on a device. The background-delivery path in
 particular is the library's promise that JS runs on a background wake;
-the first build with the entitlement is where that gets proven.
+the first build with the entitlement that INSTALLS is where that gets
+proven.

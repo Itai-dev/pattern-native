@@ -52,6 +52,16 @@ group('sleep normalization');
 
 const D = '2026-08-20';
 const day8 = (i) => '2026-08-' + String(i).padStart(2, '0');
+/** n pairs whose factor and pain come from index functions, with dates
+ *  dealt so that even indexes fall in the first half of the calendar
+ *  and odd in the second — both halves carry both groups, which is
+ *  what the direction-stability gate needs to say yes to a real one.
+ *  A fixture whose low group is the first fortnight and whose high
+ *  group is the second is the confound the gate exists to refuse. */
+const twoGroups = (n, factorAt, painAt) => Array.from({ length: n }, (_, i) => {
+  const rank = i % 2 === 0 ? i / 2 : Math.ceil(n / 2) + Math.floor(i / 2);
+  return { date: day8(rank + 1), factor: factorAt(i), pain: painAt(i) };
+});
 ok('overlapping intervals from two sources merge to their union', (() => {
   // watch 23:00–06:30, phone 23:20–06:00 — the union is 23:00–06:30
   const n = normalize.nightSleep([
@@ -287,6 +297,40 @@ ok('terciles discard the middle: extremes drive the comparison', (() => {
   return a.verdict === 'possible' && a.low.factorMean === 300 && a.high.factorMean === 480
     && a.delta === -3;
 })());
+ok('a difference that flips between the halves of the record is an observation, never a pattern', (() => {
+  // first nine days: long sleep → LESS pain; last nine: long sleep → MORE pain. Pooled |delta| still clears.
+  const pairs = [];
+  for (let i = 0; i < 18; i++) {
+    const high = i % 2 === 0;
+    const firstHalf = i < 9;
+    const date = '2026-07-' + String(i + 1).padStart(2, '0');
+    const pain = firstHalf ? (high ? 2 : 8) : (high ? 6 : 4);
+    pairs.push({ date, factor: high ? 480 : 300, pain });
+  }
+  const a = engine.evaluate('sleepVsMorning', pairs);
+  return a.verdict === 'observation' && Math.abs(a.delta) >= th.HEALTH_MIN_DELTA
+    && engine.directionStable('sleepVsMorning', pairs, a.delta) === false;
+})());
+ok('the stability check fails closed when a half cannot form its groups', (() => {
+  // 16 pairs: each half holds 8, floor(8/3) = 2 < HEALTH_HALF_MIN_N
+  const pairs = fabricate(16, 300, 480, 7, 4);
+  return engine.directionStable('sleepVsMorning', pairs, -3) === false
+    && th.HEALTH_HALF_MIN_N === 3;
+})());
+ok('the paired-days gate is the smallest count whose halves can hold three per tercile', (() => {
+  return th.HEALTH_MIN_PAIRED_DAYS === 18 && Math.floor(Math.floor(18 / 2) / 3) === 3
+    && Math.floor(Math.floor(17 / 2) / 3) < 3;
+})());
+ok('a categorical kind is split without vs with in each half', (() => {
+  // 20 covered days, alternating workout / none, mornings after a workout run harder in both halves
+  const pairs = [];
+  for (let i = 0; i < 20; i++) {
+    const w = i % 2 === 0;
+    pairs.push({ date: '2026-07-' + String(i + 1).padStart(2, '0'), factor: w ? 1 : 0, pain: w ? 6 : 3 });
+  }
+  const a = engine.evaluate('workoutVsNextMorning', pairs);
+  return a.verdict === 'possible' && engine.directionStable('workoutVsNextMorning', pairs, a.delta);
+})());
 ok('a previously shown association that stops holding fades, not vanishes', (() => {
   const a = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 5.5, 5), true);
   return a.verdict === 'fading';
@@ -396,15 +440,26 @@ ok('the load sentence says harder-workout days and names the outcome', (() => {
 })());
 group('the load budget: the workout-load association, read forward');
 const budget = require(path.join(OUT, 'health', 'budget.js'));
+/** dates dealt so that BOTH halves of the record carry the whole range
+ *  of factor values: even indexes land in the first half, odd in the
+ *  second. A fixture whose loads climb with the calendar is exactly the
+ *  confound the direction-stability gate refuses — load and time move
+ *  together — so the budget fixtures must not be built that way. */
+function dealDates(pairs) {
+  const n = pairs.length, firstHalf = Math.ceil(n / 2);
+  return pairs.map((p, i) => {
+    const rank = i % 2 === 0 ? i / 2 : firstHalf + Math.floor(i / 2);
+    return Object.assign({}, p, { date: '2026-07-' + String(rank + 1).padStart(2, '0') });
+  });
+}
 /** n pairs with loads climbing from `from` in steps of `step`; the
  *  upper half of the list carries `hiPain`, the lower half `loPain` */
 function ramp(n, from, step, loPain, hiPain) {
   const out = [];
   for (let i = 0; i < n; i++) {
-    out.push({ date: '2026-07-' + String(i + 1).padStart(2, '0'), factor: from + i * step,
-      pain: i < n / 2 ? loPain : hiPain });
+    out.push({ date: '', factor: from + i * step, pain: i < n / 2 ? loPain : hiPain });
   }
-  return out;
+  return dealDates(out);
 }
 ok('a budget is the median and the upper tercile’s first load, from a possible verdict', (() => {
   // loads 20,23,…,71: median (44+47)/2 = 45.5 → 46; third = 6, so the
@@ -431,11 +486,9 @@ ok('no budget below the verdict gate, or from another kind', (() => {
 ok('the line must sit clear of the usual by the headroom threshold', (() => {
   // 6×20, 6×40, 6×45: groups 20 vs 45 clear the spread, but the upper
   // third begins at 45 and the median is 40 — five minutes of headroom
-  const pairs = [];
-  for (let i = 0; i < 18; i++) {
-    const f = i < 6 ? 20 : i < 12 ? 40 : 45;
-    pairs.push({ date: '2026-07-' + String(i + 1).padStart(2, '0'), factor: f, pain: i < 6 ? 4 : 7 });
-  }
+  const pairs = dealDates(Array.from({ length: 18 }, (_, i) => ({
+    date: '', factor: i < 6 ? 20 : i < 12 ? 40 : 45, pain: i < 6 ? 4 : 7,
+  })));
   const a = engine.evaluate('workoutLoadVsNextMorning', pairs);
   return a.verdict === 'possible' && th.BUDGET_MIN_HEADROOM_MINUTES > 5
     && budget.loadBudget(pairs, a) === null;
@@ -780,12 +833,12 @@ ok('a connected comparison short of its gate reports the count and what one more
   const c = engine.progressCopy(prog[0]);
   return prog.length === 1 && prog[0].kind === 'sleepVsMorning'
     && prog[0].pairedDays === 1 && prog[0].needed === th.HEALTH_MIN_PAIRED_DAYS
-    && /1 of 14/.test(c.evidence) && /before noon/.test(c.caveat)
+    && new RegExp('1 of ' + th.HEALTH_MIN_PAIRED_DAYS).test(c.evidence) && /before noon/.test(c.caveat)
     && !/pain averaged|higher|lower/.test(c.title + c.evidence + c.caveat);
 })());
 ok('a comparison past its gate is not listed as waiting', (() => {
   const entries = {}, health = {};
-  for (let i = 1; i <= 16; i++) {
+  for (let i = 1; i <= th.HEALTH_MIN_PAIRED_DAYS; i++) {
     const d = '2026-08-' + String(i).padStart(2, '0');
     entries[d] = { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 5 }] };
     health[d] = { date: d, sleepMinutes: 400 + i, coverage: { sleep: true } };
@@ -992,7 +1045,8 @@ ok('no evening check-in, no pair — a mood beside a morning number is a differe
   return windows.buildPairs('mindVsEvening', { [D]: e }, { [D]: h }).length === 0;
 })());
 ok('the groups must sit more than a valence band apart, and the words are accompaniment, never cause', (() => {
-  const mk = (lowV, highV) => Array.from({ length: 16 }, (_, i) => ({ date: day8(i + 1), factor: i < 8 ? lowV + i * 0.01 : highV + i * 0.01, pain: i < 8 ? 7 : 4 }));
+  // 18 pairs, nine low and nine high, dealt so each half of the record holds both kinds
+  const mk = (lowV, highV) => twoGroups(18, (i) => i < 9 ? lowV + i * 0.01 : highV + i * 0.01, (i) => i < 9 ? 7 : 4);
   const near = engine.evaluate('mindVsEvening', mk(-0.1, 0.1));
   const far = engine.evaluate('mindVsEvening', mk(-0.6, 0.5));
   const c = engine.associationCopy(far);
@@ -1037,7 +1091,7 @@ ok('yesterday’s drinks pair with this morning as yes-or-no; a day without nutr
   return p.length === 1 && p[0].date === d2 && p[0].factor === 1 && engine.isCategorical('alcoholVsNextMorning');
 })());
 ok('the groups need half a litre or a coffee between them; the labels read as amounts', (() => {
-  const mk = (lo, hi) => Array.from({ length: 16 }, (_, i) => ({ date: day8(i + 1), factor: i < 8 ? lo + i : hi + i, pain: i < 8 ? 6 : 4 }));
+  const mk = (lo, hi) => twoGroups(18, (i) => i < 9 ? lo + i : hi + i, (i) => i < 9 ? 6 : 4);
   return engine.evaluate('waterBeforeVsEvening', mk(600, 900)).verdict === 'observation'
     && engine.evaluate('waterBeforeVsEvening', mk(400, 1400)).verdict === 'possible'
     && engine.evaluate('caffeineBeforeVsEvening', mk(50, 100)).verdict === 'observation'
@@ -1071,7 +1125,7 @@ ok('one to three paired days are listed newest first; four become an early look 
 ok('the title names the factor and the pain it sits beside; the caption says when a picture starts', (() => {
   return engine.firstTitle('mindVsEvening') === 'Mood beside evening pain, the first days'
     && engine.firstTitle('sleepVsMorning') === 'Sleep beside morning pain, the first days'
-    && /starts at 4 paired days, a comparison at 14/.test(engine.FIRST_NOTE);
+    && new RegExp('starts at 4 paired days, a comparison at ' + th.HEALTH_MIN_PAIRED_DAYS).test(engine.FIRST_NOTE);
 })());
 ok('doses: one or two pairs are listed, three become the early picture', (() => {
   const doses = require(path.join(OUT, 'health', 'doses.js'));
@@ -1110,7 +1164,7 @@ ok('a workout early look needs two days of each kind', (() => {
 ok('the caption names the factor and the count, and never a direction', (() => {
   const pairs = [1, 2, 3, 4].map((i) => ({ date: day8(i), factor: 300 + i * 60, pain: i }));
   const c = engine.earlyCopy(engine.earlyLook('sleepVsMorning', pairs));
-  return c.title === 'Sleep and morning pain, so far' && c.evidence === '4 of 14 paired days.'
+  return c.title === 'Sleep and morning pain, so far' && c.evidence === '4 of ' + th.HEALTH_MIN_PAIRED_DAYS + ' paired days.'
     && !/lower|higher|worth watching/.test(c.title + c.evidence) && /too few days/.test(engine.EARLY_NOTE);
 })());
 ok('earlyLooks draws only what the connected categories license and only between the two gates', (() => {

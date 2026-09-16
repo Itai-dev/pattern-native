@@ -76,6 +76,17 @@ export function savedSlots(): Slot[] {
   return db.getPref<Slot[]>(SLOTS_PREF, DEFAULT_SLOTS);
 }
 
+/** which slots were on when the master switch was last turned off, so
+ *  turning it on restores them (see slotsAfterMaster) */
+export const LAST_ON_PREF = 'reminders.lastOn';
+export function rememberOn(slots: Slot[]): void {
+  const on = slots.filter((s) => s.on).map((s) => s.key);
+  if (on.length) db.setPref(LAST_ON_PREF, on);
+}
+export function recallOn(): Slot['key'][] {
+  return db.getPref<Slot['key'][]>(LAST_ON_PREF, []);
+}
+
 export function anyReminderOn(): boolean {
   return savedSlots().some((s) => s.on);
 }
