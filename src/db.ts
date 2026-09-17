@@ -13,7 +13,7 @@ import { addDays } from './model';
 import { EXPERIMENT_WHAT_MAX, Experiment } from './model';
 import {
   Answer, BACKUP_VERSION, Background, CONTEXT_VERSION, ContextAnswers, Entries, Entry,
-  Duration, EventKind, FuncEntry, Hypothesis, Onset, PainEvent, Protocol, ProtocolStatus,
+  Duration, EventKind, FuncEntry, Hypothesis, LastCopy, Onset, PainEvent, Protocol, ProtocolStatus,
   MomentMeta, Response, ValidBackup,
   applyMoment, cleanCtx, cleanEntry, cleanModifiers, dedupeEvents,
   migrateEntries, nowMeta, protocolKey, removeMoment, syncDayPain, validateBackup,
@@ -208,6 +208,34 @@ export function getPref<T>(key: string, fallback: T): T {
 
 export function setPref(key: string, value: unknown): void {
   conn().runSync('INSERT OR REPLACE INTO prefs (k, v) VALUES (?, ?)', key, JSON.stringify(value));
+}
+
+/* ── the last saved copy ────────────────────────────────────── */
+
+const PREF_COPIED = 'backup.copied';
+const PREF_COPY_SEEN = 'backup.copy.seen';
+
+export function getLastCopy(): LastCopy | null {
+  const c = getPref<LastCopy | null>(PREF_COPIED, null);
+  return c && typeof c.on === 'string' && typeof c.days === 'number' ? c : null;
+}
+
+/** the share sheet closed with the file handed somewhere — that, and
+ *  not the tap on Export, is what counts as a copy existing. Resets
+ *  the "not now" mark: the next ask starts counting from zero again. */
+export function markCopied(todayIso: string): LastCopy {
+  const c: LastCopy = { on: todayIso, days: countDays() };
+  setPref(PREF_COPIED, c);
+  setPref(PREF_COPY_SEEN, 0);
+  return c;
+}
+
+/** the unsaved count when the person last said not now to the copy card */
+export function getCopySeen(): number {
+  return getPref<number>(PREF_COPY_SEEN, 0);
+}
+export function setCopySeen(n: number): void {
+  setPref(PREF_COPY_SEEN, n);
 }
 
 interface Row {

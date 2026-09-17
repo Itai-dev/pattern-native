@@ -61,6 +61,84 @@ pacing *instruction*, anything touching medication decisions.
    at it" — a record read back was the control arm, and an app with
    nothing to come back for is a record nobody keeps.)
 
+## The record had no copy · argued 13 Sep 2026, settled 15 Sep
+
+**What forced it.** A tester lost their entire record. The app went from the
+phone and the reinstall came back empty. Nothing was broken: the record is
+one SQLite file in the app's container, deleting the app deletes the
+container, and there was deliberately no copy anywhere else. The promise
+worked exactly as written, and the promise is what destroyed the data.
+
+That is not a bug to be fixed with a warning. A pain record's whole value is
+that it is long — ninety squares settle what memory cannot, and a report is
+worth showing because it covers months. The longer the record gets, the more
+it is worth, and until 13 Sep 2026 the more it was worth the more there was
+to lose to one tap, one lost phone, one TestFlight build running out at
+ninety days. A tool whose value grows with the amount of data it can silently
+destroy is not a tool anyone should be asked to trust with a year of their
+life.
+
+**What was rejected.** Asking harder. The mitigation shipped that same day —
+Today asks for a saved copy, Profile says when the last one was made, the
+first onboarding screen offers Restore — and it is worth keeping, but as a
+floor, not the answer. Every version of it puts the work on a person with
+chronic pain, on the day they are least able to do it, to protect against a
+harm they cannot see coming. "The user should have exported a backup" is the
+same sentence as "the user should have known", and it is not a design.
+
+**SETTLED ON 15 SEP, AND NOT THE WAY THIS SECTION EXPECTED.** What follows
+is kept as the argument, because the argument is what holds; the mechanism
+it proposed was wrong and was replaced two days later by a better one.
+
+**What this section proposed, and why it is not what shipped.** It argued
+for encrypting the record on the device and putting the ciphertext in the
+app's own iCloud container. Researching the module to carry it turned up
+App Store Review Guideline 5.1.3(ii) — *"may not store personal health
+information in iCloud"* — with no carve-out for a private container and
+none for data encrypted before it leaves. Pattern already reads HealthKit,
+so the sentence points straight at it. The destination was blocked and the
+section stalled there, with three routes written down and none taken.
+
+**What shipped instead, on 15 Sep.** The record was already in the app's
+Documents folder, which iOS has always included in the phone's own iCloud
+or computer backup — Apple's, encrypted, under the person's account, never
+ours. Nothing had to move. What moved was the Apple Health cache, out to
+Library/Caches, which iOS never backs up, precisely so that 5.1.3 is
+satisfied rather than argued with. The policy was rewritten to say all of
+it. That is a better answer than this section's: no new dependency, no
+native module, no permission from Apple, and a claim that was already true
+rather than one the app had to go and make true.
+
+**What it does not cover, and what this branch is therefore still for.**
+The phone's backup answers *a lost or replaced phone*. It does not answer
+*delete and reinstall on the same phone*, which is the failure that
+actually happened: iOS hands a reinstalled app a fresh, empty container and
+never consults the backup, so the record is gone while the backup sits
+there intact. Short of restoring the entire device, nothing brings it back.
+So the floor below still earns its place, and is the only thing that covers
+that case:
+
+- Today asks for a saved copy once a week of record exists without one.
+- Profile says when the last copy was made, and that deleting the app
+  deletes the record.
+- The first onboarding screen offers Restore, so a reinstall reaches its
+  file in one tap.
+
+**What stands from the original argument, unchanged.** Asking harder is
+not a design — "the user should have exported a backup" is the same
+sentence as "the user should have known". A pain record's value grows with
+its length, so the longer it runs the more one tap can destroy. And a tool
+whose value grows with the amount of data it can silently lose is not one
+anyone should be asked to trust with a year of their life.
+
+**The native build is no longer blocked.** The watch provisioning profiles
+were created on 15 Sep and build 47 proved it, so an iOS build no longer
+needs anyone at a computer. Nothing in this section depends on that any
+more, but the next thing that needs a binary will not wait on it. The JavaScript must be guarded so that
+older binaries take the catch and live without it, exactly as HealthKit and
+expo-glass-effect did, so that everyone keeps receiving the same over-the-air
+updates and the runtime version does not move.
+
 ## Known commercial facts
 
 - App Store display name "Pattern" is taken; a distinct store name is needed
@@ -73,7 +151,8 @@ pacing *instruction*, anything touching medication decisions.
   counts — that a check-in happened, how long it took, never what it said —
   go to a named, EU-hosted processor, with an opt-out in Profile. The health
   record itself stays local, and any further move requires rewriting this
-  paragraph first.
+  paragraph first. **It changed again on 13 Sep 2026 — see below, which is
+  that rewrite, and which 15 Sep then settled differently.**
 - Said out loud on 15 Sep 2026, not changed: the record sits in the app's
   Documents folder, so it has always travelled in the phone's own iCloud or
   computer backup — Apple's, encrypted, under the person's account, never

@@ -68,6 +68,10 @@ export interface OnboardingResult {
 }
 
 export interface OnboardingScreenProps {
+  /** the backup picker, offered on the first screen only — the way back
+   *  in for a reinstall that has a file to bring home. Absent in review
+   *  mode, where the record already exists. */
+  onRestore?: () => void;
   /** finished — record it and open the first check-in */
   onDone: (result: OnboardingResult) => void;
   /** Reading it again from Profile, not arriving for the first time. The
@@ -77,7 +81,7 @@ export interface OnboardingScreenProps {
   review?: boolean;
 }
 
-export default function OnboardingScreen({ onDone, review }: OnboardingScreenProps) {
+export default function OnboardingScreen({ onDone, review, onRestore }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [duration, setDuration] = useState<OnboardingResult['duration']>('');
@@ -287,6 +291,33 @@ export default function OnboardingScreen({ onDone, review }: OnboardingScreenPro
           </Text>
         </Press>
 
+        {/* THE WAY BACK IN. Someone whose app was deleted — by them, by a
+            test build running out — reinstalls and lands here with an empty
+            record and, if they were lucky, a backup file in Files. Restore
+            is otherwise several screens and a Profile sheet away, behind a
+            first check-in that would then sit beside the restored days as a
+            duplicate of one of them. It belongs on the first screen a
+            reinstall sees, and nowhere else: one line, no badge, invisible
+            to anyone installing for the first time in any way that matters.
+
+            The phone's own backup does NOT cover this case — iOS gives a
+            reinstalled app an empty container and never consults it — so
+            this line is the only way back for someone who has a file. */}
+        {!review && step === 0 && onRestore && (
+          <Press
+            onPress={onRestore}
+            pressOpacity={0.7}
+            style={styles.restoreBtn}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Used Pattern before? Restore a backup"
+          >
+            <Text style={styles.restoreText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Used Pattern before? Restore a backup
+            </Text>
+          </Press>
+        )}
+
         <View style={styles.dots}>
           {(review ? [0] : [0, 1]).map((i) => (
             <View
@@ -332,6 +363,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.textPrimary,
   },
   primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
+  restoreBtn: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  restoreText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   dots: {
     flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 18,
   },

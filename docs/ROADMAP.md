@@ -111,6 +111,48 @@ self-experiment came back on 2026-09-11 as step 5, once the rule on
 engagement was rewritten (POSITIONING.md, principle 7): a countdown to
 an answer is the honest kind of reason to open the app.
 
+## The record's only copy · narrowed on 15 Sep
+
+*Added 2026-09-13 after a tester's whole record was lost; rewritten 15 Sep
+once the durable half shipped.* The app went from the phone, the reinstall
+came back empty, and nothing had warned anyone. The code was fine: the
+record is one SQLite file in the app's container, deleting the app deletes
+the container, and there was deliberately no copy anywhere else.
+
+**Most of this is now solved, and not the way this entry first proposed.**
+The record lives in Documents, which iOS has always included in the phone's
+own iCloud or computer backup — Apple's, under the person's account, never
+ours. On 15 Sep that was stated in the policy rather than built, and the
+Apple Health cache was moved to Library/Caches so that App Review 5.1.3,
+which forbids personal health information in iCloud, is satisfied rather
+than argued with. The earlier plan here — encrypting a copy into the app's
+own iCloud container, or writing to a folder behind a security-scoped
+bookmark — is retired. Both needed a native module and a new dependency to
+claim something that was already true.
+
+**What is left is one case, and it is the one that actually happened.** The
+phone's backup covers a lost or replaced phone. It does not cover delete
+and reinstall on the same phone: iOS hands the reinstalled app a fresh,
+empty container and never consults the backup, so the record is gone while
+the backup sits there intact. Nothing short of restoring the whole device
+brings it back, which is an absurd thing to ask of a tester who deleted an
+app.
+
+So the manual copy is not a stopgap for a better mechanism any more. It is
+the answer to the remaining case, and it ships over the air:
+
+- Today asks for a saved copy once a week of record exists that no copy
+  holds, and again only after another week has been added.
+- Profile opens with when the last copy was made and what it held.
+- The first onboarding screen offers Restore, so a reinstall reaches its
+  file without crossing a questionnaire.
+
+**On the trigger:** a TestFlight build stops working after 90 days and the
+usual response is delete and reinstall, so every external tester recruited
+in Phase 2 meets exactly this case on a 90-day clock. Say it plainly in the
+TestFlight notes as well as in the app: the phone's backup will not save a
+record from a reinstall, and a saved copy will.
+
 ## Phase 2 — n=10 · mid-Oct → Dec
 
 - 10 chronic-pain testers via TestFlight external testing; recruit from

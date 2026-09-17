@@ -517,3 +517,20 @@ export const FIRST_DAYS_OPEN = 2;
  *  errs toward following the person quickly. A single detailed check-in
  *  flips it back at once (see checkinMode.ts). */
 export const QUICK_DEFAULT_AFTER = 3;
+
+/* ── the record's only copy ─────────────────────────────────── */
+
+/** days of record with no saved copy anywhere before Today says so.
+ *  A LOST PHONE IS COVERED AND THIS IS NOT ABOUT THAT. The record sits
+ *  in Documents, which rides the phone's own iCloud or computer backup
+ *  (db.ts, healthConn). What that backup cannot reach is delete and
+ *  reinstall on the SAME phone: iOS hands the new install an empty
+ *  container and never consults the backup, so the record is gone while
+ *  the backup sits there intact. A saved copy is the only thing that
+ *  covers it (docs/ROADMAP.md, "the record's only copy"). Seven: under
+ *  LIMITED_RECORD_DAYS the record draws no comparisons and is quick to
+ *  re-enter, so a week is also the point at which losing it first
+ *  costs something. The same count is the gap between "not now" and the
+ *  next ask, counted in days ADDED, never days elapsed — the card moves
+ *  only when the record does, like everything else on Today. */
+export const COPY_NUDGE_DAYS = 7;

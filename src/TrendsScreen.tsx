@@ -857,6 +857,63 @@ export default function TrendsScreen({
 
   useEffect(() => { if (onSpanChange) onSpanChange(spanDays); }, [spanDays, onSpanChange]);
 
+  /* EVERY HOOK ON THIS SCREEN RUNS ON EVERY RENDER, and the three below
+     sit above the empty-state guard for that reason alone. They used to
+     live under it, next to the JSX that reads them, which is the more
+     readable place and was a crash: buildReportData returns null when the
+     chosen range holds no logged days, the guard returned early, and the
+     two useMemo calls after it never ran. React counts hooks per render,
+     so switching from a range with days to one without dropped the count
+     from ten to eight and threw "Rendered fewer hooks than expected".
+
+     It needed a record with a gap: pick Week while everything logged is
+     older than a week and the screen dies. A person who stopped logging
+     for a fortnight — which is to say a person having a bad fortnight —
+     found it every time, and the range control is the one control on
+     this screen. Reading data as nullable here is the price of that. */
+  const tried = data ? data.events.filter((ev) => ev.intervention || ev.resp || ev.helped != null) : [];
+
+  /* Days grouped by the SAME five words the slider, the day detail and
+     the report use. A sixth vocabulary invented for one chart is how two
+     screens end up disagreeing about what a 4 is called. */
+  const feltBands = useMemo(() => {
+    if (!data) return [];
+    /* the label is ASKED FOR, never copied. A hardcoded 'Moderate' beside
+       a painLabel() that had been reworded would match nothing, and those
+       days would leave the chart without leaving an error — the total
+       would just quietly be short. */
+    return BAND_AT
+      .map((at) => {
+        const label = painLabel(at);
+        return {
+          key: 'b' + at,
+          label,
+          tint: painColor(at),
+          n: data.days.filter((d) => painLabel(d.avg) === label).length,
+        };
+      })
+      .filter((b) => b.n > 0);
+  }, [data]);
+
+  /* the four responses, counted. The legacy 0–10 impression is NOT folded
+     in: a number and a four-level answer are different questions, and no
+     cutpoint between them would be anything but invented. */
+  const outcomes = useMemo(() => {
+    const order: Response[] = ['better', 'same', 'worse', 'unsure'];
+    const tints: Record<Response, string> = {
+      better: '#E5E5EA', same: color.textTertiary,
+      worse: color.bgSegmentActive, unsure: color.borderControl,
+    };
+    return order
+      .map((r) => ({
+        key: r,
+        label: RESPONSE_LABELS[r],
+        tint: tints[r],
+        n: tried.filter((ev) => ev.resp === r).length,
+      }))
+      .filter((o) => o.n > 0);
+  }, [tried]);
+
   if (!data) {
     return (
       <View style={[styles.page, styles.emptyWrap]}>
@@ -877,48 +934,6 @@ export default function TrendsScreen({
      Both come back empty until their gates clear, and empty sections are
      not drawn — silence is a valid digest. */
   const says = recordSays(data);
-
-  const tried = data.events.filter((ev) => ev.intervention || ev.resp || ev.helped != null);
-
-  /* Days grouped by the SAME five words the slider, the day detail and
-     the report use. A sixth vocabulary invented for one chart is how two
-     screens end up disagreeing about what a 4 is called. */
-  const feltBands = useMemo(() => {
-    /* the label is ASKED FOR, never copied. A hardcoded 'Moderate' beside
-       a painLabel() that had been reworded would match nothing, and those
-       days would leave the chart without leaving an error — the total
-       would just quietly be short. */
-    return BAND_AT
-      .map((at) => {
-        const label = painLabel(at);
-        return {
-          key: 'b' + at,
-          label,
-          tint: painColor(at),
-          n: data.days.filter((d) => painLabel(d.avg) === label).length,
-        };
-      })
-      .filter((b) => b.n > 0);
-  }, [data.days]);
-
-  /* the four responses, counted. The legacy 0–10 impression is NOT folded
-     in: a number and a four-level answer are different questions, and no
-     cutpoint between them would be anything but invented. */
-  const outcomes = useMemo(() => {
-    const order: Response[] = ['better', 'same', 'worse', 'unsure'];
-    const tints: Record<Response, string> = {
-      better: '#E5E5EA', same: color.textTertiary,
-      worse: color.bgSegmentActive, unsure: color.borderControl,
-    };
-    return order
-      .map((r) => ({
-        key: r,
-        label: RESPONSE_LABELS[r],
-        tint: tints[r],
-        n: tried.filter((ev) => ev.resp === r).length,
-      }))
-      .filter((o) => o.n > 0);
-  }, [tried]);
 
   /* FOUR CARDS. Eleven surfaces at one radius carried the hierarchy by
      order alone, and the record's appendix — counts of places, words

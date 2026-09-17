@@ -1,6 +1,30 @@
+<!-- Pattern's icon: one day square, empty, on black.
+
+     THE OBJECT IS THE DAY SQUARE. It is the app's unit — TabBar's
+     dayGlyph, Today's card, every cell of the calendar — so the icon is
+     made of the same thing the app is made of. The corner radius is
+     dayGlyph's own ratio (6/21 of the side) rather than a guess, which
+     is what makes this the same square and not a similar one.
+
+     IT SAYS NOTHING ABOUT A DAY. No value, no ramp, no glow, nothing
+     singled out — which is the point. Drafts that coloured it drew a
+     scale, and a scale on a home screen is a verdict waiting to be
+     read: the 2x2's lightest square was a 10, the worst day anyone has,
+     and an earlier one haloed it. An empty square is the app's offer,
+     not its judgement.
+
+     One deliberate difference from the glyph: dayGlyph is a stroke and
+     this is filled. Hollow at icon size goes thin enough to read as a
+     placeholder, and a filled square says "the record" where an outline
+     says "nothing here yet".
+
+     White, not the ramp's 10 (#EAF6FF): theme.ts reserves pure white
+     for controls and selection precisely so that no day can reach it,
+     which is what keeps this square a surface rather than a score.
+
+     The ground is bgRoot, black, full-bleed — iOS masks its own
+     corners, and the home screen matches the app it opens. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="1024" height="1024" fill="black"/>
-<rect x="355.834" y="940" width="271.835" height="856" rx="135.917" transform="rotate(-180 355.834 940)" fill="#CCE5FF"/>
-<rect x="940" y="940" width="271.835" height="856" rx="135.917" transform="rotate(-180 940 940)" fill="#007FFF"/>
-<rect x="647.914" y="940" width="271.835" height="856" rx="135.917" transform="rotate(-180 647.914 940)" fill="#66B2FF"/>
+  <rect width="1024" height="1024" fill="#000000"/>
+  <rect x="205" y="205" width="614" height="614" rx="175" fill="#FFFFFF"/>
 </svg>
