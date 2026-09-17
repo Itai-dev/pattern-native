@@ -1,58 +1,27 @@
-/**
- * Trends — your record, on a screen you can open.
- *
- * This used to be a sheet you had to know to go looking for, behind a row
- * in Settings called "Doctor summary". Everything in it was already
- * computed and already worth reading; it just was not anywhere. Now it is
- * a tab, and the PDF is an export of what you are already looking at
- * rather than a document you go and generate.
- *
- * One data path: buildReportData() computes every block here, and the
- * same object renders the print document in report.ts. A number cannot
- * differ between this screen and the file you hand a clinician, because
- * there is only one place it is worked out.
- *
- * NOTHING ON THIS SCREEN IS AN INFERENCE. It is what you recorded, shown
- * back to you. Claims about what affects your pain are a different thing
- * with a different gate, and they are not here.
- *
- * The screen is also deliberately dull, and that is a design requirement
- * rather than an omission. An always-available view of your own pain is
- * the surface most likely to turn "I keep a record" into "I check my
- * numbers five times a day", so: no week-over-week deltas, no arrows, no
- * percentages moving, no streak, no completion ring, nothing that differs
- * between two opens on the same day except data you added yourself, and
- * no notification ever originates here. It is somewhere to go, not
- * something that asks.
- */
+/** Patterns leads with range-scoped comparisons, then the recorded
+ *  history on request. Both use the same domain calculations as the
+ *  clinician summary; only the engine can authorize an association. */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
 import { Press } from './motion';
 import MapScreen from './MapScreen';
+import PatternComparisons from './PatternComparisons';
+import { buildComparisons } from './health/comparisons';
+import { HealthCategory, HealthDay } from './health/types';
 import InfoTip, { InfoTitle } from './InfoTip';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent,
-  RESPONSE_LABELS, Response, dateFromISO, } from './model';
+  RESPONSE_LABELS, Response, addDays, dateFromISO, } from './model';
 import { fmtClock } from './clock';
 import { BAND_AT, formatScore, painColor, painLabel } from './painScale';
 import {
   ChartColumn, EndOfRecord, ReportData, buildReportData, chartColumns, chartGrain,
   fmtReportDate,
 } from './report';
-import {
-  Association as HealthAssociation, EARLY_NOTE, EarlyLook, FIRST_NOTE, IN_BED_NOTE,
-  associationCopy, earlyCopy, fadedCopy, factorLabel, firstTitle, groupLabels, isCategorical,
-} from './health/engine';
-import { FirstDays, HealthProgress } from './health/noticed';
-import { LoadBudget, budgetCopy } from './health/budget';
-import {
-  DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, FirstDoses, doseCopy,
-  doseObservationCopy, fadedDoseCopy,
-} from './health/doses';
 import { DigestCard, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
-import { DIRECTION_SAME_BELOW, FIRST_DAYS_OPEN } from './thresholds';
+import { DIRECTION_SAME_BELOW } from './thresholds';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const shortDate = (iso: string) => {
@@ -75,40 +44,10 @@ export interface TrendsScreenProps {
   /** how many days the chart is currently showing, reported upward so the
    *  PDF the title bar exports covers what is actually on screen */
   onSpanChange?: (days: number) => void;
-  /** What Pattern noticed in Apple Health context — computed upstream
-   *  by the health engine, already gated. null/empty = the section is
-   *  simply not drawn; this screen never manufactures an insight. */
-  healthNoticed?: {
-    best: HealthAssociation | null;
-    fading: HealthAssociation[];
-    /** associations whose tercile groups formed, verdict or not — the
-     *  comparison is drawable the moment the groups exist; the CLAIM
-     *  stays gated exactly as before */
-    groups: HealthAssociation[];
-    /** the comparisons still short of their gate, with the count and
-     *  the instruction — what a connected person sees before anything
-     *  has cleared, so the wait is never silent */
-    progress: HealthProgress[];
-    /** the pictures before the gates — see thresholds.ts, early looks */
-    early: EarlyLook[];
-    /** and before the pictures, the first paired days as facts */
-    first: FirstDays[];
-    /** the workout-load association read forward: where this person's
-     *  harder-workout days begin, in minutes. null until the association
-     *  clears its gates, and only when more load paired with harder
-     *  mornings — budget.ts says why one direction only */
-    budget: LoadBudget | null;
-    /** the same four, for doses logged in Health — before-and-after a
-     *  dose rather than groups of days, gated in doses.ts */
-    doses: {
-      best: DoseAssociation | null;
-      fading: DoseAssociation[];
-      groups: DoseAssociation[];
-      progress: DoseProgress[];
-      early: DoseEarly[];
-      first: FirstDoses[];
-    };
-  };
+  healthDays: Record<string, HealthDay>;
+  healthCategories: HealthCategory[];
+  initialComparisonId?: string;
+  onOpenHealth?: () => void;
   /** the PDF, from its natural home at the foot of the screen — the
    *  handoff is the destination of everything above it */
   onShare?: () => void;
@@ -629,137 +568,6 @@ function outcomeOf(ev: PainEvent): string {
   return '';
 }
 
-/**
- * The two groups of a health comparison, drawn.
- *
- * Bar LENGTH is the group's mean pain; bar COLOUR is painColor of that
- * same mean — colour stays a pain value, and the factor (sleep, steps,
- * workout minutes) lives entirely in the label text, never in the ramp.
- * Every bar carries its n, because a bar without its sample size is a
- * claim wearing a chart's clothes.
- */
-function GroupBars({ a }: { a: Pick<HealthAssociation, 'kind' | 'low' | 'high'> }) {
-  if (!a.low || !a.high) return null;
-  const w = groupLabels(a.kind);
-  const rows = [
-    { g: a.low, word: w.low },
-    { g: a.high, word: w.high },
-  ];
-  return (
-    <View style={cmpStyles.wrap}>
-      {rows.map((r) => (
-        <View
-          key={r.word}
-          style={cmpStyles.row}
-          accessible
-          accessibilityLabel={r.word + ' ' + w.noun + ', average '
-            + factorLabel(a.kind, r.g.factorMean) + ', ' + w.outcome + ' averaged '
-            + formatScore(r.g.painMean) + ' across ' + r.g.n + ' days'}
-        >
-          <View style={cmpStyles.head}>
-            <Text style={cmpStyles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {r.word[0].toUpperCase() + r.word.slice(1) + ' ' + w.noun
-                + (isCategorical(a.kind)
-                  ? '' : ' · avg ' + factorLabel(a.kind, r.g.factorMean))}
-            </Text>
-            <Text style={cmpStyles.n} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {r.g.n} {w.noun}
-            </Text>
-          </View>
-          <View style={cmpStyles.barRow}>
-            <View style={cmpStyles.track}>
-              <View
-                style={[
-                  cmpStyles.fill,
-                  {
-                    width: `${Math.max(3, (r.g.painMean / 10) * 100)}%` as const,
-                    backgroundColor: painColor(r.g.painMean),
-                  },
-                ]}
-              />
-            </View>
-            <Text style={cmpStyles.value} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {formatScore(r.g.painMean)}
-            </Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/**
- * Before and after a dose, drawn the same way: bar length and colour
- * are the mean pain, the medication lives in the text. Each bar carries
- * its n — the same n, because these are pairs.
- */
-function DoseBars({ a }: { a: Pick<DoseAssociation, 'med' | 'pairs' | 'before' | 'after'> }) {
-  if (a.before == null || a.after == null) return null;
-  const rows = [
-    { word: 'Before a dose', v: a.before },
-    { word: 'After a dose', v: a.after },
-  ];
-  return (
-    <View style={cmpStyles.wrap}>
-      {rows.map((r) => (
-        <View
-          key={r.word}
-          style={cmpStyles.row}
-          accessible
-          accessibilityLabel={r.word + ' of ' + a.med + ', pain averaged '
-            + formatScore(r.v) + ' across ' + a.pairs + ' doses'}
-        >
-          <View style={cmpStyles.head}>
-            <Text style={cmpStyles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {r.word}
-            </Text>
-            <Text style={cmpStyles.n} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {a.pairs} doses
-            </Text>
-          </View>
-          <View style={cmpStyles.barRow}>
-            <View style={cmpStyles.track}>
-              <View
-                style={[
-                  cmpStyles.fill,
-                  {
-                    width: `${Math.max(3, (r.v / 10) * 100)}%` as const,
-                    backgroundColor: painColor(r.v),
-                  },
-                ]}
-              />
-            </View>
-            <Text style={cmpStyles.value} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {formatScore(r.v)}
-            </Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-const cmpStyles = StyleSheet.create({
-  wrap: { marginTop: 12, gap: 12 },
-  row: { gap: 4 },
-  head: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  label: { flex: 1, color: color.textSecondary, fontSize: font.footnote },
-  n: { color: color.textTertiary, fontSize: font.footnote, fontVariant: ['tabular-nums'] },
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  track: {
-    flex: 1, height: 10, borderRadius: 5, overflow: 'hidden',
-    backgroundColor: color.bgSegmentTrack,
-  },
-  fill: {
-    height: 10, borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.25)',
-  },
-  value: {
-    color: color.textPrimary, fontSize: font.footnote, fontWeight: '600',
-    minWidth: 26, textAlign: 'right', fontVariant: ['tabular-nums'],
-  },
-});
-
 /** one digest sentence: the claim, the numbers, the caveat. Sentence
  *  first and biggest — the Health pattern — with no glyph, no arrow and
  *  no colour: colour means pain, and none of these is a pain value. */
@@ -803,7 +611,7 @@ const digestStyles = StyleSheet.create({
 
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
-  healthNoticed, onShare, sharing,
+  healthDays, healthCategories, initialComparisonId, onOpenHealth, onShare, sharing,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
      day — a fixed window that happens to miss the days someone logged
@@ -817,12 +625,7 @@ export default function TrendsScreen({
      opened the tables yesterday has not asked to see them every day. */
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
-  /* THE FIRST DAYS, FOLDED. Ten comparisons can be licensed at once, and
-     in the first week every one of them has one to three paired days —
-     ten titled lists of dates, each closed by the same caption, was the
-     wall of text on the second card. Two stay open; the rest are one
-     tap away; the caption is said once, under all of them. */
-  const [firstOpen, setFirstOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -849,6 +652,10 @@ export default function TrendsScreen({
     const ceiling = chosen.days > 0 ? chosen.days : spanRecord;
     return Math.max(7, Math.min(ceiling, spanRecord));
   }, [rangeKey, spanRecord]);
+
+  const comparisons = useMemo(() => buildComparisons(
+    entries, healthDays, healthCategories, addDays(todayIso, -(spanDays - 1)), todayIso
+  ), [entries, healthDays, healthCategories, todayIso, spanDays]);
 
   const data = useMemo(
     () => buildReportData({ entries, events, func, goalText, todayIso, windowDays: spanDays }),
@@ -914,82 +721,49 @@ export default function TrendsScreen({
       .filter((o) => o.n > 0);
   }, [tried]);
 
-  if (!data) {
-    return (
-      <View style={[styles.page, styles.emptyWrap]}>
-        <Text style={styles.empty}>
-          Nothing logged yet. Check in once and this fills in from your own
-          entries — nothing here is ever filled in for you.
-        </Text>
-      </View>
-    );
-  }
-
-  /* a fixed range longer than the record shows exactly what All shows —
-     a range that changes nothing is not offered, and when that leaves one
-     the control itself is not drawn either */
   const ranges = RANGES.filter((r) => r.days === 0 || r.days < spanRecord);
+  const rangeControl = ranges.length > 1 ? (
+          <View style={styles.segment}>
+            {ranges.map((r) => {
+              const on = r.key === rangeKey;
+              return (
+                <Pressable
+                  key={r.key}
+                  onPress={() => { setRangeKey(r.key); setPicked(null); }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={r.label}
+                  style={({ pressed }) => [
+                    styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  <Text style={[styles.segText, on && styles.segTextOn]}
+                    allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                    {r.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null;
+
+  if (!data) return (
+    <View style={styles.page}>
+      {rangeControl}
+      <Text style={styles.empty}>{Object.keys(entries).length
+        ? 'No pain check-ins in this range. Choose another range to see your record.'
+        : 'Your record starts with one check-in. Pain alone is enough.'}</Text>
+      <PatternComparisons rows={comparisons} onOpenDay={onOpenDay} onOpenHealth={onOpenHealth}
+        initialComparisonId={initialComparisonId} />
+    </View>
+  );
 
   /* the digest: the record as sentences, and what a check-in is buying.
      Both come back empty until their gates clear, and empty sections are
      not drawn — silence is a valid digest. */
   const says = recordSays(data);
 
-  /* FOUR CARDS. Eleven surfaces at one radius carried the hierarchy by
-     order alone, and the record's appendix — counts of places, words
-     and times — sat at the same weight as the record itself. Now: the
-     record (Your pain, with the sentences that read it and the calendar
-     behind a fold), the one place a claim may appear (Worth watching),
-     the appendix (Your record, face and details), and the handoff.
-     Nothing was removed; the tables are one tap further in. */
   const he = data.harderEasier;
-  const otherGroups = (healthNoticed?.groups || []).filter((a) => a !== healthNoticed?.best);
-  const bestCopy = healthNoticed?.best ? associationCopy(healthNoticed.best) : null;
-  const healthWaiting = healthNoticed ? healthNoticed.progress : [];
-  /* ONE HEADLINE. A dose comparison and a day comparison may both have
-     cleared; the card still carries one sentence, the larger change,
-     and the other keeps its bars further down with no claim attached.
-     Same house rule as PATTERN_MAX_CARDS, applied across the two. */
-  const dz = healthNoticed?.doses;
-  const doseBestCopy = dz?.best ? doseCopy(dz.best) : null;
-  const doseLeads = !!doseBestCopy && !!dz?.best
-    && (!healthNoticed?.best || healthNoticed.best.delta == null
-      || Math.abs(dz.best.delta as number) > Math.abs(healthNoticed.best.delta));
-  const doseGroups = (dz?.groups || []).filter((a) => !(doseLeads && a === dz?.best));
-  const doseWaiting = dz ? dz.progress : [];
-  const early = healthNoticed?.early || [];
-  const doseEarly = dz?.early || [];
-  const first = healthNoticed?.first || [];
-  /* the budget's sentence, with the dates in this screen's style */
-  const budget = healthNoticed?.budget || null;
-  const budgetCard = budget
-    ? budgetCopy(budget, budget.association.from && budget.association.to
-      ? fmtReportDate(budget.association.from) + ' – ' + fmtReportDate(budget.association.to)
-      : undefined)
-    : null;
-  const doseFirst = dz?.first || [];
-  /* what is still short of a picture, in two truthful lists. One to
-     three paired days are listed above as the first days and four or
-     more are usually drawn as early looks — but an early look also
-     needs both groups to hold EARLY_MIN_GROUP_DAYS, so a fortnight of
-     covered days with one workout has fourteen paired days and no
-     picture. Those keep their count ("workouts 14 of 18"); only what
-     has no paired day at all is named without a number, because
-     "sleep 0 of 18 · water 0 of 18 · …" was eight zeros saying nothing
-     a name does not. */
-  const waiting = healthWaiting
-    .filter((p) => !early.some((e) => e.kind === p.kind) && !first.some((e) => e.kind === p.kind))
-    .map((p) => ({ name: groupLabels(p.kind).factor.toLowerCase(), have: p.pairedDays, need: p.needed }))
-    .concat(doseWaiting
-      .filter((p) => !doseEarly.some((e) => e.medId === p.medId) && !doseFirst.some((e) => e.medId === p.medId))
-      .map((p) => ({ name: p.med, have: p.pairs, need: p.needed })));
-  const notYetPaired = waiting.filter((w) => w.have === 0).map((w) => w.name);
-  const stillCounting = waiting.filter((w) => w.have > 0).map((w) => w.name + ' ' + w.have + ' of ' + w.need);
-  const collectingShown = notYetPaired.concat(stillCounting);
-  const anythingOut = !!bestCopy || !!budgetCard || !!(healthNoticed && healthNoticed.fading.length)
-    || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
-    || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0
-    || first.length > 0 || doseFirst.length > 0;
 
   return (
     <View style={styles.page}>
@@ -999,7 +773,7 @@ export default function TrendsScreen({
         title={fmtReportDate(data.rangeStart) + ' – ' + fmtReportDate(data.rangeEnd)}
         titleStyle={styles.sub}
         label="About this screen"
-        text={'What you’ve recorded over this range, and nothing inferred from it.'
+        text={'Every comparison uses only data inside this range. Associations do not establish causes.'
           + (data.limited
             ? ' Still a short record — ' + data.loggedDays
               + (data.loggedDays === 1 ? ' day' : ' days')
@@ -1007,6 +781,15 @@ export default function TrendsScreen({
             : '')}
       />
 
+      {rangeControl}
+      <PatternComparisons rows={comparisons} onOpenDay={onOpenDay}
+        initialComparisonId={initialComparisonId} onOpenHealth={onOpenHealth} />
+      <Press onPress={() => setHistoryOpen(!historyOpen)} accessibilityRole="button"
+        accessibilityLabel="Your history" accessibilityState={{ expanded: historyOpen }} style={styles.historyToggle}>
+        <Text style={styles.cardTitle}>Your history {historyOpen ? '−' : '+'}</Text>
+        <Text style={styles.bodyText}>Pain chart, calendar and recorded details</Text>
+      </Press>
+      {historyOpen && <>
       {/* ── 1. your pain ─────────────────────────────────────
           The record itself leads: the chart, the two figures, the
           sentences that read it, and every day as a calendar behind a
@@ -1030,30 +813,7 @@ export default function TrendsScreen({
               : ''}
           </Text>
         </View>
-        {ranges.length > 1 && (
-          <View style={styles.segment}>
-            {ranges.map((r) => {
-              const on = r.key === rangeKey;
-              return (
-                <Pressable
-                  key={r.key}
-                  onPress={() => { setRangeKey(r.key); setPicked(null); }}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={r.label}
-                  style={({ pressed }) => [
-                    styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
-                  ]}
-                >
-                  <Text style={[styles.segText, on && styles.segTextOn]}
-                    allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                    {r.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+        {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
         <MiniChart
           data={data}
           span={spanDays}
@@ -1111,261 +871,6 @@ export default function TrendsScreen({
           )}
         </View>
       </Card>
-
-      {/* ── 2. worth watching ───────────────────────────────
-          The one card on which anything like a claim may appear, and
-          only after the gates: the strongest Health association, a
-          faded one said out loud, comparisons whose groups formed but
-          did not differ, and what the focus is still collecting. Absent
-          when none of that exists — silence is a valid card. */}
-      <Card
-        title="What stands out"
-        note="A pattern in what you recorded, never proof of cause. Nothing here moves on its own — only when you add a check-in."
-      >
-        <>
-          {/* the record's own sentences first — they exist from the
-              first week and need no sensor */}
-          {says.length > 0 && (
-            <View style={styles.subBlockFirst}>
-              {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
-            </View>
-          )}
-          {/* THE BUDGET. The one sentence on this screen written for
-              the NEXT decision rather than the last one: the same
-              workout-load association the card below may carry, read
-              forward as minutes. Words and grey numbers, no colour —
-              colour is for pain — and what it is not sits inside the
-              block, not under the card. */}
-          {budgetCard && (
-            <View style={says.length > 0 ? styles.subBlock : styles.subBlockFirst}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Before your next workout
-              </Text>
-              <DigestRow card={budgetCard} first />
-            </View>
-          )}
-          {doseLeads && doseBestCopy && dz && dz.best ? (
-            <>
-              <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.title}
-              </Text>
-              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.body}
-              </Text>
-              <DoseBars a={dz.best} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.sample}
-                {dz.best.from && dz.best.to
-                  ? ' ' + fmtReportDate(dz.best.from) + ' – ' + fmtReportDate(dz.best.to) + '.'
-                  : ''}
-              </Text>
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.timing}
-              </Text>
-              {/* the regression line is the card, not a footnote: without
-                  it "lower after a dose" reads as a verdict on the tablet */}
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.disclaimer}
-              </Text>
-            </>
-          ) : bestCopy && healthNoticed && healthNoticed.best ? (
-            <>
-              <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.title}
-              </Text>
-              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.body}
-              </Text>
-              <GroupBars a={healthNoticed.best} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.sample}
-                {healthNoticed.best.from && healthNoticed.best.to
-                  ? ' ' + fmtReportDate(healthNoticed.best.from) + ' – '
-                    + fmtReportDate(healthNoticed.best.to) + '.'
-                  : ''}
-              </Text>
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.timing} Days without Health data are left out, never counted
-                as anything.
-              </Text>
-              {healthNoticed.best.basis === 'inBed' && (
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {IN_BED_NOTE}
-                </Text>
-              )}
-            </>
-          ) : healthNoticed && healthNoticed.fading.length > 0 ? (
-            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {fadedCopy(healthNoticed.fading[0])}
-            </Text>
-          ) : dz && dz.fading.length > 0 ? (
-            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {fadedDoseCopy(dz.fading[0])}
-            </Text>
-          ) : null}
-
-          {/* THE EARLY LOOKS. The same bars a claim would carry, before
-              any claim may be made, captioned as a picture: a person
-              who connected Health sees it doing something in the first
-              week instead of a fortnight of silence. */}
-          {early.map((e) => {
-            const c = earlyCopy(e);
-            return (
-              <View key={'e.' + e.kind} style={styles.subBlock}>
-                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.title}
-                </Text>
-                <GroupBars a={e} />
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.evidence}
-                </Text>
-              </View>
-            );
-          })}
-          {early.length > 0 && (
-            <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {EARLY_NOTE}
-            </Text>
-          )}
-          {doseEarly.map((e) => (
-            <View key={'de.' + e.medId} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {e.med}, around your doses so far
-              </Text>
-              <DoseBars a={e} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {e.pairs} doses with a check-in before and after. {EARLY_NOTE}
-              </Text>
-            </View>
-          ))}
-
-          {/* THE FIRST DAYS. One to three paired days: not a picture
-              yet, so the facts themselves — the night and the morning's
-              number, the mood and the evening's, the dose and the two
-              numbers around it. What was entered beside what Health
-              measured, and a caption saying when a picture starts. */}
-          {(firstOpen ? first : first.slice(0, FIRST_DAYS_OPEN)).map((fd) => (
-            <View key={'f.' + fd.kind} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {firstTitle(fd.kind)}
-              </Text>
-              {fd.pairs.map((p) => (
-                <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
-                  accessibilityLabel={fmtReportDate(p.date) + ', ' + factorLabel(fd.kind, p.factor)
-                    + ', pain ' + formatScore(p.pain)}>
-                  <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
-                  {'   ' + factorLabel(fd.kind, p.factor) + '  ·  pain '}
-                  <Text style={styles.firstNum}>{formatScore(p.pain)}</Text>
-                </Text>
-              ))}
-            </View>
-          ))}
-          {!firstOpen && first.length > FIRST_DAYS_OPEN && (
-            <Press
-              onPress={() => setFirstOpen(true)}
-              pressOpacity={0.7}
-              style={styles.more}
-              accessibilityRole="button"
-              accessibilityLabel={'Show ' + (first.length - FIRST_DAYS_OPEN) + ' more first-days lists'}
-            >
-              <Text style={styles.moreText}>
-                Show {first.length - FIRST_DAYS_OPEN} more ›
-              </Text>
-            </Press>
-          )}
-          {first.length > 0 && (
-            <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {FIRST_NOTE}
-            </Text>
-          )}
-          {doseFirst.map((fd) => (
-            <View key={'df.' + fd.medId} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {fd.med}, around the first doses
-              </Text>
-              {fd.pairs.map((p) => (
-                <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
-                  accessibilityLabel={fmtReportDate(p.date) + ', pain ' + formatScore(p.before)
-                    + ' before the dose, ' + formatScore(p.after) + ' after'}>
-                  <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
-                  {'   before '}
-                  <Text style={styles.firstNum}>{formatScore(p.before)}</Text>
-                  {'  ·  after '}
-                  <Text style={styles.firstNum}>{formatScore(p.after)}</Text>
-                </Text>
-              ))}
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                The doses so far, as recorded — a picture starts at three, and a dose is
-                often taken when pain is high.
-              </Text>
-            </View>
-          ))}
-
-          {/* doses whose pairs formed: the bars, with the observation's
-              words or — for a change that did not lead the card — no
-              words at all beyond the timing and the regression line */}
-          {doseGroups.map((a) => (
-            <View key={'d.' + a.medId} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {a.med}, around your doses
-              </Text>
-              {a.verdict === 'observation' && (
-                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {doseObservationCopy(a)}
-                </Text>
-              )}
-              <DoseBars a={a} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {DOSE_TIMING}
-              </Text>
-            </View>
-          ))}
-
-          {otherGroups.map((a) => {
-            const w = groupLabels(a.kind);
-            return (
-              <View key={a.kind} style={styles.subBlock}>
-                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {w.factor}, against your record
-                </Text>
-                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  No meaningful difference in {w.outcome} between these groups so
-                  far — that is a finding about these {a.pairedDays} days, not a
-                  failure of them.
-                </Text>
-                <GroupBars a={a} />
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {w.timing}
-                </Text>
-              </View>
-            );
-          })}
-
-          {collectingShown.length > 0 && (
-            <View style={styles.subBlock}>
-              {notYetPaired.length > 0 && (
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  No paired day yet for {notYetPaired.join(', ')}. A comparison needs the
-                  days on both sides of it — a morning check-in for sleep, an evening one for
-                  movement.
-                </Text>
-              )}
-              {stillCounting.length > 0 && (
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Still counting: {stillCounting.join(' · ')} — paired days on both sides of
-                  the comparison, a few of each, before a picture can be drawn.
-                </Text>
-              )}
-            </View>
-          )}
-          {!anythingOut && collectingShown.length === 0 && (
-            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Nothing yet. This card fills as the record does — a few days of check-ins,
-              and Apple Health if you connect it.
-            </Text>
-          )}
-        </>
-        </Card>
 
       {/* ── 3. your record ──────────────────────────────────
           The appendix: how the days split by band, the most recorded
@@ -1586,19 +1091,20 @@ export default function TrendsScreen({
         )}
       </Card>
 
+      </>}
+
       {/* ── 4. the handoff ──────────────────────────────────
           The PDF's natural home: at the foot, as the destination of
           everything above it. */}
       {!!onShare && (
         <Card title="Share with your clinician">
           <Text style={styles.bodyText} allowFontScaling maxFontSizeMultiplier={1.4}>
-            A PDF of this record — your background, the numbers above, and what
-            they do and don’t mean. Made on this iPhone, sent only where you
-            send it, and it says on its face that it is self-recorded and not a
-            diagnosis.
+            A summary of this date range, including supported observations and
+            their limits. You choose whether to include your notes.
           </Text>
           <Press
             onPress={onShare}
+            disabled={!!sharing}
             pressOpacity={0.8}
             style={styles.shareBtn}
             accessibilityRole="button"
@@ -1616,6 +1122,7 @@ export default function TrendsScreen({
 }
 
 const styles = StyleSheet.create({
+  historyToggle: { paddingVertical: 18, minHeight: 64 },
   /* the same gutter Today and the Map sit in. This screen used to run
      full-bleed, which made it the one page whose text started somewhere
      different from every other page's. */

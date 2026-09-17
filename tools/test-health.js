@@ -721,16 +721,11 @@ ok('the PDF leads its charts with the count that grows', (() => {
     && html.indexOf('the milder rows grow') >= 0
     && html.indexOf('Lower is better on this chart') >= 0;
 })());
-ok('a gated association arrives with sizes, timing and the refusal of cause', (() => {
-  const assoc = engine.evaluate('sleepVsMorning', fabricate(18, 300, 480, 7, 4));
+ok('a short report does not inherit an all-history association', (() => {
   const d = reportMod.buildReportData(repInput({
-    healthDays: repHealth, healthAssociation: assoc,
+    healthDays: repHealth, healthCategories: ['sleep'], windowDays: 7,
   }));
-  const html = reportMod.reportHtml(d);
-  return html.indexOf('Sleep may be worth watching') >= 0
-    && html.indexOf('longer-sleep') >= 0
-    && html.indexOf('night before') >= 0
-    && html.indexOf('not proof of what caused what') >= 0;
+  return d.health && d.health.association === null;
 })());
 
 group('the mock service');
@@ -1062,13 +1057,13 @@ ok('the day’s hint says the words the person chose', (() => {
 })());
 
 group('nutrition: water and caffeine before the evening, drinks before the morning');
-ok('water and caffeine total from the best source with an hourly shape; a day with water and no drink has zero drinks', (() => {
+ok('water and caffeine total from the best source with an hourly shape; water does not imply zero drinks', (() => {
   const d = normalize.normalizeDay(bundle(D, {
     water: [qs(at(D, 8 * 60), at(D, 8 * 60), 250, 'phone'), qs(at(D, 13 * 60), at(D, 13 * 60), 500, 'phone'), qs(at(D, 8 * 60), at(D, 8 * 60), 250, 'watch')],
     caffeine: [qs(at(D, 7 * 60 + 30), at(D, 7 * 60 + 30), 95, 'phone')],
   }), clock);
   return d.waterMl === 750 && d.waterHourly[8] === 250 && d.waterHourly[13] === 500
-    && d.caffeineMg === 95 && d.caffeineHourly[7] === 95 && d.alcoholDrinks === 0 && d.coverage.nutrition === true;
+    && d.caffeineMg === 95 && d.caffeineHourly[7] === 95 && d.alcoholDrinks === undefined && d.coverage.nutrition === true;
 })());
 ok('a day with nothing logged has no drinks value at all — absence stays absence', (() => {
   const d = normalize.normalizeDay(bundle(D, {}), clock);

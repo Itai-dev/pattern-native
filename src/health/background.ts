@@ -33,6 +33,7 @@
 import * as Notifications from 'expo-notifications';
 import * as db from '../db';
 import { logsOf, minutesNow, todayISO } from '../model';
+import { adaptiveOn, anyReminderOn } from '../reminderSchedule';
 import {
   BG_PROMPTS_MAX_PER_DAY, BG_PROMPT_STALE_MIN, PROMPT_AFTER_WAKE_MIN, PROMPT_MIN_GAP_MIN,
 } from '../thresholds';
@@ -62,9 +63,15 @@ function answeredRecently(now: number): boolean {
 }
 
 async function prompt(kind: 'workout' | 'sleep'): Promise<void> {
+  const allowed = () => anyReminderOn() && adaptiveOn() && !!healthRequestedOn()
+    && healthCategories().includes(kind === 'workout' ? 'workouts' : 'sleep');
+  if (!allowed()) return;
   const now = minutesNow();
   if (sentToday() >= BG_PROMPTS_MAX_PER_DAY || answeredRecently(now)) return;
   if (!(await Notifications.getPermissionsAsync()).granted) return;
+  /* The permission request is asynchronous; settings may have changed
+     while it was pending. Read the current choice before scheduling. */
+  if (!allowed()) return;
   countSent();
   await Notifications.scheduleNotificationAsync({
     /* the reminder prefix: a tap opens the check-in like any other */
@@ -101,9 +108,12 @@ export function startBackgroundPrompts(service: HealthService): () => void {
   const wanted = cats.filter((c): c is HealthCategory => c === 'workouts' || c === 'sleep');
   if (!wanted.length) return () => {};
   return startBackgroundDelivery(wanted, (category) => {
+    if (!anyReminderOn() || !adaptiveOn() || !healthRequestedOn()
+      || !healthCategories().includes(category)) return;
     /* re-derive the day first, so the prompt is about what is now in
        the record and the check-in it invites shows it under the number */
     syncHealth(service, deviceClock).then(() => {
+      if (!healthCategories().includes(category) || !healthRequestedOn()) return;
       const day = db.getHealthDay<HealthDay>(todayISO());
       const now = minutesNow();
       if (category === 'workouts' && workoutJustEnded(day, now)) return prompt('workout');

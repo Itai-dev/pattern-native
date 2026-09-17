@@ -332,10 +332,9 @@ const KIND_WORDS: Record<PairKind, {
   alcoholVsNextMorning: {
     factor: 'Drinks',
     timing: 'Each morning is compared with the day before it, never with the same day. '
-      + 'A day counts as no-drinks only when something else was logged in Health that day — '
-      + 'nobody logs a zero.',
+      + 'Only an explicit zero alcohol entry counts as no drinks; an unlogged amount is unknown.',
     join: 'after', lowWord: 'no-drinks', highWord: 'drinks', groupNoun: 'days',
-    needs: 'a check-in before noon, the day after Health had a water or caffeine entry',
+    needs: 'a check-in before noon, the day after an alcohol amount was logged in Health',
   },
   workoutLoadVsNextMorning: {
     factor: 'Workout load',

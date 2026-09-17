@@ -53,7 +53,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text,
+  Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text,
   TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -510,14 +510,22 @@ export default function CheckinScreen({
   /** log the pain and stop there — a complete check-in. In an edit it
    *  saves the moment as it stands, places and words included: leaving
    *  early must never strip what was already recorded. */
-  const logOnly = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    if (writtenAt != null && writtenAt !== minutes) db.dropMoment(today, writtenAt);
+  const savePain = (): boolean => {
+    if (writtenAt != null && writtenAt !== minutes
+      && logsOf(db.getDay(today)).some((l) => l.h === minutes)) {
+      Alert.alert('There’s already a check-in at that time', 'Choose another minute to keep both entries.');
+      return false;
+    }
     db.writeMoment(
       today, minutes, pain,
-      editing ? loc : null, editing ? quality : null, meta()
+      editing ? loc : null, editing ? quality : null, meta(), writtenAt ?? undefined
     );
     setWrittenAt(minutes);
+    return true;
+  };
+  const logOnly = () => {
+    if (!savePain()) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     learn('quick');
     counted(false);
     setStep('done');
@@ -559,12 +567,7 @@ export default function CheckinScreen({
          this step) must MOVE the moment, not leave a duplicate behind.
          An edit writes its places and words along with the number, so
          closing on the next step leaves the moment whole. */
-      if (writtenAt != null && writtenAt !== minutes) db.dropMoment(today, writtenAt);
-      db.writeMoment(
-        today, minutes, pain,
-        editing ? loc : null, editing ? quality : null, meta()
-      );
-      setWrittenAt(minutes);
+      if (!savePain()) return;
       setStep(nextAfter('pain'));
       return;
     }

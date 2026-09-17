@@ -649,9 +649,12 @@ export function nowMeta(sv?: number): MomentMeta {
 /** write one moment; edit-in-place when a moment at `h` exists */
 export function applyMoment(
   prev: Entry | null, h: number, pain: number,
-  loc?: string[] | null, q?: string[] | null, meta?: MomentMeta
+  loc?: string[] | null, q?: string[] | null, meta?: MomentMeta, previousH?: number
 ): Entry {
   const prevLogs = (prev && prev.logs) || [];
+  if (previousH !== undefined && previousH !== h && prevLogs.some((l) => l.h === h)) {
+    throw new Error('A check-in already exists at that time');
+  }
   const prevFloor = prev && prev.pain != null && prev.pain > (prevLogs.length ? peakOf(prevLogs) : -1)
     ? prev.pain : null;
   const e = carryDay(prev, prev && prev.pain != null ? prev.pain : pain);
@@ -676,7 +679,9 @@ export function applyMoment(
     if (meta.tz !== undefined) moment.tz = meta.tz;
     if (meta.sv !== undefined) moment.sv = meta.sv;
   }
-  const i = logs.findIndex((l) => l.h === h);
+  /* A time correction edits the same moment, including optional-answer
+     states and its original capture stamp. No delete-and-recreate gap. */
+  const i = logs.findIndex((l) => l.h === (previousH ?? h));
   // editing in place keeps the ORIGINAL capture stamp when the edit
   // carries none — the moment happened when it happened
   if (i >= 0) {
@@ -1606,7 +1611,7 @@ export function validateBackup(json: string): ValidBackup | null {
     background: cleanBackground((d as { background?: unknown }).background),
     diagnosis: cleanDiagnosis((d as { diagnosis?: unknown }).diagnosis),
     entries, events, func,
-    goal: typeof d.goal === 'string' && d.goal.trim() ? d.goal.trim() : null,
+    goal: typeof d.goal === 'string' ? d.goal.trim() : null,
     hypotheses, protocols,
     modifiers: cleanModifiers((d as { modifiers?: unknown }).modifiers),
     experiments: (() => {

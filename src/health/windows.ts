@@ -57,8 +57,8 @@ export type PairKind =
   | 'mindVsEvening'
   /* Water and caffeine accumulated before the evening check-in → that
    * evening's pain, the same construction as steps. Drinks are
-   * yesterday's, beside this morning: a day with water or caffeine
-   * logged and no drink counts as none (types.ts says why). */
+   * yesterday's explicit alcohol samples, beside this morning; an
+   * unlogged drink count never joins either comparison group. */
   | 'waterBeforeVsEvening'
   | 'caffeineBeforeVsEvening'
   | 'alcoholVsNextMorning';

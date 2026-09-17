@@ -23,6 +23,8 @@ import { PROTOCOL_REVIEW_DAYS } from './thresholds';
 
 let db: SQLiteDatabase | null = null;
 let healthDb: SQLiteDatabase | null = null;
+let healthRevision = 0;
+export function getHealthRevision(): number { return healthRevision; }
 
 /* Where the record lives, and why it is two files.
 
@@ -58,6 +60,12 @@ function healthConn(): SQLiteDatabase {
        it should rebuild the working span. Same file as the days it
        describes, and clearHealthDays takes both. */
     healthDb.execSync('CREATE TABLE IF NOT EXISTS health_meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)');
+    /* Rebuild the derived cache once: older normalization invented zero
+       alcohol readings from unrelated nutrition samples. User records
+       live in the other database and are never part of this migration. */
+    if (healthDb.getFirstSync<{ user_version: number }>('PRAGMA user_version')?.user_version !== 1) {
+      healthDb.execSync('DELETE FROM health_day; DELETE FROM health_meta; PRAGMA user_version = 1');
+    }
   }
   return healthDb;
 }
@@ -282,9 +290,9 @@ export function countDays(): number {
  *  agrees on what "now" means and none of them invents its own. */
 export function writeMoment(
   date: string, h: number, pain: number,
-  loc?: string[] | null, q?: string[] | null, meta?: MomentMeta
+  loc?: string[] | null, q?: string[] | null, meta?: MomentMeta, previousH?: number
 ): Entry {
-  const e = applyMoment(getDay(date), h, pain, loc, q, meta || nowMeta(SCALE_VERSION));
+  const e = applyMoment(getDay(date), h, pain, loc, q, meta || nowMeta(SCALE_VERSION), previousH);
   put(date, e);
   return e;
 }
@@ -713,6 +721,10 @@ export function putHealthDay(date: string, day: unknown): void {
   );
 }
 
+export function removeHealthDay(date: string): void {
+  healthConn().runSync('DELETE FROM health_day WHERE date = ?', date);
+}
+
 export function getHealthDay<T>(date: string): T | null {
   const r = healthConn().getFirstSync<{ json: string }>(
     'SELECT json FROM health_day WHERE date = ?', date
@@ -731,6 +743,7 @@ export function getHealthDays<T>(): Record<string, T> {
 }
 
 export function clearHealthDays(): void {
+  healthRevision++;
   healthConn().runSync('DELETE FROM health_day');
   healthConn().runSync('DELETE FROM health_meta');
 }
@@ -750,6 +763,7 @@ export function setHealthSyncedFrom(iso: string): void {
 }
 /** back to "never filled" — the next sync backfills the whole span */
 export function clearHealthSyncedFrom(): void {
+  healthRevision++;
   healthConn().runSync("DELETE FROM health_meta WHERE k = 'syncedFrom'");
 }
 
@@ -768,7 +782,9 @@ export function getGoal(): string | null {
   return getPref<string | null>('goal.text', null);
 }
 export function setGoal(text: string): void {
-  setPref('goal.text', text.trim() || null);
+  /* null = never asked, '' = asked and skipped, text = answered. The
+     existing backup field carries all three, without another survey. */
+  setPref('goal.text', text.trim());
 }
 
 /* ── backup ─────────────────────────────────────────────────── */
@@ -826,7 +842,7 @@ export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResu
     fresh.forEach((ev) => addEvent(ev));
     eventsAdded = fresh.length;
     backup.func.forEach((f) => putFunc(f));
-    if (backup.goal) setGoal(backup.goal);
+    if (backup.goal !== null) setGoal(backup.goal);
     if (backup.modifiers.length) setModifiers(backup.modifiers);
 
     /* Hypotheses and protocols merge on content, like events: local row

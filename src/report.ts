@@ -29,8 +29,9 @@ import {
   TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
 } from './thresholds';
 import { Association, associationCopy } from './health/engine';
-import { DOSE_NON_CAUSATION, DOSE_TIMING, DoseAssociation, doseCopy } from './health/doses';
-import { HEALTH_CATEGORIES, HealthDay } from './health/types';
+import { DOSE_NON_CAUSATION, DOSE_TIMING, DoseAssociation, doseAssociations, doseCopy } from './health/doses';
+import { noticedAssociations, strongestPossible } from './health/noticed';
+import { HEALTH_CATEGORIES, HealthCategory, HealthDay } from './health/types';
 
 export interface ReportInput {
   entries: Entries;
@@ -53,16 +54,10 @@ export interface ReportInput {
    *  the first thing a clinician looks for on a pain history, and the
    *  one that tells them which kind of appointment this is */
   diagnosis?: Diagnosis | null;
-  /** Apple Health context, when connected: the normalized days (for the
-   *  coverage statement) and the single strongest association the engine
-   *  let through — already gated upstream by the same rules Trends
-   *  renders under. Absent = the section is not drawn. */
+  /** Raw days and consent, never all-history aggregates: the report
+   *  computes its comparisons inside its own date window. */
   healthDays?: Record<string, HealthDay>;
-  healthAssociation?: Association | null;
-  /** every dose comparison whose pairs formed, claim or no claim — a
-   *  clinician reads "no change across ten doses" as readily as the
-   *  other kind, and the gate that decides a CLAIM stays upstream */
-  healthDoses?: DoseAssociation[];
+  healthCategories?: HealthCategory[];
   /** the person's own question, in their words — printed verbatim.
    *  The spec listed it first among the report's additions and it was
    *  stored from day one; it never reached the page. Absent = no section. */
@@ -312,7 +307,9 @@ export function buildReportData(inp: ReportInput): ReportData | null {
   const limited = days.length < LIMITED_RECORD_DAYS;
 
   return {
-    rangeStart: days[0].date,
+    /* Medication and event logs can precede the first pain check-in.
+       The heading names the selected window, including those days. */
+    rangeStart: startIso,
     rangeEnd: todayIso,
     exportDate: todayIso,
     loggedDays: days.length,
@@ -368,7 +365,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
         return { date: k, text: parts.join('\n') };
       })
       .filter((n) => !!n.text),
-    health: healthContext(inp.healthDays, inp.healthAssociation || null, inp.healthDoses || [], days),
+    health: healthContext(inp.healthDays, inp.healthCategories || [], entries, days, startIso, todayIso),
     background: inp.background || null,
     diagnosis: diagnosisLine(inp.diagnosis),
     hypothesis: inp.hypothesis && (inp.hypothesis.understand.trim()
@@ -396,26 +393,36 @@ export function buildReportData(inp: ReportInput): ReportData | null {
  *  belong in the denominator's story. */
 function healthContext(
   healthDays: Record<string, HealthDay> | undefined,
-  association: Association | null,
-  doses: DoseAssociation[],
-  days: ReportDay[]
+  categories: HealthCategory[],
+  entries: Entries,
+  days: ReportDay[],
+  start: string,
+  end: string
 ): ReportData['health'] {
   if (!healthDays) return null;
+  const inRange = (date: string) => date >= start && date <= end;
+  const scopedHealth = Object.fromEntries(Object.entries(healthDays).filter(([d]) => inRange(d)));
+  const scopedEntries = Object.fromEntries(Object.entries(entries).filter(([d]) => inRange(d)));
+  const association = strongestPossible(noticedAssociations(scopedEntries, scopedHealth, categories, []));
+  const doses = categories.includes('medications') ? doseAssociations(scopedEntries, scopedHealth, []) : [];
   const counts: Record<string, number> = {};
   const meds: Record<string, { name: string; taken: number; skipped: number; dayset: Record<string, true> }> = {};
   days.forEach((d) => {
     const h = healthDays[d.date];
     if (!h) return;
     Object.keys(h.coverage).forEach((c) => { counts[c] = (counts[c] || 0) + 1; });
+  });
+  /* A medication log does not require a pain check-in that day. */
+  Object.values(scopedHealth).forEach((h) => {
     (h.doses || []).forEach((x) => {
       const m = meds[x.medId] || (meds[x.medId] = { name: x.med, taken: 0, skipped: 0, dayset: {} });
-      if (x.status === 'taken') { m.taken++; m.dayset[d.date] = true; } else m.skipped++;
+      if (x.status === 'taken') { m.taken++; m.dayset[h.date] = true; } else m.skipped++;
     });
   });
   const coverage = HEALTH_CATEGORIES
     .filter((c) => counts[c.id])
     .map((c) => ({ name: c.name, covered: counts[c.id] }));
-  if (!coverage.length) return null;
+  if (!coverage.length && !Object.keys(meds).length) return null;
   const medications = Object.keys(meds)
     .map((id) => ({
       name: meds[id].name, taken: meds[id].taken, skipped: meds[id].skipped,
@@ -1151,8 +1158,9 @@ export function reportHtml(data: ReportData): string {
     s.push('</section>');
   }
 
-  // ── function over time ──
-  if (data.goalText) {
+  // Existing weekly ratings remain readable when explicitly supplied.
+  // An activity intention alone is not a request for another scale.
+  if (data.goalText && data.func.length) {
     s.push('<section><h2>Function over time</h2>');
     s.push('<div class="note">Activity: <b>' + esc(data.goalText) + '</b>. Self-rated ability, ' +
       '0 = not able at all, 10 = fully able. Ability is a separate scale from pain — ' +

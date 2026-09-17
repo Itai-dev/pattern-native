@@ -54,6 +54,7 @@ export function markHealthRequested(categories: HealthCategory[]): void {
      re-fetching the kinds already stored is the price, and putHealthDay
      simply overwrites them with the same facts. */
   const before = healthCategories();
+  if (before.some((c) => categories.indexOf(c) < 0)) db.clearHealthDays();
   if (categories.some((c) => before.indexOf(c) < 0)) db.clearHealthSyncedFrom();
   db.setPref(PREF_CATEGORIES, categories);
   db.setPref(PREF_REQUESTED, todayISO());
@@ -75,6 +76,9 @@ export async function syncHealth(service: HealthService, clock: LocalClock): Pro
   const cats = healthCategories();
   if (!service.available() || !healthRequestedOn() || !cats.length) return;
   syncing = true;
+  const revision = db.getHealthRevision();
+  const current = () => revision === db.getHealthRevision()
+    && !!healthRequestedOn() && JSON.stringify(cats) === JSON.stringify(healthCategories());
   try {
     const today = todayISO();
     /* first pass reaches back the working span; later passes only the
@@ -83,17 +87,22 @@ export async function syncHealth(service: HealthService, clock: LocalClock): Pro
     const from = already
       ? addDays(today, -(HEALTH_RESYNC_DAYS - 1))
       : addDays(today, -(HEALTH_BACKFILL_DAYS - 1));
+    let complete = true;
     for (let d = from; d <= today; d = addDays(d, 1)) {
       try {
         const raw = await service.fetchDay(d, cats);
+        /* Disconnect, delete-all, or a changed selection invalidates
+           the pass, including its watermark, across every native await. */
+        if (!current()) return;
+        if (raw.incomplete) { complete = false; continue; }
         const day = normalizeDay(raw, clock);
-        /* a day that produced nothing writes nothing — an empty row
-           would read as "measured, and there was nothing", which is
-           precisely the claim an absent day must not make */
+        /* Successful silence removes stale samples without writing a
+           measured-zero day. A failed query preserves the old cache. */
         if (Object.keys(day.coverage).length) db.putHealthDay(d, day);
-      } catch { /* this day stays as it was; the next still runs */ }
+        else db.removeHealthDay(d);
+      } catch { complete = false; /* retry missing backfill days next time */ }
     }
-    if (!already) db.setHealthSyncedFrom(from);
+    if (!already && complete && current()) db.setHealthSyncedFrom(from);
   } finally {
     syncing = false;
   }
