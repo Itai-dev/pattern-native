@@ -1,10 +1,11 @@
 /* Pattern's iOS app icon at App Store resolution (1024), rendered from
-   assets/icon.svg — the source of truth, drawn by Itai (17 Sep 2026):
-   three rounded bars on black, light to dark blue left to right, the
-   Patterns tab's own glyph. Full-bleed black: iOS masks its own corners.
+   assets/icon.svg — the source of truth: four day squares carrying four
+   values of the blue pain ramp. Full-bleed black: iOS masks its own
+   corners. The SVG says why it looks the way it does.
 
-   The slider icon of 16 Sep and the glowing square before it are in
-   git history; this file only renders whatever the SVG says.
+   The three bars and the slider of 16–17 Sep, and the glowing square
+   before them, are in git history; this file only renders whatever the
+   SVG says.
 
    Run:  node tools/make-icon.js
    (needs a local Chrome; renders headless, no npm dependency) */
@@ -12,7 +13,19 @@ const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+/* The owner's machine is the Windows box and its Chrome is first, so
+   nothing changes there. The rest are for rendering the icon somewhere
+   else — a session with no Windows Chrome could otherwise only hand
+   back an SVG and ask for the PNGs to be made by hand. PATTERN_CHROME
+   overrides all of it. */
+const CHROME = [
+  process.env.PATTERN_CHROME,
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/chromium',
+  '/usr/bin/google-chrome',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+].find((p) => p && fs.existsSync(p));
+if (!CHROME) throw new Error('no Chrome found — set PATTERN_CHROME to one');
 const SVG = path.resolve(__dirname, '../assets/icon.svg');
 
 /** the SVG inline, scaled about the centre on a black ground */
@@ -33,6 +46,12 @@ const JOBS = [
   { file: '../assets/android-icon-foreground.png', size: 1024, scale: 0.62 },
 ];
 
+/* Chrome refuses its sandbox as root and exits 1 — which only ever
+   happens in a container, never on the owner's machine, so the flag is
+   conditional rather than always on. The page is a local SVG this repo
+   wrote; there is nothing untrusted to sandbox from. */
+const asRoot = process.getuid && process.getuid() === 0;
+
 const tmp = path.join(require('os').tmpdir(), 'pattern-icon');
 fs.mkdirSync(tmp, { recursive: true });
 for (const j of JOBS) {
@@ -41,6 +60,7 @@ for (const j of JOBS) {
   const out = path.resolve(__dirname, j.file);
   execFileSync(CHROME, [
     '--headless=new', '--hide-scrollbars', '--force-device-scale-factor=1',
+    ...(asRoot ? ['--no-sandbox'] : []),
     '--window-size=' + j.size + ',' + j.size,
     '--screenshot=' + out,
     'file:///' + html.replace(/\\/g, '/'),

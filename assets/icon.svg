@@ -1,6 +1,28 @@
+<!-- Pattern's icon: four days from the calendar, each carrying its own
+     value on the blue ramp.
+
+     THE OBJECT IS THE DAY SQUARE. It is the app's unit — TabBar's
+     dayGlyph, Today's card, every cell of the calendar — so the icon is
+     made of the same thing the app is made of. The corner radius is
+     dayGlyph's own ratio (6/21 of the side) rather than a guess, which
+     is what makes these the same square and not a similar one.
+
+     THE COLOURS ARE REAL. They are anchors of PAIN_THEMES' default
+     "Pattern Blue" in theme.ts, so the icon speaks the app's palette
+     instead of a decorative one: 5, 2, 9 and 7. The ground is bgRoot,
+     black, and full-bleed — iOS masks its own corners.
+
+     THEY ARE DELIBERATELY NOT IN ORDER. Four values ramping corner to
+     corner would draw a trend across the icon, and a trend is the one
+     thing this app will not show: no deltas, no arrows, no verdict.
+     Scattered, they say only that days differ, which is the premise.
+     For the same reason nothing here glows or is singled out — an
+     earlier draft haloed the lightest square, which on this ramp is
+     the worst day anyone has. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="1024" height="1024" fill="black"/>
-<rect x="355.834" y="940" width="271.835" height="856" rx="135.917" transform="rotate(-180 355.834 940)" fill="#CCE5FF"/>
-<rect x="940" y="940" width="271.835" height="856" rx="135.917" transform="rotate(-180 940 940)" fill="#007FFF"/>
-<rect x="647.914" y="940" width="271.835" height="856" rx="135.917" transform="rotate(-180 647.914 940)" fill="#66B2FF"/>
+  <rect width="1024" height="1024" fill="#000000"/>
+  <rect x="148" y="148" width="336" height="336" rx="96" fill="#0A84FF"/>
+  <rect x="540" y="148" width="336" height="336" rx="96" fill="#143869"/>
+  <rect x="148" y="540" width="336" height="336" rx="96" fill="#BEE3FE"/>
+  <rect x="540" y="540" width="336" height="336" rx="96" fill="#5CBAFE"/>
 </svg>
