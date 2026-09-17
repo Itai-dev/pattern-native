@@ -32,6 +32,8 @@ import Animated, {
   cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import DayLine from './DayLine';
+import ActivityIntention from './ActivityIntention';
+import { TodayInsight } from './todayInsight';
 import InfoTip from './InfoTip';
 import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
@@ -52,6 +54,7 @@ import {
   APPOINTMENT_LEAD_DAYS, APPOINTMENT_OFFER_AFTER_DAYS, APPOINTMENT_REASK_DAYS,
   BACKGROUND_OFFER_AFTER_DAYS, COPY_NUDGE_DAYS, DIAGNOSIS_OFFER_AFTER_DAYS, EXPERIMENT_OFFER_AFTER_DAYS,
   TODAY_OFFER_ORDER, TodayOffer,
+  ACTIVITY_OFFER_AFTER_DAYS,
   EXPERIMENT_REOFFER_DAYS, HEALTH_OFFER_AFTER_DAYS, WIDGET_OFFER_AFTER_DAYS,
 } from './thresholds';
 
@@ -149,6 +152,10 @@ function speakDetails(rows: DetailRow[]): string {
 
 export interface HomeScreenProps {
   entries: Entries;
+  activity: string | null;
+  onActivityChange: (value: string) => void;
+  insight: TodayInsight | null;
+  onOpenRecord: () => void;
   onLog: () => void;
   /** the day detail — where editing, deleting and events live */
   onOpenDay: (dateIso: string) => void;
@@ -203,7 +210,7 @@ export interface HomeScreenProps {
 }
 
 export default function HomeScreen({
-  entries, onLog, onOpenDay, onAddNote, onOpenToday,
+  entries, activity, onActivityChange, insight, onOpenRecord, onLog, onOpenDay, onAddNote, onOpenToday,
   onOpenBackground, onOpenDiagnosis, onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
@@ -256,7 +263,7 @@ export default function HomeScreen({
   const [bgDismissed, setBgDismissed] = useState(
     () => db.getPref<boolean>('background.offer.dismissed', false)
   );
-  const loggedDays = Object.keys(entries).length;
+  const loggedDays = Object.values(entries).filter(e => checkinCount(e) > 0).length;
   const offerBackground = !bgDismissed
     && loggedDays >= BACKGROUND_OFFER_AFTER_DAYS
     && db.getBackground() == null;
@@ -390,6 +397,7 @@ export default function HomeScreen({
      other offer adds something to a record that the copy is what
      keeps. */
   const due: Record<TodayOffer, boolean> = {
+    activity: activity === null && loggedDays >= ACTIVITY_OFFER_AFTER_DAYS,
     reminder: offerReminder, copy: offerCopy, diagnosis: offerDiagnosis,
     health: offerHealth, background: offerBackground, experiment: offerExperiment,
     appointment: offerAppointment, widget: offerWidget,
@@ -407,6 +415,9 @@ export default function HomeScreen({
 
   return (
     <View>
+      {!!activity && <View style={styles.activityWrap}>
+        <ActivityIntention value={activity} onChange={onActivityChange} />
+      </View>}
       {/* ── what you last said ────────────────────────────── */}
       {value != null ? (
         <Press
@@ -646,6 +657,22 @@ export default function HomeScreen({
           </View>
         </Press>
       )}
+
+      {insight && <View style={styles.card}>
+        <Text style={styles.eyebrow}>From your record</Text>
+        <Text style={styles.insightTitle}>{insight.title}</Text>
+        <Text style={styles.bgOfferBody}>{insight.body}</Text>
+        <Text style={styles.bgOfferBody}>{insight.context}</Text>
+        <Text style={styles.insightCaveat}>{insight.caveat}</Text>
+        <Press onPress={onOpenRecord} accessibilityRole="button" accessibilityLabel={insight.action}
+          style={styles.insightAction}>
+          <Text style={styles.insightLink}>{insight.action} ›</Text>
+        </Press>
+      </View>}
+
+      {offer === 'activity' && <View style={styles.activityWrap}>
+        <ActivityIntention value={activity} onChange={onActivityChange} initiallyEditing />
+      </View>}
 
       {/* ── last night, from Health ────────────────────────── */}
       {!!lastNight && (
@@ -1169,6 +1196,11 @@ export default function HomeScreen({
  * is exactly the room a focal value needs and no more.
  */
 const styles = StyleSheet.create({
+  activityWrap: { marginHorizontal: size.pageX, marginTop: 14 },
+  insightTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', marginTop: 8 },
+  insightCaveat: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 19, marginTop: 10 },
+  insightAction: { minHeight: 44, justifyContent: 'center', marginTop: 4 },
+  insightLink: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
   card: {
     marginHorizontal: size.pageX, marginTop: 14,
     borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,

@@ -57,6 +57,8 @@ import {
   Moment, PainEvent, ValidBackup, addDays, cleanDiagnosis, diagnosisShort, iso, minutesNow, todayISO,
 } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
+import ActivityIntention from './src/ActivityIntention';
+import { todayInsight } from './src/todayInsight';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import {
@@ -152,6 +154,11 @@ function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
  */
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
+  const [activity, setActivity] = useState(() => db.getGoal());
+  const changeActivity = useCallback((text: string) => {
+    db.setGoal(text);
+    setActivity(db.getGoal());
+  }, []);
   /* Anyone with a record has already been onboarded, whatever the pref
      says — the flag arrived after the app did, and showing a returning
      user an introduction to something they have been using for a week is
@@ -427,6 +434,7 @@ export default function App() {
   const refresh = useCallback(() => {
     const next = db.getAll();
     setEntries(next);
+    setActivity(db.getGoal());
     setEvents(db.getEvents());
     /* one place to feed the widget, so no screen has to remember to */
     refreshWidget(next);
@@ -554,7 +562,7 @@ export default function App() {
     setSharing(true);
     try {
       const data = buildReportData({
-        entries, events, func: [], goalText: null,
+        entries, events, func: [], goalText: db.getGoal(),
         todayIso: todayISO(), windowDays,
         includeNotes,
         /* written FOR the report, so it rides every share — the sheet that
@@ -564,12 +572,10 @@ export default function App() {
            it is a review; without one, that the record is here to help
            make one */
         diagnosis: db.getDiagnosis(),
-        /* the same health context Trends shows — one gate, two surfaces,
-           so the preview and the PDF can never disagree about what the
-           record supports */
+        /* The report uses the same gates as Trends, recalculated from
+           the raw days inside the range the person chose to share. */
         healthDays: storedHealthDays(),
-        healthAssociation: healthNoticed.best,
-        healthDoses: healthNoticed.doses.groups,
+        healthCategories: healthCategories(),
       });
       if (!data) {
         Alert.alert('Nothing to share yet', 'Check in once and there will be a record to send.');
@@ -920,6 +926,10 @@ export default function App() {
             <ScrollView style={{ width }} contentContainerStyle={styles.page}
               showsVerticalScrollIndicator={false}>
               <HomeScreen
+                activity={activity}
+                onActivityChange={changeActivity}
+                insight={todayInsight(healthNoticed)}
+                onOpenRecord={() => goToTab('trends')}
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
@@ -953,13 +963,9 @@ export default function App() {
               />
             </ScrollView>
 
-            {/* The activity goal and its weekly rating are out of the app
-                for now — they asked for a second commitment before the
-                first had proved itself. The TABLE and the backup are
-                untouched, and any rating already recorded still exports
-                and restores; passing nothing here is what keeps it off the
-                screen and out of the PDF, and putting the two values back
-                is what brings it all back. */}
+            {/* The intention is context in Today and the shared summary.
+                Weekly ability ratings remain off; existing ratings still
+                survive backup and restore. */}
             <ScrollView
               ref={recordScroll}
               style={{ width }} contentContainerStyle={styles.page}
@@ -1074,6 +1080,7 @@ export default function App() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              <ActivityIntention value={activity} onChange={changeActivity} />
               {/* Only offered where the binary can actually do it — a
                   row promising a connection an old build cannot make is
                   a broken promise on a settings screen. The sheet

@@ -259,11 +259,11 @@ export class HealthKitService implements HealthService {
     }
   }
 
-  /** raw samples for one local date. Every query is independent and
-   *  individually caught: one failing type must not empty the day. */
+  /** Raw samples for one local date. Query failures are separate from
+   *  empty responses, so temporary failures cannot erase imported data. */
   async fetchDay(date: string, categories: HealthCategory[]): Promise<DayRawBundle> {
     const out = emptyBundle(date);
-    if (!LIB) return out;
+    if (!LIB) throw new Error('HealthKit is not available');
     const dayStart = new Date(deviceClock.startOf(date));
     const dayEnd = new Date(deviceClock.startOf(addDays(date, 1)));
     const opts = (from: Date, to: Date) => ({
@@ -275,7 +275,7 @@ export class HealthKitService implements HealthService {
       try {
         const rows = await LIB.queryQuantitySamples(id, { ...opts(from, to), unit });
         return rows.map(quantity).filter((s): s is QuantitySample => s != null);
-      } catch { return []; }
+      } catch { out.incomplete = true; return []; }
     };
 
     if (categories.indexOf('sleep') >= 0) {
@@ -292,7 +292,7 @@ export class HealthKitService implements HealthService {
           if (start == null || end == null) return null;
           return { start, end, stage: sleepStage(r.value), source: sourceOf(r) } as SleepSample;
         }).filter((s): s is SleepSample => s != null);
-      } catch { /* sleep stays empty — absent, not zero */ }
+      } catch { out.incomplete = true; }
     }
 
     if (categories.indexOf('movement') >= 0) {
@@ -319,7 +319,7 @@ export class HealthKitService implements HealthService {
             energy, source: sourceOf(r),
           } as WorkoutSample;
         }).filter((w): w is WorkoutSample => w != null);
-      } catch { /* workouts stay empty */ }
+      } catch { out.incomplete = true; }
     }
 
     if (categories.indexOf('heart') >= 0) {
@@ -346,7 +346,7 @@ export class HealthKitService implements HealthService {
           if (labels.length) sample.labels = labels;
           return sample;
         }).filter((s): s is StateOfMindSample => s != null);
-      } catch { /* state of mind stays empty */ }
+      } catch { out.incomplete = true; }
     }
 
     if (categories.indexOf('medications') >= 0 && medicationsSupported()) {
@@ -369,7 +369,7 @@ export class HealthKitService implements HealthService {
           if (typeof r.unit === 'string' && r.unit) d.unit = r.unit;
           return d;
         }).filter((d): d is DoseSample => d != null);
-      } catch { /* doses stay empty — absent, not "none taken" */ }
+      } catch { out.incomplete = true; }
     }
 
     return out;

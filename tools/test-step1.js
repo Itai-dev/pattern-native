@@ -1497,11 +1497,11 @@ ok('the report never says the app diagnosed anything', (() => {
     && html.indexOf('Provided by the patient') > 0;
 })());
 ok('every order of Today offers every card once, and the first two never move', (() => {
-  const ALL = ['reminder', 'copy', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'];
+  const ALL = ['reminder', 'copy', 'activity', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'];
   return ['unknown', 'seek', 'manage'].every((p) => {
     const o = th.TODAY_OFFER_ORDER[p];
     return o.length === ALL.length && ALL.every((x) => o.indexOf(x) >= 0)
-      && o[0] === 'reminder' && o[1] === 'copy' && o[2] === 'diagnosis';
+      && o[0] === 'reminder' && o[1] === 'copy' && o[2] === 'activity' && o[3] === 'diagnosis';
   });
 })());
 ok('seeking puts the history before the experiment; managing, the other way', (() => {

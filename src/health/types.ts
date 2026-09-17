@@ -229,11 +229,8 @@ export interface HealthDay {
   /** caffeine logged this date, milligrams, and per local hour */
   caffeineMg?: number;
   caffeineHourly?: number[];
-  /** alcoholic drinks logged this date. Present on any day with
-   *  nutrition coverage: a day where water or caffeine was logged and
-   *  no drink is a day with none — the one place this record reads an
-   *  absence as a zero, because nobody logs "no drinks", and the timing
-   *  sentence says so. */
+  /** Alcohol explicitly logged this date. A missing sample is unknown;
+   *  only an explicit zero sample establishes no drinks. */
   alcoholDrinks?: number;
   restingHeartRate?: number;
   hrvSDNN?: number;
@@ -251,6 +248,9 @@ export interface HealthDay {
 /** everything the store hands normalize.ts for one local date */
 export interface DayRawBundle {
   date: string;
+  /** A query failed. Preserve the cached day until a complete refresh;
+   *  a successful empty response, in contrast, replaces old readings. */
+  incomplete?: boolean;
   sleep: SleepSample[];
   steps: QuantitySample[];
   distance: QuantitySample[];
