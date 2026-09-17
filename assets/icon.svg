@@ -1,28 +1,30 @@
-<!-- Pattern's icon: four days from the calendar, each carrying its own
-     value on the blue ramp.
+<!-- Pattern's icon: one day square, empty, on black.
 
      THE OBJECT IS THE DAY SQUARE. It is the app's unit — TabBar's
      dayGlyph, Today's card, every cell of the calendar — so the icon is
      made of the same thing the app is made of. The corner radius is
      dayGlyph's own ratio (6/21 of the side) rather than a guess, which
-     is what makes these the same square and not a similar one.
+     is what makes this the same square and not a similar one.
 
-     THE COLOURS ARE REAL. They are anchors of PAIN_THEMES' default
-     "Pattern Blue" in theme.ts, so the icon speaks the app's palette
-     instead of a decorative one: 5, 2, 9 and 7. The ground is bgRoot,
-     black, and full-bleed — iOS masks its own corners.
+     IT SAYS NOTHING ABOUT A DAY. No value, no ramp, no glow, nothing
+     singled out — which is the point. Drafts that coloured it drew a
+     scale, and a scale on a home screen is a verdict waiting to be
+     read: the 2x2's lightest square was a 10, the worst day anyone has,
+     and an earlier one haloed it. An empty square is the app's offer,
+     not its judgement.
 
-     THEY ARE DELIBERATELY NOT IN ORDER. Four values ramping corner to
-     corner would draw a trend across the icon, and a trend is the one
-     thing this app will not show: no deltas, no arrows, no verdict.
-     Scattered, they say only that days differ, which is the premise.
-     For the same reason nothing here glows or is singled out — an
-     earlier draft haloed the lightest square, which on this ramp is
-     the worst day anyone has. -->
+     One deliberate difference from the glyph: dayGlyph is a stroke and
+     this is filled. Hollow at icon size goes thin enough to read as a
+     placeholder, and a filled square says "the record" where an outline
+     says "nothing here yet".
+
+     White, not the ramp's 10 (#EAF6FF): theme.ts reserves pure white
+     for controls and selection precisely so that no day can reach it,
+     which is what keeps this square a surface rather than a score.
+
+     The ground is bgRoot, black, full-bleed — iOS masks its own
+     corners, and the home screen matches the app it opens. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="1024" height="1024" fill="#000000"/>
-  <rect x="148" y="148" width="336" height="336" rx="96" fill="#0A84FF"/>
-  <rect x="540" y="148" width="336" height="336" rx="96" fill="#143869"/>
-  <rect x="148" y="540" width="336" height="336" rx="96" fill="#BEE3FE"/>
-  <rect x="540" y="540" width="336" height="336" rx="96" fill="#5CBAFE"/>
+  <rect x="205" y="205" width="614" height="614" rx="175" fill="#FFFFFF"/>
 </svg>
