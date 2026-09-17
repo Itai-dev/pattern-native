@@ -65,47 +65,60 @@ export function disconnectHealth(): void {
   db.clearHealthDays();
 }
 
-let syncing = false;
+let syncTask: Promise<void> | null = null;
+let activeRevision: number | null = null;
 
 /**
  * One pass: fetch, normalize, store. Serialised — a second call while
- * one runs returns immediately rather than racing it.
+ * one runs waits for that pass rather than racing it.
  */
-export async function syncHealth(service: HealthService, clock: LocalClock): Promise<void> {
-  if (syncing) return;
+export function syncHealth(service: HealthService, clock: LocalClock): Promise<void> {
+  // Every caller waits for the real pass, including Refresh during an
+  // automatic sync. Returning early would show stale data as refreshed.
+  if (syncTask) {
+    return activeRevision === db.getHealthRevision() ? syncTask
+      : syncTask.then(() => syncHealth(service, clock));
+  }
   const cats = healthCategories();
-  if (!service.available() || !healthRequestedOn() || !cats.length) return;
-  syncing = true;
+  if (!service.available() || !healthRequestedOn() || !cats.length) return Promise.resolve();
+  activeRevision = db.getHealthRevision();
+  syncTask = runSync(service, clock, cats).finally(() => { syncTask = null; activeRevision = null; });
+  return syncTask;
+}
+
+async function runSync(service: HealthService, clock: LocalClock, cats: HealthCategory[]): Promise<void> {
+  const attemptedAt = new Date().toISOString();
   const revision = db.getHealthRevision();
   const current = () => revision === db.getHealthRevision()
     && !!healthRequestedOn() && JSON.stringify(cats) === JSON.stringify(healthCategories());
-  try {
-    const today = todayISO();
-    /* first pass reaches back the working span; later passes only the
-       late-arrival window */
-    const already = db.getHealthSyncedFrom();
-    const from = already
-      ? addDays(today, -(HEALTH_RESYNC_DAYS - 1))
-      : addDays(today, -(HEALTH_BACKFILL_DAYS - 1));
-    let complete = true;
-    for (let d = from; d <= today; d = addDays(d, 1)) {
-      try {
-        const raw = await service.fetchDay(d, cats);
-        /* Disconnect, delete-all, or a changed selection invalidates
-           the pass, including its watermark, across every native await. */
-        if (!current()) return;
-        if (raw.incomplete) { complete = false; continue; }
-        const day = normalizeDay(raw, clock);
-        /* Successful silence removes stale samples without writing a
-           measured-zero day. A failed query preserves the old cache. */
-        if (Object.keys(day.coverage).length) db.putHealthDay(d, day);
-        else db.removeHealthDay(d);
-      } catch { complete = false; /* retry missing backfill days next time */ }
-    }
-    if (!already && complete && current()) db.setHealthSyncedFrom(from);
-  } finally {
-    syncing = false;
+  const today = todayISO();
+  /* first pass reaches back the working span; later passes only the
+     late-arrival window */
+  const already = db.getHealthSyncedFrom();
+  const from = already
+    ? addDays(today, -(HEALTH_RESYNC_DAYS - 1))
+    : addDays(today, -(HEALTH_BACKFILL_DAYS - 1));
+  let complete = true;
+  for (let d = from; d <= today; d = addDays(d, 1)) {
+    try {
+      const raw = await service.fetchDay(d, cats);
+      /* Disconnect, delete-all, or a changed selection invalidates
+         the pass, including its watermark, across every native await. */
+      if (!current()) return;
+      if (raw.incomplete) { complete = false; continue; }
+      const day = normalizeDay(raw, clock);
+      /* Successful silence removes stale samples without writing a
+         measured-zero day. A failed query preserves the old cache. */
+      if (Object.keys(day.coverage).length) db.putHealthDay(d, day);
+      else db.removeHealthDay(d);
+    } catch { complete = false; /* retry missing backfill days next time */ }
   }
+  if (!already && complete && current()) db.setHealthSyncedFrom(from);
+  if (current()) db.setHealthSyncStatus({
+    lastAttempt: attemptedAt,
+    lastSuccess: complete ? new Date().toISOString() : db.getHealthSyncStatus()?.lastSuccess || null,
+    outcome: complete ? 'complete' : 'partial',
+  });
 }
 
 /** everything stored, for the engine and the coverage API */

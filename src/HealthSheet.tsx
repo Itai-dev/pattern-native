@@ -16,18 +16,16 @@
  * reward for connecting, no red dot for skipping, and Done is always
  * one tap away.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import { track } from './analytics';
-import { addDays, todayISO } from './model';
 import {
   HealthCategory, HealthService, offeredCategories,
 } from './health/types';
 import {
   disconnectHealth, healthCategories, healthRequestedOn, markHealthRequested,
-  storedHealthDays,
 } from './health/sync';
 import { color, font, radius, size } from './theme';
 
@@ -36,9 +34,10 @@ export interface HealthSheetProps {
   /** something changed — ask App to sync and recompute */
   onChanged: () => void;
   onDone: () => void;
+  onOpenData?: () => void;
 }
 
-export default function HealthSheet({ service, onChanged, onDone }: HealthSheetProps) {
+export default function HealthSheet({ service, onChanged, onDone, onOpenData }: HealthSheetProps) {
   const available = service.available();
   const requestedOn = healthRequestedOn();
   const already = healthCategories();
@@ -46,19 +45,6 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
     already.length ? already : ['sleep', 'movement', 'workouts']
   );
   const [busy, setBusy] = useState(false);
-
-  /* which categories have actually produced data lately — a fact about
-     query results, never a statement about permission */
-  const seen = useMemo(() => {
-    const days = storedHealthDays();
-    const from = addDays(todayISO(), -13);
-    const got: Partial<Record<HealthCategory, true>> = {};
-    Object.keys(days).forEach((d) => {
-      if (d < from) return;
-      (Object.keys(days[d].coverage) as HealthCategory[]).forEach((c) => { got[c] = true; });
-    });
-    return got;
-  }, [requestedOn]);
 
   const toggle = (id: HealthCategory) => {
     Haptics.selectionAsync().catch(() => {});
@@ -120,6 +106,10 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
               and the data stays on this iPhone.
             </Text>
 
+            {!!onOpenData && !!requestedOn && <Press onPress={onOpenData} style={styles.statusLink}
+              accessibilityRole="button" accessibilityLabel="View connected data">
+              <Text style={styles.statusText}>View connected data ›</Text>
+            </Press>}
             <View style={styles.group}>
               {/* a row the phone cannot honour is not a row: iOS 26's
                   medication log is absent from older phones, and
@@ -143,12 +133,11 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
                       <Text style={styles.rowBlurb} allowFontScaling maxFontSizeMultiplier={1.4}>
                         {c.blurb}
                       </Text>
-                      {/* data presence, said as data presence. "No data
-                          yet" covers a denied grant, an empty store, and
-                          a watch that has not synced — all honestly. */}
+                      {/* This is the saved request, not permission or
+                          availability. Received readings have their own view. */}
                       {!!requestedOn && already.indexOf(c.id) >= 0 && (
                         <Text style={styles.rowState} allowFontScaling maxFontSizeMultiplier={1.3}>
-                          {seen[c.id] ? 'Data seen recently' : 'No data yet'}
+                          Selected for reading
                         </Text>
                       )}
                     </View>
@@ -206,6 +195,8 @@ export default function HealthSheet({ service, onChanged, onDone }: HealthSheetP
 }
 
 const styles = StyleSheet.create({
+  statusLink: { minHeight: 44, justifyContent: 'center', marginBottom: 14 },
+  statusText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   sheet: { flex: 1, backgroundColor: color.bgSheet },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

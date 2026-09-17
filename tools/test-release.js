@@ -40,20 +40,22 @@ function loadTs(rel, overrides = {}) {
 function memoryDb() {
   const prefs = new Map([['health.categories', ['sleep']], ['health.requestedOn', '2026-09-01']]);
   const days = {};
-  let marker = '2026-06-01', revision = 0;
+  let marker = '2026-06-01', revision = 0, syncStatus = null;
   return {
     days,
     getPref: (k, fallback) => prefs.has(k) ? prefs.get(k) : fallback,
     setPref: (k, v) => prefs.set(k, v),
     getHealthRevision: () => revision,
+    getHealthSyncStatus: () => syncStatus,
+    setHealthSyncStatus: s => { syncStatus = s; },
     getHealthDays: () => ({ ...days }),
     getHealthDay: d => days[d] || null,
     putHealthDay: (d, v) => { days[d] = v; },
     removeHealthDay: d => { delete days[d]; },
     getHealthSyncedFrom: () => marker,
     setHealthSyncedFrom: v => { marker = v; },
-    clearHealthSyncedFrom: () => { marker = null; revision++; },
-    clearHealthDays: () => { for (const k of Object.keys(days)) delete days[k]; marker = null; revision++; },
+    clearHealthSyncedFrom: () => { marker = null; syncStatus = null; revision++; },
+    clearHealthDays: () => { for (const k of Object.keys(days)) delete days[k]; marker = null; syncStatus = null; revision++; },
     getDay: () => null,
   };
 }
@@ -95,6 +97,50 @@ async function main() {
     assert.equal(db.getHealthDay(today), null);
   });
 
+  await check('refresh timestamps distinguish successful silence from partial failures', async () => {
+    const db = memoryDb(), sync = loadTs('src/health/sync.ts', { '../db': db });
+    await sync.syncHealth(service(async d => mock.emptyBundle(d)), clock);
+    const successful = db.getHealthSyncStatus();
+    assert.equal(successful.outcome, 'complete');
+    assert.ok(successful.lastSuccess);
+    assert.deepEqual(db.days, {});
+    await sync.syncHealth(service(async d => ({ ...mock.emptyBundle(d), incomplete: true })), clock);
+    assert.equal(db.getHealthSyncStatus().outcome, 'partial');
+    assert.equal(db.getHealthSyncStatus().lastSuccess, successful.lastSuccess);
+    assert.ok(db.getHealthSyncStatus().lastAttempt >= successful.lastAttempt);
+  });
+  await check('manual refresh joins the in-flight pass and waits for its real result', async () => {
+    const db = memoryDb(), sync = loadTs('src/health/sync.ts', { '../db': db });
+    let resume, reached;
+    const pending = new Promise(r => { resume = r; });
+    const started = new Promise(r => { reached = r; });
+    let queries = 0, done = false;
+    const source = service(async d => { queries++; reached(); await pending; return mock.emptyBundle(d); });
+    const first = sync.syncHealth(source, clock); await started;
+    const second = sync.syncHealth(source, clock).then(() => { done = true; });
+    await Promise.resolve(); assert.equal(done, false); assert.equal(queries, 1);
+    resume(); await Promise.all([first, second]);
+    assert.equal(done, true);
+    assert.equal(queries, pure('thresholds').HEALTH_RESYNC_DAYS);
+    assert.equal(db.getHealthSyncStatus().outcome, 'complete');
+  });
+  await check('a changed selection queues a fresh pass after invalidating the old pass', async () => {
+    const db = memoryDb(), sync = loadTs('src/health/sync.ts', { '../db': db });
+    let resume, reached;
+    const pending = new Promise(r => { resume = r; });
+    const started = new Promise(r => { reached = r; });
+    const selections = [];
+    const source = service(async (d, cats) => { selections.push(cats.join(',')); reached(); await pending; return mock.emptyBundle(d); });
+    const first = sync.syncHealth(source, clock); await started;
+    sync.markHealthRequested(['movement']);
+    const next = sync.syncHealth(source, clock); resume();
+    await Promise.all([first, next]);
+    assert.equal(selections[0], 'sleep');
+    assert.ok(selections.slice(1).every(c => c === 'movement'));
+    assert.equal(selections.length, pure('thresholds').HEALTH_BACKFILL_DAYS + 1);
+    assert.equal(db.getHealthSyncStatus().outcome, 'complete');
+  });
+
   for (const action of ['disconnect', 'clear', 'selection']) {
     await check(action + ' invalidates an in-flight sync and its watermark', async () => {
       const db = memoryDb(), sync = loadTs('src/health/sync.ts', { '../db': db });
@@ -110,6 +156,7 @@ async function main() {
       resume(); await run;
       assert.equal(Object.keys(db.days).length, 0);
       assert.equal(db.getHealthSyncedFrom(), null);
+      assert.equal(db.getHealthSyncStatus(), null);
       assert.equal(queries, 1);
     });
   }
