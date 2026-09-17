@@ -61,6 +61,7 @@ import ActivityIntention from './src/ActivityIntention';
 import { todayInsight } from './src/todayInsight';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
+import { PREF_SQUARE_PICKER } from './src/SquarePicker';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
@@ -243,6 +244,7 @@ export default function App() {
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* may the lock screen carry the number — off until asked, see widget.ts */
   const [lockNumber, setLockNumber] = useState(() => db.getPref<boolean>(PREF_LOCK_NUMBER, false));
+  const [squarePicker, setSquarePicker] = useState(() => db.getPref<boolean>(PREF_SQUARE_PICKER, false));
   /* the next appointment, as state so Today's card follows the Profile
      row without a remount; the picker opens on mount when Today asked */
   const [appointment, setAppointment] = useState(() => db.getPref<string>(PREF_APPOINTMENT, ''));
@@ -1255,13 +1257,38 @@ export default function App() {
                   <View style={[styles.rowIcon, styles.themeIcon, { borderColor: themeBrand() }]}>
                     <Ionicons name="color-palette-outline" size={19} color={themeBrand()} />
                   </View>
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                  <View style={[styles.rowMain, styles.rowLine]}>
                     <Text style={styles.rowLabel}>Colour theme</Text>
                     <Text style={styles.rowValue}>{themeName}</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
+                {/* the picker under comparison: the 0–10 scale as eleven
+                    day squares in place of the slider's thumb and track.
+                    A switch and not a rollout, so it can be flipped on the
+                    phone mid-week and flipped back. */}
+                <View style={styles.row} accessible accessibilityRole="switch"
+                  accessibilityState={{ checked: squarePicker }}
+                  accessibilityLabel="Choose pain with squares instead of a slider">
+                  <RowIcon name="apps-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Pick pain with squares</Text>
+                    <Switch
+                      value={squarePicker}
+                      onValueChange={(on) => {
+                        db.setPref(PREF_SQUARE_PICKER, on);
+                        setSquarePicker(on);
+                      }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
               </View>
+              <Text style={styles.groupFooter}>
+                The check-in shows the eleven squares a day can wear, in place of
+                the slider. Drag along the row or tap one. Trying it out; the
+                slider stays the default.
+              </Text>
 
               <Text style={styles.groupTitle}>About</Text>
               <View style={styles.group}>

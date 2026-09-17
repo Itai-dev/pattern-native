@@ -66,6 +66,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { fmtDay } from './DayScreen';
 import Slider from './Slider';
+import SquarePicker, { PREF_SQUARE_PICKER } from './SquarePicker';
 import PainShape from './PainShape';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
@@ -154,6 +155,10 @@ export default function CheckinScreen({
      rubber-stamp rate is a number rather than a fear. */
   const [pain, setPain] = useState<number>(edit ? edit.pain : 5);
   const [moved, setMoved] = useState<boolean>(editing);
+  /* the eleven-squares picker, being compared against the slider. Read
+     once at open; a control that changed shape mid-check-in would be
+     the wrong kind of surprise. */
+  const [squares] = useState(() => db.getPref<boolean>(PREF_SQUARE_PICKER, false));
   const choose = (v: number) => { setPain(v); setMoved(true); };
   const [quality, setQuality] = useState<string[]>(edit && edit.q ? edit.q.slice() : []);
   const [loc, setLoc] = useState<string[]>(edit && edit.loc ? edit.loc.slice() : []);
@@ -1138,13 +1143,24 @@ export default function CheckinScreen({
       <View style={styles.bottom}>
         {step === 'pain' && (
           <>
-            <Slider
-              value={pain}
-              onChange={choose}
-              progress={progress}
-              accessibilityLabel="Pain right now, 0 to 10"
-              accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
-            />
+            {squares ? (
+              <SquarePicker
+                value={pain}
+                chosen={moved}
+                onChange={choose}
+                progress={progress}
+                accessibilityLabel="Pain right now, 0 to 10"
+                accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
+              />
+            ) : (
+              <Slider
+                value={pain}
+                onChange={choose}
+                progress={progress}
+                accessibilityLabel="Pain right now, 0 to 10"
+                accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
+              />
+            )}
             <View style={styles.ends}>
               <Text style={styles.endText}>{PAIN_END_LOW.toUpperCase()}</Text>
               <Text style={styles.endText}>{PAIN_END_HIGH.toUpperCase()}</Text>
