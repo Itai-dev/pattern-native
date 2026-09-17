@@ -232,6 +232,53 @@ older binaries take the catch and live without it, exactly as HealthKit and
 expo-glass-effect did, so that everyone keeps receiving the same over-the-air
 updates and the runtime version does not move.
 
+## An account, and a copy we cannot read · decided 17 Sep 2026
+
+*This is the rewrite AGENTS.md requires before the code. The design is
+`docs/ACCOUNTS.md`.*
+
+**The promise moves by one centimetre, for the second time.** It was
+"nothing you told us about your body ever leaves the phone". It becomes:
+**nothing you told us about your body leaves the phone in a form anyone
+else can read.** An optional account may hold a copy of the record,
+encrypted on the device under a key we never see and cannot derive. We hold
+ciphertext, addressed by an Apple user identifier, and nothing else.
+
+**What forced it.** The 15 Sep answer — the record rides the phone's own
+iCloud or computer backup — covers a lost or replaced phone and does not
+cover delete and reinstall on the same phone, which is the failure that
+actually happened to a tester and which every external tester meets on a
+ninety-day TestFlight clock. The remaining mitigation is a file the person
+has to have chosen to save, in advance, while in pain. That is the same
+sentence as "the user should have known", which this file has already
+rejected once.
+
+**Why this version and not the other one.** A server that can read the
+record would give us multi-device sync and aggregate insight into how the
+app is really used. It would also make us the holder of a readable pain
+history for every user, turn a breach into a disclosure of exactly the
+thing people were promised would never travel, and spend the strongest
+card the product holds. Encrypting on the device buys the failure we
+actually need fixed and keeps the claim honest, at the price of never being
+able to look inside. That price is the point: a promise we are technically
+incapable of breaking is worth more than one we merely intend to keep.
+
+**What it costs, and none of it is hidden.** The App Store listing stops
+saying "Data Not Collected", because Apple counts transmission off the
+device as collection whether or not we can read it. We become a controller
+of special-category data, with a processor agreement, deletion on request
+and breach duties — mitigated by a breach yielding ciphertext, not removed.
+And two sentences we currently publish stop being true, so the policy, the
+labels and the site change **at release and not before**: a promise
+rewritten early is just a different lie.
+
+**What is not on the table, and is not becoming so.** Reading the record
+server-side, for support, for debugging, for analytics, or to build the
+product. Analytics stays counts-only under the closed event list. If the
+day comes that aggregate data is genuinely needed, the thing to collect is
+a derived finding a person opted into sending, never their days — and that
+is another rewrite of this section, not an extension of this one.
+
 ## Known commercial facts
 
 - App Store display name "Pattern" is taken; a distinct store name is needed

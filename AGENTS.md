@@ -182,10 +182,21 @@ is their read of their own day. It is recorded and shown as that, and never
 fed to the engine — there are no good-sleep days in a list of days they blamed
 sleep. The graded question is the version with something to compare against.
 
-**Nothing you told it about your body leaves the phone.** The health record is
-local SQLite. Analytics count that something happened, never what it said —
-a closed event list, values capped at 24 characters, opt-out in Profile.
-Changing that means rewriting `docs/POSITIONING.md` first.
+**Nothing you told it about your body leaves the phone in a form anyone
+else can read.** The health record is local SQLite. Analytics count that
+something happened, never what it said — a closed event list, values
+capped at 24 characters, opt-out in Profile. Changing that means rewriting
+`docs/POSITIONING.md` first.
+
+As of 17 Sep 2026 the promise is deliberately narrower than "nothing
+leaves", because an encrypted copy was decided on: an optional account may
+hold a copy of the record that **the server cannot read**, encrypted on the
+device under a key that never leaves it. `docs/ACCOUNTS.md` is the design.
+Until that ships, the shipped promise is still the absolute one and the
+policy, the store labels and the site all say so — do not soften any of
+them ahead of the code. What never changes, before or after: no plaintext
+of the health record exists anywhere but the phone, and no support,
+debugging or analytics path is allowed to create one.
 
 **Thresholds are named and justified.** They live in `src/thresholds.ts` with
 the arithmetic that argues for them. Do not inline a number that decides what
