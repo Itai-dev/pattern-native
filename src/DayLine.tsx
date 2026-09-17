@@ -26,9 +26,20 @@
  * build, which cannot reach a tester over the air. A segment is a thin
  * View rotated about its own centre — origin-independent arithmetic, so
  * it does not depend on transformOrigin being honoured.
+ *
+ * INTERACTIVE WHEN ASKED. With onSelect the chart becomes the list: a
+ * tap lands on the nearest dot and the caller shows that moment. One
+ * pressable over the whole plot, picking the nearest dot within reach,
+ * rather than a hit target per dot — two check-ins twenty minutes apart
+ * are four points apart on this axis, and stacked targets would give
+ * every such tap to whichever was drawn last. VoiceOver gets the same
+ * chart as one adjustable element: swipe up or down steps through the
+ * check-ins in time order, and the value read out is the one the card
+ * below is showing. Events are small neutral marks on the floor of the
+ * plot, at their minute — not a value, so not a colour.
  */
 import React, { useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Moment } from './model';
 import { fmtClock } from './clock';
 import { formatScore, painColor, speakScore } from './painScale';
@@ -54,6 +65,14 @@ const GRID = [10, 5, 0];
  *  as a fatter dot, then a stroke at the thread's weight so the two
  *  neutral marks on this chart agree with each other */
 const RING_GAP = 3, RING_W = 2;
+
+/** how far from a dot a tap may land and still choose it. Half a
+ *  44-point target: Apple's minimum, measured from the dot's centre. */
+const REACH = 22;
+
+/** an event's mark on the floor of the plot: a small neutral square,
+ *  the same shape the day squares wear and none of their colour */
+const EV_W = 7;
 
 /** how many marks make a dotted rule at card width. Fixed rather than
  *  derived: a count that changed with width would make the same rule look
@@ -90,10 +109,15 @@ export interface DayLineProps {
    *  user never gave. Every dot keeps its own colour; the ring is
    *  white because "this one is the latest" is not a pain value. */
   highlightH?: number;
+  /** a dot was tapped (or stepped to, under VoiceOver). Its presence
+   *  makes the chart interactive; highlightH then rings the selection. */
+  onSelect?: (h: number) => void;
+  /** events to mark on the floor of the plot, by minute */
+  events?: { h: number; label: string }[];
 }
 
 export default function DayLine({
-  logs, height, dot = 12, grid, axis, highlightH,
+  logs, height, dot = 12, grid, axis, highlightH, onSelect, events,
 }: DayLineProps) {
   /* measured rather than computed from window width: this draws inside
      two different cards at two different widths, and a chart that has to
@@ -121,10 +145,50 @@ export default function DayLine({
         + fmtClock(pts[pts.length - 1].h) + ', from '
         + formatScore(pts.reduce((m, p) => (p.pain < m ? p.pain : m), 10)) + ' to '
         + formatScore(pts.reduce((m, p) => (p.pain > m ? p.pain : m), 0))
-        + (highlightH != null ? ', the latest at ' + fmtClock(highlightH) : '');
+        /* the ring is the selection on the interactive chart, and the
+           value below says which; "the latest" is only true of the
+           classic one */
+        + (highlightH != null && !onSelect ? ', the latest at ' + fmtClock(highlightH) : '');
+
+  /* the tap: nearest dot within REACH, by distance in points, or nothing */
+  const pick = (px: number, py: number) => {
+    if (!onSelect) return;
+    let best: Moment | undefined, bestD = REACH * REACH;
+    for (const p of pts) {
+      const dx = x(p.h) - px, dy = y(p.pain) - py;
+      const d = dx * dx + dy * dy;
+      if (d <= bestD) { bestD = d; best = p; }
+    }
+    if (best) onSelect(best.h);
+  };
+  /* the rotor: step to the neighbour in time, from the ringed dot or
+     from the newest when nothing is ringed */
+  const step = (dir: 1 | -1) => {
+    if (!onSelect || !pts.length) return;
+    const at = pts.findIndex((p) => p.h === highlightH);
+    const from = at < 0 ? pts.length - 1 : at;
+    const to = Math.max(0, Math.min(pts.length - 1, from + dir));
+    if (to !== from) onSelect(pts[to].h);
+  };
+  const ringed = highlightH != null ? pts.find((p) => p.h === highlightH) : undefined;
+  const eventsSpoken = events && events.length
+    ? '. ' + events.map((e) => e.label + ' at ' + fmtClock(e.h)).join(', ')
+    : '';
 
   return (
-    <View accessible accessibilityLabel={spoken}>
+    <View
+      accessible
+      accessibilityLabel={spoken + eventsSpoken}
+      accessibilityRole={onSelect ? 'adjustable' : undefined}
+      accessibilityValue={onSelect && ringed
+        ? { text: fmtClock(ringed.h) + ', ' + speakScore(ringed.pain) } : undefined}
+      accessibilityHint={onSelect ? 'Swipe up or down for another check-in' : undefined}
+      accessibilityActions={onSelect ? [{ name: 'increment' }, { name: 'decrement' }] : undefined}
+      onAccessibilityAction={onSelect ? (e) => {
+        if (e.nativeEvent.actionName === 'increment') step(1);
+        else if (e.nativeEvent.actionName === 'decrement') step(-1);
+      } : undefined}
+    >
       <View style={styles.body}>
         {grid && (
           <View style={[styles.gutter, { height }]}>
@@ -173,6 +237,17 @@ export default function DayLine({
             );
           })}
 
+          {/* events on the floor of the plot, under everything: a mark
+              says "something was logged at this minute" and nothing about
+              the dots above it */}
+          {w > 0 && events && events.map((e, i) => (
+            <View
+              key={'ev' + e.h + '-' + i}
+              pointerEvents="none"
+              style={[styles.evMark, { left: x(e.h) - EV_W / 2 }]}
+            />
+          ))}
+
           {/* the ring sits UNDER the dots, so the latest dot's own colour
               stays whole on top of it and the ring never tints a value */}
           {w > 0 && highlightH != null && pts.some((p) => p.h === highlightH) && (() => {
@@ -212,6 +287,16 @@ export default function DayLine({
               ]}
             />
           ))}
+
+          {/* the tap surface, over the dots and the whole plot: see pick */}
+          {w > 0 && onSelect && (
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={(e) => pick(e.nativeEvent.locationX, e.nativeEvent.locationY)}
+              accessible={false}
+              importantForAccessibility="no"
+            />
+          )}
         </View>
       </View>
 
@@ -255,6 +340,10 @@ const styles = StyleSheet.create({
   ring: {
     position: 'absolute',
     borderWidth: RING_W, borderColor: 'rgba(255,255,255,0.9)',
+  },
+  evMark: {
+    position: 'absolute', bottom: 0, width: EV_W, height: EV_W, borderRadius: 2,
+    backgroundColor: color.textSecondary,
   },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   axisInset: { marginLeft: GUTTER_W },
