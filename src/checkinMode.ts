@@ -3,6 +3,13 @@
  * number and then where it hurts and the rest — inferred from what the
  * person actually did last time, never from a settings page.
  *
+ * RETIRED FROM THE FLOW ON 17 SEP 2026. The check-in is one question
+ * now (CheckinScreen) and the rest is the Add information sheet, so
+ * there is no lead to learn; nothing reads or writes PREF_CHECKIN_MODE
+ * any more. The module and its tests stay: the pref may still sit on
+ * phones, and the argument below is the one to reread if a second
+ * button ever returns.
+ *
  * "As much or as little as I can today" is the ask, and a setting is the
  * wrong answer to it: on a bad day nobody opens Profile to turn the
  * questions off, they just stop answering them, and on a good week they

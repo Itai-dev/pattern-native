@@ -36,6 +36,16 @@
  * caveat that qualifies them sits directly under the pager where it can
  * wrap to any size Dynamic Type asks for.
  *
+ * THE CALENDAR IS A VIEW OF THIS SCREEN. Every day, month by month, sat
+ * at the foot of the Patterns page behind a fold until 17 Sep 2026 —
+ * the way to any day, on the page that is about what the days add up
+ * to rather than about a day. It is here now, behind a Day / Calendar
+ * switch under the title: tapping Today's card opens the day, and the
+ * calendar is the other way of looking at which day. A square picks a
+ * day and the switch flips back to it. The pager is unmounted while the
+ * calendar shows, and comes back on the day picked — its window widens
+ * to reach a day older than the ninety it keeps by itself.
+ *
  * TWO BODIES, ONE SWITCH. With "Today in layers" on (Profile ▸
  * Appearance) the chart is the list: the dots take taps, the one tapped
  * reads back in a card under the pager (DayMoments), and the rows the
@@ -46,7 +56,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, ScrollView,
+  FlatList, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Pressable, ScrollView,
   StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import Animated, {
@@ -55,6 +65,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DayLine from './DayLine';
+import MapScreen from './MapScreen';
 import DayDetail from './DayDetail';
 import DayMoments from './DayMoments';
 import { shownH } from './dayGlance';
@@ -153,9 +164,10 @@ export interface DayScreenProps {
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: (dateIso: string) => void;
   onClose: () => void;
-  /** the day's note, as a sheet — the layered body's note row opens it.
-   *  The classic body keeps its inline editor. */
-  onEditNote: (dateIso: string) => void;
+  /** the Add information sheet — the layered body's note row and its
+   *  "Add information" action open it, on the day and, from a tapped
+   *  dot, on that check-in. The classic body keeps its inline note. */
+  onAddInfo: (dateIso: string, h?: number) => void;
 }
 
 /* ── one figure of three ────────────────────────────────────── */
@@ -278,9 +290,14 @@ function DayPage({
 }
 
 export default function DayScreen({
-  entries, dateIso, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, onClose, onEditNote,
+  entries, dateIso, onChanged, onAddLog, onEditLog, onEditEvent, onAddEvent, onClose, onAddInfo,
 }: DayScreenProps) {
   const t = todayISO();
+  /* the two views of the screen — see the header */
+  const [view, setView] = useState<'day' | 'calendar'>('day');
+  /* the oldest day the pager has been asked to reach: the day it opened
+     on, until the calendar picks an older one */
+  const [reach, setReach] = useState(dateIso);
   /* read once, at mount: the screen is built fresh on every open, and a
      body that changed shape under a finger mid-swipe would be worse than
      one that waits for the next open */
@@ -305,14 +322,20 @@ export default function DayScreen({
   /* Oldest first, today last — so the pager's resting place is the
      right-hand end and swiping right goes back in time, the direction a
      calendar runs and the direction the calendar in Record already scrolls. */
-  const days = useMemo(() => {
+  /* how many pages the window holds once it must reach `to` — a pure
+     function of the record, so a calendar pick can compute the index it
+     lands on in the same render that widens the window */
+  const pagesTo = useCallback((to: string) => {
     const keys = Object.keys(entries).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
     const first = keys.length ? keys[0] : t;
-    const oldest = dateFromISO(first < dateIso ? first : dateIso);
+    const oldest = dateFromISO(first < to ? first : to);
     const span = Math.round((dateFromISO(t).getTime() - oldest.getTime()) / 86400000) + 1;
     /* the pages needed to reach the opened day, whatever the cap */
-    const toDate = Math.round((dateFromISO(t).getTime() - dateFromISO(dateIso).getTime()) / 86400000) + 1;
-    const n = Math.max(1, Math.min(span, Math.max(MAX_PAGES, toDate)));
+    const toDate = Math.round((dateFromISO(t).getTime() - dateFromISO(to).getTime()) / 86400000) + 1;
+    return Math.max(1, Math.min(span, Math.max(MAX_PAGES, toDate)));
+  }, [entries, t]);
+  const days = useMemo(() => {
+    const n = pagesTo(reach);
     const out: string[] = [];
     for (let i = n - 1; i >= 0; i--) {
       const d = dateFromISO(t);
@@ -320,7 +343,7 @@ export default function DayScreen({
       out.push(iso(d));
     }
     return out;
-  }, [entries, t, dateIso]);
+  }, [pagesTo, t, reach]);
 
   const last = days.length - 1;
   const itemW = width - SIDE * 2;
@@ -366,6 +389,23 @@ export default function DayScreen({
 
   const scrollX = useSharedValue(start * itemW);
   const page = useSharedValue(start);
+
+  /* a square on the calendar: widen the window if the day is older than
+     it, land the pager on that day, and show the day. The pager is
+     unmounted behind the calendar, so it remounts on `at` — no scroll
+     to animate, and the shared values are set to match so the card
+     arrives at full size rather than sliding in from a neighbour. */
+  const pickDay = useCallback((d: string) => {
+    const r = d < reach ? d : reach;
+    const n = pagesTo(r);
+    const i = n - 1 - Math.round((dateFromISO(t).getTime() - dateFromISO(d).getTime()) / 86400000);
+    const idx = Math.max(0, Math.min(n - 1, i));
+    setReach(r);
+    setAt(idx);
+    scrollX.value = idx * itemW;
+    page.value = idx;
+    setView('day');
+  }, [reach, pagesTo, t, itemW]);
   const onScroll = useAnimatedScrollHandler((ev) => {
     scrollX.value = ev.contentOffset.x;
     const i = Math.round(ev.contentOffset.x / itemW);
@@ -454,11 +494,12 @@ export default function DayScreen({
           allowFontScaling
           maxFontSizeMultiplier={1.2}
         >
-          {fmtDay(onDate)}
+          {view === 'day' ? fmtDay(onDate) : 'Every day'}
         </Text>
         {/* one tap out of a pager you can swipe a long way into — the same
-            control the record carries, and only once you have gone somewhere */}
-        {onDate !== t && (
+            control the record carries, and only once you have gone somewhere.
+            Not on the calendar: its newest month is already at the top. */}
+        {view === 'day' && onDate !== t && (
           <Press
             onPress={jumpToToday}
             pressOpacity={0.7}
@@ -477,6 +518,41 @@ export default function DayScreen({
           hold. The pager is a bounded object inside it — sideways on the
           card is another day, sideways on a row is delete, and the two
           gestures never meet because one is not inside the other. */}
+      {/* Day or Calendar: a segmented control in the page gutter, the
+          same control the record's range uses. Neutral fills — a view
+          switch is not a pain value. */}
+      <View style={styles.segment} accessibilityRole="tablist">
+        {([['day', 'Day'], ['calendar', 'Calendar']] as const).map(([k, label]) => {
+          const on = view === k;
+          return (
+            <Pressable
+              key={k}
+              onPress={() => setView(k)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={label}
+              style={({ pressed }) => [
+                styles.segItem, on && styles.segItemOn, pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Text style={[styles.segText, on && styles.segTextOn]}
+                allowFontScaling maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {view === 'calendar' ? (
+        /* every day, month by month, newest first — a square opens its
+           day in the view beside this one */
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.page}>
+          <View style={styles.calendar}>
+            <MapScreen entries={entries} onDayPress={pickDay} />
+          </View>
+        </ScrollView>
+      ) : (
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.page}
@@ -501,7 +577,10 @@ export default function DayScreen({
         disableIntervalMomentum
         decelerationRate="fast"
         contentContainerStyle={{ paddingHorizontal: SIDE }}
-        initialScrollIndex={start}
+        /* the page it was on, not the page it opened on: the list is
+           remounted after the calendar, and must come back to the day
+           the calendar picked */
+        initialScrollIndex={at}
         getItemLayout={(_: unknown, i: number) => ({ length: itemW, offset: itemW * i, index: i })}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -556,7 +635,7 @@ export default function DayScreen({
           onChanged={onChanged}
           onAddLog={() => onAddLog(onDate)}
           onEditLog={(m) => onEditLog(onDate, m)}
-          onEditNote={() => onEditNote(onDate)}
+          onAddInfo={(h) => onAddInfo(onDate, h)}
           onEditEvent={onEditEvent}
           onAddEvent={() => onAddEvent(onDate)}
         />
@@ -572,6 +651,7 @@ export default function DayScreen({
         />
       )}
       </ScrollView>
+      )}
     </Animated.View>
   );
 }
@@ -601,6 +681,23 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   todayBtn: { minHeight: 38, justifyContent: 'center', paddingLeft: 6 },
+  /* the Day / Calendar switch — the record's own segment, to the pixel */
+  segment: {
+    flexDirection: 'row', gap: 4, padding: 4,
+    marginHorizontal: size.pageX, marginBottom: 12,
+    borderRadius: radius.segmentTrack, borderCurve: 'continuous',
+    backgroundColor: color.bgSurface,
+  },
+  segItem: {
+    flex: 1, minHeight: 36, borderRadius: radius.segment, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8,
+  },
+  segItemOn: { backgroundColor: color.bgSegmentActive },
+  segText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
+  segTextOn: { color: color.textPrimary },
+  /* the calendar measures its cells against the page gutter, so it is
+     given exactly that gutter */
+  calendar: { paddingHorizontal: size.pageX },
   todayText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   pager: { flexGrow: 0 },
   /* room for the last line to clear the floating tab bar, which this

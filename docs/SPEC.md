@@ -163,8 +163,13 @@ Three tabs.
 
 ### Today — act
 - Primary action: Log pain
-- **Last check-in** — the latest moment: its value, its word, its time, its
-  quality and body-area tags. Opens the day detail, where editing lives.
+- **Today** — the latest moment: its value, its word, its time, its quality
+  and body-area tags, and the day's note. Opens the day detail, where editing
+  lives. (Titled *Last check-in* until 17 Sep 2026; the title said one
+  check-in and the tap opened the whole day.) Its foot row, **Add
+  information**, opens the sheet holding everything the check-in no longer
+  asks: where, how it feels, what else is going on, the evening's questions,
+  the note, and the door to a flare or treatment.
 - **Today so far** — today's check-ins drawn against the clock, and one
   sentence reading the latest against the first of the same day (never
   against another day, and never below `DAY_SHAPE_MIN_DELTA`). Opens
@@ -177,6 +182,9 @@ Three tabs.
 
 Reached from Today so far. The chart on a fixed midnight-to-midnight axis,
 the day's average, range and check-in count, and the check-ins themselves.
+A **Day / Calendar** switch under the title shows every day, month by month,
+in place of the pager; a square picks a day and the switch flips back to it.
+The calendar lived at the foot of Trends until 17 Sep 2026.
 
 *The only screen in the app that swipes between days*, one day per page.
 Today deliberately does not: it is where you act, and Log always means now.
@@ -199,7 +207,8 @@ Everything Pattern knows because you told it. No inference anywhere on this scre
 
 *Named Map, not History. Earlier drafts of this spec said History; the repo has called the
 calendar the Map since commit `3bf5f0a` ("act on Today, reflect on the Map"), the screen and
-the glyph are built around it, and there was no reason beyond my own habit to rename it.*
+the glyph are built around it, and there was no reason beyond my own habit to rename it.
+Since 17 Sep 2026 it is the Calendar view of the day screen, not a section of Trends.*
 - Calendar coloured by daily average pain
 - Gaps visibly empty; multiple moments as a count or dots
 - Day detail: every timestamped log, its context, body areas, quality words, day-scoped
@@ -278,49 +287,45 @@ answer is analysed, compared or sent — analytics counts only whether the scree
 
 ## 7. Daily check-in
 
-Pain alone in a few seconds; pain plus both factors under 20 seconds; the full optional sheet
-under ~35.
+One question, in a few seconds. Everything else is added afterwards, from Today.
 
-### Step 1 — Baseline pain (mandatory)
+### The one screen — pain (mandatory)
 
-> How is your pain right now?
+> What is your pain level?
 
 0–10 integer slider · 0 No pain · 1–3 Mild · 4–6 Moderate · 7–9 Severe · 10 Most intense.
 Full-width, 44pt minimum, integer snapping, light haptic on change, one animated pain square
-with continuous colour interpolation. The primary action stays disabled until the user
-intentionally chooses a value.
+with continuous colour interpolation. The slider parks at five and the square is live from
+the first frame; **Done** stays disabled until the slider has been touched, because a five
+nobody chose is not a number the record should hold. A back arrow, top left, leaves
+without writing.
 
-**Log pain** → a timestamped record immediately, with UTC instant and offset. Complete even if
-the user stops here.
+**Done** → a timestamped record immediately, with UTC instant and offset. Complete. The
+confirmation is a tick, nothing else.
 
-**Also right now** — five chips under the number, on the same screen: fatigue, brain fog,
-slept badly, stiffness, low mood. The bad-day path: one slide, a tap or two, no typing, no
-second screen. They are *associated symptoms* (SOCRATES "A"), recorded per moment and shown
-back as what was marked; never attributions, never fed to the engine. Tri-state on the
-moment (`sym`, `symAsked`): never asked (the watch, older moments), asked and nothing
-applied, answered. A pain-only check-in is complete without them, and nothing says otherwise.
+*Until 17 Sep 2026 the flow ran three screens — the number, where it hurt, and "About
+today" — with a learned lead (`src/checkinMode.ts`) deciding whether the first button said
+Log it or Continue. The module stays; nothing drives it.*
 
-**Quick or detailed.** The pain step leads with one of two buttons — *Log it* or *Continue*
-— and which one is filled is learned, never set: three quick check-ins in a row and the
-number leads; one walk into the details and Continue leads next time. A two-segment switch
-under the title makes the same choice by hand. Before anything is learned the old rule holds
-(the number leads, except in the evening when the limitation question does). The count that
-decides this is never shown and is not a streak (`src/checkinMode.ts`,
-`QUICK_DEFAULT_AFTER`).
+### Add information — from Today's card, never from the check-in
 
-### Step 2 — The two active factors
+> Add information
 
-Shown only if a protocol is active, and only for factors this moment is eligible to answer.
-Optional, individually skippable, consistent in wording and scale for the period.
+One sheet, opened from the foot of Today's card (and from a check-in on the day page):
+**where** in the body (usual places first, every place in sections behind a fold) · **how it
+feels** (SOCRATES "Character" words) · **also right now** (fatigue, brain fog, stiffness —
+associated symptoms, recorded per moment, never attributions, never fed to the engine) · the
+**evening's questions** while due (how much pain limited the day; the experiment's question)
+· the day's **note** · the door to a **flare or treatment**. Never mandatory; the interface
+must never call a pain-only entry incomplete. Where, the words and the symptoms attach to
+the check-in the sheet names at the top — the day's latest, or the dot tapped on the day page.
 
-### Step 3 — Optional context
+Tri-state is kept: Done with nothing tapped under Where is "asked, nothing picked"
+(`locAsked`, `qAsked`, `symAsked`). The evening's questions are the exception — a
+question left alone in this sheet is *not* recorded as declined, because the sheet was
+opened to add something else; it stays due.
 
-> Add context
-
-Pain quality words · body areas · what you tried · a short note. Never mandatory. The
-interface must never call a pain-only entry incomplete.
-
-### 7.1 Timing eligibility
+### 7.1 Timing eligibility (the evening's questions, in the Add information sheet)
 
 Personalized factors and timing windows must **compose**. If sleep is a chosen factor asked at
 21:00, the rating is a recall made after a full day of pain — contaminated by the outcome it

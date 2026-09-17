@@ -3,12 +3,15 @@
  * and the one action that matters. The record lives in Trends, the month
  * on the Map, the day itself one tap away — act here, look there.
  *
- * TWO CARDS, AND EACH ANSWERS ONE QUESTION. "Last check-in" answers "what
- * did I say, and when" — the thing a person opening this app at four in
+ * TWO CARDS, AND EACH ANSWERS ONE QUESTION. "Today" answers "what did I
+ * last say, and when" — the thing a person opening this app at four in
  * the afternoon actually wants and previously had to work out from a
  * daily average and a list. It says all of it: every area, every
  * quality word, the where in their own words, and a skip shown as the
- * answer it is. "Today so far" answers "what has the day done", in the
+ * answer it is. It was titled "Last check-in" until 17 Sep 2026, and
+ * the title lied about the tap: the card opens the WHOLE day, so it is
+ * named for the day and the time of the latest check-in sits beside the
+ * name as a fact. "Today so far" answers "what has the day done", in the
  * only comparison the record can make honestly before the day is over:
  * this against the first check-in of the same day — and only once there
  * is a second check-in to compare, because a chart of one dot is the
@@ -161,11 +164,11 @@ export interface HomeScreenProps {
   onLog: () => void;
   /** the day detail — where editing, deleting and events live */
   onOpenDay: (dateIso: string) => void;
-  /** the same day detail, opened onto today's note. One note per day,
-   *  not per check-in: a third kind of note would be one more thing to
-   *  store, back up and print, and "add a note" from here is the day's
-   *  note offered where the user already is. */
-  onAddNote: () => void;
+  /** the Add information sheet, for today: where it hurts, how it
+   *  feels, what else is going on, the evening's questions and the
+   *  note — everything the check-in no longer asks, offered where the
+   *  number already is */
+  onAddInfo: () => void;
   /** Pain through the day, opened on today */
   onOpenToday: () => void;
   /** the Background sheet, offered from here once a record exists */
@@ -212,7 +215,7 @@ export interface HomeScreenProps {
 }
 
 export default function HomeScreen({
-  entries, activity, onActivityChange, insight, onOpenRecord, onLog, onOpenDay, onAddNote, onOpenToday,
+  entries, activity, onActivityChange, insight, onOpenRecord, onLog, onOpenDay, onAddInfo, onOpenToday,
   onOpenBackground, onOpenDiagnosis, onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
@@ -239,9 +242,11 @@ export default function HomeScreen({
   const dayOnly = !latest ? legacyDayValue(entry) : null;
   const value = latest ? latest.pain : dayOnly;
   const details = latest ? detailsOf(latest) : [];
-  /* the day's note, read from the entry — shown as a line so the user
-     knows one exists before tapping to add another */
+  /* the day's note, read from the entry, as the last of the rows: the
+     card shows everything the day has said, and the foot row below is
+     the one door to adding more of it */
   const note = entry && entry.note ? entry.note : '';
+  if (note) details.push({ label: 'Note', chips: [], quote: note });
 
   /* the same slow, shallow breath the pain shape and the Logged square
      carry — presence, not decoration. ±2.5% over 2.6s; still under
@@ -440,19 +445,21 @@ export default function HomeScreen({
           pressOpacity={0.92}
           style={styles.card}
           accessibilityRole="button"
-          accessibilityLabel={(latest ? 'Last check-in, ' + fmtClock(latest.h) + ', ' : 'Today, ')
-            + speakScore(value)
+          accessibilityLabel={'Today, ' + speakScore(value)
+            + (latest ? ', last check-in ' + fmtClock(latest.h) : '')
             + (details.length ? '. ' + speakDetails(details) : '')}
           accessibilityHint="Opens the day’s detail, where you can edit or remove it"
         >
           <View style={styles.head}>
             <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {latest ? 'Last check-in' : 'Today'}
+              Today
             </Text>
             <View style={styles.headRight}>
+              {/* the latest check-in's time, as a fact beside the name
+                  rather than as the name — the tap opens the day */}
               {!!latest && (
                 <Text style={styles.headTime} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {fmtClock(latest.h)}
+                  Last check-in {fmtClock(latest.h)}
                 </Text>
               )}
               <Text style={styles.chev} allowFontScaling={false}>›</Text>
@@ -544,36 +551,24 @@ export default function HomeScreen({
             </View>
           )}
 
-          {/* the day's note, or the way to start one. Its own press
-              inside the card's: the inner responder wins, so this row
-              opens the note sheet and the rest of the card opens the day
-              as before. */}
+          {/* the door to everything the check-in no longer asks — where,
+              how it feels, what else, the evening's questions, the note.
+              Its own press inside the card's: the inner responder wins,
+              so this row opens the sheet and the rest of the card opens
+              the day as before. It used to say "Add a note about today"
+              and open the note alone. */}
           <View style={styles.rule} />
           <Press
-            onPress={onAddNote}
+            onPress={onAddInfo}
             pressOpacity={0.7}
             style={styles.foot}
             accessibilityRole="button"
-            accessibilityLabel={note ? 'Your note: ' + note : 'Add a note about today'}
-            accessibilityHint={note ? 'Opens the note to edit' : 'Opens a sheet to write the note'}
+            accessibilityLabel="Add information"
+            accessibilityHint="Opens a sheet: where it hurts, how it feels, and a note"
           >
-            {note ? (
-              <>
-                <Text
-                  style={styles.noteLine} numberOfLines={1}
-                  allowFontScaling maxFontSizeMultiplier={1.3}
-                >
-                  “{note}”
-                </Text>
-                <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  Edit
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Add a note about today
-              </Text>
-            )}
+            <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Add information ›
+            </Text>
           </Press>
         </Press>
       ) : (
