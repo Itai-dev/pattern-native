@@ -536,7 +536,7 @@ ok('a full day reads in order, formatted for humans', (() => {
     && t[1] === '4,810 steps'
     && t[2] === '3.5 km on foot'
     && t[3] === '413 kcal active energy'
-    && t[4] === '45 min workout'
+    && t[4] === '45 min workout — running'
     && t[5] === 'Resting heart rate 61'
     && t[6] === 'HRV 38 ms';
 })());
@@ -545,14 +545,14 @@ ok('missing categories are missing lines, never zeros', (() => {
   return lines.length === 1 && lines[0].key === 'steps'
     && context.healthDayLines(null).length === 0;
 })());
-ok('several workouts summarize as a count and a total', (() => {
+ok('several workouts summarize as a count and a total, named by what they were', (() => {
   const lines = context.healthDayLines(hday('2026-08-20', {
     workouts: [
       { uuid: 'a', h: 540, minutes: 30, activity: 'run' },
       { uuid: 'b', h: 1000, minutes: 33, activity: 'walk' },
     ],
   }));
-  return lines.length === 1 && lines[0].text === '2 workouts · 1h 3m total';
+  return lines.length === 1 && lines[0].text === '2 workouts · 1h 3m total — run, walk';
 })());
 
 group('upright time — standing measured, sitting never inferred');

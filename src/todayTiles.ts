@@ -18,6 +18,7 @@
  */
 import { HealthDay } from './health/types';
 import { healthDayLines } from './health/context';
+import { workoutSummary } from './health/workoutNames';
 
 /** the Profile switch. Off by default: the current Today is what ships
  *  until the comparison says otherwise. */
@@ -25,10 +26,12 @@ export const PREF_TODAY_LAYERED = 'today.layered';
 
 export interface ContextTile {
   key: 'sleep' | 'steps' | 'workouts';
+  /** "Slept", "Steps", "Workout", "2 workouts" — a count is a label */
   label: string;
   /** the measured value, short: "6h 40m", "8,210", "45 min" */
   value: string;
-  /** the remark against the person's usual, or '' when there is none */
+  /** the remark: against the person's usual for sleep and steps, or
+   *  what the workout was ("swimming"); '' when there is none */
   sub: string;
 }
 
@@ -37,7 +40,6 @@ export interface ContextTile {
 const CUTS: { key: ContextTile['key']; label: string; ends: string[] }[] = [
   { key: 'sleep', label: 'Slept', ends: [' asleep the night before', ' in bed the night before'] },
   { key: 'steps', label: 'Steps', ends: [' steps'] },
-  { key: 'workouts', label: 'Workout', ends: [' workout', ' total'] },
 ];
 
 /** a healthDayLines sentence → value and remark. The remark is what
@@ -65,9 +67,17 @@ export function contextTiles(
     if (!line) return;
     const { value, sub } = splitLine(line.text, ends);
     if (!value) return;
-    /* "2 workouts · 1h 30m" keeps its middle dot: two sessions is a fact
-       worth the width */
-    out.push({ key, label: key === 'workouts' && value.indexOf('·') >= 0 ? 'Workouts' : label, value, sub });
+    out.push({ key, label, value, sub });
   });
+  /* the workout tile is not cut from its sentence: the time is the value
+     ("39 min"), the count is the label ("2 workouts") and the activity is
+     the remark ("swimming, walking"). The first version put the count and
+     the time together in the value and it shrank to fit — a tile that
+     reads smaller than its neighbours reads as less true. */
+  const ws = workoutSummary(day ? day.workouts : undefined, (min) => {
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
+    return h === 0 ? m + ' min' : h + 'h' + (m ? ' ' + m + 'm' : '');
+  });
+  if (ws) out.push({ key: 'workouts', label: ws.label, value: ws.value, sub: ws.kinds });
   return out;
 }

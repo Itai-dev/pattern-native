@@ -306,10 +306,12 @@ ok('the last dose within the dose window and a workout that ended within three h
   const d = { date: TODAY, doses: [
     { h: 8 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken', qty: 400, unit: 'mg' },
     { h: 13 * 60 + 40, medId: 'ibu', med: 'Ibuprofen', status: 'taken', qty: 400, unit: 'mg' },
-  ], workouts: [{ uuid: 'a', h: 12 * 60, minutes: 40, activity: 'x' }], coverage: { medications: true, workouts: true } };
+  ], workouts: [{ uuid: 'a', h: 12 * 60, minutes: 40, activity: '46' }], coverage: { medications: true, workouts: true } };
   const lines = ctx.healthNowHint(d, 15 * 60);
+  /* the hint names the activity: "after a swim" is the fact a check-in
+     is recorded with, not "after a workout" */
   return lines.length === 2 && lines[0] === 'Apple Health: Ibuprofen 400 mg, 1h 20m ago'
-    && lines[1] === 'Apple Health: 40 min workout, ended 2h 20m ago';
+    && lines[1] === 'Apple Health: 40 min swimming, ended 2h 20m ago';
 })());
 ok('nothing recent, nothing said; a dose in the future (a later check-in) is not "ago"', (() => {
   const d = { date: TODAY, doses: [{ h: 16 * 60, medId: 'ibu', med: 'Ibuprofen', status: 'taken' }], coverage: { medications: true } };
