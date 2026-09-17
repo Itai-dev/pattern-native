@@ -6,14 +6,22 @@ import { color, font, radius } from './theme';
 
 /** An intention, not a target or a second daily measurement. Text stays
  *  local with the record and is included in the user's shared summary. */
-export default function ActivityIntention({ value, onChange, initiallyEditing = false }: {
+export default function ActivityIntention({ value, onChange, initiallyEditing = false, compact = false }: {
   value: string | null;
   onChange: (value: string) => void;
   initiallyEditing?: boolean;
+  compact?: boolean;
 }) {
   const [editing, setEditing] = useState(initiallyEditing);
   const [draft, setDraft] = useState(value || '');
   const save = (text: string) => { onChange(text.trim()); setEditing(false); };
+  if (!editing && compact) return (
+    <Press accessibilityRole="button" accessibilityLabel={'Edit what matters to you: ' + (value || '')}
+      onPress={() => { setDraft(value || ''); setEditing(true); }} style={styles.compact}>
+      <Text style={styles.body}>What matters: {value}</Text>
+      <Text style={styles.link}>Edit</Text>
+    </Press>
+  );
   if (!editing) return (
     <Press accessibilityRole="button" accessibilityLabel="Edit what you want to keep doing"
       onPress={() => { setDraft(value || ''); setEditing(true); }} style={styles.card}>
@@ -49,6 +57,8 @@ export default function ActivityIntention({ value, onChange, initiallyEditing = 
 }
 
 const styles = StyleSheet.create({
+  compact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexWrap: 'wrap', gap: 12, paddingHorizontal: 2 },
   card: { backgroundColor: color.bgSurface, borderRadius: radius.card, padding: 16,
     borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider },
   label: { color: color.textSecondary, fontSize: font.footnote, marginBottom: 6 },

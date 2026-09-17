@@ -3,7 +3,7 @@ import { DoseAssociation, doseCopy } from './health/doses';
 import { FirstDays, HealthProgress } from './health/noticed';
 import { formatScore } from './painScale';
 
-export interface TodayInsight { title: string; body: string; context: string; caveat: string; action: string }
+export interface TodayInsight { id: string; title: string; body: string; context: string; caveat: string; action: string }
 
 /** One useful door into the record. Early data is described as facts;
  *  only the shared engine can authorize an association sentence. */
@@ -13,11 +13,12 @@ export function todayInsight(record: {
 }): TodayInsight | null {
   const copy = (record.best && associationCopy(record.best))
     || (record.doses.best && doseCopy(record.doses.best));
-  if (copy) return { title: copy.title, body: copy.body,
+  if (copy) return { id: record.best ? record.best.kind : 'dose:' + record.doses.best!.medId, title: copy.title, body: copy.body,
     context: copy.sample + ' ' + copy.timing + (record.best?.basis === 'inBed' ? ' ' + IN_BED_NOTE : ''),
     caveat: copy.disclaimer, action: 'See the comparison' };
   const early = record.early[0];
   if (early) return {
+    id: early.kind,
     title: 'Your first comparisons are ready to look at',
     body: groupLabels(early.kind).factor + ' sits beside your pain check-ins across ' + early.pairedDays + ' paired days.',
     context: groupLabels(early.kind).timing,
@@ -28,9 +29,10 @@ export function todayInsight(record: {
   if (first) {
     const pair = first.pairs.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
     return {
+      id: first.kind,
       title: 'Your record is starting to connect',
       body: groupLabels(first.kind).factor + ': ' + factorLabel(first.kind, pair.factor)
-        + ', beside a pain check-in of ' + formatScore(pair.pain) + '/10.',
+        + ', beside a pain check-in of ' + formatScore(pair.pain) + '/10 on ' + pair.date + '.',
       context: pair.date + '. ' + groupLabels(first.kind).timing + (pair.basis === 'inBed' ? ' ' + IN_BED_NOTE : ''),
       caveat: 'One paired day is a fact, not a finding. No conclusion yet.',
       action: 'See these first days',
@@ -39,6 +41,7 @@ export function todayInsight(record: {
   const waiting = record.progress.find(p => p.pairedDays > 0) || record.progress[0];
   if (!waiting) return null;
   return {
+    id: waiting.kind,
     title: 'What will make this record useful',
     body: progressCopy(waiting).title + '. ' + progressCopy(waiting).caveat,
     context: waiting.pairedDays + ' paired days so far. Ordinary days count too; missed days are fine.',
