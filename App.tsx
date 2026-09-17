@@ -172,7 +172,6 @@ export default function App() {
      so a swipe moves between them and the tab bar is a shortcut rather
      than the only way */
   const [tab, setTab] = useState<Tab>('today');
-  const [patternRequest, setPatternRequest] = useState<{ seq: number; id?: string }>({ seq: 0 });
   const { width } = useWindowDimensions();
   const pager = useRef<ScrollView>(null);
 
@@ -932,14 +931,12 @@ export default function App() {
                 activity={activity}
                 onActivityChange={changeActivity}
                 insight={todayInsight(healthNoticed)}
-                onOpenRecord={() => {
-                  setPatternRequest(p => ({ seq: p.seq + 1, id: todayInsight(healthNoticed)?.id }));
-                  recordScroll.current?.scrollTo({ y: 0, animated: false });
-                  goToTab('trends');
-                }}
+                onOpenRecord={() => goToTab('trends')}
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
+                onAddNote={() => openDayNote(todayISO())}
+                onOpenToday={() => openDay(todayISO())}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenDiagnosis={() => { setProfile(true); setDiagnosisOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
@@ -979,8 +976,6 @@ export default function App() {
               onScroll={(e) => setRecordAway(e.nativeEvent.contentOffset.y > 600)}
             >
               <TrendsScreen
-                key={patternRequest.seq}
-                initialComparisonId={patternRequest.id}
                 entries={entries}
                 events={events}
                 func={[]}
@@ -988,9 +983,7 @@ export default function App() {
                 todayIso={todayISO()}
                 onOpenDay={openDay}
                 onSpanChange={setTrendsSpan}
-                healthDays={healthDays}
-                healthCategories={healthCategories()}
-                onOpenHealth={() => { track('health_setup_opened'); setProfile(true); setHealthSheet(true); }}
+                healthNoticed={healthNoticed}
                 onShare={shareTrends}
                 sharing={sharing}
               />
