@@ -155,8 +155,12 @@ record from a reinstall, and a saved copy will.
 
 ## Phase 2 — n=10 · mid-Oct → Dec
 
-- 10 chronic-pain testers via TestFlight external testing; recruit from
-  content (channel must be built during Phase 1).
+- 10 testers via TestFlight external testing; recruit from content
+  (channel must be built during Phase 1). *Audience narrowed 2026-09-17
+  (POSITIONING.md, "Living actively with pain"): active people with
+  recurring musculoskeletal or inflammatory pain who already wear a
+  watch, found where they train and where they do physio, not in
+  chronic-illness forums.*
 - One metric: who still logs in week 4.
 
 **Kill criterion:** fewer than 5/10 logging at week 4.

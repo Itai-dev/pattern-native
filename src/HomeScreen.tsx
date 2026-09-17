@@ -1072,8 +1072,8 @@ export default function HomeScreen({
           </Text>
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             One tap. It leads the first page of your clinician summary and
-            decides what Pattern offers you first — the history a diagnosis
-            is built from, or the tools for managing one. Nothing here is
+            decides what Pattern offers you first — a clearer picture for
+            your doctor, or what helps you stay active. Nothing here is
             analysed or sent.
           </Text>
           <View style={styles.bgOfferActions}>
@@ -1107,7 +1107,7 @@ export default function HomeScreen({
       {offer === 'background' && (
         <View style={[styles.card, styles.cardGap]}>
           <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            {path === 'seek' ? 'The history a diagnosis is built from' : 'Give Pattern some background'}
+            {path === 'seek' ? 'A clearer picture for your doctor' : 'Give Pattern some background'}
           </Text>
           {/* the same sheet, introduced by what it is for THIS person:
               to someone still seeking a name, the onset, what has been
@@ -1115,10 +1115,9 @@ export default function HomeScreen({
               everyone else they are page one of a summary */}
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             {path === 'seek'
-              ? 'How it began, what has been tried, what runs in the family — the '
-                + 'questions a clinician asks first when nothing has a name yet. Optional, '
-                + 'about five minutes, in your own words; it becomes the first page of the '
-                + 'summary you bring to the appointment.'
+              ? 'How it began, what has been tried, what runs in the family — what a '
+                + 'doctor asks first. Optional, about five minutes, in your own words; it '
+                + 'becomes the first page of the summary you bring to the appointment.'
               : 'Optional, about five minutes, in your own words. It becomes the '
                 + 'first page of the summary you share with a clinician — nothing in '
                 + 'it is analysed or compared.'}

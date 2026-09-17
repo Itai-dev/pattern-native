@@ -246,10 +246,13 @@ Urgent-care guidance stays reachable from Profile.
 The one question whose answer decides what the app is *for* this person, so it gets a screen.
 Three rows, each with a line on what Pattern does for that answer:
 
-- **Yes** — Pattern becomes the record you manage it with. A closed list of common
-  chronic-pain diagnoses appears (multi-select, plus "Something else" as capped free text).
-- **Not yet — still being looked into** — Pattern builds what a diagnosis is made from.
-- **No, and not looking for one** — a record still settles what memory cannot.
+- **Yes** — understand what affects your pain and what helps you stay active. A closed list
+  of common chronic-pain diagnoses appears (multi-select, plus "Something else" as capped
+  free text).
+- **Not yet — still being looked into** — build a clearer picture of your pain, see its
+  patterns, and bring better information to your doctor.
+- **No, and not looking for one** — understand what affects it and what helps you keep
+  doing what you do. Nothing here needs a name.
 
 The list is a vocabulary for what a clinician has already said; the footnote under it says
 Pattern never suggests one. The button reads **Skip for now** when nothing is chosen. Stored

@@ -26,30 +26,98 @@ gives the map a meaning beyond symptom severity.
 until the first three are strong. When built, it speaks in associations with
 uncertainty, never causes.
 
-### Two people, one check-in · decided 17 Sep 2026
+## Living actively with pain · decided 17 Sep 2026
 
-The two benefits land on two different people, and the app now asks which
-one it is talking to, on day zero:
+*Replaces the "two people, one check-in" entry written earlier the same day,
+which framed the undiagnosed audience as diagnosis-seeking. That framing
+made the doctor PDF read as a step toward a diagnosis Pattern was helping to
+make. It is not, and the product must never imply it.*
 
-- **Not yet diagnosed.** Years to a fibromyalgia or endometriosis diagnosis
-  are the norm, and most of those years are spent failing to describe the
-  pain in a ten-minute appointment. For this person the record is the raw
-  material a diagnosis gets made from — onset, site, character, timing,
-  what has been tried — put in front of a clinician without the distortion
-  of memory. The report and the background are the product; the
-  appointment is the event it is for.
-- **Diagnosed.** The name is known; what is not known is what helps and
-  what costs the next morning. For this person the experiment, the budget
-  and the Health context are the product, and the background is a file they
-  already have somewhere.
+**The audience is defined by attitude, not by condition.** "I have pain,
+but I still want to train, work, travel, sleep well, eat well and understand
+my body. I am not accepting that pain gets to run my life." That is what
+gives Pattern an identity beyond another pain diary, and it is the
+territory: **living actively with pain**, not chronic pain management, which
+sounds clinical, passive and resigned. Pattern is for people trying to get
+back to something, or keep doing something, despite pain. Pain intensity is
+one measure. Life regained is the outcome.
 
-What this changes: the order Today offers things in, and the first row of
-the report. What it does not change, and must never: Pattern does not
-diagnose, and the list it shows is a vocabulary for what a clinician has
-already said. A diagnosis suggested, inferred or hinted at by this app —
-in a card, a sentence, an association's wording — is a regression, not a
-feature. The answer itself never leaves the phone; analytics counts only
-that the question was answered or passed over.
+**The core audience.** Chronic or recurring pain, diagnosed or unexplained.
+Still wants an active life, whatever "active" means for them. Already
+thinks in health inputs: sleep, recovery, movement, medication, stress,
+nutrition. Comfortable with health technology. Does not want to journal
+symptoms obsessively; wants the app to do the analytical work. Their
+question is not "how much did I hurt today?" but **"what is affecting my
+pain, and what can I actually do with that?"** That last sentence is the
+product.
+
+**The initial ICP, deliberately narrow.** Roughly 25–50, iPhone and Apple
+Watch or a wearable that writes to Apple Health, recurring or chronic
+musculoskeletal or inflammatory-type pain, health-conscious, reasonably
+active, already experimenting with exercise, recovery, sleep and treatment,
+and frustrated that all their health data exists in different places and
+nobody is connecting it to their pain. The brand can be broad; the person
+the MVP is designed for is this specific. Expansion comes later.
+
+**The hierarchy.**
+
+- Emotional promise: *Don't let pain make your life smaller.*
+- Functional promise: *Understand the patterns behind your pain.*
+- How: connect pain with sleep, movement, stress, medication and the health
+  data you already have.
+- Outcome: better-informed decisions about what helps you stay active, and
+  clearer communication with your doctor.
+
+**The two framings, by diagnosis status.** Both are about understanding
+and staying active; neither is about obtaining a diagnosis.
+
+- Diagnosed: *Understand what affects your pain and what helps you stay
+  active.*
+- Not yet diagnosed: *Build a clearer picture of your pain, see its
+  patterns, and bring better information to your doctor.*
+
+The doctor PDF is exactly that: better information, without the distortion
+of memory. The diagnosis, if one comes, is the doctor's. A card, a sentence
+or an association worded as if Pattern were narrowing toward a name is a
+regression, not a feature.
+
+**Less logging, not more.** "People accustomed to logging" is a fine
+early-adopter profile and a poor destination. Apple Health already knows
+the workouts, sleep, steps and heart rate; pain is the one input it will
+never know, so the check-in stays and everything else keeps moving to
+Health. *You live your life. Pattern connects the dots.* One number a day;
+Pattern brings the rest. Garmin, Oura and WHOOP reach Pattern only through
+what they write to Health — sleep and workouts do, recovery scores mostly
+do not — so the promise is "Apple Health and anything that feeds it", not a
+brand list.
+
+**Competitive distinction.** Bearable positions broadly around tracking
+symptoms and feeling in control of chronic health issues; Manage My Pain
+around recording pain and medication, finding connections and reports.
+"We track more things" is not a wedge against either. Pattern owns a
+different user and a different reason for tracking.
+
+**What this positioning demands, and what it costs.**
+
+- *The engine is slow on purpose, and this audience expects WHOOP.* The
+  thresholds need eight paired observations per side and a 1.5-point
+  difference before Pattern says anything; that is weeks. To this person,
+  silence reads as broken unless the app says up front that it tells you
+  when it cannot say yet, and counts down to when it can. The experiment
+  and the budget already do this; the copy has to promise it.
+- *"Life regained is the outcome" is the feature that was cut.* The
+  activity goal and its weekly rating are switched off because they asked
+  for a second commitment before the first proved itself. Under this
+  positioning the goal is the spine. **Open decision:** bring it back,
+  probably as the day-zero question instead of duration — "what are you
+  trying to get back to, or keep doing?" Not decided here.
+- *Recruitment moves.* The Phase 2 tester is in running and climbing
+  communities and physio waiting rooms, not r/Fibromyalgia. GROWTH.md's
+  channels were written for the earlier audience.
+
+**The line to keep coming back to:** Pattern isn't for people who want to
+track their pain. It's for people who want to understand their pain so
+they can keep living.
 
 ## What Pattern is not
 
