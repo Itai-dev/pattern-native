@@ -105,12 +105,17 @@ different user and a different reason for tracking.
   silence reads as broken unless the app says up front that it tells you
   when it cannot say yet, and counts down to when it can. The experiment
   and the budget already do this; the copy has to promise it.
-- *"Life regained is the outcome" is the feature that was cut.* The
-  activity goal and its weekly rating are switched off because they asked
-  for a second commitment before the first proved itself. Under this
-  positioning the goal is the spine. **Open decision:** bring it back,
-  probably as the day-zero question instead of duration — "what are you
-  trying to get back to, or keep doing?" Not decided here.
+- *"Life regained is the outcome" needs the thing that was cut.* The
+  activity goal and its weekly rating were switched off because they asked
+  for a second commitment before the first proved itself. **Decided the
+  same day, and shipped on master as an intention, not a target:** one
+  optional line on Today, "what do you want to keep doing?", in the
+  person's words, printed in the clinician summary, never scored and
+  never rated weekly (`src/ActivityIntention.tsx`, offered after the
+  first recorded day). That is the lightest form the spine can take, and
+  it keeps principle 7: nothing here moves without a day added and
+  nothing rates today. Whether it also belongs on the day-zero screen in
+  place of duration stays open.
 - *Recruitment moves.* The Phase 2 tester is in running and climbing
   communities and physio waiting rooms, not r/Fibromyalgia. GROWTH.md's
   channels were written for the earlier audience.
