@@ -223,24 +223,55 @@ place it is computed.
 
 ## 6. Onboarding
 
-Two screens. No account, no diagnosis, no medication list, no activity goal, no notification
-permission, **and no hypothesis** — that comes at day 7.
+*Rewritten 2026-09-17.* Three screens, then the first check-in. No account, no medication
+list, no activity goal, no notification permission, no Health permission, **and no
+hypothesis** — that comes at day 7. Every answer on every screen is optional, and a skip is
+stored as a skip.
 
-**Screen 1 — Value**
+**Screen 1 — Value, scope and safety, on one screen**
 
 > Make pain feel less random.
 >
-> A quick daily check-in builds a clear record of how your pain changes across time, body
-> areas, and everyday context — and turns it into a summary worth bringing to your doctor.
+> A quick check-in builds a record of how your pain changes and what happens around it —
+> the thing memory cannot give a doctor — and turns it into a summary you can bring to an
+> appointment.
+
+The red flags (sudden severe pain, chest pain, injury, numbness, weakness, fever, bladder or
+bowel loss) and the non-diagnosis line share this screen, because a safety screen of its own
+was the one people skipped past. The Restore line for a reinstall sits under the button.
+Urgent-care guidance stays reachable from Profile.
+
+**Screen 2 — Do you have a diagnosis?**
+
+The one question whose answer decides what the app is *for* this person, so it gets a screen.
+Three rows, each with a line on what Pattern does for that answer:
+
+- **Yes** — Pattern becomes the record you manage it with. A closed list of common
+  chronic-pain diagnoses appears (multi-select, plus "Something else" as capped free text).
+- **Not yet — still being looked into** — Pattern builds what a diagnosis is made from.
+- **No, and not looking for one** — a record still settles what memory cannot.
+
+The list is a vocabulary for what a clinician has already said; the footnote under it says
+Pattern never suggests one. The button reads **Skip for now** when nothing is chosen. Stored
+as its own record (`Diagnosis` in `model.ts`, pref `diagnosis.v1`), three states: null =
+never asked, status `''` = passed over, a status = answered. Editable from Profile ▸ Your
+report ▸ Diagnosis, because a diagnosis arrives.
+
+**Screen 3 — Where does it usually hurt, and how long**
+
+Coarse body chips seed the first check-in's usual-places offer; the duration seeds the
+report background's onset line. Nothing else.
 
 **Start my first check-in**
 
-**Screen 2 — Scope and safety**
-
-> Pattern helps you record and understand your experience. It does not diagnose conditions
-> or replace medical care.
-
-Urgent-care guidance stays accessible.
+**What the answer changes downstream.** The report's Background section opens with a
+Diagnosis row (the names as chosen, "No diagnosis yet — being investigated", or "No formal
+diagnosis"; no row when passed over). Today's one-at-a-time offers follow
+`TODAY_OFFER_ORDER` in `thresholds.ts`: someone seeking a diagnosis sees the background
+and the appointment before an experiment; someone managing one sees Health and the
+experiment before the background. Installs from before the question existed are asked once,
+as a card on Today after the first check-in; "Not now" stores the skip. Nothing about the
+answer is analysed, compared or sent — analytics counts only whether the screen was answered.
 
 ## 7. Daily check-in
 
@@ -825,7 +856,8 @@ Holistic means understanding context, not collecting everything.
 
 - A first-time user understands the promise and logs pain without instruction.
 - Pain-only log in a few seconds; pain plus both factors under twenty.
-- Onboarding is two screens and asks for no hypothesis.
+- Onboarding is three screens, asks for no hypothesis, and asks whether there is a diagnosis
+  without ever offering one.
 - A hypothesis can be entered in the user's own words, stored verbatim, reaching the report
   unaltered.
 - Factor selection proposes two: one chosen, one not nominated, both editable before

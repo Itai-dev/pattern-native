@@ -42,7 +42,7 @@ import { color, font, radius, size } from './theme';
 const HINTS: Record<string, string> = {
   body: 'Age, height, weight — whatever feels relevant',
   onset: 'When it began, sudden or gradual, any injury behind it',
-  diagnoses: 'Anything a clinician has named',
+  diagnoses: 'Beyond the name — who made it, when, what was ruled out',
   medications: 'What you take regularly, with doses if you know them',
   allergies: 'Medicines, foods, anything significant',
   lifestyle: 'Work, exercise, sleep, alcohol, caffeine — the usual shape',
@@ -57,7 +57,7 @@ const HINTS: Record<string, string> = {
 const QUESTIONS: Record<string, string> = {
   body: 'To start — anything about you that feels relevant?',
   onset: 'How did this pain begin?',
-  diagnoses: 'Has anything been diagnosed?',
+  diagnoses: 'Anything more about a diagnosis — who made it, when, what was ruled out?',
   medications: 'What do you take regularly?',
   allergies: 'Any allergies worth knowing about?',
   lifestyle: 'What does an ordinary week look like?',

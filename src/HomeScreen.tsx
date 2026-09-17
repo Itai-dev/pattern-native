@@ -38,7 +38,7 @@ import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
   Entries, LastCopy, LOC_NAMES, Moment, QUALITY_NAMES, SYMPTOM_NAMES, addDays, checkinCount,
-  copyOfferDue, legacyDayValue, logsOf, todayISO, unsavedDays,
+  copyOfferDue, diagnosisPath, legacyDayValue, logsOf, todayISO, unsavedDays,
 } from './model';
 import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
@@ -50,7 +50,8 @@ import { BookedAhead, aheadBody } from './health/ahead';
 import { ExperimentState, experimentCopy } from './experiment';
 import {
   APPOINTMENT_LEAD_DAYS, APPOINTMENT_OFFER_AFTER_DAYS, APPOINTMENT_REASK_DAYS,
-  BACKGROUND_OFFER_AFTER_DAYS, COPY_NUDGE_DAYS, EXPERIMENT_OFFER_AFTER_DAYS,
+  BACKGROUND_OFFER_AFTER_DAYS, COPY_NUDGE_DAYS, DIAGNOSIS_OFFER_AFTER_DAYS, EXPERIMENT_OFFER_AFTER_DAYS,
+  TODAY_OFFER_ORDER, TodayOffer,
   EXPERIMENT_REOFFER_DAYS, HEALTH_OFFER_AFTER_DAYS, WIDGET_OFFER_AFTER_DAYS,
 } from './thresholds';
 
@@ -160,6 +161,9 @@ export interface HomeScreenProps {
   onOpenToday: () => void;
   /** the Background sheet, offered from here once a record exists */
   onOpenBackground: () => void;
+  /** the Diagnosis sheet — the question put once to an install that
+   *  predates it */
+  onOpenDiagnosis: () => void;
   /** the appointment date picker, in Profile */
   onOpenAppointment: () => void;
   /** the PDF, from the appointment card */
@@ -200,7 +204,7 @@ export interface HomeScreenProps {
 
 export default function HomeScreen({
   entries, onLog, onOpenDay, onAddNote, onOpenToday,
-  onOpenBackground, onOpenReminders, healthOfferable, onOpenHealth,
+  onOpenBackground, onOpenDiagnosis, onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
   experiment, onStartExperiment, onEndExperiment,
@@ -256,6 +260,22 @@ export default function HomeScreen({
   const offerBackground = !bgDismissed
     && loggedDays >= BACKGROUND_OFFER_AFTER_DAYS
     && db.getBackground() == null;
+
+  /* THE DIAGNOSIS, to an install that was never asked. Onboarding puts
+     the question on day zero; every phone from before it exists has a
+     null here, and null is a state the app acts on — once. "Not now"
+     stores the skip, so the card never returns; the sheet stays in
+     Profile for the day a name arrives. Read at render, like the
+     background: the sheet writes it, and Today re-renders when the
+     sheet closes. */
+  const diagnosis = db.getDiagnosis();
+  const offerDiagnosis = diagnosis === null && loggedDays >= DIAGNOSIS_OFFER_AFTER_DAYS;
+  const [, bumpDiagnosis] = useState(0);
+  const dismissDiagnosis = () => {
+    db.setDiagnosis({ v: 1, status: '', setOn: t });
+    bumpDiagnosis((n) => n + 1);
+  };
+  const path = diagnosisPath(diagnosis);
 
   /* The reminder offer: once, after the first check-in — the spec's
      card, built. Taking it turns on the evening slot at its saved time
@@ -362,13 +382,19 @@ export default function HomeScreen({
   };
   const xCopy = experiment ? experimentCopy(experiment) : null;
 
-  /* one at a time, in the order they pay back */
-  /* one at a time, and the copy goes near the front: every other offer
-     adds something to a record that the copy is what keeps. */
-  const offer: null | 'reminder' | 'copy' | 'health' | 'background' | 'experiment' | 'appointment' | 'widget' = offerReminder
-    ? 'reminder' : offerCopy ? 'copy' : offerHealth ? 'health' : offerBackground ? 'background'
-      : offerExperiment ? 'experiment'
-        : offerAppointment ? 'appointment' : offerWidget ? 'widget' : null;
+  /* one at a time, in the order they pay back — and the order depends
+     on what the person is here for (TODAY_OFFER_ORDER, thresholds.ts):
+     someone seeking a diagnosis is shown the history and the
+     appointment before an experiment; someone managing one, the other
+     way round. The copy goes near the front in every order: every
+     other offer adds something to a record that the copy is what
+     keeps. */
+  const due: Record<TodayOffer, boolean> = {
+    reminder: offerReminder, copy: offerCopy, diagnosis: offerDiagnosis,
+    health: offerHealth, background: offerBackground, experiment: offerExperiment,
+    appointment: offerAppointment, widget: offerWidget,
+  };
+  const offer: TodayOffer | null = TODAY_OFFER_ORDER[path].filter((o) => due[o])[0] || null;
 
   /* the day's shape, from the two numbers on screen: the first check-in
      of today against the latest. Nothing is stored, nothing is derived
@@ -1038,16 +1064,64 @@ export default function HomeScreen({
         </View>
       )}
 
+      {/* ── the diagnosis, asked once of a phone that predates it ── */}
+      {offer === 'diagnosis' && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Do you have a diagnosis?
+          </Text>
+          <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            One tap. It leads the first page of your clinician summary and
+            decides what Pattern offers you first — the history a diagnosis
+            is built from, or the tools for managing one. Nothing here is
+            analysed or sent.
+          </Text>
+          <View style={styles.bgOfferActions}>
+            <Press
+              onPress={onOpenDiagnosis}
+              pressOpacity={0.8}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Answer the diagnosis question"
+            >
+              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Answer
+              </Text>
+            </Press>
+            <Press
+              onPress={dismissDiagnosis}
+              pressOpacity={0.7}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Not now — the question stays in Profile"
+            >
+              <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Not now
+              </Text>
+            </Press>
+          </View>
+        </View>
+      )}
+
       {/* ── the background offer ──────────────────────────── */}
       {offer === 'background' && (
         <View style={[styles.card, styles.cardGap]}>
           <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Give Pattern some background
+            {path === 'seek' ? 'The history a diagnosis is built from' : 'Give Pattern some background'}
           </Text>
+          {/* the same sheet, introduced by what it is for THIS person:
+              to someone still seeking a name, the onset, what has been
+              tried and the family history are the appointment; to
+              everyone else they are page one of a summary */}
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Optional, about five minutes, in your own words. It becomes the
-            first page of the summary you share with a clinician — nothing in
-            it is analysed or compared.
+            {path === 'seek'
+              ? 'How it began, what has been tried, what runs in the family — the '
+                + 'questions a clinician asks first when nothing has a name yet. Optional, '
+                + 'about five minutes, in your own words; it becomes the first page of the '
+                + 'summary you bring to the appointment.'
+              : 'Optional, about five minutes, in your own words. It becomes the '
+                + 'first page of the summary you share with a clinician — nothing in '
+                + 'it is analysed or compared.'}
           </Text>
           <View style={styles.bgOfferActions}>
             <Press

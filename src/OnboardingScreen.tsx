@@ -2,32 +2,45 @@
  * The first ninety seconds — three screens, then a check-in.
  *
  * What this deliberately does NOT do is the whole design. It asks for no
- * account, no diagnosis list, no medication list, no activity goal, no
- * notification permission, no Health permission and no choice of what
- * to track. Every one of those is a question the app cannot yet make
- * useful, and asking them before someone has recorded a single day is
- * asking them to commit to a tool they have not used. Each of them has
- * a later moment that explains it: the reminder after the first log,
- * Health on day two, the background on day three, the focus after a
- * week — all as one card at a time on Today.
+ * account, no medication list, no activity goal, no notification
+ * permission, no Health permission and no choice of what to track.
+ * Every one of those is a question the app cannot yet make useful, and
+ * asking them before someone has recorded a single day is asking them
+ * to commit to a tool they have not used. Each of them has a later
+ * moment that explains it: the reminder after the first log, Health on
+ * day two, the background on day three — all as one card at a time on
+ * Today.
  *
- * THREE SCREENS, DOWN FROM SIX. The promise and the boundaries share
- * one screen, because the red flags are the one thing a person must
- * have seen and a screen of their own was where they got skipped past.
- * The usual places and how long, one screen, one tap each. Then the
- * one question that earns its place on day zero by asking for nothing:
- * "What are you trying to understand about your pain?" is answerable
- * now — arguably answered best now, because the reason someone just
- * downloaded a pain app is the freshest thing in their head. It
- * commits to no schedule, changes no behaviour, and goes into the
- * doctor summary in their own words whatever else happens.
+ * THE ONE QUESTION THAT EARNED A SCREEN (17 Sep 2026): do you have a
+ * diagnosis? It used to be three chips at the foot of the second
+ * screen, and its answer became one sentence of free text on the
+ * report. It is now its own screen, between the promise and the
+ * places, because its answer decides what the app is FOR this person.
+ * Someone with a diagnosis is managing a condition — what helps, what
+ * costs the next morning, what to bring to a review. Someone without
+ * one is trying to get one, and the record is the material a diagnosis
+ * gets made from, put in front of a clinician without the distortion
+ * of memory. Those are two different products wearing one check-in,
+ * and the answer orders what Today offers first and leads page one of
+ * the report. It is also the freshest thing in the head of someone who
+ * has just downloaded a pain app, which is why it can be asked before
+ * a single day exists. Everything on it is still optional: the button
+ * says Skip when nothing is chosen, and a skip is stored as a skip so
+ * the app never asks again.
+ *
+ * THE FIRST SCREEN carries the promise and the boundaries together,
+ * because the red flags are the one thing a person must have seen and
+ * a screen of their own was where they got skipped past. THE THIRD is
+ * the usual places and how long, one tap each; they seed the first
+ * check-in and the report's onset line, nothing else.
  *
  * What went, and where. The body map moved to the check-in's where
  * step, and on 16 Sep 2026 gave way there to sectioned chips covering
- * the whole body. The suspicions chips
- * went with the focus flow, which already shows the whole library on
- * the day it is offered; asking them here a week early bought a name
- * for one card and cost a screen. The Health ask is a card on Today.
+ * the whole body. The suspicions chips went with the focus flow, which
+ * already shows the whole library on the day it is offered; asking them
+ * here a week early bought a name for one card and cost a screen. The
+ * Health ask is a card on Today. "What are you trying to understand?"
+ * left with the focus (8 Sep 2026).
  *
  * THE SAFETY TEXT IS SHORT ON PURPOSE. A page of medical disclaimer is
  * read by nobody and protects no one — it is the interface equivalent of
@@ -38,33 +51,24 @@
  */
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
+  KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
-import { LOC_CHIP_IDS, LOC_NAMES, collapseSidedLocs } from './model';
+import DiagnosisStep, { emptyDraft, draftToRaw } from './DiagnosisStep';
+import { Diagnosis, LOC_CHIP_IDS, LOC_NAMES, collapseSidedLocs, todayISO } from './model';
 import { themeBrand } from './painScale';
 import { color, font, radius, size } from './theme';
 
 export interface OnboardingResult {
-  /** whatever they typed, trimmed; empty when skipped */
-  understand: string;
   /** coarse location ids — the first check-in's usual-places offer */
   where: string[];
   /** '' when skipped */
   duration: '' | 'weeks' | 'months' | 'years';
-  diagnosis: '' | 'yes' | 'no' | 'looking';
-  /** what they were diagnosed with, when diagnosis is 'yes' — a bare
-   *  yes gives the record nothing; a name gives the report page one */
-  diagnosisText: string;
-  /** kept for callers: the Health ask is a Today card now, so this is
-   *  always false from here */
-  connectHealth: boolean;
-  /** kept for callers: the suspicions chips left onboarding, so this
-   *  is always empty from here — the focus flow asks on the day it
-   *  can use the answer */
-  suspicions: string[];
+  /** the diagnosis record as it will be stored — status '' when the
+   *  screen was passed over, which is a state and is kept */
+  diagnosis: Diagnosis;
 }
 
 export interface OnboardingScreenProps {
@@ -81,12 +85,16 @@ export interface OnboardingScreenProps {
   review?: boolean;
 }
 
+/** the three screens, by name, so the code reads as the flow does */
+const PROMISE = 0;
+const DIAGNOSIS = 1;
+const PLACES = 2;
+
 export default function OnboardingScreen({ onDone, review, onRestore }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(PROMISE);
   const [duration, setDuration] = useState<OnboardingResult['duration']>('');
-  const [diagnosis, setDiagnosis] = useState<OnboardingResult['diagnosis']>('');
-  const [diagnosisText, setDiagnosisText] = useState('');
+  const [diagnosis, setDiagnosis] = useState(emptyDraft);
   /* the usual places, in the coarse words the first check-in's offer
      speaks. collapseSidedLocs is a no-op on these and stays, so a sided
      answer from any future source still stores as the chips read it. */
@@ -94,19 +102,14 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
   const brand = themeBrand();
 
   /* reading it again from Profile stops at the boundaries — the row says
-     "what Pattern is and isn't", and re-asking the question of someone
-     who answered it weeks ago is not what they tapped */
-  /* two screens: the promise and the boundaries, then the usual places.
-     The third — "what do you want to understand?" — left with the focus
-     (8 Sep 2026): the app asks about pain and lets Health say the rest. */
-  const lastStep = review ? 0 : 1;
+     "what Pattern is and isn't", and re-asking questions of someone who
+     answered them weeks ago is not what they tapped */
+  const lastStep = review ? PROMISE : PLACES;
 
   const result = (): OnboardingResult => ({
-    understand: '',
     where: collapseSidedLocs(where),
-    duration, diagnosis,
-    diagnosisText: diagnosisText.trim(),
-    suspicions: [], connectHealth: false,
+    duration,
+    diagnosis: draftToRaw(diagnosis, todayISO()),
   });
 
   const advance = () => {
@@ -115,14 +118,14 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
     else onDone(result());
   };
 
-  /* There is no separate skip. With two screens, the second IS the last,
-     and its one button — "Start my first check-in" — already leaves with
-     whatever was filled in, everything on it being optional. The
-     "Skip the rest" door from the three-screen days survived the cut as
-     a condition (step ≥ 1 && step < 1) that nothing could satisfy, and
-     the analytics event it fired could never fire; both are gone rather
-     than left looking like a feature. Someone who installs this during a
-     flare reaches the check-in in two taps either way. */
+  /* There is no separate skip door. Every screen's one button leaves
+     with whatever was filled in, everything being optional — and on
+     the diagnosis screen the button admits what it does, saying Skip
+     when nothing is chosen, the check-in's rule. Someone who installs
+     this during a flare reaches the check-in in three taps. */
+  const primaryLabel = step < lastStep
+    ? (step === DIAGNOSIS && !diagnosis.status ? 'Skip for now' : 'Continue')
+    : review ? 'Done' : 'Start my first check-in';
 
   const toggleIn = (list: string[], set: (v: string[]) => void, id: string) => {
     Haptics.selectionAsync().catch(() => {});
@@ -160,8 +163,9 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {step === 0 ? (
+        {step === PROMISE ? (
           <>
             {/* three squares of the app's own language, standing in for a
                 week — the product explained before a word of it is read */}
@@ -221,6 +225,18 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               </Text>
             </View>
           </>
+        ) : step === DIAGNOSIS ? (
+          <>
+            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Do you have a{'\n'}diagnosis?
+            </Text>
+            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
+              It decides what Pattern is for you. Without one, the record is
+              what a clinician builds a diagnosis from. With one, it is how
+              you see what helps you manage it. You can change this later.
+            </Text>
+            <DiagnosisStep draft={diagnosis} onChange={setDiagnosis} />
+          </>
         ) : (
           <>
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -248,30 +264,6 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
                   'radio'
                 ))}
             </View>
-
-            <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Do you have a diagnosis?
-            </Text>
-            <View style={styles.chips}>
-              {([['yes', 'Yes'], ['no', 'No'], ['looking', 'Still looking']] as const)
-                .map(([id, label]) => chip(
-                  diagnosis === id, label,
-                  () => { Haptics.selectionAsync().catch(() => {}); setDiagnosis(diagnosis === id ? '' : id); },
-                  'radio'
-                ))}
-            </View>
-            {/* a bare yes gives the record nothing — the name is what a
-                clinician reads. Optional even once opened. */}
-            {diagnosis === 'yes' && (
-              <TextInput
-                value={diagnosisText}
-                onChangeText={setDiagnosisText}
-                placeholder="What were you diagnosed with?"
-                placeholderTextColor={color.textTertiary}
-                style={[styles.input, { minHeight: 48, marginTop: 10 }]}
-                accessibilityLabel="What were you diagnosed with?"
-              />
-            )}
           </>
         )}
       </ScrollView>
@@ -282,13 +274,9 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
           pressScale={0.985}
           style={styles.primary}
           accessibilityRole="button"
-          accessibilityLabel={
-            step < lastStep ? 'Continue' : review ? 'Done' : 'Start my first check-in'
-          }
+          accessibilityLabel={primaryLabel}
         >
-          <Text style={styles.primaryText}>
-            {step < lastStep ? 'Continue' : review ? 'Done' : 'Start my first check-in'}
-          </Text>
+          <Text style={styles.primaryText}>{primaryLabel}</Text>
         </Press>
 
         {/* THE WAY BACK IN. Someone whose app was deleted — by them, by a
@@ -303,7 +291,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
             The phone's own backup does NOT cover this case — iOS gives a
             reinstalled app an empty container and never consults it — so
             this line is the only way back for someone who has a file. */}
-        {!review && step === 0 && onRestore && (
+        {!review && step === PROMISE && onRestore && (
           <Press
             onPress={onRestore}
             pressOpacity={0.7}
@@ -319,7 +307,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
         )}
 
         <View style={styles.dots}>
-          {(review ? [0] : [0, 1]).map((i) => (
+          {(review ? [PROMISE] : [PROMISE, DIAGNOSIS, PLACES]).map((i) => (
             <View
               key={i}
               style={[styles.dot, i === step && { backgroundColor: color.textSecondary }]}
@@ -381,11 +369,5 @@ const styles = StyleSheet.create({
   smallQ: {
     color: color.textPrimary, fontSize: font.body, fontWeight: '600',
     marginTop: 22, marginBottom: 8,
-  },
-  input: {
-    marginTop: 6, minHeight: 92, borderRadius: 14, borderCurve: 'continuous', padding: 14,
-    backgroundColor: color.bgSurface, color: color.textPrimary,
-    fontSize: font.body, lineHeight: 22, textAlignVertical: 'top',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
   },
 });
