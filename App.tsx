@@ -20,6 +20,7 @@ import HomeScreen from './src/HomeScreen';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DayScreen, { fmtDay } from './src/DayScreen';
+import NoteSheet from './src/NoteSheet';
 import HealthSheet from './src/HealthSheet';
 import ConnectedDataSheet from './src/ConnectedDataSheet';
 import { HealthKitService, deviceClock } from './src/health/healthkit';
@@ -78,7 +79,7 @@ registerCategory().catch(() => {}); // the Check in button on every prompt
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'event' | 'experiment';
+type Sheet = null | 'checkin' | 'event' | 'experiment' | 'note';
 
 /* "Thu, 21 Aug" comes from DayScreen, which is the other place a date is
    a heading. Two copies of the same format is how two screens end up
@@ -190,18 +191,8 @@ export default function App() {
   const [editMoment, setEditMoment] = useState<Moment | null>(null);
   /* every route into a day goes through here: Today's card, and any
      square on the calendar */
-  /* Today's note shortcut: the same day screen, opened onto the note.
-     A flag beside the date rather than a second screen — the note is a
-     section of the day and has no surface of its own to open. */
-  const [dayNote, setDayNote] = useState(false);
   const openDay = useCallback((d: string) => {
     track('day_opened');
-    setDayNote(false);
-    setDayScreen(d);
-  }, []);
-  const openDayNote = useCallback((d: string) => {
-    track('day_opened');
-    setDayNote(true);
     setDayScreen(d);
   }, []);
 
@@ -229,6 +220,14 @@ export default function App() {
   }, [tab, width]);
 
   const [sheet, setSheet] = useState<Sheet>(null);
+  /* the day's note, as a sheet over wherever you are — Today's card and
+     the layered day page both open it. It used to be a walk into the
+     day screen and down to a section; see NoteSheet for why it is not. */
+  const [noteDate, setNoteDate] = useState<string | null>(null);
+  const openNote = useCallback((d: string) => {
+    setNoteDate(d);
+    setSheet('note');
+  }, []);
   /* The record is a long page now — the charts, then the calendar of
      every day stacked newest-first — so the way back to the top is a
      pill rather than a lot of scrolling. It appears only once you have
@@ -960,7 +959,7 @@ export default function App() {
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
-                onAddNote={() => openDayNote(todayISO())}
+                onAddNote={() => openNote(todayISO())}
                 onOpenToday={() => openDay(todayISO())}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenDiagnosis={() => { setProfile(true); setDiagnosisOpen(true); }}
@@ -1036,7 +1035,7 @@ export default function App() {
               onEditEvent={startEditEvent}
               onAddEvent={(d) => { setEditEvent(null); setEventDate(d); setSheet('event'); }}
               onClose={() => setDayScreen(null)}
-              editNoteOnOpen={dayNote}
+              onEditNote={openNote}
             />
           )}
 
@@ -1084,6 +1083,16 @@ export default function App() {
             onDone={() => { track('experiment_started'); setExperimentBump((n) => n + 1); closeSheet(); }}
             onClose={closeSheet}
           />
+        </Modal>
+
+        <Modal
+          visible={sheet === 'note'}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={closeSheet}
+          onDismiss={runAfterDismiss}
+        >
+          <NoteSheet dateIso={noteDate || todayISO()} onDone={closeSheet} onClose={closeSheet} />
         </Modal>
 
         {/* the profile — grouped like the iOS Settings app: inset cards,
@@ -1333,7 +1342,8 @@ export default function App() {
                 Two things being tried, both off by default. Today in layers puts
                 the last check-in first, then what Apple Health saw, then what is
                 ahead, then what only counts up; the day-so-far chart moves to
-                the day screen. Squares show the eleven a day can wear, in place
+                the day screen, where the check-ins sit on the chart — tap a
+                dot — instead of in a list. Squares show the eleven a day can wear, in place
                 of the slider: drag along the row or tap one.
               </Text>
 

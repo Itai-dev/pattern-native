@@ -34,7 +34,8 @@ import Animated, {
 import DayLine from './DayLine';
 import ActivityIntention from './ActivityIntention';
 import { TodayInsight } from './todayInsight';
-import { ContextTile, PREF_TODAY_LAYERED, contextTiles } from './todayTiles';
+import { PREF_TODAY_LAYERED, contextTiles } from './todayTiles';
+import ContextTiles from './ContextTiles';
 import InfoTip from './InfoTip';
 import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
@@ -545,8 +546,8 @@ export default function HomeScreen({
 
           {/* the day's note, or the way to start one. Its own press
               inside the card's: the inner responder wins, so this row
-              opens the day ON the note and the rest of the card opens
-              the day as before. */}
+              opens the note sheet and the rest of the card opens the day
+              as before. */}
           <View style={styles.rule} />
           <Press
             onPress={onAddNote}
@@ -554,7 +555,7 @@ export default function HomeScreen({
             style={styles.foot}
             accessibilityRole="button"
             accessibilityLabel={note ? 'Your note: ' + note : 'Add a note about today'}
-            accessibilityHint={note ? 'Opens the note to edit' : 'Opens today with the note ready to write'}
+            accessibilityHint={note ? 'Opens the note to edit' : 'Opens a sheet to write the note'}
           >
             {note ? (
               <>
@@ -900,7 +901,7 @@ export default function HomeScreen({
       {layered ? (
         <>
           {blocks.hero}
-          <ContextTiles tiles={tiles} />
+          <ContextTiles tiles={tiles} style={styles.tiles} />
           {blocks.ahead}
           {blocks.appt}
           {blocks.experiment}
@@ -1262,28 +1263,6 @@ export default function HomeScreen({
  * above a Trends figure and one step below the screen's own title, which
  * is exactly the room a focal value needs and no more.
  */
-/** what went with the number: up to three neutral tiles from Health.
- *  Nothing when Health has nothing — never a zero, never an empty ring.
- *  The remark under a value compares the factor to the person's own
- *  usual and never touches the pain above it. */
-function ContextTiles({ tiles }: { tiles: ContextTile[] }) {
-  if (!tiles.length) return null;
-  return (
-    <View style={styles.tiles} accessible accessibilityRole="summary"
-      accessibilityLabel={'From Apple Health: ' + tiles.map((x) => x.label + ' ' + x.value + (x.sub ? ', ' + x.sub : '')).join('. ')}>
-      {tiles.map((x) => (
-        <View key={x.key} style={styles.tile}>
-          <Text style={styles.tileK} allowFontScaling maxFontSizeMultiplier={1.3}>{x.label}</Text>
-          <Text style={styles.tileV} allowFontScaling maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit>{x.value}</Text>
-          {!!x.sub && (
-            <Text style={styles.tileS} allowFontScaling maxFontSizeMultiplier={1.3} numberOfLines={2}>{x.sub}</Text>
-          )}
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   activityWrap: { marginHorizontal: size.pageX, marginTop: 14 },
   insightTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', marginTop: 8 },
@@ -1297,19 +1276,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardGap: { marginTop: 14 },
-  /* the context tiles: neutral surfaces, white numbers, no fills */
-  tiles: { flexDirection: 'row', gap: 8, marginTop: 10, marginHorizontal: size.pageX },
-  tile: {
-    flex: 1, borderRadius: 14, borderCurve: 'continuous', padding: 10,
-    backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-  },
-  tileK: { color: color.textSecondary, fontSize: font.footnote },
-  tileV: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    letterSpacing: -0.3, marginTop: 2, fontVariant: ['tabular-nums'],
-  },
-  tileS: { color: color.textTertiary, fontSize: 11, lineHeight: 14, marginTop: 1 },
+  /* where the context tiles sit on this page; the tiles themselves are
+     ContextTiles, shared with the day page */
+  tiles: { marginTop: 10, marginHorizontal: size.pageX },
   /* a line, not a card: it is context beside the record, at the page's
      reading edge, in the quiet colour — and it never wears the ramp */
   lastNight: {
