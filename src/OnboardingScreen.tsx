@@ -16,12 +16,13 @@
  * screen, and its answer became one sentence of free text on the
  * report. It is now its own screen, between the promise and the
  * places, because its answer decides what the app is FOR this person.
- * Someone with a diagnosis is managing a condition — what helps, what
- * costs the next morning, what to bring to a review. Someone without
- * one is trying to get one, and the record is the material a diagnosis
- * gets made from, put in front of a clinician without the distortion
- * of memory. Those are two different products wearing one check-in,
- * and the answer orders what Today offers first and leads page one of
+ * Someone with a diagnosis wants to know what affects it and what lets
+ * them stay active — what helps, what costs the next morning. Someone
+ * without one wants a clearer picture and better information for the
+ * doctor, without the distortion of memory; the diagnosis, if one
+ * comes, is the doctor's, never this app's. Those are two different
+ * products wearing one check-in, and the answer orders what Today
+ * offers first and leads page one of
  * the report. It is also the freshest thing in the head of someone who
  * has just downloaded a pain app, which is why it can be asked before
  * a single day exists. Everything on it is still optional: the button
@@ -231,9 +232,10 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               Do you have a{'\n'}diagnosis?
             </Text>
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              It decides what Pattern is for you. Without one, the record is
-              what a clinician builds a diagnosis from. With one, it is how
-              you see what helps you manage it. You can change this later.
+              It decides what Pattern is for you. Without one, it helps you
+              build a clearer picture to bring to your doctor. With one, it
+              helps you see what affects your pain and what keeps you active.
+              You can change this later.
             </Text>
             <DiagnosisStep draft={diagnosis} onChange={setDiagnosis} />
           </>

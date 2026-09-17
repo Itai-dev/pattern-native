@@ -501,11 +501,11 @@ export type TodayOffer =
  *  question comes next, once, only to an install that was never asked
  *  — it is one tap and it decides the rest of this list.
  *
- *  Someone still SEEKING a diagnosis is building the material one is
- *  made from, so the background (onset, what was tried, family
- *  history) and the appointment it is for come before Health context
- *  and well before an experiment — "what helps" is a question for
- *  after the name. Someone MANAGING a named condition already has the
+ *  Someone still without a diagnosis is building a clearer picture for
+ *  a doctor, so the background (onset, what was tried, family history)
+ *  and the appointment it is for come before Health context and well
+ *  before an experiment — "what helps" is a question for after the
+ *  name. Someone MANAGING a named condition already has the
  *  history in a file somewhere; what they lack is the fortnight's
  *  answer and the morning-after context, so the experiment and Health
  *  move up and the background waits. Never asked, or passed over,

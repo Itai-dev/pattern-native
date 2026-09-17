@@ -62,6 +62,8 @@ import ActivityIntention from './src/ActivityIntention';
 import { todayInsight } from './src/todayInsight';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
+import { PREF_SQUARE_PICKER } from './src/SquarePicker';
+import { PREF_TODAY_LAYERED } from './src/todayTiles';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
@@ -172,7 +174,6 @@ export default function App() {
      so a swipe moves between them and the tab bar is a shortcut rather
      than the only way */
   const [tab, setTab] = useState<Tab>('today');
-  const [patternRequest, setPatternRequest] = useState<{ seq: number; id?: string }>({ seq: 0 });
   const { width } = useWindowDimensions();
   const pager = useRef<ScrollView>(null);
 
@@ -244,6 +245,8 @@ export default function App() {
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
   /* may the lock screen carry the number — off until asked, see widget.ts */
   const [lockNumber, setLockNumber] = useState(() => db.getPref<boolean>(PREF_LOCK_NUMBER, false));
+  const [squarePicker, setSquarePicker] = useState(() => db.getPref<boolean>(PREF_SQUARE_PICKER, false));
+  const [todayLayered, setTodayLayered] = useState(() => db.getPref<boolean>(PREF_TODAY_LAYERED, false));
   /* the next appointment, as state so Today's card follows the Profile
      row without a remount; the picker opens on mount when Today asked */
   const [appointment, setAppointment] = useState(() => db.getPref<string>(PREF_APPOINTMENT, ''));
@@ -276,6 +279,8 @@ export default function App() {
      the same guard discipline as the glass. */
   const health = useMemo(() => new HealthKitService(), []);
   const [healthSheet, setHealthSheet] = useState(false);
+  /* the Health sheet has two faces: the setup, and the connected-data
+     status that says what arrived, when, and what did not */
   const [healthPanel, setHealthPanel] = useState<'setup' | 'status'>('setup');
   const [healthRefreshing, setHealthRefreshing] = useState(false);
   const healthRefreshCalls = useRef(0);
@@ -291,6 +296,8 @@ export default function App() {
     setHealthRefreshing(true);
     try {
       await syncHealth(health, deviceClock);
+      /* fresh nights and doses re-plan the reminder week — the learned
+         times come from these days (health/prompts.ts) */
       syncReminders().catch(() => {});
     } catch { /* existing readings remain available */ }
     finally {
@@ -949,14 +956,12 @@ export default function App() {
                 activity={activity}
                 onActivityChange={changeActivity}
                 insight={todayInsight(healthNoticed)}
-                onOpenRecord={() => {
-                  setPatternRequest(p => ({ seq: p.seq + 1, id: todayInsight(healthNoticed)?.id }));
-                  recordScroll.current?.scrollTo({ y: 0, animated: false });
-                  goToTab('trends');
-                }}
+                onOpenRecord={() => goToTab('trends')}
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
+                onAddNote={() => openDayNote(todayISO())}
+                onOpenToday={() => openDay(todayISO())}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenDiagnosis={() => { setProfile(true); setDiagnosisOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
@@ -996,8 +1001,6 @@ export default function App() {
               onScroll={(e) => setRecordAway(e.nativeEvent.contentOffset.y > 600)}
             >
               <TrendsScreen
-                key={patternRequest.seq}
-                initialComparisonId={patternRequest.id}
                 entries={entries}
                 events={events}
                 func={[]}
@@ -1005,10 +1008,7 @@ export default function App() {
                 todayIso={todayISO()}
                 onOpenDay={openDay}
                 onSpanChange={setTrendsSpan}
-                healthDays={healthDays}
-                healthCategories={healthCategories()}
-                onOpenData={openConnectedData}
-                onOpenHealth={() => { track('health_setup_opened'); setProfile(true); setHealthPanel('setup'); setHealthSheet(true); }}
+                healthNoticed={healthNoticed}
                 onShare={shareTrends}
                 sharing={sharing}
               />
@@ -1124,7 +1124,7 @@ export default function App() {
                       accessibilityLabel="Apple Health. Use sleep and activity to add context automatically."
                     >
                       <RowIcon name="heart-outline" />
-                      <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                      <View style={[styles.rowMain, styles.rowLine]}>
                         <Text style={styles.rowLabel}>Apple Health</Text>
                         <Text style={styles.rowValue}>
                           {healthRequestedOn() ? 'Set up' : 'Not set up'}
@@ -1283,13 +1283,59 @@ export default function App() {
                   <View style={[styles.rowIcon, styles.themeIcon, { borderColor: themeBrand() }]}>
                     <Ionicons name="color-palette-outline" size={19} color={themeBrand()} />
                   </View>
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                  <View style={[styles.rowMain, styles.rowLine]}>
                     <Text style={styles.rowLabel}>Colour theme</Text>
                     <Text style={styles.rowValue}>{themeName}</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
+                {/* the picker under comparison: the 0–10 scale as eleven
+                    day squares in place of the slider's thumb and track.
+                    A switch and not a rollout, so it can be flipped on the
+                    phone mid-week and flipped back. */}
+                {/* Today in layers: the fact, what went with it, what is
+                    ahead, what only counts up. Same switch-not-rollout
+                    reasoning as the picker below. */}
+                <View style={styles.row} accessible accessibilityRole="switch"
+                  accessibilityState={{ checked: todayLayered }}
+                  accessibilityLabel="Today in layers: the check-in, then Health, then what is ahead">
+                  <RowIcon name="layers-outline" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Today in layers</Text>
+                    <Switch
+                      value={todayLayered}
+                      onValueChange={(on) => {
+                        db.setPref(PREF_TODAY_LAYERED, on);
+                        setTodayLayered(on);
+                      }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
+                <View style={styles.row} accessible accessibilityRole="switch"
+                  accessibilityState={{ checked: squarePicker }}
+                  accessibilityLabel="Choose pain with squares instead of a slider">
+                  <RowIcon name="apps-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Pick pain with squares</Text>
+                    <Switch
+                      value={squarePicker}
+                      onValueChange={(on) => {
+                        db.setPref(PREF_SQUARE_PICKER, on);
+                        setSquarePicker(on);
+                      }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
               </View>
+              <Text style={styles.groupFooter}>
+                Two things being tried, both off by default. Today in layers puts
+                the last check-in first, then what Apple Health saw, then what is
+                ahead, then what only counts up; the day-so-far chart moves to
+                the day screen. Squares show the eleven a day can wear, in place
+                of the slider: drag along the row or tap one.
+              </Text>
 
               <Text style={styles.groupTitle}>About</Text>
               <View style={styles.group}>

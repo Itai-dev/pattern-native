@@ -64,9 +64,10 @@ export default function DiagnosisSheet({ onClose }: DiagnosisSheetProps) {
           Do you have a diagnosis?
         </Text>
         <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.4}>
-          It decides what Pattern is for you. Without one, the record is what
-          a clinician builds a diagnosis from. With one, it is how you see
-          what helps you manage it. Change it whenever it changes.
+          It decides what Pattern is for you. Without one, it helps you build
+          a clearer picture to bring to your doctor. With one, it helps you
+          see what affects your pain and what keeps you active. Change it
+          whenever it changes.
         </Text>
         <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
           Printed on the first page of your clinician summary, exactly as

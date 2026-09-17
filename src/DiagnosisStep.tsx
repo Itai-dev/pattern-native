@@ -10,9 +10,16 @@
  *
  * THREE ROWS, NOT THREE CHIPS. Each answer carries a line saying what
  * Pattern does for that person, because this is the one question in
- * the app whose answer changes what the app is for: a record to manage
- * a condition with, or the material a diagnosis gets made from. A chip
- * says yes or no; a row has room to say what yes and no mean here.
+ * the app whose answer changes what the app is for: understanding what
+ * affects a named condition and what helps you stay active, or building
+ * a clearer picture to bring to a doctor. A chip says yes or no; a row
+ * has room to say what yes and no mean here.
+ *
+ * NEITHER ROW IS ABOUT GETTING A DIAGNOSIS. The undiagnosed person is a
+ * headline audience, but "we help you get diagnosed" would make this a
+ * quasi-diagnostic product (POSITIONING.md, 17 Sep 2026). The promise
+ * to them is a clearer picture and better information for the doctor;
+ * the diagnosis, if one comes, is the doctor's.
  *
  * THE LIST IS A VOCABULARY, NEVER A SUGGESTION. It appears only after
  * "yes", it holds what a clinician has already said, and the footnote
@@ -69,17 +76,17 @@ const OPTIONS: { id: DiagnosisStatus; label: string; body: string }[] = [
   {
     id: 'yes',
     label: 'Yes',
-    body: 'Pattern becomes the record you manage it with: what helps, what costs the next morning, what to bring to a review.',
+    body: 'Understand what affects your pain and what helps you stay active.',
   },
   {
     id: 'looking',
     label: 'Not yet — still being looked into',
-    body: 'Pattern builds what a diagnosis is made from: how it began, where it sits, what it is like, what has been tried. Never a diagnosis of its own.',
+    body: 'Build a clearer picture of your pain, see its patterns, and bring better information to your doctor.',
   },
   {
     id: 'no',
     label: 'No, and not looking for one',
-    body: 'A record still settles what memory cannot. Nothing here needs a name.',
+    body: 'Understand what affects it and what helps you keep doing what you do. Nothing here needs a name.',
   },
 ];
 

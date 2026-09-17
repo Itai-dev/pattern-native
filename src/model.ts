@@ -1352,11 +1352,12 @@ export function cleanBackground(raw: unknown): Background | null {
 
 /* ── the diagnosis ───────────────────────────────────────────
    The one fact about a person that decides what this app is FOR them.
-   Someone with a diagnosis is managing a condition: what helps, what
-   costs the next morning, what to bring to a review. Someone without
-   one is trying to get one, and the record is the raw material a
-   diagnosis is made from — onset, site, character, what has been tried
-   — put in front of a clinician without the distortion of memory.
+   Someone with a diagnosis wants to know what affects it and what lets
+   them stay active: what helps, what costs the next morning. Someone
+   without one wants a clearer picture — onset, site, character, what
+   has been tried — and better information for the doctor, without the
+   distortion of memory. Neither is "help me get diagnosed": the
+   diagnosis, if one comes, is the doctor's (POSITIONING.md, 17 Sep).
    Asked on day zero because it is the freshest thing in the head of a
    person who has just downloaded a pain app, and because the answer
    shapes what Today offers first and what page one of the report says.
