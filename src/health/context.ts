@@ -14,11 +14,12 @@
  * exist to prevent. A day you navigate to is a place you look; Today is
  * where you act.
  *
- * Workout activity names arrive from HealthKit as numeric type codes;
- * translating all eighty of them buys nothing a count and minutes do
- * not, so workouts summarize as time — "45-min workout", "2 workouts ·
- * 63 min". Deterministic like every generated sentence here: same day,
- * same lines.
+ * Workouts are named by what they were — "39 min workout — swimming",
+ * "2 workouts · 1h 9m total — swimming, walking" — because a swim and a
+ * run are not the same load on the same body, and a record that could
+ * not tell them apart could never be asked which one goes with easier
+ * mornings (workoutNames.ts). Deterministic like every generated
+ * sentence here: same day, same lines.
  */
 import {
   CONTEXT_SLEEP_USUAL_DELTA_MIN, CONTEXT_STAND_USUAL_DELTA_MIN,
@@ -27,6 +28,7 @@ import {
 } from '../thresholds';
 import { addDays, fmtTime } from '../model';
 import { HealthDay, NormalizedDose } from './types';
+import { workoutName, workoutSummary } from './workoutNames';
 
 function fmtDuration(min: number): string {
   const h = Math.floor(min / 60), m = Math.round(min % 60);
@@ -151,17 +153,13 @@ export function healthDayTiles(
     });
   }
 
-  const w = day.workouts || [];
-  if (w.length === 1) {
+  /* the time is the value and the activity is the remark: "39 min" over
+     "swimming". The count is a count, so it lives in the label. */
+  const ws = workoutSummary(day.workouts, fmtDuration);
+  if (ws) {
     out.push({
       key: 'workouts', icon: 'barbell-outline',
-      value: fmtDuration(w[0].minutes), label: 'Workout',
-    });
-  } else if (w.length > 1) {
-    const total = w.reduce((s, x) => s + x.minutes, 0);
-    out.push({
-      key: 'workouts', icon: 'barbell-outline',
-      value: fmtDuration(total), label: w.length + ' workouts',
+      value: ws.value, label: ws.label, sub: ws.kinds,
     });
   }
 
@@ -284,7 +282,7 @@ export function healthNowHint(day: HealthDay | null | undefined, nowMinutes: num
     w.h + w.minutes <= nowMinutes && nowMinutes - (w.h + w.minutes) <= NOW_HINT_WORKOUT_MIN);
   if (ws.length) {
     const w = ws[ws.length - 1];
-    out.push('Apple Health: ' + fmtDuration(w.minutes) + ' workout, ended '
+    out.push('Apple Health: ' + fmtDuration(w.minutes) + ' ' + workoutName(w.activity) + ', ended '
       + ago(nowMinutes - (w.h + w.minutes)));
   }
   return out;
@@ -366,12 +364,14 @@ export function healthDayLines(
     }
     out.push({ key: 'stand', text });
   }
-  const w = day.workouts || [];
-  if (w.length === 1) {
-    out.push({ key: 'workouts', text: fmtDuration(w[0].minutes) + ' workout' });
-  } else if (w.length > 1) {
-    const total = w.reduce((s, x) => s + x.minutes, 0);
-    out.push({ key: 'workouts', text: w.length + ' workouts · ' + fmtDuration(total) + ' total' });
+  /* the activity after the dash, where the tiles read a remark from */
+  const ws = workoutSummary(day.workouts, fmtDuration);
+  if (ws) {
+    out.push({
+      key: 'workouts',
+      text: (ws.count === 1 ? ws.value + ' workout' : ws.count + ' workouts · ' + ws.value + ' total')
+        + ' — ' + ws.kinds,
+    });
   }
   if (day.waterMl != null) {
     out.push({ key: 'water', text: (day.waterMl >= 1000

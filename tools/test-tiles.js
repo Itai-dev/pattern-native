@@ -17,7 +17,7 @@ const ok = (name, cond, extra) => {
 
 const day = {
   date: '2026-09-17', sleepMinutes: 400, sleepKind: 'asleep', steps: 8210,
-  workouts: [{ minutes: 45 }],
+  workouts: [{ minutes: 45, activity: '46' }],
 };
 
 ok('no day, no tiles — never a zero', tiles.contextTiles(null).length === 0
@@ -34,10 +34,11 @@ ok('the values are short and the labels plain', (() => {
   const [s, st, w] = tiles.contextTiles(day);
   return s.label === 'Slept' && s.value === '6h 40m'
     && st.label === 'Steps' && st.value === '8,210'
-    && w.label === 'Workout' && w.value === '45 min';
+    && w.label === 'Workout' && w.value === '45 min' && w.sub === 'swimming';
 })(), tiles.contextTiles(day));
 
-ok('with no history there is no remark', tiles.contextTiles(day).every((t) => t.sub === ''));
+ok('with no history there is no remark on sleep or steps',
+  tiles.contextTiles(day).filter((t) => t.key !== 'workouts').every((t) => t.sub === ''));
 
 ok('a remark against the usual appears only when the day screen would say it', (() => {
   /* twenty ordinary nights of 7h 40m, then a 6h 40m one: the day screen
@@ -55,10 +56,20 @@ ok('in-bed sleep still cuts to a value', (() => {
   return t.length === 1 && t[0].value === '8h';
 })());
 
-ok('two workouts read as a count and a total', (() => {
-  const t = tiles.contextTiles({ date: '2026-09-17', workouts: [{ minutes: 30 }, { minutes: 60 }] });
-  return t.length === 1 && t[0].label === 'Workouts' && t[0].value === '2 workouts · 1h 30m';
-})(), tiles.contextTiles({ date: '2026-09-17', workouts: [{ minutes: 30 }, { minutes: 60 }] }));
+ok('two workouts: the count is the label, the time the value, the activities the remark', (() => {
+  const t = tiles.contextTiles({ date: '2026-09-17', workouts: [{ minutes: 30, activity: '46' }, { minutes: 60, activity: '52' }] });
+  return t.length === 1 && t[0].label === '2 workouts' && t[0].value === '1h 30m' && t[0].sub === 'swimming, walking';
+})(), tiles.contextTiles({ date: '2026-09-17', workouts: [{ minutes: 30, activity: '46' }, { minutes: 60, activity: '52' }] }));
+
+ok('two swims are one activity, and a code the table does not know is a workout, never a number', (() => {
+  const t = tiles.contextTiles({ date: '2026-09-17', workouts: [{ minutes: 30, activity: '46' }, { minutes: 20, activity: '46' }, { minutes: 10, activity: '999' }] });
+  return t[0].label === '3 workouts' && t[0].sub === 'swimming, workout' && !/\d/.test(t[0].sub);
+})());
+
+ok('a legacy word is read as itself; the library’s camelCase splits', (() => {
+  const t = tiles.contextTiles({ date: '2026-09-17', workouts: [{ minutes: 30, activity: 'walk' }, { minutes: 30, activity: 'traditionalStrengthTraining' }] });
+  return t[0].sub === 'walk, traditional strength training';
+})(), tiles.contextTiles({ date: '2026-09-17', workouts: [{ minutes: 30, activity: 'walk' }, { minutes: 30, activity: 'traditionalStrengthTraining' }] }));
 
 ok('no tile ever carries a pain word or a verdict', (() => {
   const all = (() => { const all = {}; for (let i = 20; i >= 1; i--) { const dt = new Date(Date.UTC(2026, 8, 17 - i)); const d = dt.toISOString().slice(0, 10); all[d] = { date: d, sleepMinutes: 300, steps: 2000 }; } all[day.date] = day; return all; })();
