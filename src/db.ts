@@ -12,7 +12,7 @@ import { getMetric } from './metrics';
 import { addDays } from './model';
 import { EXPERIMENT_WHAT_MAX, Experiment } from './model';
 import {
-  Answer, BACKUP_VERSION, Background, CONTEXT_VERSION, ContextAnswers, Entries, Entry,
+  Answer, BACKUP_VERSION, Background, CONTEXT_VERSION, ContextAnswers, Diagnosis, Entries, Entry,
   Duration, EventKind, FuncEntry, Hypothesis, LastCopy, Onset, PainEvent, Protocol, ProtocolStatus,
   MomentMeta, Response, ValidBackup,
   applyMoment, cleanCtx, cleanEntry, cleanModifiers, dedupeEvents,
@@ -880,6 +880,10 @@ export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResu
      never overwrites words already written on this phone */
   if (mode === 'replace') setBackground(backup.background);
   else if (backup.background && !getBackground()) setBackground(backup.background);
+  /* the diagnosis too — and on merge an answer beats "never asked", but
+     never overwrites an answer given on this phone, including the skip */
+  if (mode === 'replace') setDiagnosis(backup.diagnosis);
+  else if (backup.diagnosis && !getDiagnosis()) setDiagnosis(backup.diagnosis);
   restoreExperiments(backup.experiments, mode);
   return {
     ok: true, mode, days: dayKeys.length, events: eventsAdded,
@@ -956,11 +960,23 @@ export function setBackground(b: Background | null): void {
   setPref('background.v1', b);
 }
 
+/* ── the diagnosis ──────────────────────────────────────────
+   One object in prefs, beside the background. null is "never asked"
+   and is a state the app acts on — Today puts the question once to an
+   install that predates it — so nothing here ever writes a default. */
+export function getDiagnosis(): Diagnosis | null {
+  return getPref<Diagnosis | null>('diagnosis.v1', null);
+}
+export function setDiagnosis(d: Diagnosis | null): void {
+  setPref('diagnosis.v1', d);
+}
+
 export function exportBackup(todayIso: string): string {
   const out: Record<string, unknown> = {
     app: 'pattern', version: BACKUP_VERSION, scaleVersion: SCALE_VERSION,
     contextVersion: CONTEXT_VERSION, exported: todayIso,
     background: getBackground(),
+    diagnosis: getDiagnosis(),
     entries: getAll(), events: getEvents(), func: getFunc(), goal: getGoal(),
     hypotheses: getHypotheses(), protocols: getProtocols(), modifiers: getModifiers(),
     experiments: getExperiments(),

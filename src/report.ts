@@ -16,7 +16,7 @@ import {
   BANDS, IMPACT_BETTER, IMPACT_WORSE, LIMITATION_ID, TimeBandKey, bandOf, getMetric, impactName,
 } from './metrics';
 import {
-  BACKGROUND_FIELDS, Background,
+  BACKGROUND_FIELDS, Background, Diagnosis, diagnosisLine,
   Entries, EVENT_LABELS, EventKind, FuncEntry, Hypothesis, LOC_NAMES, PainEvent,
   DURATION_LABELS, INTERVENTIONS, ONSET_LABELS, Protocol, QUALITY_NAMES,
   RESPONSE_LABELS, Response, SYMPTOM_NAMES, checkinCount, dailyAverage,
@@ -49,6 +49,10 @@ export interface ReportInput {
    *  this document — the sheet that collects it says so — so unlike day
    *  notes it rides every share without a second toggle. */
   background?: Background | null;
+  /** the diagnosis record, printed as the first row of the background —
+   *  the first thing a clinician looks for on a pain history, and the
+   *  one that tells them which kind of appointment this is */
+  diagnosis?: Diagnosis | null;
   /** Apple Health context, when connected: the normalized days (for the
    *  coverage statement) and the single strongest association the engine
    *  let through — already gated upstream by the same rules Trends
@@ -132,6 +136,11 @@ export interface ReportData {
    *  of a pain history, in the patient's words, never verified or read
    *  by anything */
   background: Background | null;
+  /** the diagnosis, as one line: the names chosen, "no diagnosis yet —
+   *  being investigated", or "no formal diagnosis". null when the
+   *  question was never answered, and then no row is printed — a blank
+   *  is never read as "none". */
+  diagnosis: string | null;
   /** Day notes, verbatim, chronological — EMPTY unless the share asked
    *  for them. They render as their own section at the end and are never
    *  woven into the charts: the report's body is numbers and computed
@@ -361,6 +370,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       .filter((n) => !!n.text),
     health: healthContext(inp.healthDays, inp.healthAssociation || null, inp.healthDoses || [], days),
     background: inp.background || null,
+    diagnosis: diagnosisLine(inp.diagnosis),
     hypothesis: inp.hypothesis && (inp.hypothesis.understand.trim()
       || inp.hypothesis.harder.trim() || inp.hypothesis.helps.trim())
       ? inp.hypothesis : null,
@@ -852,16 +862,25 @@ export function reportHtml(data: ReportData): string {
   }
 
   // ── background, first — page one of any pain history ──
-  if (data.background) {
+  /* the diagnosis row leads it: with one, the room knows it is a review;
+     without one, that the record is here to help make one. A clinician
+     reads that before anything else on the page, so it is printed
+     before anything else on the page. */
+  if (data.background || data.diagnosis) {
     s.push('<section><h2>Background</h2>');
     s.push('<div class="note">Provided by the patient, in their own words. ' +
       'Not verified by the app, and read by none of its analysis.</div>');
     s.push('<table style="margin-top:8px">');
-    BACKGROUND_FIELDS.forEach(({ key, label }) => {
-      const v = data.background![key];
-      if (!v) return;
-      s.push('<tr><td style="width:190px"><b>' + esc(label) + '</b></td><td>' + esc(v) + '</td></tr>');
-    });
+    if (data.diagnosis) {
+      s.push('<tr><td style="width:190px"><b>Diagnosis</b></td><td>' + esc(data.diagnosis) + '</td></tr>');
+    }
+    if (data.background) {
+      BACKGROUND_FIELDS.forEach(({ key, label }) => {
+        const v = data.background![key];
+        if (!v) return;
+        s.push('<tr><td style="width:190px"><b>' + esc(label) + '</b></td><td>' + esc(v) + '</td></tr>');
+      });
+    }
     s.push('</table></section>');
   }
 

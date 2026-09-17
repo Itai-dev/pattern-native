@@ -489,6 +489,40 @@ export const BACKGROUND_OFFER_AFTER_DAYS = 3;
 export const APPOINTMENT_OFFER_AFTER_DAYS = 4;
 export const WIDGET_OFFER_AFTER_DAYS = 5;
 
+/** every card Today may offer, one at a time */
+export type TodayOffer =
+  | 'reminder' | 'copy' | 'diagnosis' | 'health' | 'background'
+  | 'experiment' | 'appointment' | 'widget';
+
+/** THE ORDER, BY WHAT THE PERSON IS HERE FOR. Each offer still waits
+ *  its own number of days above; the order decides only which shows
+ *  when more than one is due. The first two never move: the reminder
+ *  is the habit and the copy is what keeps the record. The diagnosis
+ *  question comes next, once, only to an install that was never asked
+ *  — it is one tap and it decides the rest of this list.
+ *
+ *  Someone still SEEKING a diagnosis is building the material one is
+ *  made from, so the background (onset, what was tried, family
+ *  history) and the appointment it is for come before Health context
+ *  and well before an experiment — "what helps" is a question for
+ *  after the name. Someone MANAGING a named condition already has the
+ *  history in a file somewhere; what they lack is the fortnight's
+ *  answer and the morning-after context, so the experiment and Health
+ *  move up and the background waits. Never asked, or passed over,
+ *  gets the order the app shipped with — the default is never one of
+ *  the other two guessed. */
+export const TODAY_OFFER_ORDER: Record<'seek' | 'manage' | 'unknown', TodayOffer[]> = {
+  unknown: ['reminder', 'copy', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'],
+  seek: ['reminder', 'copy', 'diagnosis', 'background', 'appointment', 'health', 'experiment', 'widget'],
+  manage: ['reminder', 'copy', 'diagnosis', 'health', 'experiment', 'background', 'appointment', 'widget'],
+};
+
+/** logged days before the diagnosis question is put on Today to an
+ *  install that predates it. One: the first check-in has shown what
+ *  the app is, and the question is one tap. Never to anyone who has
+ *  answered or passed over it — a skip is an answer. */
+export const DIAGNOSIS_OFFER_AFTER_DAYS = 1;
+
 /** how many days before an appointment the summary is offered — two:
  *  enough to read it, not enough to forget it */
 export const APPOINTMENT_LEAD_DAYS = 2;

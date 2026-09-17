@@ -482,8 +482,8 @@ ok('many check-ins from too few days do not qualify either', (() => {
 })());
 
 /* ── backups: nothing older stops restoring ─────────────────── */
-group('backup v1 → v6');
-ok('the version moved to 6', model.BACKUP_VERSION === 6);
+group('backup v1 → v7');
+ok('the version moved to 7', model.BACKUP_VERSION === 7);
 ok('a v1 file (entries only) still restores', (() => {
   const b = model.validateBackup(JSON.stringify({
     version: 1, entries: { '2026-01-01': { pain: 5, cap: null, note: '' } },
@@ -1380,6 +1380,136 @@ ok('the theme rides along and the fills follow it', (() => {
     return c.theme === 'violet' && c.ramp[5] === scale.painColor(5, 'violet')
       && c.ramp[5] !== scale.painColor(5, 'blue');
   } finally { scale.setPainTheme(before); }
+})());
+
+
+/* ── the diagnosis ───────────────────────────────────────────
+   The one fact that decides what the app is FOR a person. A closed
+   vocabulary for what a clinician already said, never read by any
+   engine; three states through storage, backup and the report. */
+group('the diagnosis');
+
+ok('the vocabulary has no duplicate ids and every id has a name', (() => {
+  const ids = model.DIAGNOSIS_IDS;
+  return ids.length === new Set(ids).size
+    && ids.every((id) => typeof model.DIAGNOSIS_NAMES[id] === 'string' && model.DIAGNOSIS_NAMES[id].length > 0);
+})());
+ok('unknown ids drop, duplicates collapse, the free text trims and caps', (() => {
+  const d = model.cleanDiagnosis({
+    v: 1, status: 'yes',
+    named: ['fibro', 'fibro', 'nonsense', 42, 'oa'],
+    other: '  ' + 'x'.repeat(300) + '  ',
+    setOn: '2026-09-17',
+  });
+  return d && d.status === 'yes' && d.named.join() === 'fibro,oa'
+    && d.other.length === model.DIAGNOSIS_OTHER_MAX && d.setOn === '2026-09-17';
+})());
+ok('names on a status other than yes are a contradiction and drop', (() => {
+  const d = model.cleanDiagnosis({ v: 1, status: 'looking', named: ['fibro'], other: 'x' });
+  return d && d.status === 'looking' && d.named === undefined && d.other === undefined;
+})());
+ok('three states: never asked, passed over, answered', (() => {
+  const never = model.cleanDiagnosis(null);
+  const skipped = model.cleanDiagnosis({ v: 1, status: '' });
+  const answered = model.cleanDiagnosis({ v: 1, status: 'no' });
+  return never === null
+    && skipped && skipped.status === ''
+    && answered && answered.status === 'no'
+    /* and the three are told apart downstream */
+    && model.diagnosisPath(never) === 'unknown'
+    && model.diagnosisPath(skipped) === 'unknown'
+    && model.diagnosisPath(answered) === 'manage'
+    && model.diagnosisLine(never) === null
+    && model.diagnosisLine(skipped) === null
+    && model.diagnosisLine(answered) === 'No formal diagnosis';
+})());
+ok('junk is not a diagnosis record', (() => {
+  return model.cleanDiagnosis({ v: 1, status: 'maybe' }) === null
+    && model.cleanDiagnosis('yes') === null
+    && model.cleanDiagnosis({ v: 1 }) === null
+    && model.cleanDiagnosis({ v: 1, status: 'yes', setOn: 'not a date' }).setOn === undefined;
+})());
+ok('the path: looking seeks, yes and no manage', (() => {
+  return model.diagnosisPath({ v: 1, status: 'looking' }) === 'seek'
+    && model.diagnosisPath({ v: 1, status: 'yes', named: ['ra'] }) === 'manage'
+    && model.diagnosisPath({ v: 1, status: 'no' }) === 'manage';
+})());
+ok('the line prints the names as chosen, the free text as written', (() => {
+  const line = model.diagnosisLine({ v: 1, status: 'yes', named: ['fibro', 'oa'], other: 'hEDS <type 3>' });
+  return line === 'Fibromyalgia, Osteoarthritis, hEDS <type 3>'
+    && model.diagnosisLine({ v: 1, status: 'yes' }) === 'Diagnosed; not named here'
+    && model.diagnosisLine({ v: 1, status: 'looking' }) === 'No diagnosis yet — being investigated';
+})());
+ok('the short form for a Profile row', (() => {
+  return model.diagnosisShort(null) === ''
+    && model.diagnosisShort({ v: 1, status: '' }) === ''
+    && model.diagnosisShort({ v: 1, status: 'looking' }) === 'Still looking'
+    && model.diagnosisShort({ v: 1, status: 'no' }) === 'None'
+    && model.diagnosisShort({ v: 1, status: 'yes' }) === 'Yes'
+    && model.diagnosisShort({ v: 1, status: 'yes', named: ['migraine'] }) === 'Migraine'
+    && model.diagnosisShort({ v: 1, status: 'yes', named: ['migraine', 'oa'], other: 'x' }) === 'Migraine +2';
+})());
+ok('the backup carries it, a skip included, and an old backup reads as never asked', (() => {
+  const withD = model.validateBackup(JSON.stringify({
+    version: 7, entries: {}, diagnosis: { v: 1, status: 'yes', named: ['endo'] },
+  }));
+  const skipped = model.validateBackup(JSON.stringify({
+    version: 7, entries: {}, diagnosis: { v: 1, status: '' },
+  }));
+  const old = model.validateBackup(JSON.stringify({ version: 6, entries: {} }));
+  return withD && withD.diagnosis && withD.diagnosis.named.join() === 'endo'
+    && skipped && skipped.diagnosis && skipped.diagnosis.status === ''
+    && old && old.diagnosis === null;
+})());
+ok('the report leads the background with it, escaped, and prints it alone when there is no background', (() => {
+  const e = {};
+  for (let i = 1; i <= 10; i++) {
+    e['2026-08-' + String(i).padStart(2, '0')] = { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] };
+  }
+  const base = { entries: e, events: [], func: [], goalText: null, todayIso: '2026-08-10', windowDays: 90 };
+  const both = report.reportHtml(report.buildReportData(Object.assign({}, base, {
+    background: { v: 1, medications: 'naproxen' },
+    diagnosis: { v: 1, status: 'yes', named: ['fibro'], other: 'a <b> thing' },
+  })));
+  const alone = report.reportHtml(report.buildReportData(Object.assign({}, base, {
+    diagnosis: { v: 1, status: 'looking' },
+  })));
+  const none = report.reportHtml(report.buildReportData(Object.assign({}, base, {
+    diagnosis: { v: 1, status: '' },
+  })));
+  const dRow = both.indexOf('<b>Diagnosis</b>');
+  const mRow = both.indexOf('<b>Medications</b>');
+  return dRow > 0 && mRow > dRow
+    && both.indexOf('Fibromyalgia, a &lt;b&gt; thing') > 0
+    && alone.indexOf('<h2>Background</h2>') > 0
+    && alone.indexOf('No diagnosis yet — being investigated') > 0
+    /* a skip prints nothing: a blank is never read as "none" */
+    && none.indexOf('<h2>Background</h2>') < 0
+    && none.indexOf('<b>Diagnosis</b>') < 0;
+})());
+ok('the report never says the app diagnosed anything', (() => {
+  const e = { '2026-08-01': { pain: 5, cap: null, note: '', logs: [{ h: 540, pain: 5 }] } };
+  const html = report.reportHtml(report.buildReportData({
+    entries: e, events: [], func: [], goalText: null, todayIso: '2026-08-01', windowDays: 90,
+    diagnosis: { v: 1, status: 'yes', named: ['fibro'] },
+  }));
+  return html.indexOf('does not provide a diagnosis') > 0
+    && html.indexOf('Provided by the patient') > 0;
+})());
+ok('every order of Today offers every card once, and the first two never move', (() => {
+  const ALL = ['reminder', 'copy', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'];
+  return ['unknown', 'seek', 'manage'].every((p) => {
+    const o = th.TODAY_OFFER_ORDER[p];
+    return o.length === ALL.length && ALL.every((x) => o.indexOf(x) >= 0)
+      && o[0] === 'reminder' && o[1] === 'copy' && o[2] === 'diagnosis';
+  });
+})());
+ok('seeking puts the history before the experiment; managing, the other way', (() => {
+  const s = th.TODAY_OFFER_ORDER.seek;
+  const m = th.TODAY_OFFER_ORDER.manage;
+  return s.indexOf('background') < s.indexOf('experiment')
+    && s.indexOf('appointment') < s.indexOf('experiment')
+    && m.indexOf('experiment') < m.indexOf('background');
 })());
 
 /* ── the patient's own question, and the periods, in the PDF ── */

@@ -1278,10 +1278,11 @@ export function migrateEntries(entries: Entries): { entries: Entries; corrected:
    that produces a clean, typed picture of what the file holds — or a
    plain refusal. The caller then chooses REPLACE or MERGE. */
 
-/** v5 adds day context, hypotheses and protocols, and per-moment UTC.
- *  Every earlier version still restores: the new sections are simply
- *  absent, which is exactly what they were. */
-export const BACKUP_VERSION = 6;
+/** v5 adds day context, hypotheses and protocols, and per-moment UTC;
+ *  v6 the background; v7 the diagnosis record. Every earlier version
+ *  still restores: the new sections are simply absent, which is exactly
+ *  what they were. */
+export const BACKUP_VERSION = 7;
 
 /* ── the background ──────────────────────────────────────────
    What a clinician wants on page one of a pain history, provided ONCE,
@@ -1343,9 +1344,149 @@ export function cleanBackground(raw: unknown): Background | null {
   return any ? out : null;
 }
 
+
+/* ── the diagnosis ───────────────────────────────────────────
+   The one fact about a person that decides what this app is FOR them.
+   Someone with a diagnosis is managing a condition: what helps, what
+   costs the next morning, what to bring to a review. Someone without
+   one is trying to get one, and the record is the raw material a
+   diagnosis is made from — onset, site, character, what has been tried
+   — put in front of a clinician without the distortion of memory.
+   Asked on day zero because it is the freshest thing in the head of a
+   person who has just downloaded a pain app, and because the answer
+   shapes what Today offers first and what page one of the report says.
+
+   What it is NOT: a diagnosis the app made. The list is a vocabulary
+   for what a clinician has already said, printed back exactly as the
+   person chose it, and nothing here is read by any engine — a static
+   fact has an n of one and no comparison group. Pattern never suggests,
+   infers or hints at a diagnosis, and no copy near this record may
+   read as if it did.
+
+   Three states, never two. null = never asked (every install before
+   17 Sep 2026); status '' = asked and passed over; a status = answered.
+   A skip is respected everywhere the question could be re-put. */
+
+export type DiagnosisStatus = 'yes' | 'looking' | 'no';
+
+export interface Diagnosis {
+  v: 1;
+  /** '' = the question was put and passed over — a real state, kept */
+  status: DiagnosisStatus | '';
+  /** ids from DIAGNOSES, in the order chosen, when status is 'yes' */
+  named?: string[];
+  /** a diagnosis not on the list, in the user's words — capped, never
+   *  parsed, printed as written */
+  other?: string;
+  /** the ISO day it was last set — a diagnosis arrives and changes */
+  setOn?: string;
+}
+
+/** the longest an unlisted diagnosis may run: one name, maybe two,
+ *  never a paragraph — the background has room for the paragraph */
+export const DIAGNOSIS_OTHER_MAX = 120;
+
+/** the closed vocabulary. Common chronic-pain diagnoses in plain words,
+ *  roughly by how often they walk into a pain clinic; ids are stable and
+ *  the names may be reworded without orphaning a stored answer. Nothing
+ *  a person picks here is ever counted, compared or sent — it is stored
+ *  for the report and for the order of Today's offers, and that is all. */
+export const DIAGNOSES: { id: string; name: string }[] = [
+  { id: 'spine', name: 'Back or spine condition' },
+  { id: 'oa', name: 'Osteoarthritis' },
+  { id: 'fibro', name: 'Fibromyalgia' },
+  { id: 'migraine', name: 'Migraine' },
+  { id: 'headache', name: 'Chronic headache' },
+  { id: 'neuro', name: 'Nerve pain (neuropathy, sciatica)' },
+  { id: 'ra', name: 'Rheumatoid arthritis' },
+  { id: 'psa', name: 'Psoriatic arthritis' },
+  { id: 'axspa', name: 'Ankylosing spondylitis' },
+  { id: 'gout', name: 'Gout' },
+  { id: 'lupus', name: 'Lupus' },
+  { id: 'endo', name: 'Endometriosis' },
+  { id: 'pelvic', name: 'Chronic pelvic pain' },
+  { id: 'ibs', name: 'IBS' },
+  { id: 'crps', name: 'CRPS' },
+  { id: 'eds', name: 'Hypermobility or Ehlers-Danlos' },
+  { id: 'tmd', name: 'Jaw pain (TMJ)' },
+  { id: 'mps', name: 'Myofascial pain' },
+  { id: 'injury', name: 'Pain after an injury or surgery' },
+];
+export const DIAGNOSIS_IDS: string[] = DIAGNOSES.map((d) => d.id);
+export const DIAGNOSIS_NAMES: Record<string, string> = {};
+DIAGNOSES.forEach((d) => { DIAGNOSIS_NAMES[d.id] = d.name; });
+
+/** a raw diagnosis record → a clean one, or null when it is not one.
+ *  Unknown ids drop, duplicates collapse, the free text trims and caps,
+ *  and names or text on a status other than 'yes' are dropped — "still
+ *  looking" with a list attached is a contradiction, not data. A status
+ *  of '' survives: it is the skip, and a skip is a fact. */
+export function cleanDiagnosis(raw: unknown): Diagnosis | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const status = r.status;
+  if (status !== 'yes' && status !== 'looking' && status !== 'no' && status !== '') return null;
+  const out: Diagnosis = { v: 1, status };
+  if (status === 'yes') {
+    if (Array.isArray(r.named)) {
+      const seen: Record<string, true> = {};
+      const named: string[] = [];
+      r.named.forEach((id) => {
+        if (typeof id !== 'string' || DIAGNOSIS_IDS.indexOf(id) < 0 || seen[id]) return;
+        seen[id] = true;
+        named.push(id);
+      });
+      if (named.length) out.named = named;
+    }
+    if (typeof r.other === 'string') {
+      const t = r.other.trim().slice(0, DIAGNOSIS_OTHER_MAX);
+      if (t) out.other = t;
+    }
+  }
+  if (isIsoDate(r.setOn)) out.setOn = r.setOn;
+  return out;
+}
+
+/** which of the app's two jobs this person is here for. 'seek' is a
+ *  diagnosis not yet made; 'manage' is one made, or one deliberately not
+ *  sought; 'unknown' is never asked or passed over — and 'unknown' is
+ *  treated as the default everywhere, never as either of the others. */
+export type DiagnosisPath = 'seek' | 'manage' | 'unknown';
+export function diagnosisPath(d: Diagnosis | null | undefined): DiagnosisPath {
+  if (!d) return 'unknown';
+  if (d.status === 'looking') return 'seek';
+  if (d.status === 'yes' || d.status === 'no') return 'manage';
+  return 'unknown';
+}
+
+/** the one line the report prints and Profile shows — null when there
+ *  is nothing to say (never asked, or passed over). Names exactly as
+ *  chosen, the free text exactly as written. */
+export function diagnosisLine(d: Diagnosis | null | undefined): string | null {
+  if (!d || d.status === '') return null;
+  if (d.status === 'looking') return 'No diagnosis yet — being investigated';
+  if (d.status === 'no') return 'No formal diagnosis';
+  const parts = (d.named || []).map((id) => DIAGNOSIS_NAMES[id]).filter((n) => !!n);
+  if (d.other) parts.push(d.other);
+  return parts.length ? parts.join(', ') : 'Diagnosed; not named here';
+}
+
+/** the short form for a Profile row: one name, and how many more */
+export function diagnosisShort(d: Diagnosis | null | undefined): string {
+  if (!d || d.status === '') return '';
+  if (d.status === 'looking') return 'Still looking';
+  if (d.status === 'no') return 'None';
+  const parts = (d.named || []).map((id) => DIAGNOSIS_NAMES[id]).filter((n) => !!n);
+  if (d.other) parts.push(d.other);
+  if (!parts.length) return 'Yes';
+  return parts.length === 1 ? parts[0] : parts[0] + ' +' + (parts.length - 1);
+}
+
 export interface ValidBackup {
   version: number;
   background: Background | null;
+  /** the diagnosis record; null on every file before v7 */
+  diagnosis: Diagnosis | null;
   entries: Entries;
   events: Omit<PainEvent, 'id'>[];
   func: FuncEntry[];
@@ -1462,6 +1603,7 @@ export function validateBackup(json: string): ValidBackup | null {
   return {
     version: typeof d.version === 'number' ? d.version : 1,
     background: cleanBackground((d as { background?: unknown }).background),
+    diagnosis: cleanDiagnosis((d as { diagnosis?: unknown }).diagnosis),
     entries, events, func,
     goal: typeof d.goal === 'string' && d.goal.trim() ? d.goal.trim() : null,
     hypotheses, protocols,

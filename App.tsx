@@ -38,6 +38,7 @@ import { experimentState } from './src/experiment';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import BackgroundSheet from './src/BackgroundSheet';
+import DiagnosisSheet from './src/DiagnosisSheet';
 import OnboardingScreen from './src/OnboardingScreen';
 import PrivacySheet from './src/PrivacySheet';
 import AppointmentRow, { PREF_APPOINTMENT } from './src/AppointmentRow';
@@ -52,7 +53,9 @@ import {
 import { aheadKey, bookedPastLine } from './src/health/ahead';
 import { syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
-import { Moment, PainEvent, ValidBackup, addDays, iso, minutesNow, todayISO } from './src/model';
+import {
+  Moment, PainEvent, ValidBackup, addDays, cleanDiagnosis, diagnosisShort, iso, minutesNow, todayISO,
+} from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
@@ -225,6 +228,8 @@ export default function App() {
   const [profile, setProfile] = useState(false);
   const [appearance, setAppearance] = useState(false);
   const [background, setBackgroundOpen] = useState(false);
+  /* the diagnosis sheet, nested in Profile like the background */
+  const [diagnosisOpen, setDiagnosisOpen] = useState(false);
   const [about, setAbout] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [analyticsOn, setAnalyticsOn] = useState(() => analyticsEnabled());
@@ -555,6 +560,10 @@ export default function App() {
         /* written FOR the report, so it rides every share — the sheet that
            collects it says so in its first sentence */
         background: db.getBackground(),
+        /* the first row of that background: with a name, the room knows
+           it is a review; without one, that the record is here to help
+           make one */
+        diagnosis: db.getDiagnosis(),
         /* the same health context Trends shows — one gate, two surfaces,
            so the preview and the PDF can never disagree about what the
            record supports */
@@ -776,39 +785,35 @@ export default function App() {
           <OnboardingScreen
             onRestore={restoreBackup}
             onDone={(r) => {
-              /* counts only, never content — the closed-list rule */
-              track('onboarding_completed', { where: r.where.length });
+              /* counts only, never content — the closed-list rule. That
+                 the diagnosis question was answered or passed over is a
+                 count; which answer is about their body and stays here. */
+              track('onboarding_completed', {
+                where: r.where.length, diagnosisAnswered: !!r.diagnosis.status,
+              });
               db.setPref('onboarded', true);
               setOnboarded(true);
               /* usual places, for the first check-in's offer — a record
                  with no history yet has no last time to be the same as */
               if (r.where.length) db.setPref('onboard.loc.v1', r.where);
-              /* duration and diagnosis seed the report background, and
-                 only into empty fields — words already written win. A
-                 bare "yes" to diagnosis writes nothing: a name belongs
-                 there, and the Background sheet asks for it properly. */
-              if (r.duration || r.diagnosis || r.diagnosisText) {
+              /* THE DIAGNOSIS IS ITS OWN RECORD, skip included — the
+                 report prints it and Today orders its offers by it, so
+                 it is never folded into free text it would then have to
+                 be parsed back out of. The screen was put, so a '' here
+                 means passed over, and Today will not ask again. */
+              db.setDiagnosis(cleanDiagnosis(r.diagnosis));
+              /* the duration seeds the report background's onset line,
+                 and only into an empty field — words already written win */
+              if (r.duration) {
                 const bg = db.getBackground() || { v: 1 as const };
-                if (!bg.onset && r.duration) {
+                if (!bg.onset) {
                   bg.onset = r.duration === 'weeks' ? 'Started a few weeks ago'
                     : r.duration === 'months' ? 'Going on for months'
                       : 'Going on for a year or more';
+                  db.setBackground(bg);
                 }
-                if (!bg.diagnoses && r.diagnosisText) bg.diagnoses = r.diagnosisText;
-                if (!bg.diagnoses && r.diagnosis === 'no') bg.diagnoses = 'No formal diagnosis';
-                if (!bg.diagnoses && r.diagnosis === 'looking') bg.diagnoses = 'Still being investigated';
-                db.setBackground(bg);
               }
-              /* the Health offer taken at onboarding opens the real setup
-                 first, and the first check-in follows when it closes —
-                 sequenced through onDismiss like every other sheet swap */
-              if (r.connectHealth) {
-                track('health_setup_opened');
-                afterDismiss.current = () => setSheet('checkin');
-                setHealthSheet(true);
-              } else {
-                setSheet('checkin');
-              }
+              setSheet('checkin');
             }}
           />
           <StatusBar style="light" />
@@ -921,6 +926,7 @@ export default function App() {
                 onAddNote={() => openDayNote(todayISO())}
                 onOpenToday={() => openDay(todayISO())}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
+                onOpenDiagnosis={() => { setProfile(true); setDiagnosisOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
                 onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
                 onShare={shareForAppointment}
@@ -1175,6 +1181,23 @@ export default function App() {
 
               <Text style={styles.groupTitle}>Your report</Text>
               <View style={styles.group}>
+                {/* the diagnosis, above the background it leads: a
+                    diagnosis arrives, and "still looking" is the answer
+                    most likely to be out of date in three months */}
+                <Pressable
+                  onPress={() => setDiagnosisOpen(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Diagnosis"
+                  accessibilityHint="Whether you have one, and what it is — the first line of your report, and what Today offers first"
+                >
+                  <RowIcon name="medkit-outline" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Diagnosis</Text>
+                    <Text style={styles.rowValue}>{diagnosisShort(db.getDiagnosis())}</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
                 <Pressable
                   onPress={() => setBackgroundOpen(true)}
                   style={styles.row}
@@ -1373,6 +1396,10 @@ export default function App() {
 
             <Modal visible={background} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setBackgroundOpen(false)}>
               <BackgroundSheet onClose={() => setBackgroundOpen(false)} />
+            </Modal>
+
+            <Modal visible={diagnosisOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setDiagnosisOpen(false)}>
+              <DiagnosisSheet onClose={() => setDiagnosisOpen(false)} />
             </Modal>
 
             <Modal visible={appearance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAppearance(false)}>

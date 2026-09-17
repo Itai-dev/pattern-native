@@ -317,8 +317,9 @@ ok('an empty object is not a backup', model.validateBackup('{}') === null);
 ok('unrelated JSON is not a backup', model.validateBackup('{"foo": 1}') === null);
 ok('an empty entries backup validates to zero days',
   Object.keys(model.validateBackup(JSON.stringify({ entries: {} })).entries).length === 0);
-/* v6 added the background object; every earlier file still validates */
-ok('the export format version is 6', model.BACKUP_VERSION === 6);
+/* v6 added the background object, v7 the diagnosis record; every
+   earlier file still validates */
+ok('the export format version is 7', model.BACKUP_VERSION === 7);
 ok('the scale version is 3', scale.SCALE_VERSION === 3);
 
 /* ── symptoms alongside the pain ───────────────────────────── */

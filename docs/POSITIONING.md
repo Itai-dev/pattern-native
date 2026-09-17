@@ -26,6 +26,31 @@ gives the map a meaning beyond symptom severity.
 until the first three are strong. When built, it speaks in associations with
 uncertainty, never causes.
 
+### Two people, one check-in · decided 17 Sep 2026
+
+The two benefits land on two different people, and the app now asks which
+one it is talking to, on day zero:
+
+- **Not yet diagnosed.** Years to a fibromyalgia or endometriosis diagnosis
+  are the norm, and most of those years are spent failing to describe the
+  pain in a ten-minute appointment. For this person the record is the raw
+  material a diagnosis gets made from — onset, site, character, timing,
+  what has been tried — put in front of a clinician without the distortion
+  of memory. The report and the background are the product; the
+  appointment is the event it is for.
+- **Diagnosed.** The name is known; what is not known is what helps and
+  what costs the next morning. For this person the experiment, the budget
+  and the Health context are the product, and the background is a file they
+  already have somewhere.
+
+What this changes: the order Today offers things in, and the first row of
+the report. What it does not change, and must never: Pattern does not
+diagnose, and the list it shows is a vocabulary for what a clinician has
+already said. A diagnosis suggested, inferred or hinted at by this app —
+in a card, a sentence, an association's wording — is a regression, not a
+feature. The answer itself never leaves the phone; analytics counts only
+that the question was answered or passed over.
+
 ## What Pattern is not
 
 - Not a treatment. The PROSPER-FM trial put symptom tracking in the control
