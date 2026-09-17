@@ -30,6 +30,8 @@ export interface Comparison {
   health?: Association;
   early?: EarlyLook;
   dose?: DoseAssociation | DoseEarly;
+  paired?: PairedDay[];
+  pairedDoses?: { date: string; before: number; after: number }[];
   first?: PairedDay[];
   firstDoses?: { date: string; before: number; after: number }[];
 }
@@ -88,7 +90,7 @@ export function buildComparisons(
       timing: words.timing,
       caveat: (early ? 'An early picture, not a finding. ' : '') + HEALTH_NON_CAUSATION
         + (pairs[0]?.basis === 'inBed' ? ' ' + IN_BED_NOTE : ''),
-      from: dates[0], to: dates[dates.length - 1], health: a, early,
+      from: dates[0], to: dates[dates.length - 1], health: a, early, paired: pairs,
       first: pairs.length < EARLY_MIN_PAIRED_DAYS ? pairs : undefined,
     };
   });
@@ -106,7 +108,7 @@ export function buildComparisons(
       const ps = pairs.filter(p => p.medId === id);
       const med = a?.med || p!.med;
       rows.push({
-        id: 'dose:' + id, family: 'Medications', title: med + ' and pain around a dose',
+        pairedDoses: ps, id: 'dose:' + id, family: 'Medications', title: med + ' and pain around a dose',
         status: copy ? 'Worth watching' : a?.verdict === 'observation' ? 'No clear association' : 'Still collecting',
         summary: copy ? copy.body : a?.verdict === 'observation'
           ? 'Average pain was similar before and after these doses. This does not establish whether the medication helped.'

@@ -20,6 +20,7 @@ import {
 } from './model';
 import { SCALE_VERSION } from './painScale';
 import { PROTOCOL_REVIEW_DAYS } from './thresholds';
+import type { HealthSyncStatus } from './health/status';
 
 let db: SQLiteDatabase | null = null;
 let healthDb: SQLiteDatabase | null = null;
@@ -764,7 +765,17 @@ export function setHealthSyncedFrom(iso: string): void {
 /** back to "never filled" — the next sync backfills the whole span */
 export function clearHealthSyncedFrom(): void {
   healthRevision++;
-  healthConn().runSync("DELETE FROM health_meta WHERE k = 'syncedFrom'");
+  healthConn().runSync("DELETE FROM health_meta WHERE k IN ('syncedFrom', 'syncStatus')");
+}
+
+/** Refresh results are cache metadata, never exported with the pain record. */
+export function getHealthSyncStatus(): HealthSyncStatus | null {
+  const row = healthConn().getFirstSync<{ v: string }>("SELECT v FROM health_meta WHERE k = 'syncStatus'");
+  if (!row) return null;
+  try { return JSON.parse(row.v) as HealthSyncStatus; } catch { return null; }
+}
+export function setHealthSyncStatus(status: HealthSyncStatus): void {
+  healthConn().runSync("INSERT OR REPLACE INTO health_meta (k, v) VALUES ('syncStatus', ?)", JSON.stringify(status));
 }
 
 /** off by default. Shadow rows are derived from health answers, so they

@@ -79,4 +79,18 @@ check('Today links identify the evidence that produced its sentence', () => {
   const med = month.find(r => r.family === 'Medications');
   assert.equal(todayInsight({ ...input, best: null, doses: { best: med.dose } }).id, med.id);
 });
+check('connected-data status reflects readings, not inferred coverage or permission', () => {
+  const { connectedDataRows } = require('../.testbuild/health/status');
+  const data = {
+    '2026-09-16': { date: '2026-09-16', coverage: { movement: true, workouts: true }, steps: 0, workouts: [] },
+    '2026-09-17': { date: '2026-09-17', coverage: { sleep: true }, sleepMinutes: 480, sleepKind: 'inBed' },
+    '2026-09-18': { date: '2026-09-18', coverage: { workouts: true }, workouts: [{ h: 480, minutes: 20 }] },
+  };
+  const rows = connectedDataRows(data, ['sleep', 'movement', 'workouts', 'medications'], '2026-09-17');
+  assert.equal(rows.find(r => r.id === 'movement').latest, '2026-09-16');
+  assert.equal(rows.find(r => r.id === 'workouts').latest, null);
+  assert.equal(rows.find(r => r.id === 'medications').latest, null);
+  assert.deepEqual(rows.find(r => r.id === 'sleep').readings, ['Time in bed']);
+  assert.deepEqual(connectedDataRows(data, [], '2026-09-17'), []);
+});
 console.log(passed + ' comparison regression scenarios passed.');

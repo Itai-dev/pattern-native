@@ -48,6 +48,7 @@ export interface TrendsScreenProps {
   healthCategories: HealthCategory[];
   initialComparisonId?: string;
   onOpenHealth?: () => void;
+  onOpenData?: () => void;
   /** the PDF, from its natural home at the foot of the screen — the
    *  handoff is the destination of everything above it */
   onShare?: () => void;
@@ -611,7 +612,7 @@ const digestStyles = StyleSheet.create({
 
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
-  healthDays, healthCategories, initialComparisonId, onOpenHealth, onShare, sharing,
+  healthDays, healthCategories, initialComparisonId, onOpenHealth, onOpenData, onShare, sharing,
 }: TrendsScreenProps) {
   /* All by default. The first look at this chart must show every logged
      day — a fixed window that happens to miss the days someone logged
@@ -753,7 +754,8 @@ export default function TrendsScreen({
       <Text style={styles.empty}>{Object.keys(entries).length
         ? 'No pain check-ins in this range. Choose another range to see your record.'
         : 'Your record starts with one check-in. Pain alone is enough.'}</Text>
-      <PatternComparisons rows={comparisons} onOpenDay={onOpenDay} onOpenHealth={onOpenHealth}
+      <PatternComparisons onOpenData={onOpenData}
+        rangeLabel={fmtReportDate(addDays(todayIso, -(spanDays - 1))) + ' to ' + fmtReportDate(todayIso)} rows={comparisons} onOpenDay={onOpenDay} onOpenHealth={onOpenHealth}
         initialComparisonId={initialComparisonId} />
     </View>
   );
@@ -782,7 +784,8 @@ export default function TrendsScreen({
       />
 
       {rangeControl}
-      <PatternComparisons rows={comparisons} onOpenDay={onOpenDay}
+      <PatternComparisons onOpenData={onOpenData}
+        rangeLabel={fmtReportDate(addDays(todayIso, -(spanDays - 1))) + ' to ' + fmtReportDate(todayIso)} rows={comparisons} onOpenDay={onOpenDay}
         initialComparisonId={initialComparisonId} onOpenHealth={onOpenHealth} />
       <Press onPress={() => setHistoryOpen(!historyOpen)} accessibilityRole="button"
         accessibilityLabel="Your history" accessibilityState={{ expanded: historyOpen }} style={styles.historyToggle}>

@@ -21,6 +21,7 @@ import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DayScreen, { fmtDay } from './src/DayScreen';
 import HealthSheet from './src/HealthSheet';
+import ConnectedDataSheet from './src/ConnectedDataSheet';
 import { HealthKitService, deviceClock } from './src/health/healthkit';
 import {
   healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
@@ -275,19 +276,35 @@ export default function App() {
      the same guard discipline as the glass. */
   const health = useMemo(() => new HealthKitService(), []);
   const [healthSheet, setHealthSheet] = useState(false);
+  const [healthPanel, setHealthPanel] = useState<'setup' | 'status'>('setup');
+  const [healthRefreshing, setHealthRefreshing] = useState(false);
+  const healthRefreshCalls = useRef(0);
+  const [healthSyncStatus, setHealthSyncStatus] = useState(() => db.getHealthSyncStatus());
   const [healthDays, setHealthDays] = useState(() => storedHealthDays());
 
   /* Foreground sync: on launch and on every return from background,
      because Health data arrives late — a watch syncs when it syncs.
      Deliberately NOT background delivery; the decision and its reasons
      live in health/sync.ts. */
-  const resyncHealth = useCallback(() => {
-    syncHealth(health, deviceClock)
-      /* fresh nights and doses re-plan the reminder week — the learned
-         times come from these days (health/prompts.ts) */
-      .then(() => { setHealthDays(storedHealthDays()); syncReminders().catch(() => {}); })
-      .catch(() => {});
+  const resyncHealth = useCallback(async () => {
+    healthRefreshCalls.current++;
+    setHealthRefreshing(true);
+    try {
+      await syncHealth(health, deviceClock);
+      syncReminders().catch(() => {});
+    } catch { /* existing readings remain available */ }
+    finally {
+      setHealthDays(storedHealthDays());
+      setHealthSyncStatus(db.getHealthSyncStatus());
+      healthRefreshCalls.current--;
+      setHealthRefreshing(healthRefreshCalls.current > 0);
+    }
   }, [health]);
+  const openConnectedData = () => {
+    setHealthDays(storedHealthDays());
+    setHealthSyncStatus(db.getHealthSyncStatus());
+    setHealthPanel('status'); setProfile(true); setHealthSheet(true);
+  };
   /* the moment-of prompts: iOS wakes the app when a workout or a night
      lands, on binaries with the entitlement — nothing on the others */
   useEffect(() => startBackgroundPrompts(health), [health]);
@@ -437,6 +454,8 @@ export default function App() {
     setEntries(next);
     setActivity(db.getGoal());
     setEvents(db.getEvents());
+    setHealthDays(storedHealthDays());
+    setHealthSyncStatus(db.getHealthSyncStatus());
     /* one place to feed the widget, so no screen has to remember to */
     refreshWidget(next);
     /* and the watch's week strip, which is drawn from the same days */
@@ -961,7 +980,7 @@ export default function App() {
                 onOpenHealth={() => {
                   track('health_setup_opened');
                   setProfile(true);
-                  setHealthSheet(true);
+                  setHealthPanel('setup'); setHealthSheet(true);
                 }}
               />
             </ScrollView>
@@ -988,7 +1007,8 @@ export default function App() {
                 onSpanChange={setTrendsSpan}
                 healthDays={healthDays}
                 healthCategories={healthCategories()}
-                onOpenHealth={() => { track('health_setup_opened'); setProfile(true); setHealthSheet(true); }}
+                onOpenData={openConnectedData}
+                onOpenHealth={() => { track('health_setup_opened'); setProfile(true); setHealthPanel('setup'); setHealthSheet(true); }}
                 onShare={shareTrends}
                 sharing={sharing}
               />
@@ -1098,7 +1118,7 @@ export default function App() {
                   <Text style={styles.groupTitle}>Apple Health</Text>
                   <View style={styles.group}>
                     <Pressable
-                      onPress={() => { track('health_setup_opened'); setHealthSheet(true); }}
+                      onPress={() => { track('health_setup_opened'); setHealthPanel('setup'); setHealthSheet(true); }}
                       style={styles.row}
                       accessibilityRole="button"
                       accessibilityLabel="Apple Health. Use sleep and activity to add context automatically."
@@ -1107,8 +1127,16 @@ export default function App() {
                       <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
                         <Text style={styles.rowLabel}>Apple Health</Text>
                         <Text style={styles.rowValue}>
-                          {healthRequestedOn() ? 'On' : 'Off'}
+                          {healthRequestedOn() ? 'Set up' : 'Not set up'}
                         </Text>
+                        <Text style={styles.rowChevron}>›</Text>
+                      </View>
+                    </Pressable>
+                    <Pressable onPress={openConnectedData}
+                      style={styles.row} accessibilityRole="button" accessibilityLabel="Connected data">
+                      <RowIcon name="list-outline" />
+                      <View style={[styles.rowMain, styles.rowLineLast]}>
+                        <Text style={styles.rowLabel}>Connected data</Text>
                         <Text style={styles.rowChevron}>›</Text>
                       </View>
                     </Pressable>
@@ -1421,11 +1449,17 @@ export default function App() {
             </Modal>
 
             <Modal visible={healthSheet} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setHealthSheet(false)}>
-              <HealthSheet
+              {healthPanel === 'status' ? <ConnectedDataSheet
+                days={healthDays} categories={healthCategories()} status={healthSyncStatus}
+                today={todayISO()} available={health.available()} refreshing={healthRefreshing}
+                onRefresh={resyncHealth} onManage={() => setHealthPanel('setup')}
+                onDone={() => setHealthSheet(false)}
+              /> : <HealthSheet
                 service={health}
                 onChanged={resyncHealth}
+                onOpenData={openConnectedData}
                 onDone={() => setHealthSheet(false)}
-              />
+              />}
             </Modal>
           </View>
         </Modal>

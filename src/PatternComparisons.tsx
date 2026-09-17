@@ -1,71 +1,52 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Modal, Platform, StyleSheet, Text, View } from 'react-native';
 import { Press } from './motion';
 import { Comparison, leadingComparison } from './health/comparisons';
-import { factorLabel } from './health/engine';
-import { formatScore } from './painScale';
-import { fmtReportDate } from './report';
-import { GroupBars, DoseBars } from './ComparisonBars';
+import ComparisonDetail from './ComparisonDetail';
 import { color, font, radius } from './theme';
 
 const FAMILIES: Comparison['family'][] = ['Sleep', 'Activity', 'Medications', 'Mood', 'Nutrition'];
 
-function Evidence({ item, onOpenDay }: { item: Comparison; onOpenDay: (date: string) => void }) {
-  return <View style={styles.evidence}>
-    <Text style={styles.title}>{item.title}</Text>
-    <Text style={styles.status}>{item.status}</Text>
-    <Text style={styles.body}>{item.summary}</Text>
-    {(item.health?.low || item.early || item.dose?.before !== undefined) && (
-      <Text style={styles.meta}>Average pain · 0–10</Text>
-    )}
-    {item.health?.low ? <GroupBars a={item.health} /> : item.early ? <GroupBars a={item.early} /> : null}
-    {!!item.dose && <DoseBars a={item.dose} />}
-    {item.first?.map(p => <Text key={p.date} style={styles.body}>
-      {fmtReportDate(p.date)}: {factorLabel(item.health!.kind, p.factor)} · pain {formatScore(p.pain)}/10
-    </Text>)}
-    {item.firstDoses?.map(p => <Text key={p.date} style={styles.body}>
-      {fmtReportDate(p.date)}: pain {formatScore(p.before)}/10 before · {formatScore(p.after)}/10 after
-    </Text>)}
-    {!!item.evidence && <Text style={styles.meta}>{item.evidence}</Text>}
-    {!!item.from && !!item.to && <Text style={styles.meta}>
-      {fmtReportDate(item.from)} – {fmtReportDate(item.to)}
-    </Text>}
-    <Text style={styles.meta}>{item.timing}</Text>
-    <Text style={styles.meta}>{item.caveat}</Text>
-    {!!item.from && <View style={styles.actions}>
-      <Press style={styles.action} accessibilityRole="button" onPress={() => onOpenDay(item.from!)}>
-        <Text style={styles.link}>First paired day ›</Text>
-      </Press>
-      {item.to !== item.from && !!item.to && <Press style={styles.action} accessibilityRole="button" onPress={() => onOpenDay(item.to!)}>
-        <Text style={styles.link}>Latest paired day ›</Text>
-      </Press>}
-    </View>}
-  </View>;
-}
-
 /** One headline, then quiet rows. Only a chosen family opens its data;
  *  early pictures and collection counters never fill the landing view. */
-export default function PatternComparisons({ rows, onOpenDay, initialComparisonId, onOpenHealth }: {
+export default function PatternComparisons({ rows, onOpenDay, initialComparisonId, onOpenHealth, onOpenData, rangeLabel }: {
   rows: Comparison[];
   onOpenDay: (date: string) => void;
   initialComparisonId?: string;
   onOpenHealth?: () => void;
+  onOpenData?: () => void;
+  rangeLabel?: string;
 }) {
-  const [open, setOpen] = useState<Comparison['family'] | null>(
-    () => rows.find(r => r.id === initialComparisonId)?.family || null
-  );
+  const [open, setOpen] = useState<Comparison['family'] | null>(null);
+  const [selectedId, setSelectedId] = useState(initialComparisonId || null);
+  const [detailVisible, setDetailVisible] = useState(!!initialComparisonId);
+  const selected = rows.find(r => r.id === selectedId);
+  const afterDismiss = useRef<(() => void) | null>(null);
+  const finishDismiss = () => {
+    setSelectedId(null);
+    const run = afterDismiss.current; afterDismiss.current = null; run?.();
+  };
+  const showComparison = (id: string) => { setSelectedId(id); setDetailVisible(true); };
+  const closeComparison = () => {
+    setDetailVisible(false);
+    if (Platform.OS !== 'ios') finishDismiss();
+  };
+  const openDay = (date: string) => {
+    afterDismiss.current = () => onOpenDay(date);
+    closeComparison();
+  };
   const lead = rows.find(r => r.id === initialComparisonId && r.status === 'Worth watching') || leadingComparison(rows);
   return <>
     <View style={styles.card}>
-      <Text style={styles.eyebrow}>Worth your attention</Text>
+      <Text style={styles.eyebrow}>{lead ? lead.family + ' · Worth watching' : 'Your observations'}</Text>
       {lead ? <>
-        <Text style={styles.title}>{lead.title}</Text>
-        <Text style={styles.body}>{lead.summary}</Text>
+        <Text style={styles.title}>{lead.summary}</Text>
+        <Text style={styles.meta}>{lead.title}</Text>
         <Text style={styles.meta}>{lead.evidence}</Text>
         <Text style={styles.meta}>{lead.caveat}</Text>
-        <Press style={styles.action} accessibilityRole="button" onPress={() => setOpen(lead.family)}
+        <Press style={styles.action} accessibilityRole="button" onPress={() => showComparison(lead.id)}
           accessibilityLabel={'See the evidence for ' + lead.title}>
-          <Text style={styles.link}>See why ›</Text>
+          <Text style={styles.link}>View comparison ›</Text>
         </Press>
       </> : <>
         <Text style={styles.title}>{rows.length ? 'No clear pattern in this range yet' : 'Put context beside your pain'}</Text>
@@ -96,10 +77,27 @@ export default function PatternComparisons({ rows, onOpenDay, initialComparisonI
             </View>
             <Text style={styles.link}>{expanded ? '−' : '+'}</Text>
           </Press>
-          {expanded && items.map(item => <Evidence key={item.id} item={item} onOpenDay={onOpenDay} />)}
+          {expanded && items.map(item => <Press key={item.id} style={styles.evidence}
+            accessibilityRole="button" accessibilityLabel={'View comparison: ' + item.title + '. ' + item.status}
+            onPress={() => showComparison(item.id)}>
+            <Text style={styles.status}>{item.status}</Text>
+            <Text style={styles.title}>{item.status === 'Worth watching' ? item.summary : item.title}</Text>
+            {item.status === 'Worth watching' && <Text style={styles.meta}>{item.caveat}</Text>}
+            {!!item.evidence && <Text style={styles.meta}>{item.evidence}</Text>}
+            <Text style={styles.link}>View comparison ›</Text>
+          </Press>)}
         </View>;
       })}
     </View>}
+    {!!onOpenData && <Press onPress={onOpenData} style={styles.action}
+      accessibilityRole="button" accessibilityLabel="Connected data">
+      <Text style={styles.link}>Connected data ›</Text>
+    </Press>}
+    <Modal visible={detailVisible && !!selected} animationType="slide" presentationStyle="pageSheet"
+      onRequestClose={closeComparison} onDismiss={finishDismiss}>
+      {selected && <ComparisonDetail key={selected.id} item={selected} rangeLabel={rangeLabel}
+        onDone={closeComparison} onOpenDay={openDay} />}
+    </Modal>
   </>;
 }
 
