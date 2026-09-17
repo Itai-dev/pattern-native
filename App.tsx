@@ -62,6 +62,7 @@ import { todayInsight } from './src/todayInsight';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import { PREF_SQUARE_PICKER } from './src/SquarePicker';
+import { PREF_TODAY_LAYERED } from './src/todayTiles';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
@@ -244,6 +245,7 @@ export default function App() {
   /* may the lock screen carry the number — off until asked, see widget.ts */
   const [lockNumber, setLockNumber] = useState(() => db.getPref<boolean>(PREF_LOCK_NUMBER, false));
   const [squarePicker, setSquarePicker] = useState(() => db.getPref<boolean>(PREF_SQUARE_PICKER, false));
+  const [todayLayered, setTodayLayered] = useState(() => db.getPref<boolean>(PREF_TODAY_LAYERED, false));
   /* the next appointment, as state so Today's card follows the Profile
      row without a remount; the picker opens on mount when Today asked */
   const [appointment, setAppointment] = useState(() => db.getPref<string>(PREF_APPOINTMENT, ''));
@@ -1260,6 +1262,25 @@ export default function App() {
                     day squares in place of the slider's thumb and track.
                     A switch and not a rollout, so it can be flipped on the
                     phone mid-week and flipped back. */}
+                {/* Today in layers: the fact, what went with it, what is
+                    ahead, what only counts up. Same switch-not-rollout
+                    reasoning as the picker below. */}
+                <View style={styles.row} accessible accessibilityRole="switch"
+                  accessibilityState={{ checked: todayLayered }}
+                  accessibilityLabel="Today in layers: the check-in, then Health, then what is ahead">
+                  <RowIcon name="layers-outline" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Today in layers</Text>
+                    <Switch
+                      value={todayLayered}
+                      onValueChange={(on) => {
+                        db.setPref(PREF_TODAY_LAYERED, on);
+                        setTodayLayered(on);
+                      }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
                 <View style={styles.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: squarePicker }}
                   accessibilityLabel="Choose pain with squares instead of a slider">
@@ -1278,9 +1299,11 @@ export default function App() {
                 </View>
               </View>
               <Text style={styles.groupFooter}>
-                The check-in shows the eleven squares a day can wear, in place of
-                the slider. Drag along the row or tap one. Trying it out; the
-                slider stays the default.
+                Two things being tried, both off by default. Today in layers puts
+                the last check-in first, then what Apple Health saw, then what is
+                ahead, then what only counts up; the day-so-far chart moves to
+                the day screen. Squares show the eleven a day can wear, in place
+                of the slider: drag along the row or tap one.
               </Text>
 
               <Text style={styles.groupTitle}>About</Text>

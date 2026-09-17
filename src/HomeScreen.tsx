@@ -34,6 +34,7 @@ import Animated, {
 import DayLine from './DayLine';
 import ActivityIntention from './ActivityIntention';
 import { TodayInsight } from './todayInsight';
+import { ContextTile, PREF_TODAY_LAYERED, contextTiles } from './todayTiles';
 import InfoTip from './InfoTip';
 import DaySquare from './DaySquare';
 import { Press, useReduceMotion } from './motion';
@@ -413,11 +414,23 @@ export default function HomeScreen({
     ? dayShape(oldest.pain, latest.pain)
     : null;
 
-  return (
-    <View>
+  /* ── THE BLOCKS, NAMED ONCE AND ORDERED TWICE. The layered Today
+     (Profile ▸ Appearance) reads top to bottom from the fact to the
+     future: the last check-in, then what went with it from Health, then
+     the sentence before tomorrow's decision, then the things that only
+     ever count up. The day-so-far chart is a look back at the pain and
+     lives on the day screen there; the last-night line is replaced by
+     the tiles. Nothing in either order rates today. */
+  const blocks = {
+    activity: (
+      <>
       {!!activity && <View style={styles.activityWrap}>
         <ActivityIntention value={activity} onChange={onActivityChange} />
       </View>}
+      </>
+    ),
+    hero: (
+      <>
       {/* ── what you last said ────────────────────────────── */}
       {value != null ? (
         <Press
@@ -596,7 +609,10 @@ export default function HomeScreen({
           </View>
         </Press>
       )}
-
+      </>
+    ),
+    chart: (
+      <>
       {/* ── the day so far ──────────────────────────────────
           From the SECOND check-in. With one, this card was the card
           above it drawn again as a single dot, and a chart of one point
@@ -657,7 +673,10 @@ export default function HomeScreen({
           </View>
         </Press>
       )}
-
+      </>
+    ),
+    insight: (
+      <>
       {insight && <View style={styles.card}>
         <Text style={styles.eyebrow}>From your record</Text>
         <Text style={styles.insightTitle}>{insight.title}</Text>
@@ -669,11 +688,17 @@ export default function HomeScreen({
           <Text style={styles.insightLink}>{insight.action} ›</Text>
         </Press>
       </View>}
-
+      </>
+    ),
+    activityOffer: (
+      <>
       {offer === 'activity' && <View style={styles.activityWrap}>
         <ActivityIntention value={activity} onChange={onActivityChange} initiallyEditing />
       </View>}
-
+      </>
+    ),
+    lastNight: (
+      <>
       {/* ── last night, from Health ────────────────────────── */}
       {!!lastNight && (
         <Text style={styles.lastNight} allowFontScaling maxFontSizeMultiplier={1.4}
@@ -681,7 +706,10 @@ export default function HomeScreen({
           {lastNight}
         </Text>
       )}
-
+      </>
+    ),
+    appt: (
+      <>
       {/* the event capture used to be a button here. It lives in the
           check-in now — a flare happens on the same occasion as the
           number — and on the day screen, where events are read back.
@@ -728,7 +756,10 @@ export default function HomeScreen({
           </View>
         </View>
       )}
-
+      </>
+    ),
+    ahead: (
+      <>
       {/* ── what is booked, against the line ──────────────
           THE EVENING BEFORE. A session in the calendar, later today
           or tomorrow, longer than the person's own line — the one
@@ -777,7 +808,10 @@ export default function HomeScreen({
           </View>
         </View>
       )}
-
+      </>
+    ),
+    experiment: (
+      <>
       {/* ── the experiment: the countdown, or the answer ────
           THE ONE THING ON TODAY THAT COUNTS TOWARD SOMETHING, and
           what it counts toward is an answer: day N of fourteen, the
@@ -852,6 +886,40 @@ export default function HomeScreen({
             )}
           </View>
         </View>
+      )}
+      </>
+    ),
+  };
+  /* read at render, like the diagnosis: the switch in Profile writes it
+     and Today re-renders when Profile closes */
+  const layered = db.getPref<boolean>(PREF_TODAY_LAYERED, false);
+  const tiles = layered ? contextTiles(healthDays[t], healthDays) : [];
+
+  return (
+    <View>
+      {layered ? (
+        <>
+          {blocks.hero}
+          <ContextTiles tiles={tiles} />
+          {blocks.ahead}
+          {blocks.appt}
+          {blocks.experiment}
+          {blocks.activity}
+          {blocks.activityOffer}
+          {blocks.insight}
+        </>
+      ) : (
+        <>
+          {blocks.activity}
+          {blocks.hero}
+          {blocks.chart}
+          {blocks.insight}
+          {blocks.activityOffer}
+          {blocks.lastNight}
+          {blocks.appt}
+          {blocks.ahead}
+          {blocks.experiment}
+        </>
       )}
 
       {/* ── the experiment offer ──────────────────────────── */}
@@ -1194,6 +1262,28 @@ export default function HomeScreen({
  * above a Trends figure and one step below the screen's own title, which
  * is exactly the room a focal value needs and no more.
  */
+/** what went with the number: up to three neutral tiles from Health.
+ *  Nothing when Health has nothing — never a zero, never an empty ring.
+ *  The remark under a value compares the factor to the person's own
+ *  usual and never touches the pain above it. */
+function ContextTiles({ tiles }: { tiles: ContextTile[] }) {
+  if (!tiles.length) return null;
+  return (
+    <View style={styles.tiles} accessible accessibilityRole="summary"
+      accessibilityLabel={'From Apple Health: ' + tiles.map((x) => x.label + ' ' + x.value + (x.sub ? ', ' + x.sub : '')).join('. ')}>
+      {tiles.map((x) => (
+        <View key={x.key} style={styles.tile}>
+          <Text style={styles.tileK} allowFontScaling maxFontSizeMultiplier={1.3}>{x.label}</Text>
+          <Text style={styles.tileV} allowFontScaling maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit>{x.value}</Text>
+          {!!x.sub && (
+            <Text style={styles.tileS} allowFontScaling maxFontSizeMultiplier={1.3} numberOfLines={2}>{x.sub}</Text>
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   activityWrap: { marginHorizontal: size.pageX, marginTop: 14 },
   insightTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', marginTop: 8 },
@@ -1207,6 +1297,19 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardGap: { marginTop: 14 },
+  /* the context tiles: neutral surfaces, white numbers, no fills */
+  tiles: { flexDirection: 'row', gap: 8, marginTop: 10, marginHorizontal: size.pageX },
+  tile: {
+    flex: 1, borderRadius: 14, borderCurve: 'continuous', padding: 10,
+    backgroundColor: color.bgSurface,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
+  },
+  tileK: { color: color.textSecondary, fontSize: font.footnote },
+  tileV: {
+    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
+    letterSpacing: -0.3, marginTop: 2, fontVariant: ['tabular-nums'],
+  },
+  tileS: { color: color.textTertiary, fontSize: 11, lineHeight: 14, marginTop: 1 },
   /* a line, not a card: it is context beside the record, at the page's
      reading edge, in the quiet colour — and it never wears the ramp */
   lastNight: {
