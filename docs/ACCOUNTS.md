@@ -2,7 +2,8 @@
 
 *Decided 17 Sep 2026. POSITIONING.md carries the promise this changes;
 AGENTS.md carries the rule. This file is the design, and the argument for
-each choice. Nothing here is built yet.*
+each choice. The envelope, the store and the client seam are built; the
+native module, the sign-in and the screens are not.*
 
 ## What this is for
 
@@ -32,8 +33,8 @@ flare to have done homework in advance.
 
 Sign in with Apple gives identity. A random key, generated on the device
 and stored in the iCloud keychain, gives access. Our store holds ciphertext
-addressed by the Apple user identifier. The account says *which* blob is
-yours; the key says *how to open it*; we can do neither.
+addressed by the account. The account says *which* blob is yours; the key
+says *how to open it*; we can do neither.
 
 ### Identity
 
@@ -42,9 +43,11 @@ profile. Apple's `sub` is stable per app per user and arrives on every
 sign-in, so **we never need to ask for the email scope and should not** — a
 person's address is one more thing to hold and lose.
 
-The server verifies Apple's identity token per request: signature against
-Apple's published keys, `iss` of `appleid.apple.com`, `aud` of our bundle
-identifier, and expiry. No session state of our own.
+Supabase Auth verifies Apple's identity token — signature, issuer, our
+bundle identifier as audience, expiry — and issues the session; there is
+no JWT code of ours. The session's refresh token lives in the keychain
+(the same native module that holds the data key), never in the SQLite
+prefs, and signing out on the device revokes it.
 
 ### The key, and the one assumption to test first
 
@@ -99,20 +102,47 @@ and that exclusion must survive here. HealthKit values stay on the phone,
 which keeps one payload definition and keeps health-store data out of our
 infrastructure entirely.
 
-### The store
+### The store: Supabase · chosen 17 Sep 2026
 
-An object store, a row per `sub`, and the **last few blobs kept rather than
-one mutable slot.** A single overwritable slot is one bad write away from
-the disaster this feature exists to prevent.
+Supabase, in an EU region. It was chosen because it removes two things
+from the build rather than adding one: **Supabase Auth verifies the Apple
+identity token** for us, so there is no JWT code of ours to get wrong, and
+**Row Level Security is the server**, so there are no routes of ours to get
+wrong either. `supabase/migrations/20260917000000_copies.sql` is the whole
+store and `supabase/README.md` is the setup.
 
-- `PUT /copy` — store a blob, prune to the newest few.
-- `GET /copy` — the newest blob, plus the list of what exists.
-- `GET /copy/:id` — an older one.
-- `DELETE /account` — every blob and the row, immediately.
+- One table, `public.copies`: the envelope column for column, plus
+  `user_id` (defaulting to the caller) and `received_at` (the server's
+  clock, which is what ordering uses — a phone's clock is a phone's clock).
+- Append-only. A person may insert, read and delete their own rows. Nobody
+  may update: no policy exists and the grant is revoked, two independent
+  reasons. The anon role cannot reach the table at all.
+- **The newest five are kept**, by a trigger, so there is never one
+  mutable slot that one bad write can destroy.
+- Account deletion is the one admin action, so it is an edge function
+  (`supabase/functions/delete-account`) whose environment holds the service
+  role key. The app never does. The caller is resolved from their own
+  token; the function deletes that user's rows and then that user, and
+  nothing is soft-deleted or retained.
+- The app holds the project URL and the **anon** key, both public by
+  design. RLS is the boundary, not the key, so SPEC's rule that no secret
+  ships in the client holds.
+
+`src/cloudSync.ts` is the client side of this: one row shape, checked
+against the SQL by `tools/test-sync.js` so the two cannot drift; a push
+that seals and appends; a pull that fetches the newest and opens it. The
+store is an interface, so a Supabase client sits behind it in a dozen
+lines and the tests use a fake with real crypto.
 
 Upload after a check-in, debounced, and on background. A day's change
 re-uploads the whole blob; at this size that is simpler than deltas and
 simpler is the point.
+
+Two operational facts to know going in. The free tier pauses a project
+after a week idle, and a paused project is a failed restore on the day it
+matters — take the paid plan or accept that knowingly. And the dashboard
+will show the project owner rows of base64, which is the promise made
+visible: exactly what an attacker with the database would see.
 
 ### Restore
 
@@ -171,8 +201,10 @@ rather than assuming, because the cost of being wrong is a rejected binary.
    way HealthKit and expo-glass-effect do, old binaries take the catch, and
    **`runtimeVersion` does not move** — everyone keeps receiving the same
    over-the-air updates.
-3. **The server.** Apple token verification, the four routes, the object
-   store. Needs a hosting decision, which is not a code decision.
+3. **The store.** Written: the migration, the delete function and the
+   client seam. Needs the project created, the Apple provider enabled, and
+   `db push` plus `functions deploy` run once by the owner
+   (`supabase/README.md`). Two public values then go in `app.config.js`.
 4. **Sign in with Apple in the app.** Same native build as step two.
 5. **The surfaces.** One Profile row, the setup flow with the recovery code,
    the restore path beside the file restore on the first onboarding screen.
