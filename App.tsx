@@ -20,7 +20,7 @@ import HomeScreen from './src/HomeScreen';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DayScreen, { fmtDay } from './src/DayScreen';
-import NoteSheet from './src/NoteSheet';
+import AddInfoSheet from './src/AddInfoSheet';
 import HealthSheet from './src/HealthSheet';
 import ConnectedDataSheet from './src/ConnectedDataSheet';
 import { HealthKitService, deviceClock } from './src/health/healthkit';
@@ -79,7 +79,7 @@ registerCategory().catch(() => {}); // the Check in button on every prompt
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'event' | 'experiment' | 'note';
+type Sheet = null | 'checkin' | 'event' | 'experiment' | 'info';
 
 /* "Thu, 21 Aug" comes from DayScreen, which is the other place a date is
    a heading. Two copies of the same format is how two screens end up
@@ -144,9 +144,10 @@ function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
 /**
  * TWO tabs under a floating glass bar, and a profile built like the iOS
  * Settings app. Today is where you act; Record is everything that has
- * been recorded — led by the record itself, which is one card wearing
- * two views: the trend, or the months as a calendar whose squares open
- * their days.
+ * been recorded — led by the record itself, and what stands out in it
+ * as a card per thing. (The months as a calendar were a view of the
+ * record until 17 Sep 2026; the calendar is a view of the day screen
+ * now, reached from Today's card.)
  * They used to be three: History and Trends each held half of the same
  * answer, and the user had to decide which half they wanted before they
  * could look at either.
@@ -220,16 +221,18 @@ export default function App() {
   }, [tab, width]);
 
   const [sheet, setSheet] = useState<Sheet>(null);
-  /* the day's note, as a sheet over wherever you are — Today's card and
-     the layered day page both open it. It used to be a walk into the
-     day screen and down to a section; see NoteSheet for why it is not. */
-  const [noteDate, setNoteDate] = useState<string | null>(null);
-  const openNote = useCallback((d: string) => {
-    setNoteDate(d);
-    setSheet('note');
+  /* the Add information sheet, over wherever you are — Today's card
+     and the day page both open it, on a day and, from a tapped dot, on
+     one of its check-ins. It holds everything the check-in stopped
+     asking on 17 Sep 2026: where, the words, the symptoms, the
+     evening's questions and the note. */
+  const [infoTarget, setInfoTarget] = useState<{ date: string; h?: number } | null>(null);
+  const openInfo = useCallback((d: string, h?: number) => {
+    setInfoTarget({ date: d, h });
+    setSheet('info');
   }, []);
-  /* The record is a long page now — the charts, then the calendar of
-     every day stacked newest-first — so the way back to the top is a
+  /* The record is a long page — the charts, then a card for each thing
+     that stands out, then the appendix — so the way back to the top is a
      pill rather than a lot of scrolling. It appears only once you have
      actually gone somewhere. */
   const recordScroll = useRef<ScrollView>(null);
@@ -959,7 +962,7 @@ export default function App() {
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
-                onAddNote={() => openNote(todayISO())}
+                onAddInfo={() => openInfo(todayISO())}
                 onOpenToday={() => openDay(todayISO())}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenDiagnosis={() => { setProfile(true); setDiagnosisOpen(true); }}
@@ -1035,7 +1038,7 @@ export default function App() {
               onEditEvent={startEditEvent}
               onAddEvent={(d) => { setEditEvent(null); setEventDate(d); setSheet('event'); }}
               onClose={() => setDayScreen(null)}
-              onEditNote={openNote}
+              onAddInfo={openInfo}
             />
           )}
 
@@ -1054,12 +1057,6 @@ export default function App() {
             edit={editMoment || undefined}
             onDone={closeSheet}
             onClose={closeSheet}
-            /* the event sheet presents after this one has gone, the same
-               sequencing every sheet swap in this app uses */
-            onEvent={() => {
-              afterDismiss.current = () => { setEditEvent(null); setEventDate(null); setSheet('event'); };
-              closeSheet();
-            }}
           />
         </Modal>
 
@@ -1086,13 +1083,29 @@ export default function App() {
         </Modal>
 
         <Modal
-          visible={sheet === 'note'}
+          visible={sheet === 'info'}
           animationType="slide"
           presentationStyle="pageSheet"
           onRequestClose={closeSheet}
           onDismiss={runAfterDismiss}
         >
-          <NoteSheet dateIso={noteDate || todayISO()} onDone={closeSheet} onClose={closeSheet} />
+          <AddInfoSheet
+            dateIso={infoTarget ? infoTarget.date : todayISO()}
+            h={infoTarget ? infoTarget.h : undefined}
+            onDone={closeSheet}
+            onClose={closeSheet}
+            /* the event sheet presents after this one has gone, the same
+               sequencing every sheet swap in this app uses. The event
+               door used to be on the check-in's last step; it moved here
+               with the rest of what a check-in stopped asking. */
+            onEvent={() => {
+              const d = infoTarget ? infoTarget.date : todayISO();
+              afterDismiss.current = () => {
+                setEditEvent(null); setEventDate(d === todayISO() ? null : d); setSheet('event');
+              };
+              closeSheet();
+            }}
+          />
         </Modal>
 
         {/* the profile — grouped like the iOS Settings app: inset cards,

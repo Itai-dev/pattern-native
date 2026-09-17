@@ -26,10 +26,9 @@
  * something that asks.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as db from './db';
 import { Press } from './motion';
-import MapScreen from './MapScreen';
 import InfoTip, { InfoTitle } from './InfoTip';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent,
@@ -62,11 +61,11 @@ const shortDate = (iso: string) => {
 
 export interface TrendsScreenProps {
   entries: Entries;
-  /** opening a day from the calendar at the foot of this screen. History
-   *  used to be its own tab; it is the last section here now — the
-   *  record and what the record adds up to are one subject, and two
-   *  tabs made the user decide which of them they wanted before they
-   *  could look at either. */
+  /** opening a day from this screen: the chart's readout and the two
+   *  extremes name days, and a named day opens. The calendar of every
+   *  day lived at the foot of this page until 17 Sep 2026; it is a view
+   *  of the day screen now (DayScreen), because a page about what the
+   *  days add up to is not where a person looks for one day. */
   onOpenDay: (dateIso: string) => void;
   events: PainEvent[];
   func: FuncEntry[];
@@ -801,6 +800,91 @@ const digestStyles = StyleSheet.create({
   caveat: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18 },
 });
 
+/* ── what stands out, as cards ─────────────────────────────── */
+
+/** the sentence every stand-out card is qualified by — inside the sheet
+ *  that opens it and behind the (i) on the section, never far from the
+ *  numbers it qualifies */
+const STANDOUT_NOTE = 'A pattern in what you recorded, never proof of cause. Nothing here moves on its own — only when you add a check-in.';
+
+/**
+ * One thing that stands out: the sentence, one line under it, and what
+ * opens when the card is tapped. `detail` null is a card with nothing
+ * further to say — a fact about the wait, drawn without the chevron.
+ */
+interface Standout {
+  key: string;
+  title: string;
+  line: string;
+  detail: React.ReactNode | null;
+  /** behind "Show more" until asked for — the first-days lists, of
+   *  which ten can exist in the first week */
+  folded?: boolean;
+}
+
+/** the card on the page: sentence, line, and the door — white on the
+ *  surface, no bar and no colour, because the bars are what it opens to */
+function StandoutCard({ card, onOpen }: { card: Standout; onOpen: () => void }) {
+  const body = (
+    <>
+      <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>{card.title}</Text>
+      <Text style={styles.standoutLine} numberOfLines={3} allowFontScaling maxFontSizeMultiplier={1.4}>
+        {card.line}
+      </Text>
+      {card.detail !== null && (
+        <Text style={styles.standoutMore} allowFontScaling maxFontSizeMultiplier={1.3}>Learn more ›</Text>
+      )}
+    </>
+  );
+  if (card.detail === null) {
+    return (
+      <View style={styles.card} accessible accessibilityLabel={card.title + '. ' + card.line}>
+        {body}
+      </View>
+    );
+  }
+  return (
+    <Press
+      onPress={onOpen}
+      pressScale={0.985}
+      pressOpacity={0.92}
+      style={styles.card}
+      accessibilityRole="button"
+      accessibilityLabel={card.title + '. ' + card.line}
+      accessibilityHint="Opens this in full: the numbers behind it and what it does not mean"
+    >
+      {body}
+    </Press>
+  );
+}
+
+/** the card in full, as a sheet: the sentence as its title, everything
+ *  behind it, and the qualifying sentence at the foot — inside the
+ *  sheet, where the numbers are */
+function StandoutSheet({ card, onClose }: { card: Standout; onClose: () => void }) {
+  return (
+    <View style={styles.sheet}>
+      <View style={styles.sheetBar}>
+        <Text style={styles.sheetTitle} numberOfLines={1}>What stands out</Text>
+        <Press
+          onPress={onClose}
+          style={styles.sheetBtn}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Done"
+        >
+          <Text style={styles.sheetBtnText}>Done</Text>
+        </Press>
+      </View>
+      <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sheetHeadline} allowFontScaling maxFontSizeMultiplier={1.4}>{card.title}</Text>
+        <View style={styles.sheetDetail}>{card.detail}</View>
+        <Text style={styles.sheetNote} allowFontScaling maxFontSizeMultiplier={1.4}>{STANDOUT_NOTE}</Text>
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
   healthNoticed, onShare, sharing,
@@ -812,11 +896,12 @@ export default function TrendsScreen({
   const [rangeKey, setRangeKey] = useState('a');
   /* the descriptive tail, folded — counts of places, words and times
      are the record's appendix, not its findings */
-  /* the two folds: the calendar inside Your pain, and the tables
-     inside Your record. Session state, not a preference — a person who
-     opened the tables yesterday has not asked to see them every day. */
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  /* the fold: the tables inside Your record. Session state, not a
+     preference — a person who opened the tables yesterday has not asked
+     to see them every day. */
   const [recordOpen, setRecordOpen] = useState(false);
+  /* the stand-out card opened to be read in full — see Standout */
+  const [openCard, setOpenCard] = useState<Standout | null>(null);
   /* THE FIRST DAYS, FOLDED. Ten comparisons can be licensed at once, and
      in the first week every one of them has one to three paired days —
      ten titled lists of dates, each closed by the same caption, was the
@@ -935,13 +1020,14 @@ export default function TrendsScreen({
      not drawn — silence is a valid digest. */
   const says = recordSays(data);
 
-  /* FOUR CARDS. Eleven surfaces at one radius carried the hierarchy by
-     order alone, and the record's appendix — counts of places, words
-     and times — sat at the same weight as the record itself. Now: the
-     record (Your pain, with the sentences that read it and the calendar
-     behind a fold), the one place a claim may appear (Worth watching),
-     the appendix (Your record, face and details), and the handoff.
-     Nothing was removed; the tables are one tap further in. */
+  /* THE RECORD, WHAT STANDS OUT, THE APPENDIX, THE HANDOFF. Eleven
+     surfaces at one radius carried the hierarchy by order alone, and
+     the record's appendix — counts of places, words and times — sat at
+     the same weight as the record itself. Now: the record (Your pain,
+     with the sentences that read it), the one place a claim may appear
+     (What stands out — a card per thing, each opening to be read in
+     full), the appendix (Your record, face and details), and the
+     handoff. The tables are one tap further in. */
   const he = data.harderEasier;
   const otherGroups = (healthNoticed?.groups || []).filter((a) => a !== healthNoticed?.best);
   const bestCopy = healthNoticed?.best ? associationCopy(healthNoticed.best) : null;
@@ -986,10 +1072,216 @@ export default function TrendsScreen({
   const notYetPaired = waiting.filter((w) => w.have === 0).map((w) => w.name);
   const stillCounting = waiting.filter((w) => w.have > 0).map((w) => w.name + ' ' + w.have + ' of ' + w.need);
   const collectingShown = notYetPaired.concat(stillCounting);
-  const anythingOut = !!bestCopy || !!budgetCard || !!(healthNoticed && healthNoticed.fading.length)
-    || otherGroups.length > 0 || !!doseBestCopy || !!(dz && dz.fading.length)
-    || doseGroups.length > 0 || early.length > 0 || doseEarly.length > 0 || says.length > 0
-    || first.length > 0 || doseFirst.length > 0;
+  /* THE CARDS, IN THE ORDER THEY EARNED. The record's own sentences
+     first — they exist from the first week and need no sensor — then
+     the budget, the headline (one claim: the larger of a day and a dose
+     comparison), a faded one said out loud, the early looks, the first
+     days, the doses whose pairs formed, the comparisons whose groups
+     did not differ, and last what is still collecting. Each card
+     carries the sentence and one line; `detail` is what opens. */
+  const standouts: Standout[] = [];
+  says.forEach((c) => standouts.push({
+    key: c.key, title: c.title, line: c.evidence,
+    detail: (
+      <>
+        <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{c.evidence}</Text>
+        {!!c.caveat && (
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{c.caveat}</Text>
+        )}
+      </>
+    ),
+  }));
+  /* THE BUDGET. The one sentence on this screen written for the NEXT
+     decision rather than the last one: the same workout-load
+     association a card below may carry, read forward as minutes. Words
+     and grey numbers, no colour — colour is for pain. */
+  if (budgetCard) standouts.push({
+    key: 'budget', title: 'Before your next workout', line: budgetCard.title,
+    detail: <DigestRow card={budgetCard} first />,
+  });
+  if (doseLeads && doseBestCopy && dz && dz.best) {
+    const a = dz.best;
+    standouts.push({
+      key: 'best.dose', title: doseBestCopy.title, line: doseBestCopy.body,
+      detail: (
+        <>
+          <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{doseBestCopy.body}</Text>
+          <DoseBars a={a} />
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {doseBestCopy.sample}
+            {a.from && a.to ? ' ' + fmtReportDate(a.from) + ' – ' + fmtReportDate(a.to) + '.' : ''}
+          </Text>
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{doseBestCopy.timing}</Text>
+          {/* the regression line is the card, not a footnote: without
+              it "lower after a dose" reads as a verdict on the tablet */}
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{doseBestCopy.disclaimer}</Text>
+        </>
+      ),
+    });
+  } else if (bestCopy && healthNoticed && healthNoticed.best) {
+    const a = healthNoticed.best;
+    standouts.push({
+      key: 'best.' + a.kind, title: bestCopy.title, line: bestCopy.body,
+      detail: (
+        <>
+          <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{bestCopy.body}</Text>
+          <GroupBars a={a} />
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {bestCopy.sample}
+            {a.from && a.to ? ' ' + fmtReportDate(a.from) + ' – ' + fmtReportDate(a.to) + '.' : ''}
+          </Text>
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {bestCopy.timing} Days without Health data are left out, never counted as anything.
+          </Text>
+          {a.basis === 'inBed' && (
+            <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{IN_BED_NOTE}</Text>
+          )}
+        </>
+      ),
+    });
+  } else if (healthNoticed && healthNoticed.fading.length > 0) {
+    standouts.push({
+      key: 'faded.' + healthNoticed.fading[0].kind, title: 'Something that faded',
+      line: fadedCopy(healthNoticed.fading[0]),
+      detail: (
+        <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {fadedCopy(healthNoticed.fading[0])}
+        </Text>
+      ),
+    });
+  } else if (dz && dz.fading.length > 0) {
+    standouts.push({
+      key: 'faded.dose.' + dz.fading[0].medId, title: 'Something that faded',
+      line: fadedDoseCopy(dz.fading[0]),
+      detail: (
+        <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {fadedDoseCopy(dz.fading[0])}
+        </Text>
+      ),
+    });
+  }
+  /* THE EARLY LOOKS. The same bars a claim would carry, before any
+     claim may be made, captioned as a picture: a person who connected
+     Health sees it doing something in the first week instead of a
+     fortnight of silence. */
+  early.forEach((e) => {
+    const c = earlyCopy(e);
+    standouts.push({
+      key: 'e.' + e.kind, title: c.title, line: c.evidence,
+      detail: (
+        <>
+          <GroupBars a={e} />
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{c.evidence}</Text>
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{EARLY_NOTE}</Text>
+        </>
+      ),
+    });
+  });
+  doseEarly.forEach((e) => standouts.push({
+    key: 'de.' + e.medId, title: e.med + ', around your doses so far',
+    line: e.pairs + ' doses with a check-in before and after.',
+    detail: (
+      <>
+        <DoseBars a={e} />
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {e.pairs} doses with a check-in before and after. {EARLY_NOTE}
+        </Text>
+      </>
+    ),
+  }));
+  /* THE FIRST DAYS. One to three paired days: not a picture yet, so the
+     facts themselves — the night and the morning's number, the mood and
+     the evening's. Ten of these can be licensed at once in the first
+     week; two stay on the page and the rest fold behind "Show more". */
+  first.forEach((fd, i) => standouts.push({
+    key: 'f.' + fd.kind, title: firstTitle(fd.kind),
+    line: fd.pairs.length + (fd.pairs.length === 1 ? ' paired day' : ' paired days') + ' so far.',
+    folded: i >= FIRST_DAYS_OPEN,
+    detail: (
+      <>
+        {fd.pairs.map((p) => (
+          <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
+            accessibilityLabel={fmtReportDate(p.date) + ', ' + factorLabel(fd.kind, p.factor)
+              + ', pain ' + formatScore(p.pain)}>
+            <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
+            {'   ' + factorLabel(fd.kind, p.factor) + '  ·  pain '}
+            <Text style={styles.firstNum}>{formatScore(p.pain)}</Text>
+          </Text>
+        ))}
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{FIRST_NOTE}</Text>
+      </>
+    ),
+  }));
+  doseFirst.forEach((fd) => standouts.push({
+    key: 'df.' + fd.medId, title: fd.med + ', around the first doses',
+    line: fd.pairs.length + (fd.pairs.length === 1 ? ' dose' : ' doses') + ' so far.',
+    detail: (
+      <>
+        {fd.pairs.map((p) => (
+          <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
+            accessibilityLabel={fmtReportDate(p.date) + ', pain ' + formatScore(p.before)
+              + ' before the dose, ' + formatScore(p.after) + ' after'}>
+            <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
+            {'   before '}
+            <Text style={styles.firstNum}>{formatScore(p.before)}</Text>
+            {'  ·  after '}
+            <Text style={styles.firstNum}>{formatScore(p.after)}</Text>
+          </Text>
+        ))}
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+          The doses so far, as recorded — a picture starts at three, and a dose is
+          often taken when pain is high.
+        </Text>
+      </>
+    ),
+  }));
+  /* doses whose pairs formed: the bars, with the observation's words
+     or — for a change that did not lead — no words beyond the timing
+     and the regression line */
+  doseGroups.forEach((a) => standouts.push({
+    key: 'd.' + a.medId, title: a.med + ', around your doses',
+    line: a.verdict === 'observation' ? doseObservationCopy(a) : DOSE_TIMING,
+    detail: (
+      <>
+        {a.verdict === 'observation' && (
+          <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {doseObservationCopy(a)}
+          </Text>
+        )}
+        <DoseBars a={a} />
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{DOSE_TIMING}</Text>
+      </>
+    ),
+  }));
+  otherGroups.forEach((a) => {
+    const w = groupLabels(a.kind);
+    const line = 'No meaningful difference in ' + w.outcome + ' between these groups so far — '
+      + 'that is a finding about these ' + a.pairedDays + ' days, not a failure of them.';
+    standouts.push({
+      key: 'g.' + a.kind, title: w.factor + ', against your record', line,
+      detail: (
+        <>
+          <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{line}</Text>
+          <GroupBars a={a} />
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{w.timing}</Text>
+        </>
+      ),
+    });
+  });
+  /* what is still short of a picture — a fact about the wait, so the
+     card has nothing further to open */
+  if (collectingShown.length > 0) {
+    const lines: string[] = [];
+    if (notYetPaired.length > 0) {
+      lines.push('No paired day yet for ' + notYetPaired.join(', ') + '. A comparison needs the '
+        + 'days on both sides of it — a morning check-in for sleep, an evening one for movement.');
+    }
+    if (stillCounting.length > 0) {
+      lines.push('Still counting: ' + stillCounting.join(' · ') + ' — paired days on both sides of '
+        + 'the comparison, a few of each, before a picture can be drawn.');
+    }
+    standouts.push({ key: 'collecting', title: 'Still collecting', line: lines.join(' '), detail: null });
+  }
 
   return (
     <View style={styles.page}>
@@ -1008,9 +1300,8 @@ export default function TrendsScreen({
       />
 
       {/* ── 1. your pain ─────────────────────────────────────
-          The record itself leads: the chart, the two figures, the
-          sentences that read it, and every day as a calendar behind a
-          fold. A calendar square opens its day. */}
+          The record itself leads: the chart, the two figures, and the
+          sentences that read it. The extremes open their days. */}
       <Card
         title={data.limited ? 'Pain recorded so far' : 'Your pain'}
         note="Blank days were not logged. Colour is the day’s average pain, 0–10."
@@ -1093,279 +1384,60 @@ export default function TrendsScreen({
           </Press>
         </View>
 
-        {/* every day, as a calendar, behind a fold — the way to any day,
-            one tap further in so the chart stays the first thing read */}
-        <View style={styles.subBlock}>
-          {!calendarOpen ? (
-            <Press
-              onPress={() => setCalendarOpen(true)}
-              pressOpacity={0.7}
-              style={styles.more}
-              accessibilityRole="button"
-              accessibilityLabel="Show the calendar of every day"
-            >
-              <Text style={styles.moreText}>Show the calendar ›</Text>
-            </Press>
-          ) : (
-            <MapScreen entries={entries} onDayPress={onOpenDay} flat />
-          )}
-        </View>
       </Card>
 
-      {/* ── 2. worth watching ───────────────────────────────
-          The one card on which anything like a claim may appear, and
-          only after the gates: the strongest Health association, a
-          faded one said out loud, comparisons whose groups formed but
-          did not differ, and what the focus is still collecting. Absent
-          when none of that exists — silence is a valid card. */}
-      <Card
+      {/* ── 2. what stands out ─────────────────────────────
+          The one place on which anything like a claim may appear, and
+          only after the gates. ONE CARD PER THING, since 17 Sep 2026:
+          it used to be a single card holding every sentence, picture
+          and list in a column, and a person with Health connected read
+          a page of sub-blocks before reaching the second one. Now each
+          thing is its own card — the sentence and one line under it —
+          and opens to be read in full: the bars, the sample, the
+          timing, and what it does not mean. Absent when none of that
+          exists — silence is a valid section. */}
+      <InfoTitle
         title="What stands out"
-        note="A pattern in what you recorded, never proof of cause. Nothing here moves on its own — only when you add a check-in."
+        titleStyle={styles.sectionTitle}
+        style={styles.sectionHead}
+        label="About what stands out"
+        text={STANDOUT_NOTE}
+      />
+      {(firstOpen ? standouts : standouts.filter((c) => !c.folded)).map((c) => (
+        <StandoutCard key={c.key} card={c} onOpen={() => setOpenCard(c)} />
+      ))}
+      {!firstOpen && standouts.some((c) => c.folded) && (
+        <Press
+          onPress={() => setFirstOpen(true)}
+          pressOpacity={0.7}
+          style={styles.more}
+          accessibilityRole="button"
+          accessibilityLabel={'Show ' + standouts.filter((c) => c.folded).length + ' more first-days lists'}
+        >
+          <Text style={styles.moreText}>
+            Show {standouts.filter((c) => c.folded).length} more ›
+          </Text>
+        </Press>
+      )}
+      {standouts.length === 0 && (
+        <View style={styles.card}>
+          <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Nothing yet. This fills as the record does — a few days of check-ins,
+            and Apple Health if you connect it.
+          </Text>
+        </View>
+      )}
+
+      {/* the card, read in full: a sheet over the page, with the same
+          sentence about what it is not at its foot */}
+      <Modal
+        visible={!!openCard}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setOpenCard(null)}
       >
-        <>
-          {/* the record's own sentences first — they exist from the
-              first week and need no sensor */}
-          {says.length > 0 && (
-            <View style={styles.subBlockFirst}>
-              {says.map((c, i) => <DigestRow key={c.key} card={c} first={i === 0} />)}
-            </View>
-          )}
-          {/* THE BUDGET. The one sentence on this screen written for
-              the NEXT decision rather than the last one: the same
-              workout-load association the card below may carry, read
-              forward as minutes. Words and grey numbers, no colour —
-              colour is for pain — and what it is not sits inside the
-              block, not under the card. */}
-          {budgetCard && (
-            <View style={says.length > 0 ? styles.subBlock : styles.subBlockFirst}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Before your next workout
-              </Text>
-              <DigestRow card={budgetCard} first />
-            </View>
-          )}
-          {doseLeads && doseBestCopy && dz && dz.best ? (
-            <>
-              <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.title}
-              </Text>
-              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.body}
-              </Text>
-              <DoseBars a={dz.best} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.sample}
-                {dz.best.from && dz.best.to
-                  ? ' ' + fmtReportDate(dz.best.from) + ' – ' + fmtReportDate(dz.best.to) + '.'
-                  : ''}
-              </Text>
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.timing}
-              </Text>
-              {/* the regression line is the card, not a footnote: without
-                  it "lower after a dose" reads as a verdict on the tablet */}
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {doseBestCopy.disclaimer}
-              </Text>
-            </>
-          ) : bestCopy && healthNoticed && healthNoticed.best ? (
-            <>
-              <Text style={styles.noticeTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.title}
-              </Text>
-              <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.body}
-              </Text>
-              <GroupBars a={healthNoticed.best} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.sample}
-                {healthNoticed.best.from && healthNoticed.best.to
-                  ? ' ' + fmtReportDate(healthNoticed.best.from) + ' – '
-                    + fmtReportDate(healthNoticed.best.to) + '.'
-                  : ''}
-              </Text>
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {bestCopy.timing} Days without Health data are left out, never counted
-                as anything.
-              </Text>
-              {healthNoticed.best.basis === 'inBed' && (
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {IN_BED_NOTE}
-                </Text>
-              )}
-            </>
-          ) : healthNoticed && healthNoticed.fading.length > 0 ? (
-            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {fadedCopy(healthNoticed.fading[0])}
-            </Text>
-          ) : dz && dz.fading.length > 0 ? (
-            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {fadedDoseCopy(dz.fading[0])}
-            </Text>
-          ) : null}
-
-          {/* THE EARLY LOOKS. The same bars a claim would carry, before
-              any claim may be made, captioned as a picture: a person
-              who connected Health sees it doing something in the first
-              week instead of a fortnight of silence. */}
-          {early.map((e) => {
-            const c = earlyCopy(e);
-            return (
-              <View key={'e.' + e.kind} style={styles.subBlock}>
-                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.title}
-                </Text>
-                <GroupBars a={e} />
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {c.evidence}
-                </Text>
-              </View>
-            );
-          })}
-          {early.length > 0 && (
-            <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {EARLY_NOTE}
-            </Text>
-          )}
-          {doseEarly.map((e) => (
-            <View key={'de.' + e.medId} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {e.med}, around your doses so far
-              </Text>
-              <DoseBars a={e} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {e.pairs} doses with a check-in before and after. {EARLY_NOTE}
-              </Text>
-            </View>
-          ))}
-
-          {/* THE FIRST DAYS. One to three paired days: not a picture
-              yet, so the facts themselves — the night and the morning's
-              number, the mood and the evening's, the dose and the two
-              numbers around it. What was entered beside what Health
-              measured, and a caption saying when a picture starts. */}
-          {(firstOpen ? first : first.slice(0, FIRST_DAYS_OPEN)).map((fd) => (
-            <View key={'f.' + fd.kind} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {firstTitle(fd.kind)}
-              </Text>
-              {fd.pairs.map((p) => (
-                <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
-                  accessibilityLabel={fmtReportDate(p.date) + ', ' + factorLabel(fd.kind, p.factor)
-                    + ', pain ' + formatScore(p.pain)}>
-                  <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
-                  {'   ' + factorLabel(fd.kind, p.factor) + '  ·  pain '}
-                  <Text style={styles.firstNum}>{formatScore(p.pain)}</Text>
-                </Text>
-              ))}
-            </View>
-          ))}
-          {!firstOpen && first.length > FIRST_DAYS_OPEN && (
-            <Press
-              onPress={() => setFirstOpen(true)}
-              pressOpacity={0.7}
-              style={styles.more}
-              accessibilityRole="button"
-              accessibilityLabel={'Show ' + (first.length - FIRST_DAYS_OPEN) + ' more first-days lists'}
-            >
-              <Text style={styles.moreText}>
-                Show {first.length - FIRST_DAYS_OPEN} more ›
-              </Text>
-            </Press>
-          )}
-          {first.length > 0 && (
-            <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {FIRST_NOTE}
-            </Text>
-          )}
-          {doseFirst.map((fd) => (
-            <View key={'df.' + fd.medId} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {fd.med}, around the first doses
-              </Text>
-              {fd.pairs.map((p) => (
-                <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
-                  accessibilityLabel={fmtReportDate(p.date) + ', pain ' + formatScore(p.before)
-                    + ' before the dose, ' + formatScore(p.after) + ' after'}>
-                  <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
-                  {'   before '}
-                  <Text style={styles.firstNum}>{formatScore(p.before)}</Text>
-                  {'  ·  after '}
-                  <Text style={styles.firstNum}>{formatScore(p.after)}</Text>
-                </Text>
-              ))}
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                The doses so far, as recorded — a picture starts at three, and a dose is
-                often taken when pain is high.
-              </Text>
-            </View>
-          ))}
-
-          {/* doses whose pairs formed: the bars, with the observation's
-              words or — for a change that did not lead the card — no
-              words at all beyond the timing and the regression line */}
-          {doseGroups.map((a) => (
-            <View key={'d.' + a.medId} style={styles.subBlock}>
-              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {a.med}, around your doses
-              </Text>
-              {a.verdict === 'observation' && (
-                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {doseObservationCopy(a)}
-                </Text>
-              )}
-              <DoseBars a={a} />
-              <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {DOSE_TIMING}
-              </Text>
-            </View>
-          ))}
-
-          {otherGroups.map((a) => {
-            const w = groupLabels(a.kind);
-            return (
-              <View key={a.kind} style={styles.subBlock}>
-                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {w.factor}, against your record
-                </Text>
-                <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  No meaningful difference in {w.outcome} between these groups so
-                  far — that is a finding about these {a.pairedDays} days, not a
-                  failure of them.
-                </Text>
-                <GroupBars a={a} />
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  {w.timing}
-                </Text>
-              </View>
-            );
-          })}
-
-          {collectingShown.length > 0 && (
-            <View style={styles.subBlock}>
-              {notYetPaired.length > 0 && (
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  No paired day yet for {notYetPaired.join(', ')}. A comparison needs the
-                  days on both sides of it — a morning check-in for sleep, an evening one for
-                  movement.
-                </Text>
-              )}
-              {stillCounting.length > 0 && (
-                <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Still counting: {stillCounting.join(' · ')} — paired days on both sides of
-                  the comparison, a few of each, before a picture can be drawn.
-                </Text>
-              )}
-            </View>
-          )}
-          {!anythingOut && collectingShown.length === 0 && (
-            <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Nothing yet. This card fills as the record does — a few days of check-ins,
-              and Apple Health if you connect it.
-            </Text>
-          )}
-        </>
-        </Card>
+        {openCard && <StandoutSheet card={openCard} onClose={() => setOpenCard(null)} />}
+      </Modal>
 
       {/* ── 3. your record ──────────────────────────────────
           The appendix: how the days split by band, the most recorded
@@ -1641,6 +1713,38 @@ const styles = StyleSheet.create({
   subBlockTitle: {
     color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
     marginBottom: 10,
+  },
+  /* a section of cards: the title sits on the page above them, with the
+     (i) that qualifies all of them, at the weight a card's own title has */
+  sectionHead: { marginTop: 26, marginBottom: -4 },
+  sectionTitle: {
+    color: color.textPrimary, fontSize: font.title3, fontWeight: '700', letterSpacing: -0.2,
+  },
+  standoutLine: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 6 },
+  /* the door wears the tint every other link wears */
+  standoutMore: { color: color.tint, fontSize: font.subheadline, fontWeight: '600', marginTop: 10 },
+  /* the stand-out sheet: the app's sheet surface and the app's sheet bar */
+  sheet: { flex: 1, backgroundColor: color.bgSheet },
+  sheetBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
+  },
+  sheetTitle: {
+    flex: 1, textAlign: 'center', color: color.textPrimary, fontSize: font.body, fontWeight: '600',
+    /* centred on the sheet: the bar has a button on the right only */
+    paddingLeft: 72,
+  },
+  sheetBtn: { minWidth: 72, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  sheetBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
+  sheetBody: { padding: size.sheetX, paddingTop: 22, paddingBottom: 60 },
+  sheetHeadline: {
+    color: color.textPrimary, fontSize: font.title2, fontWeight: '700', letterSpacing: -0.3, lineHeight: 28,
+  },
+  sheetDetail: { marginTop: 14 },
+  sheetNote: {
+    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 22,
+    paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
   },
   /* Health's Summary grammar: a surface per section, the title inside
      it, the qualifying sentence inside it too. Sections are told apart by

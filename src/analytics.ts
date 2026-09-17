@@ -51,6 +51,11 @@ export type EventName =
      ('where', 'feel'…), so each one can be judged on its own. Never
      what was chosen on it. */
   | 'checkin_step_left'
+  /* the Add information sheet was saved: that something beyond the
+     number was added to a day, never what. It replaces the "context
+     added" flag a check-in used to carry, now that the check-in is
+     the number alone. */
+  | 'info_added'
   | 'focus_started'
   | 'focus_changed'
   | 'focus_extended'
