@@ -1,12 +1,26 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pattern</title>
-<meta name="description" content="Pattern is a chronic pain record for iPhone and Apple Watch. A ten-second check-in, Apple Health beside it, and a page your doctor reads in thirty seconds. It never invents a cause.">
+<meta name="description" content="Pattern is for people who have pain and are not done living. A twenty-second check-in, your sleep and workouts from Apple Health beside it, and a sentence before the decision that costs tomorrow. Nothing about your body leaves the phone.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
   /* Pattern's own tokens, from src/theme.ts. One theme, on purpose: the
      app is dark because the pain scale is a brightness ramp, and this
      page keeps the rule the app keeps — a hue carries a score, or it is
-     not a hue. Buttons are white. */
+     not a hue. Buttons are white. Counts and non-pain measures are white
+     or neutral. Only pain values take the ramp.
+
+     REWRITTEN 17 SEP 2026 for the positioning in docs/POSITIONING.md,
+     "Living actively with pain": the audience is defined by attitude,
+     not condition; the territory is understanding pain so as to keep
+     living, not chronic pain management. Three things the previous
+     draft got wrong and this one does not: it sells the sentence BEFORE
+     the decision (the app's Phase 1 bet, and the thing no other tracker
+     does); it never puts a medication chart in front of a stranger; and
+     it says Apple Health is built rather than planned, because it is. */
   :root {
     --bg: #000000;
     --surface: #1C1C1E;
@@ -42,7 +56,7 @@
   }
   h1 {
     font-family: var(--display); font-weight: 800;
-    font-size: clamp(42px, 7vw, 76px); line-height: 0.98; letter-spacing: -0.035em;
+    font-size: clamp(44px, 7.4vw, 84px); line-height: 0.96; letter-spacing: -0.035em;
     margin: 18px 0 22px; text-wrap: balance;
   }
   h2 {
@@ -62,6 +76,7 @@
     color: var(--ink-3); font-size: 14px; line-height: 1.5;
     border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 18px;
   }
+  .num { font-variant-numeric: tabular-nums; }
 
   /* ── nav ── */
   nav.top {
@@ -73,7 +88,7 @@
   nav.top .links { display: flex; gap: 22px; font-size: 15px; }
   nav.top .links a { color: var(--ink-2); text-decoration: none; }
   nav.top .links a:hover { color: var(--ink); }
-  @media (max-width: 640px) { nav.top .links { display: none; } }
+  @media (max-width: 720px) { nav.top .links { display: none; } }
 
   /* ── buttons: white, always ── */
   .btn {
@@ -114,9 +129,16 @@
   .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
   @media (max-width: 800px) { .grid2, .grid3 { grid-template-columns: 1fr; gap: 36px; } }
 
-  /* the three legs */
+  /* the legs */
   .leg { border-top: 1px solid var(--rule); padding-top: 18px; }
   .leg .eyebrow { margin-bottom: 8px; }
+
+  /* the person, as a list of the things they are not giving up */
+  .who { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+  .who span {
+    padding: 9px 16px; border-radius: 20px; border: 1px solid var(--control);
+    color: var(--ink-2); font-size: 15px; font-weight: 500;
+  }
 
   /* ── phone mock: the pain step ── */
   .phone {
@@ -132,33 +154,38 @@
   .phone .q { font-family: var(--display); font-weight: 700; font-size: 21px; letter-spacing: -0.02em; text-align: center; line-height: 1.25; margin: 0 0 26px; }
   .shape {
     width: 132px; height: 132px; margin: 0 auto; border-radius: 32px;
-    background: linear-gradient(135deg, #1a7aff, #0A84FF);
-    box-shadow: 0 0 34px rgba(10,132,255,0.45); border: 1px solid rgba(255,255,255,0.16);
+    background: linear-gradient(135deg, #1a55a8, #152C52);
+    box-shadow: 0 0 34px rgba(26,85,168,0.45); border: 1px solid rgba(255,255,255,0.16);
     animation: breathe 2.6s ease-in-out infinite alternate;
   }
   @keyframes breathe { from { transform: scale(1); } to { transform: scale(1.03); } }
   .phone .score { font-family: var(--display); font-weight: 800; font-size: 40px; text-align: center; margin: 22px 0 0; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
   .phone .word { text-align: center; color: var(--ink-2); font-weight: 600; margin: 0 0 24px; }
   .slider { position: relative; height: 6px; border-radius: 3px; background: var(--control); margin: 0 4px; }
-  .slider i { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 15px; background: var(--ink); box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+  .slider i { position: absolute; top: 50%; left: 30%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 15px; background: var(--ink); box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
   .ends { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-3); margin: 12px 4px 0; }
   .pair { display: flex; gap: 8px; margin-top: 24px; }
   .pair span { flex: 1; min-height: 46px; border-radius: 23px; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; }
   .pair .out { border: 1.5px solid var(--ink); }
   .pair .fill { background: var(--ink); color: #000; }
 
-  /* ── watch mock ── */
-  .watch {
-    width: 200px; height: 240px; margin: 0 auto; padding: 22px 16px;
-    background: var(--bg); border: 2px solid var(--control); border-radius: 48px;
-    box-shadow: 0 0 0 8px #0b0b0d, 0 30px 80px rgba(0,0,0,0.6);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-    position: relative;
+  /* ── cards from Today: the budget, the evening before, the experiment.
+     White type, neutral surfaces. No colour, because none of these is a
+     pain value — the rule the app keeps, kept here. */
+  .card {
+    background: var(--surface); border-radius: 20px; padding: 18px 18px 16px;
+    border: 1px solid rgba(255,255,255,0.06);
   }
-  .watch::after { content: ""; position: absolute; right: -14px; top: 70px; width: 8px; height: 34px; border-radius: 4px; background: var(--control); }
-  .watch .sq { width: 96px; height: 96px; border-radius: 23px; background: #4da9ff; box-shadow: 0 0 28px rgba(77,169,255,0.45); display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 800; font-size: 44px; color: #000; }
-  .watch .cap { font-size: 13px; color: var(--ink-2); }
-  .watch .check { width: 44px; height: 32px; border-radius: 16px; background: var(--ink); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .card + .card { margin-top: 14px; }
+  .card .ey { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+  .card .t { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -0.015em; line-height: 1.3; margin-bottom: 8px; }
+  .card .b { color: var(--ink-2); font-size: 15px; line-height: 1.5; margin: 0; }
+  .card .act { display: flex; gap: 16px; margin-top: 12px; font-size: 14px; font-weight: 600; }
+  .card .act span:last-child { color: var(--ink-3); font-weight: 500; }
+  .card .count { display: flex; gap: 5px; margin-top: 12px; }
+  .card .count i { flex: 1; height: 4px; border-radius: 2px; background: var(--track); }
+  .card .count i.on { background: var(--ink); }
+  .card .count i.miss { background: transparent; border: 1px solid var(--control); }
 
   /* ── health tiles ── */
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -172,6 +199,13 @@
   .cmp .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-2); margin-top: 8px; }
   .cmp .bar { grid-column: 1 / -1; height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; }
   .cmp .bar i { display: block; height: 100%; border-radius: 5px; }
+
+  /* ── privacy: three flat statements, no card, no icon ── */
+  .plain { list-style: none; padding: 0; margin: 36px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .plain li { border-top: 1px solid var(--rule); padding-top: 18px; }
+  .plain b { display: block; font-family: var(--display); font-size: 20px; letter-spacing: -0.015em; margin-bottom: 8px; }
+  .plain span { color: var(--ink-2); font-size: 15px; }
+  @media (max-width: 800px) { .plain { grid-template-columns: 1fr; gap: 0; } }
 
   /* ── refusals ── */
   .refuse { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
@@ -210,20 +244,23 @@
   <nav class="top" aria-label="Site">
     <a class="wordmark" href="#top"><span class="sq" aria-hidden="true"></span>Pattern</a>
     <div class="links">
-      <a href="#checkin">Check-in</a>
-      <a href="#health">Associations</a>
-      <a href="#record">Your record</a>
-      <a href="#promises">Promises</a>
-      <a href="#beta">Beta</a>
+      <a href="#how">How it works</a>
+      <a href="#before">Before the decision</a>
+      <a href="#health">Your data</a>
+      <a href="#doctor">For your doctor</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#beta">Invite</a>
     </div>
   </nav>
 
+  <!-- ── the hero: the promise in six words, then who it is for ── -->
   <section class="hero" id="top">
-    <div class="eyebrow">iPhone · Apple Watch · beta</div>
-    <h1>“How has the pain been?”<br>Now you’ll have an answer.</h1>
-    <p class="lede measure">Not a guess. Not “bad, I think.” A record of your actual days, ten seconds to check in, ready when it matters.</p>
+    <div class="eyebrow">iPhone · Apple Watch · Apple Health · private beta</div>
+    <h1>Understand your pain.<br>Keep living.</h1>
+    <p class="lede measure">Connect the dots between your pain and your life — sleep, movement, stress, the things you do every day — and get a sentence before the session that costs tomorrow. Twenty seconds a day. The rest you are already living.</p>
     <div class="cta">
-      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20beta">Join the beta</a>
+      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20invite">Ask for an invite</a>
+      <a class="btn" href="#how">See how it works</a>
     </div>
     <div class="with" aria-label="Works with Apple Health and Apple Watch">
       <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span>
@@ -241,54 +278,98 @@
     <p class="fine" style="margin-top:14px">Your week, as you lived it. Darker is less. Brighter is more. The day you missed stays honest.</p>
   </section>
 
-  <section id="why">
-    <h2>Pain is hard to remember accurately.<br>A record is better than memory.</h2>
-    <p class="lede measure">Log very little. Over time, see what tends to go with your better and worse days. Pattern shows you the evidence rather than inventing an insight.</p>
+  <!-- ── who: defined by attitude, not condition ── -->
+  <section id="who">
+    <h2>For people who have pain<br>and are not done living.</h2>
+    <p class="lede measure">You still want to train, work, travel, sleep well and understand your own body. You are not accepting that pain gets to run your life. Diagnosed, or still looking for a name — Pattern is for the person who wants to know what is affecting their pain, and what they can actually do with that.</p>
+    <div class="who" aria-label="The things people are not giving up">
+      <span>Running</span><span>The gym</span><span>Climbing</span><span>Yoga</span><span>Cycling</span><span>Travel</span><span>Work</span><span>Kids</span><span>A full night’s sleep</span>
+    </div>
+    <p class="caveat measure">Not another symptom diary. You already know how much it hurt. The question is what goes with it, and whether tomorrow can be different.</p>
   </section>
 
-  <section id="checkin">
+  <!-- ── how it works: one number, your life fills in the rest, and the
+       app says what it can when it can ── -->
+  <section id="how">
     <div class="grid2">
       <div>
-        <h2>Ten seconds.<br>Even on the bad days.</h2>
-        <p class="lede muted">Especially on the bad days. One number and you’re done. Where it hurts and how it feels are there if you want them, and never demanded.</p>
+        <div class="eyebrow">01 · The check-in</div>
+        <h2>One number.<br>Then carry on.</h2>
+        <p class="lede muted">Pain is the only question that needs an answer. Where it hurts and what it feels like are there when you want them, never demanded. Twenty seconds on a good day. Three seconds from your wrist on a bad one.</p>
         <p class="caveat">No streak to protect. No ring to close. A missed day is just a missed day.</p>
       </div>
-      <div class="phone" aria-label="The pain step: a blue square, the number 6, Moderate, a slider, and two buttons">
+      <div class="phone" aria-label="The pain step: a square, the number 3, Mild, a slider, and two buttons">
         <div class="bar"><span>✕</span>Check-in<span>›</span></div>
         <div class="prog" aria-hidden="true"><i></i><i></i><i></i></div>
         <p class="q">How intense is your pain right now?</p>
         <div class="shape" aria-hidden="true"></div>
-        <p class="score">6</p>
-        <p class="word">Moderate</p>
+        <p class="score">3</p>
+        <p class="word">Mild</p>
         <div class="slider" aria-hidden="true"><i></i></div>
         <div class="ends" aria-hidden="true"><span>NO PAIN</span><span>MOST INTENSE</span></div>
         <div class="pair" aria-hidden="true"><span class="out">Add details</span><span class="fill">Log it</span></div>
       </div>
     </div>
-  </section>
 
-  <section id="watch">
-    <div class="grid2">
-      <div class="watch" aria-label="The Apple Watch app: a blue square with the number 6 and a check button">
-        <div class="sq">6</div>
-        <div class="cap">Moderate</div>
-        <div class="check" aria-hidden="true">✓</div>
+    <div class="grid3" style="margin-top:96px">
+      <div class="leg">
+        <div class="eyebrow">02 · Your life fills in the rest</div>
+        <h3>You live your life.<br>Pattern connects the dots.</h3>
+        <p class="muted">Your watch already knows how you slept. Your phone knows how far you walked and how long the class ran. Pattern reads them from Apple Health, on the phone, and lays them beside the number you gave. Nothing else to log.</p>
       </div>
-      <div>
-        <div class="with inline"><span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6" width="11" height="12" rx="3.2"/><path d="M9 6V3.5h6V6M9 18v2.5h6V18M18 10.5h1.2"/></svg>Apple Watch</span></div>
-        <h2>Log it without<br>finding your phone.</h2>
-        <p class="lede muted">Raise your wrist, turn the crown or tap, done. Three seconds to change your mind. Built for hands that hurt.</p>
+      <div class="leg">
+        <div class="eyebrow">03 · It says what it can</div>
+        <h3>Patterns, in plain words.<br>Or an honest “not yet”.</h3>
+        <p class="muted">When enough of your own days point the same way, Pattern says so, with the numbers behind it. Until then it says how many days it still needs. It never fills the silence with a guess.</p>
+      </div>
+      <div class="leg">
+        <div class="eyebrow">04 · Before the decision</div>
+        <h3>The sentence before<br>the workout.</h3>
+        <p class="muted">Once your record has a line in it, Pattern speaks before you cross it: before the session, the evening before the booking, the fortnight you decide to test something. The part no other tracker does.</p>
       </div>
     </div>
   </section>
 
+  <!-- ── before the decision: the app's actual bet, and the reason to
+       open it. Real card shapes from Today; illustrative numbers. ── -->
+  <section id="before">
+    <div class="grid2">
+      <div>
+        <h2>Tomorrow morning is decided<br>this evening.</h2>
+        <p class="lede muted">A record that only looks back tells you what you already know by the time you read it. Pattern reads your own record forward and puts the sentence where the decision is.</p>
+        <p class="muted">Your usual workout, and the minutes past which your next mornings ran harder — shown before you train. The class tomorrow that runs past that line, shown tonight, with one tap into your calendar. And one thing you want to test, for a fortnight, with an honest answer at the end.</p>
+        <p class="caveat">Every sentence describes your own record. Never “stop”, never “you should”, never a dose. Exercise helps most persistent pain; the target is the session that costs tomorrow, not moving.</p>
+      </div>
+      <div>
+        <div class="card" aria-label="A card from Today: your usual workout is about 40 minutes; past 55, your next mornings ran harder">
+          <div class="ey">Before your next workout</div>
+          <div class="t">Your usual workout is about 40 minutes. Past 55, your next mornings ran harder.</div>
+          <p class="b">Mornings after workouts of 55 min or more averaged 1.9 points higher, across 22 workouts. From your own record.</p>
+        </div>
+        <div class="card" aria-label="A card from Today: tomorrow's 75-minute class runs past your line, with the actions Open in Calendar and Fine as it is">
+          <div class="ey">Tomorrow</div>
+          <div class="t">Tomorrow’s class is booked for 75 minutes.</div>
+          <p class="b">Past 55, your next mornings ran harder. Yours to decide, this evening, while it is still a decision.</p>
+          <div class="act"><span>Open in Calendar</span><span>Fine as it is</span></div>
+        </div>
+        <div class="card" aria-label="A card from Today: the experiment, no coffee after 2pm, day 9 of 14, five days each way still needed">
+          <div class="ey">Your experiment · day 9 of 14</div>
+          <div class="t">No coffee after 2pm.</div>
+          <p class="b">Each evening asks whether it happened; the next morning’s number is the outcome. At the end, one of three true things: the mornings differed, they did not, or there were too few days each way.</p>
+          <div class="count" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="miss"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── your data: Health, and the association card with its gate ── -->
   <section id="health">
     <div class="grid2">
       <div>
         <div class="with inline"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span></div>
-        <h2>Is it the sleep?<br>Find out properly.</h2>
-        <p class="lede muted">Sleep, steps and workouts arrive from Apple Health on their own, beside the number you gave. When an association is strong enough to be worth looking at, Pattern shows you the numbers behind it. Otherwise, it stays quiet.</p>
-        <p class="caveat">Name something else you suspect, and Pattern asks about it the same way every day, so the answer is checkable instead of a feeling.</p>
+        <h2>You have the data.<br>Nobody is connecting it to your pain.</h2>
+        <p class="lede muted">Sleep, steps and workouts arrive from Apple Health on their own, beside the number you gave. Garmin, Oura, WHOOP, Strava — anything that writes to Health — arrive the same way. When an association in your own record is strong enough to be worth looking at, Pattern shows you the numbers behind it. Otherwise it stays quiet, and says why.</p>
+        <p class="caveat">Read-only. Chosen category by category in Apple’s own sheet. Kept on the phone and never written into your backup file.</p>
       </div>
       <div>
         <div class="tiles" aria-label="Three Apple Health tiles: 6 hours 40 minutes asleep, 8,210 steps, a 45-minute workout">
@@ -301,45 +382,39 @@
           <div class="b">Your morning pain averaged 1.8 points higher after shorter-sleep nights.</div>
           <div class="row"><span>Shorter sleep · 5h 50m</span><span>9 nights</span><div class="bar"><i style="width:62%;background:#3d9dff"></i></div></div>
           <div class="row"><span>Longer sleep · 7h 30m</span><span>7 nights</span><div class="bar"><i style="width:44%;background:#1c4f9a"></i></div></div>
-          <p class="fine" style="margin:12px 0 0">An association in your record, not a cause. Pattern waits for enough of your days before showing this.</p>
+          <p class="fine" style="margin:12px 0 0">An association in your record, not a cause. Pattern waits for enough of your days before showing this, and tells you how many it still needs.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="record">
-    <h2>Your pain,<br>over time.</h2>
-    <div class="grid3" style="margin-top:36px">
-      <div class="leg">
-        <div class="eyebrow">Understand</div>
-        <h3>See what has actually<br>been happening.</h3>
-        <p class="muted">Days, weeks and months, without reconstructing them from memory. Your hardest days and your easiest, side by side.</p>
-      </div>
-      <div class="leg">
-        <div class="eyebrow">Investigate</div>
-        <h3>Follow the things<br>you suspect.</h3>
-        <p class="muted">Pattern compares them against your record and waits until there is enough data to say anything.</p>
-      </div>
-      <div class="leg">
-        <div class="eyebrow">Explain</div>
-        <h3>Bring the record<br>into the room.</h3>
-        <p class="muted">One page, in the order they ask. Easier to talk from than memory.</p>
-      </div>
-    </div>
+  <!-- ── privacy, high on the page: the strongest card against every
+       other tracker, and the reason a person can be honest with it ── -->
+  <section id="privacy">
+    <h2>Nothing you tell it about your body<br>leaves the phone.</h2>
+    <p class="lede measure">No account. No sign-in. No server that has ever held a pain score. Your record is one file inside the app, protected by your passcode, and it travels only in your iPhone’s own backup or in a summary you choose to share.</p>
+    <ul class="plain">
+      <li><b>Local, by design.</b><span>The record is SQLite on the phone. Deleting the app deletes it. Pattern cannot see it, sell it or lose it for you.</span></li>
+      <li><b>Counts, never content.</b><span>Anonymous usage counts — that a check-in happened, never what it said — go to an EU-hosted service you can switch off in Profile.</span></li>
+      <li><b>Your words stay yours.</b><span>Notes, your background, what you want to ask the doctor: printed exactly as written, read by nothing, sent nowhere.</span></li>
+    </ul>
+    <p class="fine" style="margin-top:28px"><a href="privacy.html" style="color:inherit">The full policy</a>, in the app’s own words.</p>
   </section>
 
-  <section id="page">
+  <!-- ── for your doctor: the report, with the diagnosis row it now
+       opens on ── -->
+  <section id="doctor">
     <div class="grid2">
-      <div class="page" aria-label="The clinician page: background, the patient's question, key metrics and a pain-over-time chart">
+      <div class="page" aria-label="The clinician page: diagnosis and background, the patient's question, key metrics and a pain-over-time chart">
         <div class="brand">Pattern</div>
         <div><b>Self-recorded pain summary</b></div>
         <div class="g">4 Aug – 5 Sep 2026 · 29 logged days · 61 check-ins</div>
         <h4>Background</h4>
-        <div><b>Diagnoses</b> &nbsp;Fibromyalgia, 2024 · <b>Medications</b> &nbsp;Naproxen 500mg twice daily</div>
+        <div><b>Diagnosis</b> &nbsp;No diagnosis yet — being investigated<br><b>How this pain began</b> &nbsp;Gradual, after a back-to-back race season · <b>Tried</b> &nbsp;Physio, rest weeks, a new mattress</div>
         <h4>What the patient wants to understand</h4>
-        <div class="g">“Why some mornings are so much worse than others.”</div>
+        <div class="g">“How I get back to running, and why some mornings are so much worse than others.”</div>
         <h4>Key metrics</h4>
-        <div class="m"><div><b>4.6/10</b><span class="g">Average</span></div><div><b>2/10</b><span class="g">Lowest day</span></div><div><b>8/10</b><span class="g">Highest day</span></div></div>
+        <div class="m"><div><b class="num">4.6/10</b><span class="g">Average</span></div><div><b class="num">2/10</b><span class="g">Lowest day</span></div><div><b class="num">8/10</b><span class="g">Highest day</span></div></div>
         <h4>Pain over time</h4>
         <svg viewBox="0 0 300 70" role="img" aria-label="Daily average pain over a month, with gaps on unlogged days">
           <rect x="0" y="45" width="300" height="25" fill="#F0F6EF"/>
@@ -349,47 +424,54 @@
           <polyline points="244,42 264,46 284,38" fill="none" stroke="#0A84FF" stroke-width="2"/>
           <g fill="#0A84FF"><circle cx="4" cy="44" r="2.5"/><circle cx="24" cy="40" r="2.5"/><circle cx="44" cy="32" r="2.5"/><circle cx="64" cy="36" r="2.5"/><circle cx="104" cy="20" r="2.5"/><circle cx="124" cy="26" r="2.5"/><circle cx="144" cy="18" r="2.5"/><circle cx="164" cy="30" r="2.5"/><circle cx="184" cy="34" r="2.5"/><circle cx="204" cy="28" r="2.5"/><circle cx="244" cy="42" r="2.5"/><circle cx="264" cy="46" r="2.5"/><circle cx="284" cy="38" r="2.5"/></g>
         </svg>
+        <div class="g" style="margin-top:8px">Based on self-recorded entries. This report does not provide a diagnosis or medical advice.</div>
       </div>
       <div>
-        <h2>Walk in with<br>the record.</h2>
-        <p class="lede muted">Your background, your own question, your months, on one page in the order a doctor asks. Tell Pattern the date of your appointment and it offers the page two days before.</p>
-        <p class="caveat">Made on your phone. Sent only where you send it.</p>
+        <h2>“How have you been?”<br>Now you can show it.</h2>
+        <p class="lede muted">Weeks of your actual days on one page, in the order a clinician asks. Whether you have a diagnosis or are still looking for one, your history and your own question in your words, your months, and the sleep and workouts beside them. Tell Pattern the date of your appointment and it offers the page two days before.</p>
+        <p class="caveat">Made on your phone. Sent only where you send it. Better information for your doctor — the diagnosis, if one comes, is theirs.</p>
       </div>
     </div>
   </section>
 
+  <!-- ── promises: what it refuses to do, because that is the product ── -->
   <section id="promises">
     <h2>You have been let down<br>by trackers before.</h2>
-    <p class="lede measure">The streak that shamed you on a flare day. The insight that was a guess. Pattern is built by someone who has the pain and wanted something kinder. Here is what you can count on.</p>
+    <p class="lede measure">The streak that shamed you on a flare day. The insight that was a guess. Pattern is built by someone who has the pain and still wanted to run. Here is what you can count on.</p>
     <ul class="refuse" style="margin-top:36px">
       <li><b>A missed day is just a missed day.</b><span>A flare is not a failure, and nothing keeps score.</span></li>
       <li><b>The number is yours.</b><span>Exactly as you gave it. Never averaged into a score you did not enter.</span></li>
-      <li><b>Pattern waits for evidence.</b><span>An association appears only once enough of your own days support it, with the numbers on the card.</span></li>
-      <li><b>Medication is recorded, not advised on.</b><span>That stays between you and your doctor.</span></li>
-      <li><b>Your pain record stays on your phone.</b><span>No Pattern account, and no server that holds health data.</span></li>
+      <li><b>Pattern waits for evidence.</b><span>An association appears only once enough of your own days support it, with the numbers on the card, and it tells you when it cannot say yet.</span></li>
+      <li><b>Never a diagnosis, never a dose.</b><span>It records what a clinician has told you. It does not suggest one, and medication stays between you and your doctor.</span></li>
+      <li><b>Nothing rewards looking at your pain.</b><span>No rings, no deltas, no verdict on today. What moves is a countdown to an answer, and only when you add a day.</span></li>
+      <li><b>Your record stays on your phone.</b><span>No Pattern account, and no server that holds health data.</span></li>
     </ul>
   </section>
 
+  <!-- ── under the hood: the filter for the sceptic, who is the person
+       who stays ── -->
   <section id="hood">
     <h2>For the ones who read the spec.</h2>
     <div class="spec" style="margin-top:28px">
-      <div><span>Storage</span><span>Local SQLite. No account. Deleting the app deletes the record.</span></div>
-      <div><span>Answers</span><span>Three states, kept apart: never asked, skipped, answered.</span></div>
-      <div><span>Thresholds</span><span>Named, in one file, with the arithmetic that argues for each.</span></div>
-      <div><span>Associations</span><span>Deterministic, on device. Your own lowest and highest third, middle third set aside. A card appears only past minimum sample and difference gates — today eighteen paired days, five per group, 1.5 points, and the same direction in both halves of the record, named in one file and open to argument. Gates, not proof.</span></div>
+      <div><span>Storage</span><span>Local SQLite. No account. Deleting the app deletes the record; a backup you keep in Files does not.</span></div>
+      <div><span>Answers</span><span>Three states, kept apart: never asked, skipped, answered. A skip is never read as a no.</span></div>
+      <div><span>Thresholds</span><span>Named, in one file, with the arithmetic that argues for each. Open to argument.</span></div>
+      <div><span>Associations</span><span>Deterministic, on device. Your own lowest and highest third, middle third set aside. A card appears only past the gates — eighteen paired days, five per group, 1.5 points of pain, the same direction in both halves of the record. Gates, not proof.</span></div>
+      <div><span>Before the decision</span><span>The workout line is the first load of your own harder tercile, from the same association, shown only once that association clears every gate. The calendar is read on the phone and never stored; Pattern never writes to it.</span></div>
       <div><span>Colour</span><span>Every colour on screen is a pain level. Nothing else is allowed to look like one.</span></div>
-      <div><span>Health</span><span>Read-only. Per-category consent through Apple’s own sheet. Imported values are never written into Pattern’s backup file.</span></div>
+      <div><span>Health</span><span>Read-only. Per-category consent through Apple’s own sheet. Imported values are never written into Pattern’s backup file, and live in a folder iOS leaves out of backups.</span></div>
       <div><span>Watch</span><span>Sends the number only. The phone is the only writer.</span></div>
       <div><span>Analytics</span><span>Anonymous counts that something happened, never what it said. Aptabase, EU-hosted. Off in Profile.</span></div>
-      <div><span>Stack</span><span>Expo · React Native · SwiftUI · no AI</span></div>
+      <div><span>Stack</span><span>Expo · React Native · SwiftUI · no AI, no server</span></div>
     </div>
   </section>
 
+  <!-- ── the invite ── -->
   <section id="beta">
-    <h2>For people who are tired<br>of guessing.</h2>
-    <p class="lede muted measure">In beta on TestFlight. iPhone required. Watch and Health optional. Tell me about your pain and I’ll send an invite.</p>
+    <h2>Understand your pattern.<br>Keep living your life.</h2>
+    <p class="lede muted measure">In private beta on TestFlight. iPhone required; Watch and Health optional. Tell me what you are trying to get back to, and I’ll send an invite.</p>
     <div class="cta">
-      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20beta">Ask for an invite</a>
+      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20invite">Ask for an invite</a>
     </div>
     <p class="fine" style="margin-top:22px">Not a medical device. Sudden severe pain, chest pain, a serious injury, or pain with numbness, weakness, fever or loss of bladder or bowel control needs a doctor now, not a check-in.</p>
   </section>
@@ -397,7 +479,8 @@
 
 <footer>
   <div class="wrap row">
-    <span>Made by one person, who has the pain too.</span>
+    <span>Made by one person, who has the pain too, and still runs.</span>
     <span><a href="privacy.html" style="color:inherit">Privacy</a> · <a href="mailto:itaiagami@gmail.com" style="color:inherit">Contact</a></span>
   </div>
 </footer>
+</html>
