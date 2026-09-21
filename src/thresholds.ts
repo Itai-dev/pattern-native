@@ -573,3 +573,17 @@ export const QUICK_DEFAULT_AFTER = 3;
  *  next ask, counted in days ADDED, never days elapsed — the card moves
  *  only when the record does, like everything else on Today. */
 export const COPY_NUDGE_DAYS = 7;
+
+/* ── the on-device model (docs/AI.md) ───────────────────────── */
+
+/** the most text the model is ever handed, in characters. Its session
+ *  holds 4096 tokens for everything: the instructions (~120 tokens),
+ *  the schema with every option spelled out (the where step's fourteen
+ *  chips, eight quality words and sixteen impact chips come to ~400),
+ *  the text, and the reply. English runs about four characters a
+ *  token, so a thousand characters is ~250 tokens and the whole call
+ *  sits under a quarter of the window. The inputs that feed it are
+ *  already capped at 280 each (LOC_NOTE_MAX and the answer notes), so
+ *  an input over this line is a bug upstream, and propose.ts refuses
+ *  it rather than trimming a sentence into a different one. */
+export const AI_INPUT_MAX_CHARS = 1000;

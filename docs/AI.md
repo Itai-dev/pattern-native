@@ -2,7 +2,8 @@
 
 *Decided 21 Sep 2026. SPEC.md §19.4 carried the AI posture and still
 does; this file is the design for the one feature that posture allows,
-and the argument for every constraint on it. Nothing here is built.*
+and the argument for every constraint on it. The pure half is built and
+ships dark; the native adapter and the screens are not.*
 
 ## Why now, and why this
 
@@ -34,6 +35,19 @@ pre-highlights the factor library today. The person taps to accept,
 changes, or ignores. The ibuprofen stays in the note: medication is not
 a protocol factor (SPEC.md §22), doses come from Health, and the model
 has nowhere lawful to put it.
+
+**What the check-in asks today, and so what the model can be asked
+about.** Building `propose.ts` against the registry corrected the first
+draft of this file, which spoke of "the two context questions": since
+September the check-in asks no ordinal factor at all. It asks where
+(fourteen body chips), how it feels (eight quality words), what made it
+harder and what helped (sixteen impact chips), the experiment's
+yes-or-no in the evening, and how much pain limited the day — a 0–10.
+So the live targets are the CHIPS, and the rule "ids only" covers them
+exactly as it covers a level: a chip is an id a tap could choose. The
+0–10 is a number and is out. Sleep, stress and the other ordinals are in
+the schema builder for the day they are asked again; nothing asks them
+now, and the model is never asked about a question the person is not.
 
 ## What it is not
 
@@ -82,11 +96,17 @@ has nowhere lawful to put it.
    on a device before a binary ships, and its failures are copy changes,
    not test edits.
 4. **Provenance, not weight.** An answer accepted from a suggestion
-   carries `sug: 1` on the `Answer`. The engine ignores it; it exists so
-   the beta can answer an honest question — does a suggested level get
-   accepted more than a typed one is chosen, and is that the model
-   reading the person or the person deferring to the model? The report
-   does not show it. Backup and restore carry it like any other field.
+   carries `sug: 1` on the day-scoped `Answer` only — the experiment's
+   evening question today, the ordinals if they return. The engine
+   ignores it; it exists so the beta can answer an honest question —
+   does a suggested level get accepted more than a typed one is chosen,
+   and is that the model reading the person or the person deferring to
+   the model? The report does not show it. Backup and restore carry it
+   like any other field, and a skip can never carry it. The moment's
+   chips (where, how it feels, what moved it) get no stored flag in this
+   version: the moment shape is shared with the widget and the watch,
+   and the beta's question is answered by the counts in the next line
+   without it.
 5. **Analytics count, never read.** Events: suggestion offered (metric
    id, count), accepted, changed, ignored — no value and never the text,
    exactly the discipline §21 already sets for skips.
@@ -185,10 +205,11 @@ who do not, the same.
 
 1. This file; SPEC.md §19.4 and §22 amended to point here; ROADMAP.md
    entry; AGENTS.md rule. *(this commit)*
-2. `src/ai/propose.ts` — schema from the registry, validation, mapping
-   to `Answer` with `sug: 1`, the confirmation state. Pure, Node-tested
-   against a fake model. Ships as dead code over the air, exactly as the
-   engine ran dark.
+2. `src/ai/propose.ts` — schema from the registry, validation, the
+   confirmation state and its counts, `sug: 1` through the sanitiser.
+   Pure, Node-tested against fixtures (`tools/test-propose.js`). Ships as
+   dead code over the air, exactly as the engine ran dark. *(built
+   2026-09-21; nothing imports it yet)*
 3. `src/ai/foundation.ts` — the guarded adapter, one import.
 4. The check-in hint and the Profile row. Analytics events.
 5. The binary. Device pass on TestFlight with the fixture suite before
