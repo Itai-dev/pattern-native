@@ -734,6 +734,16 @@ If AI is added later, three constraints hold:
 3. **No secret ships in the client**, and no new tracked factor appears without explicit user
    confirmation.
 
+**Amended 21 Sep 2026.** The three constraints stand and one feature is now designed under
+them: free text on the check-in read by Apple's on-device Foundation Models into proposed
+levels for the questions already being asked, confirmed by the person before anything is
+saved. `docs/AI.md` is the design. What it adds to the constraints above: the output schema is
+ids only and carries no free-text field, pain is never in the schema, an unconfirmed
+suggestion leaves no trace, and the module is guarded like HealthKit so the runtime does not
+bump. "Never parsed for meaning by any remote service" in §2.1 is unchanged — the phone is not
+a remote service — and the keyword map in §2.2 remains the path on every device the framework
+cannot run on.
+
 ### 19.5 Privacy posture
 
 Local-first · no account · no advertising SDK · **no health-content values in product
@@ -797,7 +807,9 @@ rate. Correctness moves to the noise harness; usefulness to a later, longer coho
 
 - **User-visible inferential findings** — built, running dark, gated on §13.9
 - The "possible pattern ready" notification
-- Any AI service, on-device or remote, in this version; any AI chatbot or coaching
+- Any AI service that leaves the phone; any AI chatbot or coaching; any model output that is
+  prose, a number, or a pain value (`docs/AI.md` — on-device suggestions are the one exception,
+  and its contract is the reason they are not on this list)
 - App-generated diagnosis; pain predictions; automatic causal trigger labels
 - Medication or dosage recommendations of any kind
 - Tongue-photo analysis · pulse or camera diagnosis · meridian maps · qi or energy scores ·

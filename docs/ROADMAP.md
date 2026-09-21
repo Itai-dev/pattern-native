@@ -153,6 +153,19 @@ in Phase 2 meets exactly this case on a 90-day clock. Say it plainly in the
 TestFlight notes as well as in the app: the phone's backup will not save a
 record from a reinstall, and a saved copy will.
 
+## Words in, answers out · decided 21 Sep
+
+*Added 2026-09-21.* The check-in takes taps and the note takes words the
+engine never reads. One feature, designed in `docs/AI.md`: the note read
+by Apple's on-device model into suggested levels for the two context
+questions, tapped to accept, nothing saved otherwise. Ids only, no prose,
+never the pain score, never off the phone; the privacy line and the
+store labels do not move. Guarded native module, so no runtime bump, but
+a binary — Phase 2's build carries it. Kill criterion is in the design:
+suggestions changed or ignored more than accepted by the end of Phase 2
+means it comes out. Voice, "ask your record" and the clinician cover note
+wait on that answer, in that order.
+
 ## Phase 2 — n=10 · mid-Oct → Dec
 
 - 10 testers via TestFlight external testing; recruit from content

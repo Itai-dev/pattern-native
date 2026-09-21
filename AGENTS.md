@@ -198,6 +198,15 @@ them ahead of the code. What never changes, before or after: no plaintext
 of the health record exists anywhere but the phone, and no support,
 debugging or analytics path is allowed to create one.
 
+**A model proposes, a person answers, and the engine never hears the
+model.** The only AI in this app is on-device and reads the person's own
+words into suggested levels for questions already being asked
+(`docs/AI.md`). Its output is ids, never prose, never a number, never
+the pain score, and a suggestion nobody tapped is not stored. A model
+that computes a statistic, rates today, drafts a sentence a clinician
+reads without the person editing it first, or sends a word of the
+record off the phone is a regression, however good it looks.
+
 **Thresholds are named and justified.** They live in `src/thresholds.ts` with
 the arithmetic that argues for them. Do not inline a number that decides what
 a user is told.
