@@ -1,5 +1,6 @@
 import { Association, associationCopy, EarlyLook, factorLabel, groupLabels, progressCopy, IN_BED_NOTE } from './health/engine';
 import { DoseAssociation, doseCopy } from './health/doses';
+import { WorkoutAssociation, workoutCopy } from './health/workouts';
 import { FirstDays, HealthProgress } from './health/noticed';
 import { formatScore } from './painScale';
 
@@ -10,9 +11,12 @@ export interface TodayInsight { title: string; body: string; context: string; ca
 export function todayInsight(record: {
   best: Association | null; first: FirstDays[]; early: EarlyLook[]; progress: HealthProgress[];
   doses: { best: DoseAssociation | null };
+  /** around a workout — optional so an older caller's shape still reads */
+  workouts?: { best: WorkoutAssociation | null };
 }): TodayInsight | null {
   const copy = (record.best && associationCopy(record.best))
-    || (record.doses.best && doseCopy(record.doses.best));
+    || (record.doses.best && doseCopy(record.doses.best))
+    || (record.workouts && record.workouts.best && workoutCopy(record.workouts.best));
   if (copy) return { title: copy.title, body: copy.body,
     context: copy.sample + ' ' + copy.timing + (record.best?.basis === 'inBed' ? ' ' + IN_BED_NOTE : ''),
     caveat: copy.disclaimer, action: 'See the comparison' };

@@ -975,6 +975,150 @@ ok('doseAssociations groups by medication, in name order; strongestDose picks th
     && all[0].delta === -2 && all[1].delta === -3 && best && best.medId === 'z';
 })());
 
+/* ═══ around a workout ═══════════════════════════════════════ */
+group('workouts: the pairing windows');
+const wk = require(path.join(OUT, 'health', 'workouts.js'));
+const WD = (date, ws) => ({ date, workouts: ws, coverage: { workouts: true, movement: true } });
+const SWIM = (h, minutes) => ({ uuid: 'u' + h, h, minutes, activity: '46' });
+ok('a check-in shortly before the start and one after the end make one pair, named by the activity', (() => {
+  const entries = { [D]: ENTRY([{ h: 16 * 60, pain: 6 }, { h: 18 * 60 + 30, pain: 4 }]) };
+  const health = { [D]: WD(D, [SWIM(17 * 60, 45)]) };
+  const p = wk.workoutPairs(entries, health);
+  return p.length === 1 && p[0].before === 6 && p[0].after === 4 && p[0].activity === 'swimming';
+})());
+ok('a check-in DURING the workout is neither before nor after', (() => {
+  const entries = { [D]: ENTRY([{ h: 17 * 60 + 20, pain: 5 }]) };
+  const health = { [D]: WD(D, [SWIM(17 * 60, 45)]) };
+  return wk.workoutPairs(entries, health).length === 0;
+})());
+ok('a check-in at the minute the workout ends is "after" — no floor, unlike a dose', (() => {
+  const entries = { [D]: ENTRY([{ h: 16 * 60 + 30, pain: 6 }, { h: 17 * 60 + 45, pain: 3 }]) };
+  const health = { [D]: WD(D, [SWIM(17 * 60, 45)]) };
+  const p = wk.workoutPairs(entries, health);
+  return p.length === 1 && p[0].after === 3;
+})());
+ok('a check-in from breakfast is not "before" an evening swim, and one five hours after is not "after"', (() => {
+  const entries = { [D]: ENTRY([{ h: 8 * 60, pain: 6 }, { h: 23 * 60, pain: 3 }]) };
+  const health = { [D]: WD(D, [SWIM(17 * 60, 45)]) };
+  return wk.workoutPairs(entries, health).length === 0
+    && th.WORKOUT_BEFORE_WINDOW_MIN === 180 && th.WORKOUT_AFTER_MAX_MIN === 240;
+})());
+ok('the last check-in before the start and the FIRST after the end are the pair', (() => {
+  const entries = { [D]: ENTRY([
+    { h: 15 * 60, pain: 8 }, { h: 16 * 60 + 30, pain: 6 },
+    { h: 18 * 60 + 15, pain: 5 }, { h: 20 * 60, pain: 3 },
+  ]) };
+  const health = { [D]: WD(D, [SWIM(17 * 60, 45)]) };
+  const p = wk.workoutPairs(entries, health);
+  return p.length === 1 && p[0].before === 6 && p[0].after === 5;
+})());
+ok('one pair per day per activity, however many workouts; two activities are two pairs; two codes with one name are one', (() => {
+  const entries = { [D]: ENTRY([{ h: 9 * 60, pain: 7 }, { h: 11 * 60, pain: 5 }, { h: 15 * 60, pain: 6 }, { h: 17 * 60, pain: 4 }]) };
+  const health = { [D]: WD(D, [
+    SWIM(10 * 60, 30), SWIM(16 * 60, 30),
+    { uuid: 'st', h: 16 * 60, minutes: 30, activity: '20' },
+    { uuid: 'st2', h: 16 * 60 + 5, minutes: 20, activity: '50' },
+  ]) };
+  const p = wk.workoutPairs(entries, health);
+  return p.length === 2 && p[0].activity === 'swimming' && p[0].before === 7
+    && p[1].activity === 'strength training' && p[1].before === 6 && p[1].after === 4;
+})());
+ok('a legacy record with a word for the activity pairs under that word', (() => {
+  const entries = { [D]: ENTRY([{ h: 16 * 60, pain: 6 }, { h: 18 * 60, pain: 4 }]) };
+  const health = { [D]: WD(D, [{ uuid: 'w', h: 17 * 60, minutes: 30, activity: 'walk' }]) };
+  const p = wk.workoutPairs(entries, health);
+  return p.length === 1 && p[0].activity === 'walk';
+})());
+
+group('workouts: the gates and the words');
+const mkW = (n, before, after, activity = 'swimming') => {
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    out.push({ date: '2026-08-' + String(i).padStart(2, '0'), activity, before: before(i), after: after(i) });
+  }
+  return out;
+};
+ok('under WORKOUT_MIN_PAIRS the verdict is insufficient and no numbers exist', (() => {
+  const a = wk.evaluateWorkouts('swimming', mkW(th.WORKOUT_MIN_PAIRS - 1, () => 7, () => 4));
+  return a.verdict === 'insufficient' && a.delta == null && a.pairs === th.WORKOUT_MIN_PAIRS - 1;
+})());
+ok('pairs that formed but did not change are an observation, never a claim', (() => {
+  const a = wk.evaluateWorkouts('swimming', mkW(10, () => 6, (i) => (i % 2 ? 6 : 7)));
+  return a.verdict === 'observation' && Math.abs(a.delta) < th.HEALTH_MIN_DELTA
+    && wk.workoutCopy(a) === null && /No meaningful change from before swimming/.test(wk.workoutObservationCopy(a))
+    && !/failure/.test(wk.workoutObservationCopy(a));
+})());
+ok('a change past HEALTH_MIN_DELTA across enough pairs is possible, and its copy carries n, direction and the selection line', (() => {
+  const a = wk.evaluateWorkouts('swimming', mkW(12, () => 7, () => 4.5));
+  const c = wk.workoutCopy(a);
+  return a.verdict === 'possible' && a.delta === -2.5 && a.before === 7 && a.after === 4.5
+    && a.from === '2026-08-01' && a.to === '2026-08-12'
+    && c.title === 'Swimming may be worth watching'
+    && /2\.5 points lower at the first check-in after swimming than at the one before it/.test(c.body)
+    && /Based on 12 workouts/.test(c.sample) && /3 hours before it started/.test(c.sample)
+    && /within 4 hours after it ended/.test(c.sample)
+    && c.disclaimer === wk.WORKOUT_NON_CAUSATION && /days you felt able to/.test(c.disclaimer);
+})());
+ok('higher after reads as higher, and the sentence never says "worked", "helped", "hurt" or tells the person anything', (() => {
+  const a = wk.evaluateWorkouts('running', mkW(9, () => 3, () => 5, 'running'));
+  const c = wk.workoutCopy(a);
+  return a.delta === 2 && /2 points higher/.test(c.body)
+    && !/work(s|ed)|help|hurt|effect|because|should|keep|stop|more|less/i.test(c.title + c.body + c.sample + c.timing);
+})());
+ok('a previously shown activity that no longer clears fades out loud', (() => {
+  const a = wk.evaluateWorkouts('swimming', mkW(10, () => 6, () => 6), true);
+  const b = wk.evaluateWorkouts('swimming', mkW(10, () => 6, () => 6), false);
+  return a.verdict === 'fading' && b.verdict === 'observation'
+    && /around swimming/.test(wk.fadedWorkoutCopy(a)) && /hasn’t stayed consistent/.test(wk.fadedWorkoutCopy(a));
+})());
+ok('workoutAssociations groups by activity, in name order; strongestWorkout picks the larger change', (() => {
+  const entries = {}, health = {};
+  for (let i = 1; i <= 10; i++) {
+    const d = '2026-08-' + String(i).padStart(2, '0');
+    entries[d] = ENTRY([{ h: 9 * 60, pain: 8 }, { h: 11 * 60, pain: 5 }, { h: 15 * 60, pain: 6 }, { h: 17 * 60, pain: 4 }]);
+    health[d] = WD(d, [SWIM(10 * 60, 30), { uuid: 'c' + i, h: 16 * 60, minutes: 30, activity: '13' }]);
+  }
+  const all = wk.workoutAssociations(entries, health, []);
+  const best = wk.strongestWorkout(all);
+  return all.length === 2 && all[0].activity === 'cycling' && all[1].activity === 'swimming'
+    && all[0].delta === -2 && all[1].delta === -3 && best && best.activity === 'swimming';
+})());
+ok('the early picture at three pairs, the first pairs as facts below that, newest first', (() => {
+  const entries = {}, health = {};
+  for (let i = 1; i <= 3; i++) {
+    const d = '2026-08-' + String(i).padStart(2, '0');
+    entries[d] = ENTRY([{ h: 16 * 60, pain: 6 + i }, { h: 18 * 60, pain: 4 }]);
+    health[d] = WD(d, [SWIM(17 * 60, 45)].concat(i === 1 ? [{ uuid: 'y', h: 8 * 60, minutes: 30, activity: '57' }] : []));
+  }
+  entries['2026-08-01'].logs.push({ h: 7 * 60, pain: 5 }, { h: 9 * 60, pain: 5 });
+  const early = wk.earlyWorkouts(entries, health);
+  const first = wk.firstWorkouts(entries, health);
+  return early.length === 1 && early[0].activity === 'swimming' && early[0].pairs === 3
+    && early[0].before === 8 && early[0].after === 4 && early[0].delta === -4
+    && first.length === 1 && first[0].activity === 'yoga' && first[0].pairs.length === 1
+    && first[0].pairs[0].before === 5 && first[0].pairs[0].after === 5;
+})());
+
+group('workouts: still collecting');
+ok('an activity with workouts but no lawful pair is listed with 0 of the gate, and the caveat says what a pair takes', (() => {
+  const entries = { [D]: ENTRY([{ h: 8 * 60, pain: 6 }]) };
+  const health = { [D]: WD(D, [SWIM(17 * 60, 45)]) };
+  const p = wk.workoutProgress(entries, health);
+  const c = wk.workoutProgressCopy(p[0]);
+  return p.length === 1 && p[0].pairs === 0 && p[0].needed === th.WORKOUT_MIN_PAIRS
+    && c.title === 'Swimming and pain around a session' && /0 of 8 workouts/.test(c.evidence)
+    && /within 3 hours before it started/.test(c.caveat);
+})());
+ok('an activity past its gate is not listed as waiting', (() => {
+  const entries = {}, health = {};
+  for (let i = 1; i <= 9; i++) {
+    const d = '2026-08-' + String(i).padStart(2, '0');
+    entries[d] = ENTRY([{ h: 16 * 60, pain: 7 }, { h: 18 * 60, pain: 4 }]);
+    health[d] = WD(d, [SWIM(17 * 60, 45)]);
+  }
+  return wk.workoutProgress(entries, health).length === 0;
+})());
+
 group('doses: still collecting');
 ok('a medication with doses but no lawful pair is listed with 0 of the gate, and the caveat says what a pair takes', (() => {
   const entries = { [D]: ENTRY([{ h: 8 * 60, pain: 6 }]) };

@@ -49,6 +49,11 @@ import {
   DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, FirstDoses, doseCopy,
   doseObservationCopy, fadedDoseCopy,
 } from './health/doses';
+import {
+  FirstWorkouts, WORKOUT_TIMING, WorkoutAssociation, WorkoutEarly, WorkoutProgress,
+  fadedWorkoutCopy, workoutCopy, workoutObservationCopy,
+} from './health/workouts';
+import { capitalise } from './health/workoutNames';
 import { DigestCard, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
 import { DIRECTION_SAME_BELOW, FIRST_DAYS_OPEN } from './thresholds';
@@ -106,6 +111,17 @@ export interface TrendsScreenProps {
       progress: DoseProgress[];
       early: DoseEarly[];
       first: FirstDoses[];
+    };
+    /** and around a workout — before it started, after it ended, per
+     *  activity, gated in workouts.ts. Optional so a caller built
+     *  before it existed still renders. */
+    workouts?: {
+      best: WorkoutAssociation | null;
+      fading: WorkoutAssociation[];
+      groups: WorkoutAssociation[];
+      progress: WorkoutProgress[];
+      early: WorkoutEarly[];
+      first: FirstWorkouts[];
     };
   };
   /** the PDF, from its natural home at the foot of the screen — the
@@ -688,15 +704,24 @@ function GroupBars({ a }: { a: Pick<HealthAssociation, 'kind' | 'low' | 'high'> 
 }
 
 /**
- * Before and after a dose, drawn the same way: bar length and colour
- * are the mean pain, the medication lives in the text. Each bar carries
- * its n — the same n, because these are pairs.
+ * Before and after, drawn the same way as the groups: bar length and
+ * colour are the mean pain, what it was around lives in the text. Each
+ * bar carries its n — the same n, because these are pairs. One drawing
+ * for a dose and for a workout; only the words differ.
  */
-function DoseBars({ a }: { a: Pick<DoseAssociation, 'med' | 'pairs' | 'before' | 'after'> }) {
-  if (a.before == null || a.after == null) return null;
+function PairBars({ before, after, pairs, words, unit, of }: {
+  before?: number; after?: number; pairs: number;
+  /** the two row labels — "Before a dose", "After a dose" */
+  words: [string, string];
+  /** what n counts — "doses", "workouts" */
+  unit: string;
+  /** the thing, for the spoken label — the medication, the activity */
+  of: string;
+}) {
+  if (before == null || after == null) return null;
   const rows = [
-    { word: 'Before a dose', v: a.before },
-    { word: 'After a dose', v: a.after },
+    { word: words[0], v: before },
+    { word: words[1], v: after },
   ];
   return (
     <View style={cmpStyles.wrap}>
@@ -705,15 +730,15 @@ function DoseBars({ a }: { a: Pick<DoseAssociation, 'med' | 'pairs' | 'before' |
           key={r.word}
           style={cmpStyles.row}
           accessible
-          accessibilityLabel={r.word + ' of ' + a.med + ', pain averaged '
-            + formatScore(r.v) + ' across ' + a.pairs + ' doses'}
+          accessibilityLabel={r.word + ' of ' + of + ', pain averaged '
+            + formatScore(r.v) + ' across ' + pairs + ' ' + unit}
         >
           <View style={cmpStyles.head}>
             <Text style={cmpStyles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
               {r.word}
             </Text>
             <Text style={cmpStyles.n} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {a.pairs} doses
+              {pairs} {unit}
             </Text>
           </View>
           <View style={cmpStyles.barRow}>
@@ -736,6 +761,14 @@ function DoseBars({ a }: { a: Pick<DoseAssociation, 'med' | 'pairs' | 'before' |
       ))}
     </View>
   );
+}
+function DoseBars({ a }: { a: Pick<DoseAssociation, 'med' | 'pairs' | 'before' | 'after'> }) {
+  return <PairBars before={a.before} after={a.after} pairs={a.pairs} of={a.med}
+    words={['Before a dose', 'After a dose']} unit="doses" />;
+}
+function WorkoutBars({ a }: { a: Pick<WorkoutAssociation, 'activity' | 'pairs' | 'before' | 'after'> }) {
+  return <PairBars before={a.before} after={a.after} pairs={a.pairs} of={a.activity}
+    words={['Before ' + a.activity, 'After ' + a.activity]} unit="workouts" />;
 }
 
 const cmpStyles = StyleSheet.create({
@@ -1032,17 +1065,29 @@ export default function TrendsScreen({
   const otherGroups = (healthNoticed?.groups || []).filter((a) => a !== healthNoticed?.best);
   const bestCopy = healthNoticed?.best ? associationCopy(healthNoticed.best) : null;
   const healthWaiting = healthNoticed ? healthNoticed.progress : [];
-  /* ONE HEADLINE. A dose comparison and a day comparison may both have
-     cleared; the card still carries one sentence, the larger change,
-     and the other keeps its bars further down with no claim attached.
-     Same house rule as PATTERN_MAX_CARDS, applied across the two. */
+  /* ONE HEADLINE. A day comparison, a dose comparison and a workout
+     comparison may all have cleared; the card still carries one
+     sentence, the largest change, and the others keep their bars
+     further down with no claim attached. Same house rule as
+     PATTERN_MAX_CARDS, applied across the three. A tie goes to the
+     day comparison, then the dose: the older question first. */
   const dz = healthNoticed?.doses;
+  const wk = healthNoticed?.workouts;
   const doseBestCopy = dz?.best ? doseCopy(dz.best) : null;
-  const doseLeads = !!doseBestCopy && !!dz?.best
-    && (!healthNoticed?.best || healthNoticed.best.delta == null
-      || Math.abs(dz.best.delta as number) > Math.abs(healthNoticed.best.delta));
+  const workoutBestCopy = wk?.best ? workoutCopy(wk.best) : null;
+  const mag = (d: number | null | undefined) => (d == null ? -1 : Math.abs(d));
+  const dayBest = healthNoticed?.best ? mag(healthNoticed.best.delta) : -1;
+  const doseSize = doseBestCopy && dz?.best ? mag(dz.best.delta) : -1;
+  const workoutSize = workoutBestCopy && wk?.best ? mag(wk.best.delta) : -1;
+  const workoutLeads = workoutSize >= 0 && workoutSize > dayBest && workoutSize > doseSize;
+  const doseLeads = !workoutLeads && doseSize >= 0 && doseSize > dayBest;
+  const dayLeads = !workoutLeads && !doseLeads;
   const doseGroups = (dz?.groups || []).filter((a) => !(doseLeads && a === dz?.best));
+  const workoutGroups = (wk?.groups || []).filter((a) => !(workoutLeads && a === wk?.best));
   const doseWaiting = dz ? dz.progress : [];
+  const workoutWaiting = wk ? wk.progress : [];
+  const workoutEarly = wk?.early || [];
+  const workoutFirst = wk?.first || [];
   const early = healthNoticed?.early || [];
   const doseEarly = dz?.early || [];
   const first = healthNoticed?.first || [];
@@ -1068,7 +1113,11 @@ export default function TrendsScreen({
     .map((p) => ({ name: groupLabels(p.kind).factor.toLowerCase(), have: p.pairedDays, need: p.needed }))
     .concat(doseWaiting
       .filter((p) => !doseEarly.some((e) => e.medId === p.medId) && !doseFirst.some((e) => e.medId === p.medId))
-      .map((p) => ({ name: p.med, have: p.pairs, need: p.needed })));
+      .map((p) => ({ name: p.med, have: p.pairs, need: p.needed })))
+    .concat(workoutWaiting
+      .filter((p) => !workoutEarly.some((e) => e.activity === p.activity)
+        && !workoutFirst.some((e) => e.activity === p.activity))
+      .map((p) => ({ name: p.activity + ', before and after', have: p.pairs, need: p.needed })));
   const notYetPaired = waiting.filter((w) => w.have === 0).map((w) => w.name);
   const stillCounting = waiting.filter((w) => w.have > 0).map((w) => w.name + ' ' + w.have + ' of ' + w.need);
   const collectingShown = notYetPaired.concat(stillCounting);
@@ -1099,7 +1148,26 @@ export default function TrendsScreen({
     key: 'budget', title: 'Before your next workout', line: budgetCard.title,
     detail: <DigestRow card={budgetCard} first />,
   });
-  if (doseLeads && doseBestCopy && dz && dz.best) {
+  if (workoutLeads && workoutBestCopy && wk && wk.best) {
+    const a = wk.best;
+    standouts.push({
+      key: 'best.workout', title: workoutBestCopy.title, line: workoutBestCopy.body,
+      detail: (
+        <>
+          <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{workoutBestCopy.body}</Text>
+          <WorkoutBars a={a} />
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {workoutBestCopy.sample}
+            {a.from && a.to ? ' ' + fmtReportDate(a.from) + ' – ' + fmtReportDate(a.to) + '.' : ''}
+          </Text>
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{workoutBestCopy.timing}</Text>
+          {/* the selection line is the card, not a footnote: without it
+              "lower after" reads as a verdict on the exercise */}
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{workoutBestCopy.disclaimer}</Text>
+        </>
+      ),
+    });
+  } else if (doseLeads && doseBestCopy && dz && dz.best) {
     const a = dz.best;
     standouts.push({
       key: 'best.dose', title: doseBestCopy.title, line: doseBestCopy.body,
@@ -1118,7 +1186,7 @@ export default function TrendsScreen({
         </>
       ),
     });
-  } else if (bestCopy && healthNoticed && healthNoticed.best) {
+  } else if (dayLeads && bestCopy && healthNoticed && healthNoticed.best) {
     const a = healthNoticed.best;
     standouts.push({
       key: 'best.' + a.kind, title: bestCopy.title, line: bestCopy.body,
@@ -1159,6 +1227,16 @@ export default function TrendsScreen({
         </Text>
       ),
     });
+  } else if (wk && wk.fading.length > 0) {
+    standouts.push({
+      key: 'faded.workout.' + wk.fading[0].activity, title: 'Something that faded',
+      line: fadedWorkoutCopy(wk.fading[0]),
+      detail: (
+        <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {fadedWorkoutCopy(wk.fading[0])}
+        </Text>
+      ),
+    });
   }
   /* THE EARLY LOOKS. The same bars a claim would carry, before any
      claim may be made, captioned as a picture: a person who connected
@@ -1185,6 +1263,18 @@ export default function TrendsScreen({
         <DoseBars a={e} />
         <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
           {e.pairs} doses with a check-in before and after. {EARLY_NOTE}
+        </Text>
+      </>
+    ),
+  }));
+  workoutEarly.forEach((e) => standouts.push({
+    key: 'we.' + e.activity, title: capitalise(e.activity) + ', before and after so far',
+    line: e.pairs + ' workouts with a check-in before and after.',
+    detail: (
+      <>
+        <WorkoutBars a={e} />
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+          {e.pairs} workouts with a check-in before and after. {EARLY_NOTE}
         </Text>
       </>
     ),
@@ -1235,6 +1325,32 @@ export default function TrendsScreen({
       </>
     ),
   }));
+  /* THE FIRST WORKOUTS. The first swim with a number before and after
+     it is exactly the fact a person went in for, and it is shown as
+     that — two numbers and a date, with the sentence still to come. */
+  workoutFirst.forEach((fd) => standouts.push({
+    key: 'wf.' + fd.activity, title: capitalise(fd.activity) + ', before and after',
+    line: fd.pairs.length + (fd.pairs.length === 1 ? ' workout' : ' workouts') + ' so far.',
+    detail: (
+      <>
+        {fd.pairs.map((p) => (
+          <Text key={p.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
+            accessibilityLabel={fmtReportDate(p.date) + ', pain ' + formatScore(p.before)
+              + ' before ' + fd.activity + ', ' + formatScore(p.after) + ' after'}>
+            <Text style={styles.firstDate}>{fmtReportDate(p.date)}</Text>
+            {'   before '}
+            <Text style={styles.firstNum}>{formatScore(p.before)}</Text>
+            {'  ·  after '}
+            <Text style={styles.firstNum}>{formatScore(p.after)}</Text>
+          </Text>
+        ))}
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+          The workouts so far, as recorded — a picture starts at three, and a workout
+          happens on the days you felt able to.
+        </Text>
+      </>
+    ),
+  }));
   /* doses whose pairs formed: the bars, with the observation's words
      or — for a change that did not lead — no words beyond the timing
      and the regression line */
@@ -1250,6 +1366,21 @@ export default function TrendsScreen({
         )}
         <DoseBars a={a} />
         <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{DOSE_TIMING}</Text>
+      </>
+    ),
+  }));
+  workoutGroups.forEach((a) => standouts.push({
+    key: 'w.' + a.activity, title: capitalise(a.activity) + ', before and after',
+    line: a.verdict === 'observation' ? workoutObservationCopy(a) : WORKOUT_TIMING,
+    detail: (
+      <>
+        {a.verdict === 'observation' && (
+          <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {workoutObservationCopy(a)}
+          </Text>
+        )}
+        <WorkoutBars a={a} />
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{WORKOUT_TIMING}</Text>
       </>
     ),
   }));

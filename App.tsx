@@ -33,6 +33,9 @@ import {
 import {
   doseAssociations, doseProgress, earlyDoses, firstDoses, strongestDose,
 } from './src/health/doses';
+import {
+  earlyWorkouts, firstWorkouts, strongestWorkout, workoutAssociations, workoutProgress,
+} from './src/health/workouts';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
 import ExperimentSheet from './src/ExperimentSheet';
@@ -382,6 +385,20 @@ export default function App() {
       early: meds ? earlyDoses(entries, healthDays) : [],
       first: meds ? firstDoses(entries, healthDays) : [],
     };
+    /* and around a workout, the same construction again: licensed by
+       the workouts category, remembered by activity name — a plain
+       word like 'swimming', local like everything else */
+    const wk = healthCategories().indexOf('workouts') >= 0;
+    const shownWorkouts = db.getPref<string[]>('health.shownWorkouts', []);
+    const workoutAll = wk ? workoutAssociations(entries, healthDays, shownWorkouts) : [];
+    const workouts = {
+      best: strongestWorkout(workoutAll),
+      fading: workoutAll.filter((a) => a.verdict === 'fading'),
+      groups: workoutAll.filter((a) => a.verdict === 'possible' || a.verdict === 'observation'),
+      progress: wk ? workoutProgress(entries, healthDays) : [],
+      early: wk ? earlyWorkouts(entries, healthDays) : [],
+      first: wk ? firstWorkouts(entries, healthDays) : [],
+    };
     /* and the pictures before the gates — see thresholds.ts, early looks */
     const early = earlyLooks(entries, healthDays, healthCategories());
     const first = firstDays(entries, healthDays, healthCategories());
@@ -389,7 +406,7 @@ export default function App() {
        harder-workout days begin, from the association already
        evaluated above — null until that association clears */
     const budget = loadBudgetFor(entries, healthDays, all);
-    return { best, fading, groups, progress, early, first, doses, budget };
+    return { best, fading, groups, progress, early, first, doses, workouts, budget };
   }, [entries, healthDays]);
   /* "Shown" is written AFTER the render, as an effect — a memo is not a
      commit, and React may run or throw away a render without committing
@@ -407,6 +424,13 @@ export default function App() {
     if (doseBest) {
       const shownDoses = db.getPref<string[]>('health.shownDoses', []);
       if (shownDoses.indexOf(doseBest.medId) < 0) db.setPref('health.shownDoses', shownDoses.concat(doseBest.medId));
+    }
+    const workoutBest = healthNoticed.workouts.best;
+    if (workoutBest) {
+      const shownWorkouts = db.getPref<string[]>('health.shownWorkouts', []);
+      if (shownWorkouts.indexOf(workoutBest.activity) < 0) {
+        db.setPref('health.shownWorkouts', shownWorkouts.concat(workoutBest.activity));
+      }
     }
   }, [healthNoticed]);
 
