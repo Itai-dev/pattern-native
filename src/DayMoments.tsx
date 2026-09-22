@@ -51,13 +51,16 @@ export interface DayMomentsProps {
   onChanged: () => void;
   onAddLog: () => void;
   onEditLog: (moment: Moment) => void;
-  onEditNote: () => void;
+  /** the Add information sheet, on the moment showing — where, the
+   *  words, the symptoms and the day's note. Edit (the check-in) is
+   *  the number and the time; this is everything else. */
+  onAddInfo: (h?: number) => void;
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: () => void;
 }
 
 export default function DayMoments({
-  dateIso, selectedH, onChanged, onAddLog, onEditLog, onEditNote, onEditEvent, onAddEvent,
+  dateIso, selectedH, onChanged, onAddLog, onEditLog, onAddInfo, onEditEvent, onAddEvent,
 }: DayMomentsProps) {
   const isToday = dateIso === todayISO();
   /* a past day inside the retro window can still receive a check-in —
@@ -145,6 +148,15 @@ export default function DayMoments({
               <Text style={styles.actText}>Edit</Text>
             </Press>
             <Press
+              onPress={() => onAddInfo(m.h)}
+              pressOpacity={0.7}
+              style={styles.act}
+              accessibilityRole="button"
+              accessibilityLabel={'Add information to the ' + fmtClock(m.h) + ' check-in'}
+            >
+              <Text style={styles.actText}>Add information</Text>
+            </Press>
+            <Press
               onPress={() => deleteMoment(m)}
               pressOpacity={0.7}
               style={styles.act}
@@ -213,10 +225,10 @@ export default function DayMoments({
         <Text style={styles.outlineText}>Log a flare or treatment</Text>
       </Press>
 
-      {/* ── the day, in their words — one row, one tap, a sheet ── */}
+      {/* ── the day, in their words — one row, one tap, the sheet ── */}
       {!!live && (
         <Press
-          onPress={onEditNote}
+          onPress={() => onAddInfo(m ? m.h : undefined)}
           pressOpacity={0.7}
           style={[styles.card, styles.noteRow]}
           accessibilityRole="button"
