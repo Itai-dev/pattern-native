@@ -380,6 +380,36 @@ export const DOSE_AFTER_MAX_MIN = 360;
  *  not buy is causation; see DOSE_NON_CAUSATION. */
 export const DOSE_MIN_PAIRS = PATTERN_MIN_N;
 
+/* ── around a workout: before it started, after it ended ────
+   The day comparisons ask what a workout did to the next morning.
+   This asks the smaller question the person asks in the changing
+   room: the number before, the number after. Each workout is paired
+   with the check-in shortly before it started and the first after it
+   ended, per activity, and the comparison is the mean of the paired
+   differences — the dose comparison's construction (workouts.ts). */
+
+/** how long before a workout STARTS the "before" check-in may be.
+ *  Three hours, the dose window's argument: a number from breakfast
+ *  says nothing about the state a six o'clock swim began in. */
+export const WORKOUT_BEFORE_WINDOW_MIN = 180;
+
+/** the latest an "after" check-in counts, from the workout's END.
+ *  Four hours: past that the meal, the drive and the sofa are better
+ *  explanations, and the next morning is already the day comparison's
+ *  question. There is no floor, unlike a dose — a workout is complete
+ *  when it ends, and the background prompt asks at that minute. */
+export const WORKOUT_AFTER_MAX_MIN = 240;
+
+/** paired workouts before any sentence — the protocol's minimum, the
+ *  same arithmetic as DOSE_MIN_PAIRS: a within-person difference
+ *  carries its own control, so eight pairs put the 1.5-point bar at
+ *  z ≈ 3.5. Per activity, so a swim is never pooled with a run. */
+export const WORKOUT_MIN_PAIRS = PATTERN_MIN_N;
+
+/** workout pairs before the before/after picture is drawn. Three, as
+ *  for doses: each pair is its own control */
+export const WORKOUT_EARLY_MIN_PAIRS = 3;
+
 /* ── when to ask: the reminder plan learned from Health ──────
    A fixed time is the wrong time for most of the questions this
    record asks. These decide how far Health may move a prompt, when an
@@ -422,11 +452,13 @@ export const PROMPT_BEFORE_BED_MIN = 45;
  *  down, and the body's first word on it in */
 export const PROMPT_AFTER_WORKOUT_MIN = 45;
 
-/** minutes before a workout usually STARTS that the load budget is
- *  delivered. Thirty: the decision to go is made and the bag is not
- *  yet packed — long enough to read one sentence, short enough that
- *  it is still about this workout and not about the day. Earlier is
- *  a fact about last month; later is a lock screen in a locker. */
+/** minutes before a workout STARTS that the load budget is delivered
+ *  (before a usual one), and that the before-question is asked (before
+ *  one booked in the calendar). Thirty: the decision to go is made and
+ *  the bag is not yet packed — long enough to read one sentence or
+ *  answer one question, short enough that it is still about this
+ *  workout and not about the day. Earlier is a fact about last month;
+ *  later is a lock screen in a locker. */
 export const PROMPT_BEFORE_WORKOUT_MIN = 30;
 
 /** weeks of the same weekday looked at, and how many of them need a

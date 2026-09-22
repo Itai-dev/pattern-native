@@ -68,7 +68,11 @@ export function describePlan(prompts: Prompt[]): string {
   if (prompts.some((p) => p.kind === 'budget')) extras.push('your budget before workouts');
   if (prompts.some((p) => p.kind === 'workout')) extras.push('after workouts');
   if (prompts.some((p) => p.kind === 'dose')) extras.push('after doses');
-  if (prompts.some((p) => p.kind === 'calendar')) extras.push('after calendar events');
+  const before = prompts.some((p) => p.kind === 'calendarBefore');
+  const after = prompts.some((p) => p.kind === 'calendar');
+  if (before && after) extras.push('before and after calendar events');
+  else if (after) extras.push('after calendar events');
+  else if (before) extras.push('before calendar events');
   return times.concat(extras).join(' · ');
 }
 

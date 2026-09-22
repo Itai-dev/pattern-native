@@ -413,6 +413,22 @@ Asked only after the first successful log.
 
 The "possible pattern ready" notification is deferred with the engine.
 
+**Learned and booked times (Sep 2026).** With "Follow Apple Health" on, the
+planner (`src/health/prompts.ts`) moves the morning slot to after the usual
+wake and the evening slot to before the usual bedtime, and adds prompts
+after the usual workout and dose. With "Use my calendar" on, an event whose
+title reads as exertion earns two questions: one `PROMPT_BEFORE_WORKOUT_MIN`
+before it starts and one `PROMPT_AFTER_WORKOUT_MIN` after it ends — the
+before-question exists (22 Sep 2026) so the after-number has something to
+be compared with (see Around a workout, §25b). Only the calendar earns a
+before-question: a Health habit is "usually", and a question at a guessed
+hour on a day with no workout is a nag about nothing. It never displaces a
+slot and yields to anything within the gap, including the after-prompt of a
+short event; it beats the load budget for the same half-hour, because a
+check-in is worth more than a sentence. No title reaches a notification.
+On binaries with the background-delivery entitlement, a workout landing in
+Health also fires one prompt at the minute it ended (`background.ts`).
+
 ## 11. Meaningful function
 
 Introduced after ~7 logged days: one named activity, 0–10 ability where higher is better,
@@ -945,6 +961,24 @@ sole vehicle for factors no sensor can answer (stress, weather, alcohol…)
 and gates the manual daily questions exactly as before. One claim card at
 most, Trends' "What Pattern noticed", sample sizes and the non-causation
 line on the card itself.
+
+**Around a workout** (`workouts.ts`, 22 Sep 2026). The day comparisons
+ask what a workout did to the next morning; this asks the smaller question
+the person asks in the changing room. Each workout is paired with the last
+check-in within `WORKOUT_BEFORE_WINDOW_MIN` of its START and the first
+check-in after its END within `WORKOUT_AFTER_MAX_MIN` — no floor on
+"after", unlike a dose, because a workout is complete when it ends and the
+background prompt asks at that minute. One pair per day per activity, the
+activity being its plain name (`workoutNames.ts`), so a swim is never pooled
+with a run and two codes for one activity are one group. The construction
+is the dose comparison's: mean of the paired differences, `WORKOUT_MIN_PAIRS`
+before a sentence, an early picture at `WORKOUT_EARLY_MIN_PAIRS`, the first
+pairs listed as facts below that, "still collecting" per activity, and a
+shown change that stops holding fades out loud. The card's headline
+competes with the day and dose comparisons under the one-claim rule (the
+largest change; ties to the older question). The selection line — a
+workout happens on the days the person felt able to — is on the card and
+in the report, in bold, for the reason the dose line is.
 
 **Setup** lives in Profile (`HealthSheet.tsx`): pick categories → Apple's own
 sheet → done. The screen speaks only states it can know — HealthKit hides
