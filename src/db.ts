@@ -317,7 +317,7 @@ function writeAnswer(date: string, metricId: string, a: Answer): Entry | null {
 /** record an answer to a day-scoped question */
 export function setAnswer(
   date: string, metricId: string, value: string | number, h: number,
-  pid: number | null, note?: string
+  pid: number | null, note?: string, suggested?: boolean
 ): Entry | null {
   const m = getMetric(metricId);
   if (!m) return null;
@@ -327,6 +327,9 @@ export function setAnswer(
     value, h, ts: d.getTime(), tz: -d.getTimezoneOffset(),
     qv: m.wordingVersion, pid,
     ...(t ? { note: t.slice(0, 280) } : null),
+    /* the model proposed this exact value and the person confirmed it
+       (src/ai/propose.ts, wasSuggested) — provenance, never weight */
+    ...(suggested ? { sug: 1 as const } : null),
   });
 }
 

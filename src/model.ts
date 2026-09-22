@@ -131,6 +131,12 @@ export interface Answer {
    *  skip, because "I didn't want to grade it, but here is what happened"
    *  is a real thing to say. */
   note?: string;
+  /** 1 = the on-device model proposed exactly this and the person
+   *  confirmed it (docs/AI.md). Provenance only: the engine ignores it,
+   *  the report never shows it. It exists so the beta can tell an
+   *  answer the person chose from one they agreed to. Absent on every
+   *  answer chosen unprompted, changed from a suggestion, or skipped. */
+  sug?: 1;
 }
 
 export interface ContextAnswers {
@@ -492,6 +498,9 @@ export function cleanAnswer(metricId: string, raw: unknown): Answer | null {
      rather than rejected: a note too long is a note to trim, never a
      reason to lose the choice it was attached to. */
   if (typeof r.note === 'string' && r.note.trim()) a.note = r.note.trim().slice(0, 280);
+  /* provenance rides through backup and restore like the note does; a
+     skip can never have been suggested, so the flag is dropped there */
+  if (r.sug === 1 && !skipped) a.sug = 1;
   return a;
 }
 
