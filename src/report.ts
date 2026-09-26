@@ -30,6 +30,10 @@ import {
 } from './thresholds';
 import { Association, associationCopy } from './health/engine';
 import { DOSE_NON_CAUSATION, DOSE_TIMING, DoseAssociation, doseAssociations, doseCopy } from './health/doses';
+import {
+  WORKOUT_NON_CAUSATION, WORKOUT_TIMING, WorkoutAssociation, workoutAssociations, workoutCopy,
+} from './health/workouts';
+import { capitalise, workoutName } from './health/workoutNames';
 import { noticedAssociations, strongestPossible } from './health/noticed';
 import { HEALTH_CATEGORIES, HealthCategory, HealthDay } from './health/types';
 
@@ -156,6 +160,9 @@ export interface ReportData {
     medications: { name: string; taken: number; skipped: number; days: number }[];
     /** dose comparisons whose pairs formed, in name order */
     doses: DoseAssociation[];
+    /** around a workout — before it started, after it ended — per
+     *  activity, the pairs that formed in this window, in name order */
+    workouts: WorkoutAssociation[];
   } | null;
   /** what the patient wants to understand, verbatim. null = never written. */
   hypothesis: Hypothesis | null;
@@ -405,6 +412,7 @@ function healthContext(
   const scopedEntries = Object.fromEntries(Object.entries(entries).filter(([d]) => inRange(d)));
   const association = strongestPossible(noticedAssociations(scopedEntries, scopedHealth, categories, []));
   const doses = categories.includes('medications') ? doseAssociations(scopedEntries, scopedHealth, []) : [];
+  const workouts = categories.includes('workouts') ? workoutAssociations(scopedEntries, scopedHealth, []) : [];
   const counts: Record<string, number> = {};
   const meds: Record<string, { name: string; taken: number; skipped: number; dayset: Record<string, true> }> = {};
   days.forEach((d) => {
@@ -433,7 +441,15 @@ function healthContext(
      appear in this window — a dose from outside it is not this report's */
   const inWindow = doses.filter((a) =>
     (a.verdict === 'possible' || a.verdict === 'observation') && !!meds[a.medId]);
-  return { coverage, association, medications, doses: inWindow };
+  /* the same for workouts: pairs that formed, for activities that
+     happened inside the window */
+  const seen: Record<string, true> = {};
+  Object.values(scopedHealth).forEach((h) => {
+    (h.workouts || []).forEach((w) => { seen[workoutName(w.activity)] = true; });
+  });
+  const workoutsInWindow = workouts.filter((a) =>
+    (a.verdict === 'possible' || a.verdict === 'observation') && !!seen[a.activity]);
+  return { coverage, association, medications, doses: inWindow, workouts: workoutsInWindow };
 }
 
 /** the limitation answers over the window, current wording only */
@@ -1248,6 +1264,27 @@ export function reportHtml(data: ReportData): string {
         s.push('</table>');
         s.push('<div class="note" style="margin-top:6px"><b>' + esc(DOSE_NON_CAUSATION) + '</b></div>');
       }
+    }
+
+    /* around a workout: the patient's own numbers before a session
+       started and after it ended, per activity. The selection line
+       is printed in bold for the same reason the dose one is — on
+       paper, "lower after" reads as a verdict on the exercise. */
+    if (data.health.workouts.length) {
+      s.push('<h3 style="margin-top:14px">Around a workout</h3>');
+      s.push('<div class="note">' + esc(WORKOUT_TIMING) + '</div>');
+      s.push('<table><tr><th>Activity</th><th>Before, mean</th><th>After, mean</th><th>Change</th><th>Workouts</th></tr>');
+      data.health.workouts.forEach((a) => {
+        const wc = workoutCopy(a);
+        s.push('<tr><td>' + esc(capitalise(a.activity))
+          + (wc ? ' <span class="note">(may be worth watching)</span>' : '')
+          + '</td><td class="num">' + formatScore(a.before as number)
+          + '</td><td class="num">' + formatScore(a.after as number)
+          + '</td><td class="num">' + ((a.delta as number) > 0 ? '+' : '') + a.delta
+          + '</td><td class="num">' + a.pairs + '</td></tr>');
+      });
+      s.push('</table>');
+      s.push('<div class="note" style="margin-top:6px"><b>' + esc(WORKOUT_NON_CAUSATION) + '</b></div>');
     }
     s.push('</section>');
   }

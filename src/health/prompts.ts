@@ -55,7 +55,13 @@ export interface SlotLike {
    It is the first proactive sentence in the app, and it obeys every
    rule the asking prompts do — the cap, the gap, the waking window —
    because a sentence at the wrong moment is a nag whatever it says. */
-export type PromptKind = 'm' | 'd' | 'e' | 'workout' | 'dose' | 'calendar' | 'budget';
+/* `calendarBefore` is the question BEFORE a booked exertion. The
+   after-question has always existed; without a number from before it,
+   the check-in it invites has nothing to be compared with, and the
+   around-a-workout picture (workouts.ts) never forms. Only the
+   calendar earns it: a Health habit is "usually", and a before-prompt
+   at a guessed hour on a day with no workout is a nag about nothing. */
+export type PromptKind = 'm' | 'd' | 'e' | 'workout' | 'dose' | 'calendar' | 'calendarBefore' | 'budget';
 
 export interface Prompt {
   /** stable within a day — the notification identifier is built from it */
@@ -290,6 +296,23 @@ export function planDay(date: string, input: PlanInput): Prompt[] {
       if (!yields.length && out.length >= PROMPTS_MAX_PER_DAY) return;
       yields.forEach((q) => out.splice(out.indexOf(q), 1));
       out.push(p);
+    });
+
+    /* BEFORE A BOOKED EXERTION, the question. Under the budget's
+       stricter rules rather than the after-prompts': it never
+       displaces a slot, and it yields to anything already within the
+       gap — a slot or an after-prompt nearby already collects the
+       "before" number, and a second banner in the hour is a nag. It
+       comes before the budget so that when both want the same
+       half-hour the question wins: a check-in is worth more than a
+       sentence, and the budget's own rule is to yield. */
+    (input.calendar || []).forEach((e, i) => {
+      if (calendarKind(e.title) !== 'exertion') return;
+      const h = e.h - PROMPT_BEFORE_WORKOUT_MIN;
+      const clear = h >= PROMPT_EARLIEST_MIN && h <= PROMPT_LATEST_MIN
+        && out.length < PROMPTS_MAX_PER_DAY
+        && !out.some((q) => Math.abs(q.h - h) < PROMPT_MIN_GAP_MIN);
+      if (clear) out.push({ key: 'cb' + i, h, kind: 'calendarBefore' });
     });
 
     /* THE BUDGET, before the usual workout. Last, and under stricter

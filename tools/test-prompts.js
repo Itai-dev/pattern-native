@@ -294,7 +294,45 @@ ok('titles classify by whole words, any case; most titles are neither', (() => {
 ok('an exertion in the calendar earns a prompt PROMPT_AFTER_WORKOUT_MIN after it ends; an appointment does not', (() => {
   const cal = [{ h: 17 * 60, minutes: 60, title: 'Yoga' }, { h: 10 * 60, minutes: 30, title: 'Dr Levy' }];
   const p = prompts.planDay(TODAY, { slots: SLOTS.map((s) => ({ ...s, on: false })), health: {}, clock, adaptive: true, calendar: cal });
-  return p.length === 1 && p[0].kind === 'calendar' && p[0].h === 18 * 60 + th.PROMPT_AFTER_WORKOUT_MIN;
+  const after = p.filter((x) => x.kind === 'calendar');
+  return after.length === 1 && after[0].h === 18 * 60 + th.PROMPT_AFTER_WORKOUT_MIN
+    && p.every((x) => x.kind === 'calendar' || x.kind === 'calendarBefore');
+})());
+ok('an exertion in the calendar also earns the question PROMPT_BEFORE_WORKOUT_MIN before it starts', (() => {
+  const cal = [{ h: 17 * 60, minutes: 60, title: 'Swim' }];
+  const p = prompts.planDay(TODAY, { slots: SLOTS.map((s) => ({ ...s, on: false })), health: {}, clock, adaptive: true, calendar: cal });
+  const b = p.find((x) => x.kind === 'calendarBefore'), a = p.find((x) => x.kind === 'calendar');
+  return p.length === 2 && b && b.h === 17 * 60 - th.PROMPT_BEFORE_WORKOUT_MIN
+    && a && a.h === 18 * 60 + th.PROMPT_AFTER_WORKOUT_MIN && p[0] === b;
+})());
+ok('the before-question never displaces a slot and yields to anything within the gap; a short event keeps its after', (() => {
+  // a midday slot at 16:00 is within ninety minutes of 16:30: the slot stays, the question stays out
+  const slots = SLOTS.map((s) => (s.key === 'd' ? { ...s, hour: 16, minute: 0, on: true } : s));
+  const cal = [{ h: 17 * 60, minutes: 60, title: 'Swim' }];
+  const p = prompts.planDay(TODAY, { slots, health: {}, clock, adaptive: true, calendar: cal });
+  // a ten-minute event: the after at 17:55 and the before at 16:30 are within the gap, and the after wins
+  const short = prompts.planDay(TODAY, { slots: SLOTS.map((s) => ({ ...s, on: false })), health: {}, clock, adaptive: true,
+    calendar: [{ h: 17 * 60, minutes: 10, title: 'Physio' }] });
+  return p.some((x) => x.kind === 'd' && x.h === 16 * 60) && !p.some((x) => x.kind === 'calendarBefore')
+    && p.some((x) => x.kind === 'calendar')
+    && short.length === 1 && short[0].kind === 'calendar';
+})());
+ok('the question wins the half-hour over the budget; a booking before the waking window asks nothing', (() => {
+  // the usual Health workout starts 17:15 and the calendar says 17:00: both want ~16:30-16:45
+  const h = weekly(18 * 60, [1, 3]);
+  const cal = [{ h: 17 * 60, minutes: 60, title: 'Gym' }];
+  const p = prompts.planDay(TODAY, { slots: SLOTS.map((s) => ({ ...s, on: false })), health: h, clock, adaptive: true, calendar: cal, budget: BUDGET });
+  const early = prompts.planDay(TODAY, { slots: SLOTS.map((s) => ({ ...s, on: false })), health: {}, clock, adaptive: true,
+    calendar: [{ h: 6 * 60 + 15, minutes: 60, title: 'Run' }] });
+  return p.some((x) => x.kind === 'calendarBefore') && !p.some((x) => x.kind === 'budget')
+    && !early.some((x) => x.kind === 'calendarBefore') && early.some((x) => x.kind === 'calendar');
+})());
+ok('a check-in near the before-question already answers it; an appointment earns no question either way', (() => {
+  const b = { key: 'cb0', h: 16 * 60 + 30, kind: 'calendarBefore' };
+  const cal = [{ h: 10 * 60, minutes: 30, title: 'Dr Levy' }];
+  const p = prompts.planDay(TODAY, { slots: SLOTS.map((s) => ({ ...s, on: false })), health: {}, clock, adaptive: true, calendar: cal });
+  return prompts.dueToday(b, [16 * 60], 12 * 60) === false && prompts.dueToday(b, [13 * 60], 12 * 60) === true
+    && p.length === 0;
 })());
 ok('adaptive off keeps the calendar out of the plan too', (() => {
   const cal = [{ h: 17 * 60, minutes: 60, title: 'Yoga' }];
