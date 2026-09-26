@@ -46,6 +46,9 @@ import {
 import { FirstDays, HealthProgress } from './health/noticed';
 import { LoadBudget, budgetCopy } from './health/budget';
 import {
+  AFTER_WORKOUTS_NOTE, AFTER_WORKOUTS_PENDING, AfterWorkout, workoutLabel,
+} from './health/afterWorkouts';
+import {
   DOSE_TIMING, DoseAssociation, DoseEarly, DoseProgress, FirstDoses, doseCopy,
   doseObservationCopy, fadedDoseCopy,
 } from './health/doses';
@@ -97,6 +100,9 @@ export interface TrendsScreenProps {
      *  clears its gates, and only when more load paired with harder
      *  mornings — budget.ts says why one direction only */
     budget: LoadBudget | null;
+    /** each workout beside the next morning's first check-in, newest
+     *  first — facts with no gate, see afterWorkouts.ts */
+    after: AfterWorkout[];
     /** the same four, for doses logged in Health — before-and-after a
      *  dose rather than groups of days, gated in doses.ts */
     doses: {
@@ -1045,7 +1051,12 @@ export default function TrendsScreen({
   const doseWaiting = dz ? dz.progress : [];
   const early = healthNoticed?.early || [];
   const doseEarly = dz?.early || [];
-  const first = healthNoticed?.first || [];
+  const after = healthNoticed?.after || [];
+  /* the workout-load first days are the same rows with less in them —
+     minutes and a number, no activity — so while After your workouts is
+     on the page they are not listed twice */
+  const first = (healthNoticed?.first || [])
+    .filter((f) => !(after.length > 0 && f.kind === 'workoutLoadVsNextMorning'));
   /* the budget's sentence, with the dates in this screen's style */
   const budget = healthNoticed?.budget || null;
   const budgetCard = budget
@@ -1064,7 +1075,7 @@ export default function TrendsScreen({
      "sleep 0 of 18 · water 0 of 18 · …" was eight zeros saying nothing
      a name does not. */
   const waiting = healthWaiting
-    .filter((p) => !early.some((e) => e.kind === p.kind) && !first.some((e) => e.kind === p.kind))
+    .filter((p) => !early.some((e) => e.kind === p.kind) && !(healthNoticed?.first || []).some((e) => e.kind === p.kind))
     .map((p) => ({ name: groupLabels(p.kind).factor.toLowerCase(), have: p.pairedDays, need: p.needed }))
     .concat(doseWaiting
       .filter((p) => !doseEarly.some((e) => e.medId === p.medId) && !doseFirst.some((e) => e.medId === p.medId))
@@ -1099,6 +1110,36 @@ export default function TrendsScreen({
     key: 'budget', title: 'Before your next workout', line: budgetCard.title,
     detail: <DigestRow card={budgetCard} first />,
   });
+  /* AFTER YOUR WORKOUTS. The workout and the next morning, row by row,
+     from the first workout — the one workout surface that needs no gate,
+     because it compares nothing. It sits under the budget because both
+     are about the next session; the claim-bearing cards follow. The
+     pain number is the number entered, in the same weight as the first
+     days, and nothing between the rows is summed or averaged. */
+  if (after.length > 0) {
+    const top = after[0];
+    standouts.push({
+      key: 'after.workouts', title: 'After your workouts',
+      line: workoutLabel(top) + ' on ' + fmtReportDate(top.date) + ' · '
+        + (top.morning == null ? AFTER_WORKOUTS_PENDING : 'next morning ' + formatScore(top.morning)),
+      detail: (
+        <>
+          {after.map((r) => (
+            <Text key={r.date} style={styles.firstRow} allowFontScaling maxFontSizeMultiplier={1.4}
+              accessibilityLabel={fmtReportDate(r.date) + ', ' + workoutLabel(r) + ', '
+                + (r.morning == null ? AFTER_WORKOUTS_PENDING : 'next morning pain ' + formatScore(r.morning))}>
+              <Text style={styles.firstDate}>{fmtReportDate(r.date)}</Text>
+              {'   ' + workoutLabel(r) + '  ·  '}
+              {r.morning == null
+                ? <Text style={styles.firstDate}>{AFTER_WORKOUTS_PENDING}</Text>
+                : <>{'next morning '}<Text style={styles.firstNum}>{formatScore(r.morning)}</Text></>}
+            </Text>
+          ))}
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{AFTER_WORKOUTS_NOTE}</Text>
+        </>
+      ),
+    });
+  }
   if (doseLeads && doseBestCopy && dz && dz.best) {
     const a = dz.best;
     standouts.push({
