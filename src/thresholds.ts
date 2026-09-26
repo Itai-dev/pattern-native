@@ -549,6 +549,13 @@ export const DIRECTION_SAME_BELOW = 0.25;
  *  section and not the card. Ten can be licensed at once. */
 export const FIRST_DAYS_OPEN = 2;
 
+/** how many workouts the After your workouts list holds — fourteen:
+ *  about a month of training at three or four sessions a week, which is
+ *  as far back as a person can still remember the session beside the
+ *  number. Older rows are not lost; the engine's comparison already
+ *  counts them, and a list longer than memory is a table nobody reads. */
+export const AFTER_WORKOUTS_MAX_ROWS = 14;
+
 /** how many quick check-ins in a row before the pain step leads with
  *  Log it instead of Continue. Three: one is a bad moment, two is a bad
  *  day, three is how this person is checking in at the moment — and the

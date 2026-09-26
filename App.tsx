@@ -30,6 +30,7 @@ import {
 import {
   earlyLooks, firstDays, healthProgress, loadBudgetFor, noticedAssociations, strongestPossible,
 } from './src/health/noticed';
+import { afterWorkouts } from './src/health/afterWorkouts';
 import {
   doseAssociations, doseProgress, earlyDoses, firstDoses, strongestDose,
 } from './src/health/doses';
@@ -389,7 +390,12 @@ export default function App() {
        harder-workout days begin, from the association already
        evaluated above — null until that association clears */
     const budget = loadBudgetFor(entries, healthDays, all);
-    return { best, fading, groups, progress, early, first, doses, budget };
+    /* each workout beside the next morning's number — facts, no gate,
+       from the first workout on. Licensed by the same category as the
+       workout comparisons, and by nothing else. */
+    const after = healthCategories().indexOf('workouts') >= 0
+      ? afterWorkouts(entries, healthDays, todayISO()) : [];
+    return { best, fading, groups, progress, early, first, doses, budget, after };
   }, [entries, healthDays]);
   /* "Shown" is written AFTER the render, as an effect — a memo is not a
      commit, and React may run or throw away a render without committing

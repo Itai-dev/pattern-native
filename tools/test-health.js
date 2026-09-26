@@ -17,6 +17,7 @@ const windows = require(path.join(OUT, 'health', 'windows.js'));
 const engine = require(path.join(OUT, 'health', 'engine.js'));
 const coverage = require(path.join(OUT, 'health', 'coverage.js'));
 const noticed = require(path.join(OUT, 'health', 'noticed.js'));
+const afterW = require(path.join(OUT, 'health', 'afterWorkouts.js'));
 const mock = require(path.join(OUT, 'health', 'mock.js'));
 const th = require(path.join(OUT, 'thresholds.js'));
 
@@ -405,6 +406,56 @@ ok('coverage counts covered days honestly', (() => {
   const c = coverage.factorCoverage(['sleep.quality.v1', 'stress.level.v1'], E, H, '2026-08-20', 7);
   return c[0].coveredDays === 1 && c[0].loggedDays === 1
     && c[1].category === null && c[1].coveredDays === 0;
+})());
+
+group('after your workouts: the workout and the next morning, nothing between');
+ok('each workout day beside the next morning’s FIRST morning check-in, newest first', (() => {
+  const E = {
+    '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 9 * 60, pain: 6 }, { h: 7 * 60, pain: 4 }] },
+    '2026-08-22': { pain: 3, cap: null, note: '', logs: [{ h: 8 * 60, pain: 3 }] },
+  };
+  const H = {
+    '2026-08-19': hday('2026-08-19', { workouts: [{ uuid: 'a', h: 540, minutes: 30, activity: '37' },
+      { uuid: 'b', h: 1080, minutes: 15.4, activity: '52' }] }),
+    '2026-08-21': hday('2026-08-21', { workouts: [{ uuid: 'c', h: 540, minutes: 45, activity: '46' }] }),
+  };
+  const r = afterW.afterWorkouts(E, H, '2026-08-25');
+  return r.length === 2 && r[0].date === '2026-08-21' && r[0].morning === 3
+    && r[1].kinds === 'running, walking' && r[1].minutes === 45 && r[1].morning === 4
+    && afterW.workoutLabel(r[1]) === 'Running, walking — 45 min';
+})());
+ok('a morning that passed without a check-in is left out, never shown as a gap', (() => {
+  const E = { '2026-08-20': { pain: 5, cap: null, note: '', logs: [{ h: 20 * 60, pain: 5 }] } };
+  const H = { '2026-08-19': hday('2026-08-19', { workouts: [{ uuid: 'a', h: 540, minutes: 30, activity: '37' }] }) };
+  return afterW.afterWorkouts(E, H, '2026-08-25').length === 0;
+})());
+ok('the newest workout waits for its morning; an older one never does', (() => {
+  const H = {
+    '2026-08-23': hday('2026-08-23', { workouts: [{ uuid: 'a', h: 540, minutes: 30, activity: '37' }] }),
+    '2026-08-24': hday('2026-08-24', { workouts: [{ uuid: 'b', h: 540, minutes: 20, activity: '57' }] }),
+  };
+  const r = afterW.afterWorkouts({}, H, '2026-08-24');
+  const later = afterW.afterWorkouts({}, H, '2026-08-26');
+  return r.length === 1 && r[0].date === '2026-08-24' && r[0].morning === null && later.length === 0;
+})());
+ok('days without workouts, and dates after today, are not rows', (() => {
+  const E = { '2026-08-21': { pain: 5, cap: null, note: '', logs: [{ h: 8 * 60, pain: 5 }] } };
+  const H = {
+    '2026-08-20': hday('2026-08-20', { workouts: [] }),
+    '2026-08-30': hday('2026-08-30', { workouts: [{ uuid: 'a', h: 540, minutes: 30, activity: '37' }] }),
+  };
+  return afterW.afterWorkouts(E, H, '2026-08-25').length === 0;
+})());
+ok('the list is capped, and the note says it is not a comparison', (() => {
+  const E = {}, H = {};
+  for (let i = 1; i <= 25; i++) {
+    const d = '2026-07-' + String(i).padStart(2, '0');
+    const n = '2026-07-' + String(i + 1).padStart(2, '0');
+    H[d] = hday(d, { workouts: [{ uuid: 'w' + i, h: 540, minutes: 30, activity: '37' }] });
+    E[n] = { pain: 4, cap: null, note: '', logs: [{ h: 8 * 60, pain: 4 }] };
+  }
+  return afterW.afterWorkouts(E, H, '2026-08-25').length === th.AFTER_WORKOUTS_MAX_ROWS
+    && /not a comparison/.test(afterW.AFTER_WORKOUTS_NOTE);
 })());
 
 group('workout load: harder-than-usual vs lighter-than-usual');
