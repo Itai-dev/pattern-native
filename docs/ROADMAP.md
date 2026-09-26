@@ -64,6 +64,10 @@ same fact shown a week later on Trends.
    next morning's check-in is the outcome. Make sure a person who logs
    after a workout is asked the next morning, so the budget keeps
    learning. Mostly exists.
+   *(26 Sep: the loop made visible before any gate — “After your
+   workouts” on Patterns lists each workout beside the next morning's
+   number, from the first workout. Facts, no comparison:
+   `src/health/afterWorkouts.ts`.)*
 4. **The evening before, from the calendar.** The calendar already
    names tomorrow's class and its length. When a booked exertion
    runs past the line, Today shows it the day before with the

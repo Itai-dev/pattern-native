@@ -30,7 +30,7 @@ import { addDays, fmtTime } from '../model';
 import { HealthDay, NormalizedDose } from './types';
 import { workoutName, workoutSummary } from './workoutNames';
 
-function fmtDuration(min: number): string {
+export function fmtDuration(min: number): string {
   const h = Math.floor(min / 60), m = Math.round(min % 60);
   if (h === 0) return m + ' min';
   return h + 'h' + (m ? ' ' + m + 'm' : '');
