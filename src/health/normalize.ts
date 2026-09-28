@@ -138,13 +138,19 @@ export function normalizeWorkouts(
   raw.forEach((w) => {
     if (seen[w.uuid]) return;
     seen[w.uuid] = true;
-    out.push({
+    const n: NormalizedWorkout = {
       uuid: w.uuid,
       h: clock.minutesOf(w.start),
       minutes: Math.max(1, Math.round((w.end - w.start) / 60000)),
       activity: w.activity,
       energy: w.energy,
-    });
+    };
+    /* only a real 1–10 is kept; anything else is "not recorded" */
+    if (typeof w.effort === 'number' && w.effort >= 1 && w.effort <= 10) {
+      n.effort = Math.round(w.effort);
+      if (w.effortEstimated) n.effortEstimated = true;
+    }
+    out.push(n);
   });
   return out.sort((a, b) => a.h - b.h);
 }

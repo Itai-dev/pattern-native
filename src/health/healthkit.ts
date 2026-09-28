@@ -91,6 +91,9 @@ const TYPES: Record<HealthCategory, string[]> = {
     'HKQuantityTypeIdentifierAppleStandTime',
   ],
   workouts: ['HKWorkoutTypeIdentifier'],
+  /* the effort types join the workouts row at request time, and only on
+     iOS 18+ (effortSupported) — an identifier the store does not know
+     can fail the whole sheet on an older phone */
   heart: [
     'HKQuantityTypeIdentifierRestingHeartRate',
     'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
@@ -106,6 +109,19 @@ const TYPES: Record<HealthCategory, string[]> = {
      time — so there is nothing to list here; see requestAuthorization */
   medications: [],
 };
+
+/** Apple's workout effort (iOS 18): the person's rating in Fitness, and
+ *  the Watch's estimate. Read so a hard twenty minutes and an easy hour
+ *  are not the same session (capacity.ts). An already-connected user
+ *  reads nothing for them until "Update what Pattern reads" re-presents
+ *  Apple's sheet — until then the query returns no samples, which reads
+ *  as "effort not recorded". */
+const EFFORT_RATED = 'HKQuantityTypeIdentifierWorkoutEffortScore';
+const EFFORT_ESTIMATED = 'HKQuantityTypeIdentifierEstimatedWorkoutEffortScore';
+function effortSupported(): boolean {
+  const major = parseInt(String(Platform.Version), 10);
+  return !!LIB && isFinite(major) && major >= 18;
+}
 
 /** the per-object type the medication picker authorizes */
 const MEDICATION_TYPE = 'HKUserAnnotatedMedicationTypeIdentifier';
@@ -227,6 +243,7 @@ export class HealthKitService implements HealthService {
     categories.forEach((c) => {
       if (c === 'mind' && !mindSupported()) return; // older iOS: not offered, not requested
       TYPES[c].forEach((t) => toRead.push(t));
+      if (c === 'workouts' && effortSupported()) toRead.push(EFFORT_RATED, EFFORT_ESTIMATED);
     });
     if (toRead.length) await LIB.requestAuthorization({ toRead });
     /* medications: Apple's second sheet, the per-medication picker. Its
@@ -320,6 +337,7 @@ export class HealthKitService implements HealthService {
           } as WorkoutSample;
         }).filter((w): w is WorkoutSample => w != null);
       } catch { out.incomplete = true; }
+      if (out.workouts.length && effortSupported()) await attachEffort(out.workouts, dayStart, dayEnd);
     }
 
     if (categories.indexOf('heart') >= 0) {
@@ -374,6 +392,47 @@ export class HealthKitService implements HealthService {
 
     return out;
   }
+}
+
+/**
+ * Put Apple's effort score on each workout it belongs to. Apple files
+ * the score as a sample spanning the workout, so the sample that
+ * overlaps a workout most is its score; the person's own rating wins
+ * over the Watch's estimate. OWN TRY/CATCH, NOT `incomplete`: a failed
+ * effort query must never mark the day incomplete, or an older store
+ * would pin a stale cached day forever. Failure reads as "not recorded".
+ */
+async function attachEffort(workouts: WorkoutSample[], from: Date, to: Date): Promise<void> {
+  if (!LIB) return;
+  const read = async (id: string): Promise<QuantitySample[]> => {
+    try {
+      /* a day either side: a late workout's score can be filed past midnight */
+      const rows = await LIB.queryQuantitySamples(id, {
+        filter: { date: { startDate: new Date(from.getTime() - 86400000), endDate: new Date(to.getTime() + 86400000) } },
+        limit: 0, ascending: true, unit: 'appleEffortScore',
+      });
+      return rows.map(quantity).filter((s): s is QuantitySample => s != null);
+    } catch { return []; }
+  };
+  const rated = await read(EFFORT_RATED);
+  const estimated = await read(EFFORT_ESTIMATED);
+  const best = (w: WorkoutSample, list: QuantitySample[]): number | null => {
+    let top = 0, value: number | null = null;
+    list.forEach((s) => {
+      const overlap = Math.min(w.end, s.end) - Math.max(w.start, s.start);
+      /* a zero-length sample stamped inside the workout counts too */
+      const inside = s.start >= w.start && s.start <= w.end;
+      const score = overlap > 0 ? overlap : inside ? 1 : 0;
+      if (score > top) { top = score; value = s.value; }
+    });
+    return value;
+  };
+  workouts.forEach((w) => {
+    const r = best(w, rated);
+    if (r != null) { w.effort = r; return; }
+    const e = best(w, estimated);
+    if (e != null) { w.effort = e; w.effortEstimated = true; }
+  });
 }
 
 /* ── background delivery ───────────────────────────────────── */

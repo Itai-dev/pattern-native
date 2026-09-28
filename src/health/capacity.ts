@@ -1,6 +1,6 @@
 /**
- * What you can do — each activity's level, the next small step, and the
- * minutes this week that went fine.
+ * What you can do — conclusions about each activity, at each effort,
+ * and the next step. Sentences, not statistics.
  *
  * WHY THIS EXISTS. Everything else in Pattern describes pain back to the
  * person, and a founder who uses it every day said so plainly (28 Sep
@@ -9,76 +9,91 @@
  * The goal was always to keep people active while pain is managed, and
  * the approach with the best evidence for that is pacing and graded
  * activity: find the amount of an activity that goes fine, do that on a
- * plan rather than on how today feels, and build in small steps. This
- * file is that, read from the record the app already keeps.
+ * plan rather than on how today feels, and build in small steps.
  *
- * A DECISION REVERSED, ON PURPOSE. workouts.ts and budget.ts say an
- * app-computed duration or a "do more" is advice wearing a number, and
- * for a description of the record that stays true. This is the one
- * place that says a next step, because the person asked for a tool
- * rather than a mirror. It keeps what made the old rule right: the
- * number comes only from the person's own sessions, the step is small
- * and fixed (thresholds.ts), it eases back on its own when sessions run
- * harder, and the card says it is not medical advice.
+ * CONCLUSIONS, NOT DATA. The first version of this card said "went fine
+ * 4 of the last 5 times, usual 30 min" and left the reading to the
+ * person, who said the same day: bring me the answer, not the numbers I
+ * have to analyse. So each card is one sentence that has already done
+ * the reading — "easy walks are going well; go for 33 minutes next time"
+ * — and the counts it rests on sit behind "Why?", inside the card. The
+ * confidence is in the words ("so far" under six sessions), never a
+ * percentage.
  *
- * "WENT FINE" IS TWO QUESTIONS, EITHER OF WHICH CAN ANSWER. After the
- * session: the first check-in after it ended against the last one before
- * it started — the windows workouts.ts already uses. The next morning:
- * the first morning check-in of the next day against this day's own
- * first morning check-in — morning against morning, the same time of
- * day, so a stiff start is compared with a stiff start. A session ran
- * harder when EITHER rose by CAPACITY_HARDER_POINTS or more; it went
- * fine when at least one answered and neither rose that far.
+ * EFFORT, NOT JUST MINUTES. Twenty hard minutes and an easy hour are not
+ * the same session. Apple records a 1–10 effort on each workout — the
+ * person's own rating in Fitness, or the Watch's estimate — and sessions
+ * are grouped by activity AND effort band (thresholds.ts, Apple's own
+ * bands), so a hard run and an easy run each get their own level. The
+ * step only ever adds minutes at the same effort: pacing changes one
+ * thing at a time, and an app that raised the effort for you would be
+ * prescribing. A session with no effort is its own group, "effort not
+ * recorded" — never guessed.
  *
- * THREE STATES, NEVER TWO. A session nobody checked in around is
- * `unknown`, not a failure: it counts toward nothing and nothing is said
- * about it. A session whose next morning has not happened yet is
- * `pending`. Neither is ever read as "ran harder".
+ * "WENT FINE" IS THE NEXT MORNING. The first check-in in the morning
+ * after the session against this day's own first morning check-in —
+ * the same time of day, so a stiff start is compared with a stiff start.
+ * A rise of CAPACITY_HARDER_POINTS or more is "ran harder". Soreness in
+ * the hours right after exercise is expected and is not damage; judging
+ * a session on it would teach the fear this card exists to undo, so the
+ * physiotherapist's rule is the one used — it is fine if it has settled
+ * by the next morning.
+ *
+ * THREE STATES, NEVER TWO. A session without both mornings is `unknown`
+ * and counts toward nothing; one whose next morning has not happened yet
+ * is `pending`. Neither is ever read as "ran harder".
+ *
+ * A DECISION REVERSED, ON PURPOSE. workouts.ts and budget.ts describe
+ * and never advise; this is the one place that says a next step,
+ * because the person asked for a tool rather than a mirror. The number
+ * comes only from the person's own sessions, the step is small and
+ * fixed, it eases back on its own, and the card says it is not medical
+ * advice.
  *
  * NOT A PAIN SCORE. Pain values are read only to decide fine or harder;
- * none is shown, averaged or combined here. What the card shows is
- * minutes and counts — non-pain measures, in neutral colour.
+ * none is shown, averaged or combined. The card shows words and minutes,
+ * in neutral colour.
  */
-import { Entries, Moment, addDays, logsOf, mondayOf } from '../model';
+import { Entries, addDays, logsOf, mondayOf } from '../model';
 import {
   CAPACITY_EASE_AFTER, CAPACITY_HARDER_POINTS, CAPACITY_MIN_SESSIONS, CAPACITY_MIN_SESSION_MIN,
   CAPACITY_RECENT, CAPACITY_STEP, CAPACITY_STEP_MAX_MIN, CAPACITY_STEP_MIN_MIN,
-  WORKOUT_AFTER_MAX_MIN, WORKOUT_BEFORE_WINDOW_MIN,
+  EFFORT_EASY_MAX, EFFORT_MODERATE_MAX,
 } from '../thresholds';
 import { HealthDay } from './types';
 import { morningPain } from './windows';
 import { capitalise, workoutName } from './workoutNames';
 
 export type SessionOutcome = 'fine' | 'harder' | 'pending' | 'unknown';
+export type EffortBand = 'easy' | 'moderate' | 'hard';
+
+/** Apple's 1–10 effort as its band, or null when none was recorded */
+export function effortBand(effort: number | undefined): EffortBand | null {
+  if (effort == null) return null;
+  if (effort <= EFFORT_EASY_MAX) return 'easy';
+  if (effort <= EFFORT_MODERATE_MAX) return 'moderate';
+  return 'hard';
+}
+
+const BAND_ORDER: Record<EffortBand, number> = { easy: 0, moderate: 1, hard: 2 };
 
 export interface Session {
   date: string;
   /** minutes since local midnight the session started */
   h: number;
-  /** the activity's plain name — the grouping key, as in workouts.ts */
+  /** the activity's plain name, as in workouts.ts */
   activity: string;
+  band: EffortBand | null;
   minutes: number;
   outcome: SessionOutcome;
-}
-
-/** after-the-session signal: the rise from the last check-in before the
- *  start to the first after the end, or null when either is missing */
-function afterRise(logs: Moment[], start: number, end: number): number | null {
-  let before: number | null = null;
-  let after: number | null = null;
-  logs.forEach((l) => {
-    if (l.h <= start && start - l.h <= WORKOUT_BEFORE_WINDOW_MIN) before = l.pain;
-    if (after == null && l.h >= end && l.h - end <= WORKOUT_AFTER_MAX_MIN) after = l.pain;
-  });
-  return before == null || after == null ? null : (after as number) - (before as number);
 }
 
 /**
  * Every session in the record, oldest first, each with its outcome.
  * Pure: entries, Health days and today's date in.
  *
- * Two sessions on one day share that day's next-morning signal — the
- * morning cannot say which of them it followed, so it is read for both.
+ * Two sessions on one day share that day's next morning — the morning
+ * cannot say which of them it followed, so it is read for both.
  */
 export function sessions(
   entries: Entries, health: Record<string, HealthDay>, todayIso: string
@@ -89,30 +104,23 @@ export function sessions(
     if (date > todayIso) return;
     const ws = (health[date].workouts || []).slice().sort((a, b) => a.h - b.h);
     if (!ws.length) return;
-    const logs = logsOf(entries[date]).slice().sort((a, b) => a.h - b.h);
     const next = addDays(date, 1);
-    const todayMorning = morningPain(logs);
+    const thisMorning = morningPain(logsOf(entries[date]));
     const nextMorning = morningPain(logsOf(entries[next]));
-    const morningRise = todayMorning && nextMorning ? nextMorning.pain - todayMorning.pain : null;
-    /* the next morning can still arrive while it is today or ahead —
-       only then is a session without an answer waiting rather than
-       unknown */
-    const morningAhead = !nextMorning && next >= todayIso;
-
+    let outcome: SessionOutcome;
+    if (thisMorning && nextMorning) {
+      outcome = nextMorning.pain - thisMorning.pain >= CAPACITY_HARDER_POINTS ? 'harder' : 'fine';
+    } else if (!nextMorning && next >= todayIso) {
+      /* the next morning can still arrive: waiting, not unknown */
+      outcome = 'pending';
+    } else {
+      outcome = 'unknown';
+    }
     ws.forEach((w) => {
       if (w.minutes < CAPACITY_MIN_SESSION_MIN) return;
-      const rise = afterRise(logs, w.h, w.h + w.minutes);
-      const signals = [rise, morningRise].filter((r): r is number => r != null);
-      let outcome: SessionOutcome;
-      if (signals.some((r) => r >= CAPACITY_HARDER_POINTS)) outcome = 'harder';
-      /* a fine check-in after the session is half the answer: the
-         morning is the other half, and pacing's own rule is the
-         twenty-four hours after */
-      else if (morningAhead) outcome = 'pending';
-      else if (signals.length) outcome = 'fine';
-      else outcome = 'unknown';
       out.push({
-        date, h: w.h, activity: workoutName(w.activity), minutes: Math.round(w.minutes), outcome,
+        date, h: w.h, activity: workoutName(w.activity), band: effortBand(w.effort),
+        minutes: Math.round(w.minutes), outcome,
       });
     });
   });
@@ -121,26 +129,20 @@ export function sessions(
 
 export type StepKind = 'up' | 'hold' | 'ease';
 
+/** one activity at one effort, read */
 export interface ActivityLevel {
   activity: string;
+  band: EffortBand | null;
   /** the typical length of the recent sessions that went fine, in
    *  minutes; with none fine, of the recent sessions at all */
   level: number;
-  /** the suggested next session, in minutes */
+  /** the next session, in minutes, at the same effort */
   next: number;
   step: StepKind;
   /** recent sessions with a known outcome, and how many went fine */
   known: number;
   fine: number;
   /** the newest session's date — for ordering */
-  last: string;
-}
-
-/** an activity short of its first level: what it is waiting for */
-export interface ActivityCollecting {
-  activity: string;
-  known: number;
-  needed: number;
   last: string;
 }
 
@@ -155,23 +157,24 @@ function stepOf(level: number): number {
 }
 
 /**
- * One activity's level and next step from its sessions (oldest first),
- * or null short of CAPACITY_MIN_SESSIONS known ones.
+ * One group's level and next step from its sessions (oldest first), or
+ * null short of CAPACITY_MIN_SESSIONS known ones.
  *
- * THE STEP. Up by CAPACITY_STEP after the newest known session went
- * fine. Held after it ran harder — one harder morning is a day. Eased
- * back by the same step when CAPACITY_EASE_AFTER of the last three ran
- * harder, or none of the recent ones went fine. Never below the
- * shortest session that counts.
+ * Up by CAPACITY_STEP after the newest known session went fine. Held
+ * after it ran harder — one harder morning is a day. Eased back by the
+ * same step when CAPACITY_EASE_AFTER of the last three ran harder, or
+ * none of the recent ones went fine. Never below the shortest session
+ * that counts.
  */
-export function activityLevel(activity: string, all: Session[]): ActivityLevel | null {
+export function activityLevel(
+  activity: string, band: EffortBand | null, all: Session[]
+): ActivityLevel | null {
   const known = all.filter((s) => s.outcome === 'fine' || s.outcome === 'harder');
   if (known.length < CAPACITY_MIN_SESSIONS) return null;
   const recent = known.slice(-CAPACITY_RECENT);
   const fine = recent.filter((s) => s.outcome === 'fine');
   const level = Math.round(median((fine.length ? fine : recent).map((s) => s.minutes)));
-  const lastThree = recent.slice(-3);
-  const harderRecently = lastThree.filter((s) => s.outcome === 'harder').length;
+  const harderRecently = recent.slice(-3).filter((s) => s.outcome === 'harder').length;
   const newest = recent[recent.length - 1];
 
   let step: StepKind;
@@ -187,114 +190,192 @@ export function activityLevel(activity: string, all: Session[]): ActivityLevel |
     next = level + stepOf(level);
   }
   return {
-    activity, level, next, step, known: recent.length, fine: fine.length,
+    activity, band, level, next, step, known: recent.length, fine: fine.length,
     last: all[all.length - 1].date,
   };
 }
 
-export interface CapacityView {
-  /** minutes this week (from Monday) in sessions that went fine */
-  weekFineMinutes: number;
-  /** minutes this week still waiting for the next morning */
-  weekPendingMinutes: number;
-  /** every activity with a level, most recently done first */
-  levels: ActivityLevel[];
-  /** activities short of a level, most recently done first */
-  collecting: ActivityCollecting[];
+/* ── the conclusions ─────────────────────────────────────────
+   Fixed sentence shapes, the numbers inserted. Each is one thing to
+   know and, where there is one, one thing to do. Never "great job",
+   never a verdict on today, never a pain number. */
+
+export interface Insight {
+  key: string;
+  /** the conclusion, in one or two plain sentences */
+  text: string;
+  /** what it rests on — behind "Why?", inside the card */
+  why: string;
+  /** the newest session behind it, for ordering */
+  last: string;
+  /** most useful first: a contrast, then a warning, then the rest */
+  rank: number;
+}
+
+/** "easy walking", "hard running", "walking" (no effort recorded) */
+function named(activity: string, band: EffortBand | null): string {
+  return band ? band + ' ' + activity : activity;
+}
+
+/** confidence, in words: "so far" until the level rests on a full window */
+function sofar(l: ActivityLevel): string {
+  return l.known >= CAPACITY_RECENT ? '' : ' so far';
+}
+
+function whyOf(l: ActivityLevel): string {
+  const who = named(l.activity, l.band);
+  const base = l.fine + ' of your last ' + l.known + ' ' + who + ' sessions were followed by a '
+    + 'morning no worse than the one before' + (l.fine ? ', and those usually lasted about '
+    + l.level + ' minutes.' : '.');
+  return l.band ? base : base + ' Apple Health had no effort for these sessions, so they are read together.';
+}
+
+export function levelInsight(l: ActivityLevel): Insight {
+  const who = named(l.activity, l.band);
+  const key = 'level.' + l.activity + '.' + (l.band || 'none');
+  let text: string;
+  let rank: number;
+  if (l.step === 'up') {
+    rank = 3;
+    text = capitalise(who) + ' is going well' + sofar(l) + '. Next time, go for '
+      + l.next + ' minutes.';
+  } else if (l.step === 'hold') {
+    rank = 2;
+    text = 'Your last ' + who + ' session was followed by a harder morning. Stay at '
+      + l.next + ' minutes next time rather than going longer.';
+  } else {
+    rank = 1;
+    const easier = l.band === 'hard' ? ' or keep it moderate' : l.band === 'moderate' ? ' or keep it easy' : '';
+    text = capitalise(who) + ' is costing you the next morning' + sofar(l) + '. Try '
+      + l.next + ' minutes next time' + easier + ', and build back up from there.';
+  }
+  return { key, text, why: whyOf(l), last: l.last, rank };
 }
 
 /**
- * The whole card's data, or null when the record holds no session at
- * all — silence rather than an empty card.
- *
- * THE WEEK, NOT THE LAST SEVEN DAYS. A rolling seven days drops a
- * session on a day the person added nothing, which penalises a rest
- * day. From Monday, the number only grows until the week turns — and
- * nothing compares one week with another.
+ * The contrast within one activity: an effort that goes well beside a
+ * harder one that does not. This is the finding the person cannot see
+ * from any single session — "running is fine easy; hard runs are the
+ * ones that cost you" — so it leads when it exists, and replaces the
+ * two separate sentences it is made of.
+ */
+function contrastInsight(good: ActivityLevel, bad: ActivityLevel): Insight {
+  return {
+    key: 'contrast.' + good.activity,
+    text: capitalise(good.activity) + ' goes well for you at ' + (good.band === 'easy' ? 'an easy' : 'a moderate')
+      + ' effort. The ' + bad.band + ' sessions are the ones costing you the next morning — keep it '
+      + good.band + ', and build minutes there: next time, ' + good.next + ' minutes.',
+    why: whyOf(good) + ' ' + whyOf(bad),
+    last: good.last > bad.last ? good.last : bad.last,
+    rank: 0,
+  };
+}
+
+export interface CapacityView {
+  /** the headline, one sentence about the week */
+  headline: string;
+  /** conclusions, most useful first */
+  insights: Insight[];
+  /** what the activities still collecting are waiting for, one line */
+  collecting: string | null;
+}
+
+function joinWords(words: string[]): string {
+  if (words.length < 2) return words.join('');
+  return words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1];
+}
+
+/**
+ * THE WEEK, NOT THE LAST SEVEN DAYS. A rolling window drops a session on
+ * a day the person added nothing, which penalises a rest day. From
+ * Monday, the number only grows until the week turns, and nothing
+ * compares one week with another.
+ */
+function headlineOf(all: Session[], todayIso: string): string {
+  const week = mondayOf(todayIso);
+  const mins: Record<string, number> = {};
+  let fine = 0, pending = 0;
+  all.forEach((s) => {
+    if (s.date < week) return;
+    if (s.outcome === 'pending') pending += s.minutes;
+    if (s.outcome !== 'fine') return;
+    fine += s.minutes;
+    const b = s.band || 'none';
+    mins[b] = (mins[b] || 0) + s.minutes;
+  });
+  if (!fine) {
+    return pending
+      ? 'Tomorrow morning’s check-in will tell Pattern how today’s ' + pending + ' minutes went.'
+      : 'Nothing this week has a next-morning answer yet.';
+  }
+  const bands = (['easy', 'moderate', 'hard'] as EffortBand[]).filter((b) => mins[b]);
+  const mostly = bands.length > 1
+    ? bands.slice().sort((a, b) => mins[b] - mins[a])[0] : null;
+  return 'This week, your body handled ' + fine + ' minutes of activity'
+    + (mostly ? ', mostly ' + mostly : bands.length === 1 && !mins.none ? ', all ' + bands[0] : '') + '.'
+    + (pending ? ' Tomorrow morning will tell how today’s ' + pending + ' went.' : '');
+}
+
+/**
+ * The whole card, or null when the record holds no session at all —
+ * silence rather than an empty card.
  */
 export function capacityView(
   entries: Entries, health: Record<string, HealthDay>, todayIso: string
 ): CapacityView | null {
   const all = sessions(entries, health, todayIso);
   if (!all.length) return null;
-  const week = mondayOf(todayIso);
-  let weekFineMinutes = 0, weekPendingMinutes = 0;
+
+  const groups: Record<string, Session[]> = {};
   all.forEach((s) => {
-    if (s.date < week) return;
-    if (s.outcome === 'fine') weekFineMinutes += s.minutes;
-    if (s.outcome === 'pending') weekPendingMinutes += s.minutes;
+    const k = s.activity + '|' + (s.band || '');
+    (groups[k] = groups[k] || []).push(s);
   });
-
-  const by: Record<string, Session[]> = {};
-  all.forEach((s) => { (by[s.activity] = by[s.activity] || []).push(s); });
   const levels: ActivityLevel[] = [];
-  const collecting: ActivityCollecting[] = [];
-  Object.keys(by).forEach((name) => {
-    const l = activityLevel(name, by[name]);
+  const waiting: Record<string, number> = {};
+  Object.keys(groups).forEach((k) => {
+    const g = groups[k];
+    const l = activityLevel(g[0].activity, g[0].band, g);
     if (l) { levels.push(l); return; }
-    collecting.push({
-      activity: name,
-      known: by[name].filter((s) => s.outcome === 'fine' || s.outcome === 'harder').length,
-      needed: CAPACITY_MIN_SESSIONS,
-      last: by[name][by[name].length - 1].date,
-    });
+    const known = g.filter((s) => s.outcome === 'fine' || s.outcome === 'harder').length;
+    const name = named(g[0].activity, g[0].band);
+    waiting[name] = CAPACITY_MIN_SESSIONS - known;
   });
-  /* most recent first, the name breaking ties, so the same record
-     always reads in the same order */
-  const order = (a: { last: string; activity: string }, b: { last: string; activity: string }) =>
-    a.last !== b.last ? (a.last < b.last ? 1 : -1) : a.activity.localeCompare(b.activity);
-  levels.sort(order);
-  collecting.sort(order);
-  return { weekFineMinutes, weekPendingMinutes, levels, collecting };
+
+  /* the contrast: within one activity, the easiest band going up beside
+     a harder band easing back */
+  const insights: Insight[] = [];
+  const used: Record<string, true> = {};
+  const byActivity: Record<string, ActivityLevel[]> = {};
+  levels.forEach((l) => { if (l.band) (byActivity[l.activity] = byActivity[l.activity] || []).push(l); });
+  Object.keys(byActivity).forEach((a) => {
+    const ls = byActivity[a].slice().sort((x, y) => BAND_ORDER[x.band!] - BAND_ORDER[y.band!]);
+    const good = ls.filter((l) => l.step === 'up')[0];
+    const bad = good && ls.filter((l) => l.step === 'ease' && BAND_ORDER[l.band!] > BAND_ORDER[good.band!])[0];
+    if (!good || !bad) return;
+    insights.push(contrastInsight(good, bad));
+    used[a + good.band] = true;
+    used[a + bad.band] = true;
+  });
+  levels.forEach((l) => { if (!used[l.activity + l.band]) insights.push(levelInsight(l)); });
+  insights.sort((a, b) => a.rank !== b.rank ? a.rank - b.rank
+    : a.last !== b.last ? (a.last < b.last ? 1 : -1) : a.key.localeCompare(b.key));
+
+  const names = Object.keys(waiting).sort();
+  const most = names.reduce((m, n) => Math.max(m, waiting[n]), 0);
+  const collecting = names.length
+    ? 'Pattern will have an answer about ' + joinWords(names) + ' after '
+      + (most === 1 ? 'one more session' : 'up to ' + most + ' more sessions')
+      + ' with a morning check-in that day and the next.'
+    : null;
+
+  return { headline: headlineOf(all, todayIso), insights, collecting };
 }
 
-/* ── copy, from numbers ──────────────────────────────────────
-   Fixed sentence shapes. Never "great job", never a verdict on today,
-   never a pain number. */
-
-export interface LevelCopy {
-  title: string;
-  /** what the record says about this activity */
-  record: string;
-  /** the next session */
-  next: string;
-}
-
-export function levelCopy(l: ActivityLevel): LevelCopy {
-  const title = capitalise(l.activity);
-  const record = l.fine
-    ? 'Went fine ' + l.fine + ' of the last ' + l.known + ' times. Usual length that went fine: '
-      + l.level + ' min.'
-    : 'The last ' + l.known + ' sessions ran harder afterwards. Usual length: ' + l.level + ' min.';
-  let next: string;
-  if (l.step === 'up') next = 'Next time, try ' + l.next + ' min.';
-  else if (l.step === 'hold') next = 'The last one ran harder, so stay at ' + l.next + ' min next time.';
-  else next = 'Try ' + l.next + ' min next time, and build back up from there.';
-  return { title, record, next };
-}
-
-export function collectingCopy(c: ActivityCollecting): string {
-  return capitalise(c.activity) + ': ' + c.known + ' of ' + c.needed + ' sessions with a check-in around them.';
-}
-
-/** the headline, in minutes — a count of living, never of pain */
-export function weekLine(v: CapacityView): string {
-  const base = v.weekFineMinutes
-    ? 'This week: ' + v.weekFineMinutes + ' min of activity that went fine.'
-    : 'This week: nothing with an answer yet.';
-  return v.weekPendingMinutes
-    ? base + ' ' + v.weekPendingMinutes + ' min waiting on tomorrow morning’s check-in.'
-    : base;
-}
-
-/** what the card does not mean — inside the card, never a footnote */
+/** what the card does not mean — inside the card, behind its (i) */
 export const CAPACITY_NOTE =
-  '“Went fine” means your check-in after the session, or the next morning, was less than '
-  + CAPACITY_HARDER_POINTS + ' points above the one before. Soreness after exercise is common '
-  + 'and is not damage. The next step comes from your own record, in small steps — it is not '
+  'A session went fine when your next morning’s check-in was less than '
+  + CAPACITY_HARDER_POINTS + ' points above that day’s morning. Soreness in the hours after '
+  + 'exercise is common and is not damage. Effort is Apple’s 1–10 from your Watch or your own '
+  + 'rating in Fitness. The next step comes from your own record, in small steps — it is not '
   + 'medical advice, and a clinician’s plan comes first.';
-
-/** how a session gets an answer — for the collecting rows */
-export const CAPACITY_HOW =
-  'A session gets an answer from a check-in before and after it, or from a morning check-in '
-  + 'that day and the next. Sessions without one are left out, never counted against you.';

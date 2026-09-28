@@ -134,6 +134,12 @@ export interface WorkoutSample {
   activity: string;
   /** kcal, if the store had it */
   energy?: number;
+  /** Apple's 1–10 workout effort: the person's own rating in Fitness,
+   *  or the Watch's estimate when they gave none. Absent when neither
+   *  exists — never guessed from heart rate or energy here. */
+  effort?: number;
+  /** true when `effort` is the Watch's estimate, not the person's rating */
+  effortEstimated?: boolean;
   source: string;
 }
 
@@ -178,6 +184,9 @@ export interface NormalizedWorkout {
   minutes: number;
   activity: string;
   energy?: number;
+  /** 1–10, as WorkoutSample.effort; absent is "not recorded" */
+  effort?: number;
+  effortEstimated?: boolean;
 }
 
 /** a dose as the day carries it: filed at its local minute, taken or

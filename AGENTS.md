@@ -166,11 +166,14 @@ changes except data the user added.
 
 **The app helps you do more, in small steps (28 Sep 2026).** A mirror
 that only shows pain back was not helping anyone stay active. Today
-leads with *What you can do* (`src/health/capacity.ts`): minutes this
-week that went fine, each activity's usual length, and a next session
-at most ten per cent longer — held after a harder session, eased back
-after two. It is read from the person's own sessions only, says it is
-not medical advice, and never shows a pain number. There is still no
+leads with *What you can do* (`src/health/capacity.ts`): CONCLUSIONS,
+not counts — "easy walking is going well; next time, 33 minutes" —
+with what they rest on behind "Why?". Sessions are grouped by activity
+and Apple's effort band, "went fine" is the next morning against this
+morning, and the next session is at most ten per cent longer at the
+same effort — held after a harder morning, eased back after two. It is
+read from the person's own sessions only, says it is not medical
+advice, and never shows a pain number. There is still no
 composite pain score: a daily "readiness" number makes activity follow
 pain, which is the boom-and-bust pacing exists to stop.
 

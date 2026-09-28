@@ -54,9 +54,7 @@ import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSche
 import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
-import {
-  CAPACITY_HOW, CAPACITY_NOTE, capacityView, collectingCopy, levelCopy, weekLine,
-} from './health/capacity';
+import { CAPACITY_NOTE, capacityView } from './health/capacity';
 import { ExperimentState, experimentCopy } from './experiment';
 import {
   APPOINTMENT_LEAD_DAYS, APPOINTMENT_OFFER_AFTER_DAYS, APPOINTMENT_REASK_DAYS,
@@ -431,15 +429,16 @@ export default function HomeScreen({
      lives on the day screen there; the last-night line is replaced by
      the tiles. Nothing in either order rates today. */
   /* WHAT YOU CAN DO, FIRST. The founder's own verdict (28 Sep 2026) was
-     that this screen showed pain and nothing to do about it. The card
-     leads with activity that went fine and the next small step per
-     activity (health/capacity.ts) — a count of living, in minutes, never
-     a pain number and never the ramp. It moves only when a session or a
-     check-in is added; a rest day changes nothing on it. */
+     that this screen showed pain and nothing to do about it — and then,
+     of the first version of this card, that counts are data to analyse
+     and what they wanted was the answer. So the card is conclusions:
+     one sentence per activity and effort, already read, with what it
+     rests on behind "Why?" (health/capacity.ts). Never a pain number,
+     never the ramp; it moves only when a session or a check-in is added. */
   const capacity = capacityView(entries, healthDays, t);
-  /* three activities at most: a card, not a training log */
-  const capLevels = capacity ? capacity.levels.slice(0, 3) : [];
-  const capCollecting = capacity && !capLevels.length ? capacity.collecting.slice(0, 3) : [];
+  /* three at most: a card, not a training log */
+  const capInsights = capacity ? capacity.insights.slice(0, 3) : [];
+  const [whyOpen, setWhyOpen] = useState<string | null>(null);
 
   const blocks = {
     capacity: (
@@ -450,33 +449,37 @@ export default function HomeScreen({
             What you can do
           </Text>
           <Text style={styles.xTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {weekLine(capacity)}
+            {capacity.headline}
           </Text>
-          {capLevels.map((l) => {
-            const c = levelCopy(l);
-            return (
-              <View key={l.activity} style={styles.capRow}
-                accessible accessibilityLabel={c.title + '. ' + c.record + ' ' + c.next}>
-                <Text style={styles.capTitle} allowFontScaling maxFontSizeMultiplier={1.4}>{c.title}</Text>
-                <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>{c.record}</Text>
-                <Text style={styles.capNext} allowFontScaling maxFontSizeMultiplier={1.4}>{c.next}</Text>
-              </View>
-            );
-          })}
-          {capCollecting.map((c) => (
-            <Text key={c.activity} style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {collectingCopy(c)}
-            </Text>
+          {capInsights.map((c) => (
+            <View key={c.key} style={styles.capRow}>
+              <Text style={styles.capText} allowFontScaling maxFontSizeMultiplier={1.4}>{c.text}</Text>
+              <Press
+                onPress={() => setWhyOpen(whyOpen === c.key ? null : c.key)}
+                pressOpacity={0.7}
+                hitSlop={8}
+                style={styles.capWhy}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: whyOpen === c.key }}
+                accessibilityLabel="Why?"
+                accessibilityHint="Shows what this is based on"
+              >
+                <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {whyOpen === c.key ? 'Hide' : 'Why?'}
+                </Text>
+              </Press>
+              {whyOpen === c.key && (
+                <Text style={styles.xCaveat} allowFontScaling maxFontSizeMultiplier={1.4}>{c.why}</Text>
+              )}
+            </View>
           ))}
-          {capCollecting.length > 0 && (
-            <Text style={[styles.xCaveat, styles.capNote]} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {CAPACITY_HOW}
+          {!!capacity.collecting && (
+            <Text style={[styles.bgOfferBody, styles.capNote]} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {capacity.collecting}
             </Text>
           )}
           {/* what it is not, inside the card it qualifies */}
-          <Text style={[styles.xCaveat, styles.capNote]} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {CAPACITY_NOTE}
-          </Text>
+          <InfoTip label="What went fine means" text={CAPACITY_NOTE} />
         </View>
       )}
       </>
@@ -1358,8 +1361,8 @@ const styles = StyleSheet.create({
   /* one activity on What you can do: its name, the record, the step —
      neutral colours throughout, because none of it is a pain value */
   capRow: { marginTop: 14 },
-  capTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
-  capNext: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
+  capText: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21 },
+  capWhy: { alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' },
   capNote: { marginTop: 12 },
 
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },

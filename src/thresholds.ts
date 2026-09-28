@@ -636,6 +636,15 @@ export const CAPACITY_EASE_AFTER = 2;
  *  from them would be a level for nothing anyone chose to do. */
 export const CAPACITY_MIN_SESSION_MIN = 5;
 
+/** where Apple's 1–10 workout effort splits into easy, moderate and
+ *  hard. Apple's own bands in Fitness are Easy 1–3, Moderate 4–6, Hard
+ *  7–8 and All Out 9–10; the last two are one band here, because an
+ *  all-out session is rare enough that a band of its own would never
+ *  reach CAPACITY_MIN_SESSIONS. Using Apple's lines means the word the
+ *  person sees on the Watch and the word Pattern says agree. */
+export const EFFORT_EASY_MAX = 3;
+export const EFFORT_MODERATE_MAX = 6;
+
 /** how many quick check-ins in a row before the pain step leads with
  *  Log it instead of Continue. Three: one is a bad moment, two is a bad
  *  day, three is how this person is checking in at the moment — and the

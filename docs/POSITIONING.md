@@ -134,13 +134,22 @@ an active life while pain is managed*; the app now has to do something
 about that.
 
 **What shipped.** Today leads with *What you can do*
-(`src/health/capacity.ts`): the minutes this week that went fine, and per
-activity the usual length that went fine and a next session. The next step
-is ten per cent up after sessions that went fine, held after one that ran
-harder, and eased back ten per cent after two of three that ran harder —
-the conventional graded-activity increment, capped at five minutes. "Went
-fine" is the person's own check-ins: after the session against before it,
-or the next morning against this morning, under a two-point rise.
+(`src/health/capacity.ts`), and it says conclusions, not data: "Running
+goes well for you at an easy effort; the hard sessions are the ones
+costing you the next morning — keep it easy, and build minutes there."
+The counts behind each sentence sit behind "Why?". The founder's words on
+the first, count-based version: "bring me the answers, not the data."
+
+- *Effort, not just minutes.* Sessions are grouped by activity and by
+  Apple's 1–10 workout effort (the person's rating in Fitness, else the
+  Watch's estimate), in Apple's bands: easy, moderate, hard. A session
+  with no effort is its own group, never guessed.
+- *"Went fine" is the next morning* against this morning, under a
+  two-point rise — the physiotherapist's pain-monitoring rule. Soreness
+  in the hours after is expected and does not count against a session.
+- *The step* is ten per cent more minutes at the same effort after
+  sessions that went fine (1–5 minutes), held after a harder morning,
+  eased back after two of three. It never raises the effort.
 
 **What it deliberately is not.** Not a composite or "readiness" pain
 score: a daily number that decides whether to train makes activity follow
