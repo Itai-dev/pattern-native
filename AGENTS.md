@@ -173,7 +173,11 @@ and Apple's effort band, "went fine" is the next morning against this
 morning, and the next session is at most ten per cent longer at the
 same effort — held after a harder morning, eased back after two. It is
 read from the person's own sessions only, says it is not medical
-advice, and never shows a pain number. There is still no
+advice, and never shows a pain number. Above it sits the goal (`src/recovery.ts`,
+`src/RecoveryCards.tsx`): what the person is getting back to, sessions
+this week, and a guidance card for today — every value real or an
+honest "still learning" state, never mock data on a tester's phone.
+There is still no
 composite pain score: a daily "readiness" number makes activity follow
 pain, which is the boom-and-bust pacing exists to stop.
 

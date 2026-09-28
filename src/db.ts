@@ -21,6 +21,7 @@ import {
 import { SCALE_VERSION } from './painScale';
 import { PROTOCOL_REVIEW_DAYS } from './thresholds';
 import type { HealthSyncStatus } from './health/status';
+import type { RecoveryGoal } from './recovery';
 
 let db: SQLiteDatabase | null = null;
 let healthDb: SQLiteDatabase | null = null;
@@ -799,6 +800,17 @@ export function setGoal(text: string): void {
   /* null = never asked, '' = asked and skipped, text = answered. The
      existing backup field carries all three, without another survey. */
   setPref('goal.text', text.trim());
+}
+
+/* ── the recovery goal (recovery.ts) ────────────────────────
+   One object in prefs, like the background. null = never asked; an
+   object with activity null = asked and skipped; otherwise answered.
+   Cleared by delete-all with the rest of prefs. */
+export function getRecoveryGoal(): RecoveryGoal | null {
+  return getPref<RecoveryGoal | null>('recovery.goal.v1', null);
+}
+export function setRecoveryGoal(g: RecoveryGoal): void {
+  setPref('recovery.goal.v1', g);
 }
 
 /* ── backup ─────────────────────────────────────────────────── */

@@ -55,6 +55,8 @@ import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
 import { CAPACITY_NOTE, capacityView } from './health/capacity';
+import { dailyGuidance, recoveryHero } from './recovery';
+import { GoalHero, GoalSetup, GuidanceCard, makeGoal } from './RecoveryCards';
 import { ExperimentState, experimentCopy } from './experiment';
 import {
   APPOINTMENT_LEAD_DAYS, APPOINTMENT_OFFER_AFTER_DAYS, APPOINTMENT_REASK_DAYS,
@@ -404,8 +406,29 @@ export default function HomeScreen({
      way round. The copy goes near the front in every order: every
      other offer adds something to a record that the copy is what
      keeps. */
+  /* THE GOAL, FIRST (recovery.ts). Today answers "what am I getting
+     back to, how is my body responding, what next" before it shows the
+     last pain number — pain is one signal inside the response, not the
+     subject. Read at mount and written here; delete-all clears it with
+     the rest of prefs. */
+  const [goal, setGoalState] = useState(() => db.getRecoveryGoal());
+  const [editingGoal, setEditingGoal] = useState(false);
+  const saveGoal = (g: ReturnType<typeof makeGoal>) => {
+    db.setRecoveryGoal(g);
+    setGoalState(g);
+    setEditingGoal(false);
+  };
+  const goalSet = !!goal && !!goal.activity;
+  const hero = recoveryHero(goal, entries, healthDays, t);
+  const guidance = dailyGuidance(goal, entries, healthDays, t);
+  /* the guidance speaks when there is a goal to speak about, or sessions
+     to read — a skipped goal and an empty Health says nothing */
+  const showGuidance = goalSet || guidance.state !== 'noActivity';
+
   const due: Record<TodayOffer, boolean> = {
-    activity: activity === null && loggedDays >= ACTIVITY_OFFER_AFTER_DAYS,
+    /* the free-text intention stays for someone without a structured
+       goal; with one, the hero already says what matters */
+    activity: activity === null && !goalSet && loggedDays >= ACTIVITY_OFFER_AFTER_DAYS,
     reminder: offerReminder, copy: offerCopy, diagnosis: offerDiagnosis,
     health: offerHealth, background: offerBackground, experiment: offerExperiment,
     appointment: offerAppointment, widget: offerWidget,
@@ -441,6 +464,21 @@ export default function HomeScreen({
   const [whyOpen, setWhyOpen] = useState<string | null>(null);
 
   const blocks = {
+    recovery: (
+      <>
+      {(!goal || editingGoal) ? (
+        <GoalSetup
+          initial={goal}
+          onSave={(a, other, weekly) => saveGoal(makeGoal(a, other, weekly, t))}
+          onSkip={!goal ? () => saveGoal({ v: 1, activity: null, label: '', weeklySessions: null, setOn: t }) : undefined}
+          onCancel={goal ? () => setEditingGoal(false) : undefined}
+        />
+      ) : hero ? (
+        <GoalHero hero={hero} onEdit={() => setEditingGoal(true)} />
+      ) : null}
+      {showGuidance && !editingGoal && !!goal && <GuidanceCard g={guidance} onCheckIn={onLog} />}
+      </>
+    ),
     capacity: (
       <>
       {capacity && (
@@ -486,7 +524,7 @@ export default function HomeScreen({
     ),
     activity: (
       <>
-      {!!activity && <View style={styles.activityWrap}>
+      {!!activity && !goalSet && <View style={styles.activityWrap}>
         <ActivityIntention value={activity} onChange={onActivityChange} />
       </View>}
       </>
@@ -951,6 +989,7 @@ export default function HomeScreen({
     <View>
       {layered ? (
         <>
+          {blocks.recovery}
           {blocks.capacity}
           {blocks.hero}
           <ContextTiles tiles={tiles} style={styles.tiles} />
@@ -963,6 +1002,7 @@ export default function HomeScreen({
         </>
       ) : (
         <>
+          {blocks.recovery}
           {blocks.activity}
           {blocks.capacity}
           {blocks.hero}

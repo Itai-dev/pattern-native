@@ -158,6 +158,8 @@ not a target, not medical advice — the card says so, and says soreness
 after exercise is not damage. A session nobody checked in around is left
 out, never counted against the person.
 
+**Return to activity, phases 1–2 (28 Sep 2026).** Today now opens on the goal: what the person is getting back to (picked from a short list or in their words, with an optional weekly target), sessions this week, and one line on how recent sessions were tolerated. Under it, guidance for today in five states — repeat a similar load, keep it lighter, waiting on a morning check-in, still learning the baseline, no sessions yet. Pain moves below both: one signal inside the body's response. Still to come: the last-session response card (during / later / next morning), a load-versus-symptoms progress card, and demoting the Health tiles and offers.
+
 **The risk, named.** This moves a step toward the "pacing instruction"
 that the solo-founder constraint reserved for a clinician, and toward the
 edge of General Wellness. The mitigations are the ones above: numbers
