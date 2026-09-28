@@ -588,6 +588,54 @@ export const FIRST_DAYS_OPEN = 2;
  *  counts them, and a list longer than memory is a table nobody reads. */
 export const AFTER_WORKOUTS_MAX_ROWS = 14;
 
+/* ── what you can do (health/capacity.ts) ───────────────────── */
+
+/** points of pain above the person's own reference that make a session
+ *  "ran harder" rather than "went fine". Two: the smallest change on a
+ *  0–10 scale that people with persistent pain reliably call a real
+ *  difference (about two points, or thirty per cent, in the pain
+ *  literature), and above the one-point wobble between two check-ins on
+ *  an ordinary afternoon. Lower, and ordinary post-exercise soreness —
+ *  which is not damage — reads as a setback, which feeds exactly the
+ *  fear-avoidance this feature exists to undo. */
+export const CAPACITY_HARDER_POINTS = 2;
+
+/** sessions of one activity, with a known outcome, before a level is
+ *  named. Three: one is a day, two could be the same good week, three is
+ *  the first time "usually goes fine" is a sentence about a habit. Lower
+ *  than the engine's eight on purpose — this describes the person's own
+ *  sessions back to them and makes no comparison between groups. */
+export const CAPACITY_MIN_SESSIONS = 3;
+
+/** how many of an activity's most recent known sessions the level reads
+ *  from. Six: about two weeks at three a week — recent enough that the
+ *  level follows the body as it is now, long enough that one odd day
+ *  does not move it. */
+export const CAPACITY_RECENT = 6;
+
+/** the step up after sessions that went fine, as a fraction of the
+ *  level. Ten per cent: the conventional increment in graded activity
+ *  and pacing programmes for persistent pain — small enough that the
+ *  body does not notice the difference as a new load. */
+export const CAPACITY_STEP = 0.1;
+
+/** the smallest and largest step, in minutes. One: a smaller step is
+ *  not a plan anyone can follow. Five: ten per cent of a ninety-minute
+ *  hike is nine minutes, which is a new session, not a step. */
+export const CAPACITY_STEP_MIN_MIN = 1;
+export const CAPACITY_STEP_MAX_MIN = 5;
+
+/** of the last three known sessions, how many ran harder before the
+ *  next step eases back rather than holds. Two: one harder morning is a
+ *  day — hold and see; two of three is the level being too high right
+ *  now. The ease-back is the same ten per cent the step up is. */
+export const CAPACITY_EASE_AFTER = 2;
+
+/** shortest session that counts as a session. Five minutes: below it,
+ *  Health's auto-detected walks are a trip to the car, and a level built
+ *  from them would be a level for nothing anyone chose to do. */
+export const CAPACITY_MIN_SESSION_MIN = 5;
+
 /** how many quick check-ins in a row before the pain step leads with
  *  Log it instead of Continue. Three: one is a bad moment, two is a bad
  *  day, three is how this person is checking in at the moment — and the

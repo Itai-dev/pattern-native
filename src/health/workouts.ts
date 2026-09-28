@@ -39,8 +39,9 @@
  * DAY PER ACTIVITY, the first workout that has a lawful pair.
  *
  * WHAT IT CAN NEVER RETURN: a recommendation, a duration, "keep it
- * up", "it helps", "it hurts". The load budget (budget.ts) is the one
- * forward-facing sentence about workouts and it stays there.
+ * up", "it helps", "it hurts". This file describes; the next step lives
+ * in capacity.ts alone (28 Sep 2026), from the person's own sessions,
+ * in fixed small steps, and nowhere else.
  */
 import { Entries, logsOf } from '../model';
 import {

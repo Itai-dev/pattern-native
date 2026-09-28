@@ -32,8 +32,10 @@
  * ONE DIRECTION ONLY. A budget exists when MORE load paired with
  * HARDER mornings. The other direction — longer workouts, easier
  * mornings — is real and the association card already shows it, but
- * a budget that reads "do more" is advice wearing a number, and the
- * person did not ask for a training plan.
+ * a budget that reads "do more" is advice wearing a number. The step
+ * up now exists, asked for, in one place: capacity.ts, per activity,
+ * ten per cent at a time — the budget itself still only ever names the
+ * line past which mornings ran harder.
  */
 import { BUDGET_MIN_HEADROOM_MINUTES } from '../thresholds';
 import { formatScore } from '../painScale';

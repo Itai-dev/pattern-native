@@ -54,6 +54,9 @@ import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSche
 import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
+import {
+  CAPACITY_HOW, CAPACITY_NOTE, capacityView, collectingCopy, levelCopy, weekLine,
+} from './health/capacity';
 import { ExperimentState, experimentCopy } from './experiment';
 import {
   APPOINTMENT_LEAD_DAYS, APPOINTMENT_OFFER_AFTER_DAYS, APPOINTMENT_REASK_DAYS,
@@ -427,7 +430,57 @@ export default function HomeScreen({
      ever count up. The day-so-far chart is a look back at the pain and
      lives on the day screen there; the last-night line is replaced by
      the tiles. Nothing in either order rates today. */
+  /* WHAT YOU CAN DO, FIRST. The founder's own verdict (28 Sep 2026) was
+     that this screen showed pain and nothing to do about it. The card
+     leads with activity that went fine and the next small step per
+     activity (health/capacity.ts) — a count of living, in minutes, never
+     a pain number and never the ramp. It moves only when a session or a
+     check-in is added; a rest day changes nothing on it. */
+  const capacity = capacityView(entries, healthDays, t);
+  /* three activities at most: a card, not a training log */
+  const capLevels = capacity ? capacity.levels.slice(0, 3) : [];
+  const capCollecting = capacity && !capLevels.length ? capacity.collecting.slice(0, 3) : [];
+
   const blocks = {
+    capacity: (
+      <>
+      {capacity && (
+        <View style={[styles.card, styles.cardGap]}>
+          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
+            What you can do
+          </Text>
+          <Text style={styles.xTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {weekLine(capacity)}
+          </Text>
+          {capLevels.map((l) => {
+            const c = levelCopy(l);
+            return (
+              <View key={l.activity} style={styles.capRow}
+                accessible accessibilityLabel={c.title + '. ' + c.record + ' ' + c.next}>
+                <Text style={styles.capTitle} allowFontScaling maxFontSizeMultiplier={1.4}>{c.title}</Text>
+                <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>{c.record}</Text>
+                <Text style={styles.capNext} allowFontScaling maxFontSizeMultiplier={1.4}>{c.next}</Text>
+              </View>
+            );
+          })}
+          {capCollecting.map((c) => (
+            <Text key={c.activity} style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {collectingCopy(c)}
+            </Text>
+          ))}
+          {capCollecting.length > 0 && (
+            <Text style={[styles.xCaveat, styles.capNote]} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {CAPACITY_HOW}
+            </Text>
+          )}
+          {/* what it is not, inside the card it qualifies */}
+          <Text style={[styles.xCaveat, styles.capNote]} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {CAPACITY_NOTE}
+          </Text>
+        </View>
+      )}
+      </>
+    ),
     activity: (
       <>
       {!!activity && <View style={styles.activityWrap}>
@@ -895,6 +948,7 @@ export default function HomeScreen({
     <View>
       {layered ? (
         <>
+          {blocks.capacity}
           {blocks.hero}
           <ContextTiles tiles={tiles} style={styles.tiles} />
           {blocks.ahead}
@@ -907,6 +961,7 @@ export default function HomeScreen({
       ) : (
         <>
           {blocks.activity}
+          {blocks.capacity}
           {blocks.hero}
           {blocks.chart}
           {blocks.insight}
@@ -1300,6 +1355,12 @@ const styles = StyleSheet.create({
   /* the experiment's sentence: the card's point, above its evidence */
   xTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22 },
   xCaveat: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18 },
+  /* one activity on What you can do: its name, the record, the step —
+     neutral colours throughout, because none of it is a pain value */
+  capRow: { marginTop: 14 },
+  capTitle: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
+  capNext: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
+  capNote: { marginTop: 12 },
 
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   /* iOS shadow: no offset, so the colour sits evenly around the shape

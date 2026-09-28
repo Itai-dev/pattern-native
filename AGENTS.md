@@ -164,6 +164,16 @@ Those move only when a day is added, never penalise a missed one, and
 never put a number on today. Between two opens of the same day nothing
 changes except data the user added.
 
+**The app helps you do more, in small steps (28 Sep 2026).** A mirror
+that only shows pain back was not helping anyone stay active. Today
+leads with *What you can do* (`src/health/capacity.ts`): minutes this
+week that went fine, each activity's usual length, and a next session
+at most ten per cent longer — held after a harder session, eased back
+after two. It is read from the person's own sessions only, says it is
+not medical advice, and never shows a pain number. There is still no
+composite pain score: a daily "readiness" number makes activity follow
+pain, which is the boom-and-bust pacing exists to stop.
+
 **The number is what the user entered.** Never invent a derived or composite
 score. Pain and ability are separate scales and are never averaged. The same
 day reads the same on Today, in the day detail, and in the summary a clinician

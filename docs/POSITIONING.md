@@ -124,6 +124,38 @@ different user and a different reason for tracking.
 track their pain. It's for people who want to understand their pain so
 they can keep living.
 
+## A tool, not a mirror · decided 28 Sep 2026
+
+The founder, using the app daily: "I don't see that the app is bringing me
+any value rather than to see my pain — and I even see more pain lately."
+A record read back is the control arm (PROSPER-FM, below), and an app that
+only reflects pain teaches attention to it. The promise was always *keep
+an active life while pain is managed*; the app now has to do something
+about that.
+
+**What shipped.** Today leads with *What you can do*
+(`src/health/capacity.ts`): the minutes this week that went fine, and per
+activity the usual length that went fine and a next session. The next step
+is ten per cent up after sessions that went fine, held after one that ran
+harder, and eased back ten per cent after two of three that ran harder —
+the conventional graded-activity increment, capped at five minutes. "Went
+fine" is the person's own check-ins: after the session against before it,
+or the next morning against this morning, under a two-point rise.
+
+**What it deliberately is not.** Not a composite or "readiness" pain
+score: a daily number that decides whether to train makes activity follow
+pain, which is the boom-and-bust pacing exists to stop. Not a programme,
+not a target, not medical advice — the card says so, and says soreness
+after exercise is not damage. A session nobody checked in around is left
+out, never counted against the person.
+
+**The risk, named.** This moves a step toward the "pacing instruction"
+that the solo-founder constraint reserved for a clinician, and toward the
+edge of General Wellness. The mitigations are the ones above: numbers
+only from the person's own record, fixed small steps, an automatic
+ease-back, and the disclaimer inside the card. A clinician reviewing the
+step rule is the first thing to do when one joins.
+
 ## What Pattern is not
 
 - Not a treatment. The PROSPER-FM trial put symptom tracking in the control
@@ -142,7 +174,9 @@ observations, the fortnight experiment (one thing tried, the mornings
 after read back as a difference, no difference, or too few days).
 
 Waits for clinical authorship: ACT, CBT, CBT-I, PRT, graded exposure,
-pacing *instruction*, anything touching medication decisions.
+anything touching medication decisions. Pacing *instruction* was on this
+list until 28 Sep 2026 — see "A tool, not a mirror" below for what moved
+and what still waits.
 
 ## Non-negotiable principles (from the research scorecard)
 
