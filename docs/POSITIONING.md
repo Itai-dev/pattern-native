@@ -160,6 +160,8 @@ out, never counted against the person.
 
 **Return to activity, phases 1–2 (28 Sep 2026).** Today now opens on the goal: what the person is getting back to (picked from a short list or in their words, with an optional weekly target), sessions this week, and one line on how recent sessions were tolerated. Under it, guidance for today in five states — repeat a similar load, keep it lighter, waiting on a morning check-in, still learning the baseline, no sessions yet. Pain moves below both: one signal inside the body's response. Still to come: the last-session response card (during / later / next morning), a load-versus-symptoms progress card, and demoting the Health tiles and offers.
 
+**Simplified the same day.** The goal, the guidance and *What you can do* became one card; the per-activity conclusions fold under its suggestion. The goal moved to onboarding (a fourth screen, skippable) and, for phones that predate it, to Today's one-at-a-time offer slot. The weekly target is a sentence, not a filling bar. The "Today in layers" switch is gone and its layout is the only one, on Today and on the day page. The old free-text intention is read as the goal, so the report and Today name the same thing. Open: *Before your next workout* on Patterns still gives its own minutes, from a different reading; it should retire or join the card.
+
 **The risk, named.** This moves a step toward the "pacing instruction"
 that the solo-founder constraint reserved for a clinician, and toward the
 edge of General Wellness. The mitigations are the ones above: numbers

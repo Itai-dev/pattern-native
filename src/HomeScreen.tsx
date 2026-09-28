@@ -24,6 +24,15 @@
  * had to keep saying so. The gesture moved intact to Pain through the
  * day, where the day IS the subject and sideways can only mean one thing.
  *
+ * ONE TODAY (28 Sep 2026). There were two orders of this screen behind a
+ * Profile switch, and three cards at the top reading the same workouts
+ * against the same next mornings. It is one order now — the goal and
+ * today's suggestion as one card (RecoveryCards.tsx), then the check-in,
+ * then what went with it from Health, then what is ahead — and the
+ * day-so-far chart lives on the day page, where the day is the subject.
+ * Setting the goal is onboarding's job, or one offer here for a phone
+ * that predates it; this screen never opens on a form.
+ *
  * NEITHER CARD REWARDS OPENING IT. There is no streak, no ring, no
  * comparison to yesterday and no count of anything completed. Both cards
  * are the same on the fifth open of an afternoon as on the first; the
@@ -34,10 +43,8 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
-import DayLine from './DayLine';
-import ActivityIntention from './ActivityIntention';
 import { TodayInsight } from './todayInsight';
-import { PREF_TODAY_LAYERED, contextTiles } from './todayTiles';
+import { contextTiles } from './todayTiles';
 import ContextTiles from './ContextTiles';
 import InfoTip from './InfoTip';
 import DaySquare from './DaySquare';
@@ -51,18 +58,17 @@ import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
 import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
-import { lastNightLine } from './health/context';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
-import { CAPACITY_NOTE, capacityView } from './health/capacity';
-import { dailyGuidance, recoveryHero } from './recovery';
-import { GoalHero, GoalSetup, GuidanceCard, makeGoal } from './RecoveryCards';
+import { capacityView } from './health/capacity';
+import { RecoveryGoal, dailyGuidance, recoveryHero } from './recovery';
+import { ActivityCard, GoalSetup, makeGoal, skippedGoal } from './RecoveryCards';
 import { ExperimentState, experimentCopy } from './experiment';
 import {
   APPOINTMENT_LEAD_DAYS, APPOINTMENT_OFFER_AFTER_DAYS, APPOINTMENT_REASK_DAYS,
   BACKGROUND_OFFER_AFTER_DAYS, COPY_NUDGE_DAYS, DIAGNOSIS_OFFER_AFTER_DAYS, EXPERIMENT_OFFER_AFTER_DAYS,
   TODAY_OFFER_ORDER, TodayOffer,
-  ACTIVITY_OFFER_AFTER_DAYS,
+  GOAL_OFFER_AFTER_DAYS,
   EXPERIMENT_REOFFER_DAYS, HEALTH_OFFER_AFTER_DAYS, WIDGET_OFFER_AFTER_DAYS,
 } from './thresholds';
 
@@ -83,7 +89,7 @@ import {
    because a lock screen is worth explaining only to someone who has
    come back. */
 import {
-  dayShape, formatCheckins, formatScore, painColor, painLabel, speakScore,
+  formatScore, painColor, painLabel, speakScore,
 } from './painScale';
 import { color, font, radius, size } from './theme';
 
@@ -91,12 +97,6 @@ import { color, font, radius, size } from './theme';
  *  the eye lands on, small enough that the number beside it still wins —
  *  and sized against the type around it, which is Trends' type. */
 const SQUARE = 58, SQ_RADIUS = 15;
-
-/** the chart's drawing height on Today. Shorter than the day screen's,
- *  because this one is a look rather than a read — but the same chart,
- *  with the same scale beside it, because a shape with no scale is what
- *  made the first version unreadable. */
-const SPARK_H = 96;
 
 /* ── the moment's own words ─────────────────────────────────
    Quality and place, because both are recorded PER CHECK-IN and this card
@@ -160,8 +160,11 @@ function speakDetails(rows: DetailRow[]): string {
 
 export interface HomeScreenProps {
   entries: Entries;
-  activity: string | null;
-  onActivityChange: (value: string) => void;
+  /** the goal Today reads — recovery.ts currentGoal, so an old free-text
+   *  intention counts; null = never asked */
+  goal: RecoveryGoal | null;
+  /** saved through App, which keeps the report's text in step */
+  onGoalChange: (g: RecoveryGoal) => void;
   insight: TodayInsight | null;
   onOpenRecord: () => void;
   onLog: () => void;
@@ -172,8 +175,6 @@ export interface HomeScreenProps {
    *  note — everything the check-in no longer asks, offered where the
    *  number already is */
   onAddInfo: () => void;
-  /** Pain through the day, opened on today */
-  onOpenToday: () => void;
   /** the Background sheet, offered from here once a record exists */
   onOpenBackground: () => void;
   /** the Diagnosis sheet — the question put once to an install that
@@ -218,7 +219,7 @@ export interface HomeScreenProps {
 }
 
 export default function HomeScreen({
-  entries, activity, onActivityChange, insight, onOpenRecord, onLog, onOpenDay, onAddInfo, onOpenToday,
+  entries, goal, onGoalChange, insight, onOpenRecord, onLog, onOpenDay, onAddInfo,
   onOpenBackground, onOpenDiagnosis, onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
@@ -226,17 +227,10 @@ export default function HomeScreen({
   onSaveCopy, lastCopy,
 }: HomeScreenProps) {
   const t = todayISO();
-  /* LAST NIGHT, ON TODAY. The calm rule keeps Health off this screen
-     because steps climb between two opens; sleep does not — by the
-     time anyone reads this card the night is over and the number is
-     fixed. It is the first morning's whole reason to have connected
-     Health, and it was two taps away on the day screen. */
-  const lastNight = lastNightLine(healthDays[t], healthDays);
   const entry = entries[t] || null;
   /* newest first: this screen leads with the latest thing said */
   const logs = logsOf(entry).slice().sort((a, b) => b.h - a.h);
   const latest = logs[0] || null;
-  const count = entry ? checkinCount(entry) : 0;
   /* A day carrying a value with no timestamped moments behind it — a
      legacy record, or one restored from an old backup. It is still an
      answer this person gave, so the card shows it; what it cannot show is
@@ -409,126 +403,44 @@ export default function HomeScreen({
   /* THE GOAL, FIRST (recovery.ts). Today answers "what am I getting
      back to, how is my body responding, what next" before it shows the
      last pain number — pain is one signal inside the response, not the
-     subject. Read at mount and written here; delete-all clears it with
-     the rest of prefs. */
-  const [goal, setGoalState] = useState(() => db.getRecoveryGoal());
+     subject. The goal arrives as a prop and is saved through App. */
   const [editingGoal, setEditingGoal] = useState(false);
-  const saveGoal = (g: ReturnType<typeof makeGoal>) => {
-    db.setRecoveryGoal(g);
-    setGoalState(g);
-    setEditingGoal(false);
-  };
+  const saveGoal = (g: RecoveryGoal) => { onGoalChange(g); setEditingGoal(false); };
   const goalSet = !!goal && !!goal.activity;
   const hero = recoveryHero(goal, entries, healthDays, t);
   const guidance = dailyGuidance(goal, entries, healthDays, t);
-  /* the guidance speaks when there is a goal to speak about, or sessions
-     to read — a skipped goal and an empty Health says nothing */
-  const showGuidance = goalSet || guidance.state !== 'noActivity';
+  /* the card speaks when there is a goal to speak about, or sessions to
+     read — a skipped goal and an empty Health says nothing */
+  const showActivity = goalSet || guidance.state !== 'noActivity';
+  /* the per-activity conclusions, folded inside that card (capacity.ts) */
+  const capacity = capacityView(entries, healthDays, t);
 
   const due: Record<TodayOffer, boolean> = {
-    /* the free-text intention stays for someone without a structured
-       goal; with one, the hero already says what matters */
-    activity: activity === null && !goalSet && loggedDays >= ACTIVITY_OFFER_AFTER_DAYS,
+    /* only a phone that was never asked: onboarding asks now, and a
+       skip there or here is stored */
+    goal: goal === null && loggedDays >= GOAL_OFFER_AFTER_DAYS,
     reminder: offerReminder, copy: offerCopy, diagnosis: offerDiagnosis,
     health: offerHealth, background: offerBackground, experiment: offerExperiment,
     appointment: offerAppointment, widget: offerWidget,
   };
   const offer: TodayOffer | null = TODAY_OFFER_ORDER[path].filter((o) => due[o])[0] || null;
 
-  /* the day's shape, from the two numbers on screen: the first check-in
-     of today against the latest. Nothing is stored, nothing is derived
-     into a fourth number, and with one check-in there is no comparison to
-     make and none is offered. */
-  const oldest = logs.length ? logs[logs.length - 1] : null;
-  const shape = latest && oldest && logs.length > 1
-    ? dayShape(oldest.pain, latest.pain)
-    : null;
-
-  /* ── THE BLOCKS, NAMED ONCE AND ORDERED TWICE. The layered Today
-     (Profile ▸ Appearance) reads top to bottom from the fact to the
-     future: the last check-in, then what went with it from Health, then
-     the sentence before tomorrow's decision, then the things that only
-     ever count up. The day-so-far chart is a look back at the pain and
-     lives on the day screen there; the last-night line is replaced by
-     the tiles. Nothing in either order rates today. */
-  /* WHAT YOU CAN DO, FIRST. The founder's own verdict (28 Sep 2026) was
-     that this screen showed pain and nothing to do about it — and then,
-     of the first version of this card, that counts are data to analyse
-     and what they wanted was the answer. So the card is conclusions:
-     one sentence per activity and effort, already read, with what it
-     rests on behind "Why?" (health/capacity.ts). Never a pain number,
-     never the ramp; it moves only when a session or a check-in is added. */
-  const capacity = capacityView(entries, healthDays, t);
-  /* three at most: a card, not a training log */
-  const capInsights = capacity ? capacity.insights.slice(0, 3) : [];
-  const [whyOpen, setWhyOpen] = useState<string | null>(null);
-
+  /* ── ONE ORDER, TOP TO BOTTOM: the goal and today's suggestion, the
+     last check-in, what went with it from Health, then the fact cards
+     (a booked session, the appointment, the experiment) and the record's
+     sentence. Nothing in it rates today. */
   const blocks = {
-    recovery: (
-      <>
-      {(!goal || editingGoal) ? (
-        <GoalSetup
-          initial={goal}
-          onSave={(a, other, weekly) => saveGoal(makeGoal(a, other, weekly, t))}
-          onSkip={!goal ? () => saveGoal({ v: 1, activity: null, label: '', weeklySessions: null, setOn: t }) : undefined}
-          onCancel={goal ? () => setEditingGoal(false) : undefined}
-        />
-      ) : hero ? (
-        <GoalHero hero={hero} onEdit={() => setEditingGoal(true)} />
-      ) : null}
-      {showGuidance && !editingGoal && !!goal && <GuidanceCard g={guidance} onCheckIn={onLog} />}
-      </>
-    ),
-    capacity: (
-      <>
-      {capacity && (
-        <View style={[styles.card, styles.cardGap]}>
-          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            What you can do
-          </Text>
-          <Text style={styles.xTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {capacity.headline}
-          </Text>
-          {capInsights.map((c) => (
-            <View key={c.key} style={styles.capRow}>
-              <Text style={styles.capText} allowFontScaling maxFontSizeMultiplier={1.4}>{c.text}</Text>
-              <Press
-                onPress={() => setWhyOpen(whyOpen === c.key ? null : c.key)}
-                pressOpacity={0.7}
-                hitSlop={8}
-                style={styles.capWhy}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: whyOpen === c.key }}
-                accessibilityLabel="Why?"
-                accessibilityHint="Shows what this is based on"
-              >
-                <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {whyOpen === c.key ? 'Hide' : 'Why?'}
-                </Text>
-              </Press>
-              {whyOpen === c.key && (
-                <Text style={styles.xCaveat} allowFontScaling maxFontSizeMultiplier={1.4}>{c.why}</Text>
-              )}
-            </View>
-          ))}
-          {!!capacity.collecting && (
-            <Text style={[styles.bgOfferBody, styles.capNote]} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {capacity.collecting}
-            </Text>
-          )}
-          {/* what it is not, inside the card it qualifies */}
-          <InfoTip label="What went fine means" text={CAPACITY_NOTE} />
-        </View>
-      )}
-      </>
-    ),
-    activity: (
-      <>
-      {!!activity && !goalSet && <View style={styles.activityWrap}>
-        <ActivityIntention value={activity} onChange={onActivityChange} />
-      </View>}
-      </>
-    ),
+    activity: editingGoal ? (
+      <GoalSetup
+        initial={goal}
+        onSave={(a, other, weekly) => saveGoal(makeGoal(a, other, weekly, t))}
+        onCancel={() => setEditingGoal(false)}
+        onRemove={goalSet ? () => saveGoal(skippedGoal(t)) : undefined}
+      />
+    ) : showActivity ? (
+      <ActivityCard hero={hero} guidance={guidance} capacity={capacity}
+        onEdit={() => setEditingGoal(true)} onCheckIn={onLog} />
+    ) : null,
     hero: (
       <>
       {/* ── what you last said ────────────────────────────── */}
@@ -701,70 +613,6 @@ export default function HomeScreen({
       )}
       </>
     ),
-    chart: (
-      <>
-      {/* ── the day so far ──────────────────────────────────
-          From the SECOND check-in. With one, this card was the card
-          above it drawn again as a single dot, and a chart of one point
-          has no shape to show. It appears when there is a day to look
-          at, which is also when the sentence over it has something to
-          say. */}
-      {logs.length > 1 && (
-        <Press
-          onPress={onOpenToday}
-          pressScale={0.985}
-          pressOpacity={0.92}
-          style={[styles.card, styles.cardGap]}
-          accessibilityRole="button"
-          accessibilityLabel={'Today so far, ' + formatCheckins(count, true)
-            + (shape ? '. ' + shape : '')}
-          accessibilityHint="Opens pain through the day"
-        >
-          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Today so far
-          </Text>
-
-          {/* The reading sits ABOVE the drawing on its own line rather than
-              beside it. Sharing the row cost the chart nearly half the card
-              — three check-ins in an afternoon became four dots in a thumb's
-              width, which is a decoration, not a drawing. It is the same
-              spec as the sentence Trends puts over its own chart. */}
-          {!!shape && (
-            <Text
-              style={styles.reading} numberOfLines={2}
-              allowFontScaling maxFontSizeMultiplier={1.3}
-            >
-              {shape}
-            </Text>
-          )}
-
-          {/* the scale and the times, on the small chart too. Without them
-              a cluster of dots in the middle of the card cannot be read at
-              all — which is the whole complaint a bare sparkline earns. */}
-          <View style={styles.spark}>
-            <DayLine logs={logs} height={SPARK_H} grid axis highlightH={latest ? latest.h : undefined} />
-          </View>
-
-          {/* what the drawing is NOT, inside the card it qualifies —
-              folded behind the (i), still in the card */}
-          <InfoTip
-            label="About this chart"
-            text="Each dot is a check-in, at the hour you made it; the ringed one is the latest. One day is not a trend, and nothing here is being compared to another day."
-          />
-
-          <View style={styles.rule} />
-          <View style={styles.foot}>
-            <Text style={styles.footCount} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {formatCheckins(count, true)}
-            </Text>
-            <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
-              View details
-            </Text>
-          </View>
-        </Press>
-      )}
-      </>
-    ),
     insight: (
       <>
       {insight && <View style={styles.card}>
@@ -778,24 +626,6 @@ export default function HomeScreen({
           <Text style={styles.insightLink}>{insight.action} ›</Text>
         </Press>
       </View>}
-      </>
-    ),
-    activityOffer: (
-      <>
-      {offer === 'activity' && <View style={styles.activityWrap}>
-        <ActivityIntention value={activity} onChange={onActivityChange} initiallyEditing />
-      </View>}
-      </>
-    ),
-    lastNight: (
-      <>
-      {/* ── last night, from Health ────────────────────────── */}
-      {!!lastNight && (
-        <Text style={styles.lastNight} allowFontScaling maxFontSizeMultiplier={1.4}
-          accessibilityLabel={'From Apple Health: ' + lastNight}>
-          {lastNight}
-        </Text>
-      )}
       </>
     ),
     appt: (
@@ -980,40 +810,25 @@ export default function HomeScreen({
       </>
     ),
   };
-  /* read at render, like the diagnosis: the switch in Profile writes it
-     and Today re-renders when Profile closes */
-  const layered = db.getPref<boolean>(PREF_TODAY_LAYERED, false);
-  const tiles = layered ? contextTiles(healthDays[t], healthDays) : [];
+  const tiles = contextTiles(healthDays[t], healthDays);
 
   return (
     <View>
-      {layered ? (
-        <>
-          {blocks.recovery}
-          {blocks.capacity}
-          {blocks.hero}
-          <ContextTiles tiles={tiles} style={styles.tiles} />
-          {blocks.ahead}
-          {blocks.appt}
-          {blocks.experiment}
-          {blocks.activity}
-          {blocks.activityOffer}
-          {blocks.insight}
-        </>
-      ) : (
-        <>
-          {blocks.recovery}
-          {blocks.activity}
-          {blocks.capacity}
-          {blocks.hero}
-          {blocks.chart}
-          {blocks.insight}
-          {blocks.activityOffer}
-          {blocks.lastNight}
-          {blocks.appt}
-          {blocks.ahead}
-          {blocks.experiment}
-        </>
+      {blocks.activity}
+      {blocks.hero}
+      <ContextTiles tiles={tiles} style={styles.tiles} />
+      {blocks.ahead}
+      {blocks.appt}
+      {blocks.experiment}
+      {blocks.insight}
+
+      {/* ── the goal, offered once to a phone that predates it ── */}
+      {offer === 'goal' && !editingGoal && (
+        <GoalSetup
+          initial={null}
+          onSave={(a, other, weekly) => saveGoal(makeGoal(a, other, weekly, t))}
+          onSkip={() => saveGoal(skippedGoal(t))}
+        />
       )}
 
       {/* ── the experiment offer ──────────────────────────── */}
@@ -1357,7 +1172,6 @@ export default function HomeScreen({
  * is exactly the room a focal value needs and no more.
  */
 const styles = StyleSheet.create({
-  activityWrap: { marginHorizontal: size.pageX, marginTop: 14 },
   insightTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', marginTop: 8 },
   insightCaveat: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 19, marginTop: 10 },
   insightAction: { minHeight: 44, justifyContent: 'center', marginTop: 4 },
@@ -1372,12 +1186,6 @@ const styles = StyleSheet.create({
   /* where the context tiles sit on this page; the tiles themselves are
      ContextTiles, shared with the day page */
   tiles: { marginTop: 10, marginHorizontal: size.pageX },
-  /* a line, not a card: it is context beside the record, at the page's
-     reading edge, in the quiet colour — and it never wears the ramp */
-  lastNight: {
-    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18,
-    marginTop: 10, marginHorizontal: size.contentX,
-  },
   bgOfferBody: {
     color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8,
   },
@@ -1398,12 +1206,6 @@ const styles = StyleSheet.create({
   /* the experiment's sentence: the card's point, above its evidence */
   xTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22 },
   xCaveat: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18 },
-  /* one activity on What you can do: its name, the record, the step —
-     neutral colours throughout, because none of it is a pain value */
-  capRow: { marginTop: 14 },
-  capText: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21 },
-  capWhy: { alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' },
-  capNote: { marginTop: 12 },
 
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   /* iOS shadow: no offset, so the colour sits evenly around the shape
@@ -1444,14 +1246,6 @@ const styles = StyleSheet.create({
   emptyTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
   emptySub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },
 
-  spark: { marginTop: 14 },
-  /* the reading, in the app's own words rather than an arrow or a
-     percentage — white, because it is a sentence about pain and not a
-     pain value, and at the size Trends gives the same job */
-  reading: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    letterSpacing: -0.2, marginTop: 8,
-  },
   fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 16 },
   rule: {
     height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider, marginTop: 14,

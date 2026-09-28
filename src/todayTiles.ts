@@ -1,5 +1,5 @@
 /**
- * The context tiles on the layered Today: what went with the number.
+ * The context tiles on Today: what went with the number.
  *
  * Three small neutral tiles under the last check-in — slept, steps,
  * workout — each a value and, where the person's own usual says
@@ -19,10 +19,6 @@
 import { HealthDay } from './health/types';
 import { healthDayLines } from './health/context';
 import { workoutSummary } from './health/workoutNames';
-
-/** the Profile switch. Off by default: the current Today is what ships
- *  until the comparison says otherwise. */
-export const PREF_TODAY_LAYERED = 'today.layered';
 
 export interface ContextTile {
   key: 'sleep' | 'steps' | 'workouts';

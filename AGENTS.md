@@ -166,17 +166,22 @@ changes except data the user added.
 
 **The app helps you do more, in small steps (28 Sep 2026).** A mirror
 that only shows pain back was not helping anyone stay active. Today
-leads with *What you can do* (`src/health/capacity.ts`): CONCLUSIONS,
+leads with one activity card (`src/RecoveryCards.tsx`), read from
+`src/health/capacity.ts`: CONCLUSIONS,
 not counts — "easy walking is going well; next time, 33 minutes" —
 with what they rest on behind "Why?". Sessions are grouped by activity
 and Apple's effort band, "went fine" is the next morning against this
 morning, and the next session is at most ten per cent longer at the
 same effort — held after a harder morning, eased back after two. It is
 read from the person's own sessions only, says it is not medical
-advice, and never shows a pain number. Above it sits the goal (`src/recovery.ts`,
-`src/RecoveryCards.tsx`): what the person is getting back to, sessions
-this week, and a guidance card for today — every value real or an
-honest "still learning" state, never mock data on a tester's phone.
+advice, and never shows a pain number. The card opens on the goal
+(`src/recovery.ts`) — what the person is getting back to, and sessions
+this week as a sentence, never a bar — then the one suggestion for
+today, with the per-activity conclusions folded under it. Every value is
+real or an honest "still learning", never mock data on a tester's phone.
+ONE card, ONE order of Today, ONE day page: a second card reading the
+same sessions, or a switch between two layouts, is the drift this
+replaced. The goal is asked in onboarding; Today never opens on a form.
 There is still no
 composite pain score: a daily "readiness" number makes activity follow
 pain, which is the boom-and-bust pacing exists to stop.

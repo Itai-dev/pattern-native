@@ -52,6 +52,18 @@ ok('no hero without an answered goal: never asked, or skipped', (() => {
   return rec.recoveryHero(null, {}, {}, TODAY) === null && rec.recoveryHero(skipped, {}, {}, TODAY) === null;
 })());
 
+ok('an old free-text intention reads as a goal; a stored goal or skip wins', (() => {
+  const run = rec.goalFromIntention('Get back to Running');
+  const other = rec.goalFromIntention('  Cooking dinner  ');
+  const skipped = { v: 1, activity: null, label: '', weeklySessions: null, setOn: d(1) };
+  return run.activity === 'running' && run.label === 'running'
+    && other.activity === 'other' && other.label === 'Cooking dinner'
+    && rec.goalFromIntention('') === null && rec.goalFromIntention(null) === null
+    && rec.currentGoal(null, 'walking the dog').activity === 'walking'
+    && rec.currentGoal(skipped, 'walking the dog') === skipped
+    && rec.currentGoal(RUN, 'swimming') === RUN;
+})());
+
 group('the hero');
 ok('sessions this week count the goal’s sessions only, from Monday', (() => {
   const E = {}, H = {};
@@ -59,7 +71,7 @@ ok('sessions this week count the goal’s sessions only, from Monday', (() => {
   sess(E, H, TODAY, wk(30), 4);                  // running today
   sess(E, H, TODAY, wk(30, null, '46'), 4);      // a swim: not the goal
   const h = rec.recoveryHero(RUN, E, H, TODAY);
-  return h.title === 'Back to running' && h.sessionsThisWeek === 1 && h.progressLine === '1 / 3 sessions this week'
+  return h.title === 'Back to running' && h.sessionsThisWeek === 1 && h.progressLine === '1 session this week · aiming for 3'
     && h.status.kind === 'learning';
 })());
 ok('no weekly target: a plain count', (() => {

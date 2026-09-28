@@ -22,7 +22,7 @@
  * THIS IS THE ONLY DAY SURFACE. It used to show three check-ins and hand
  * the rest to a sheet that opened on top of it — one day rendered twice,
  * the same list in two designs, and only the covered one could edit. The
- * sheet is gone: its sections are DayDetail, rendered under the chart
+ * sheet is gone: its sections are DayMoments, rendered under the chart
  * here, and every route into a day (Today's card, the calendar) lands on
  * this screen.
  *
@@ -46,11 +46,11 @@
  * calendar shows, and comes back on the day picked — its window widens
  * to reach a day older than the ninety it keeps by itself.
  *
- * TWO BODIES, ONE SWITCH. With "Today in layers" on (Profile ▸
- * Appearance) the chart is the list: the dots take taps, the one tapped
- * reads back in a card under the pager (DayMoments), and the rows the
- * classic body prints are gone. Off, the body is DayDetail as before.
- * The selection is kept here, beside the pager, because the dot lives in
+ * THE CHART IS THE LIST. The dots take taps, the one tapped reads back
+ * in a card under the pager (DayMoments). There used to be a second,
+ * classic body (DayDetail) behind a Profile switch that printed every
+ * check-in as a row; one day page replaced the two on 28 Sep 2026, with
+ * the switch that chose between them. The selection is kept here, beside the pager, because the dot lives in
  * the card above and the words live below it, and it is per day: walk
  * to another day and it lands on that day's newest check-in.
  */
@@ -66,10 +66,8 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DayLine from './DayLine';
 import MapScreen from './MapScreen';
-import DayDetail from './DayDetail';
 import DayMoments from './DayMoments';
 import { shownH } from './dayGlance';
-import { PREF_TODAY_LAYERED } from './todayTiles';
 import InfoTip from './InfoTip';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
@@ -164,9 +162,9 @@ export interface DayScreenProps {
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: (dateIso: string) => void;
   onClose: () => void;
-  /** the Add information sheet — the layered body's note row and its
-   *  "Add information" action open it, on the day and, from a tapped
-   *  dot, on that check-in. The classic body keeps its inline note. */
+  /** the Add information sheet — the body's note row and its "Add
+   *  information" action open it, on the day and, from a tapped dot, on
+   *  that check-in */
   onAddInfo: (dateIso: string, h?: number) => void;
 }
 
@@ -195,7 +193,7 @@ function DayPage({
   /** live scroll offset, so a card sizes itself by how far off centre it
    *  is rather than waiting for the swipe to finish */
   scrollX: SharedValue<number>;
-  /** the layered body's selection — all three undefined on the classic page */
+  /** the tapped dot, and the day's events drawn on the chart */
   selectedH?: number;
   onSelect?: (h: number) => void;
   events?: { h: number; label: string }[];
@@ -298,10 +296,6 @@ export default function DayScreen({
   /* the oldest day the pager has been asked to reach: the day it opened
      on, until the calendar picks an older one */
   const [reach, setReach] = useState(dateIso);
-  /* read once, at mount: the screen is built fresh on every open, and a
-     body that changed shape under a finger mid-swipe would be worse than
-     one that waits for the next open */
-  const [layered] = useState(() => db.getPref<boolean>(PREF_TODAY_LAYERED, false));
   /* the tapped dot, by day — see the header. shownH falls back to the
      newest when nothing on this day was tapped or the tapped one is gone. */
   const [sel, setSel] = useState<{ date: string; h: number } | null>(null);
@@ -465,13 +459,12 @@ export default function DayScreen({
      every frame of the swipe. */
   const eventsOf = useMemo(() => {
     const out: Record<string, { h: number; label: string }[]> = {};
-    if (!layered) return out;
     days.forEach((d) => {
       const evs = db.getEventsFor(d);
       if (evs.length) out[d] = evs.map((ev) => ({ h: ev.h, label: EVENT_LABELS[ev.kind] }));
     });
     return out;
-  }, [days, entries, layered]);
+  }, [days, entries]);
 
   return (
     <Animated.View style={[styles.layer, { paddingTop: insets.top }, layerStyle]}>
@@ -558,9 +551,6 @@ export default function DayScreen({
         contentContainerStyle={styles.page}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
-        /* the classic body edits the note inline, far down this page;
-           without the inset the keyboard covers the very field being
-           typed into */
         automaticallyAdjustKeyboardInsets
       >
       <Animated.FlatList
@@ -608,9 +598,9 @@ export default function DayScreen({
             itemW={itemW}
             cardH={cardH}
             scrollX={scrollX}
-            selectedH={layered ? selectedFor(item) : undefined}
-            onSelect={layered ? (h: number) => setSel({ date: item, h }) : undefined}
-            events={layered ? eventsOf[item] : undefined}
+            selectedH={selectedFor(item)}
+            onSelect={(h: number) => setSel({ date: item, h })}
+            events={eventsOf[item]}
           />
         )}
       />
@@ -621,35 +611,23 @@ export default function DayScreen({
       <InfoTip
         label="About this chart"
         style={styles.fineTip}
-        text={(layered ? 'Tap a dot to see that check-in. ' : '')
+        text={'Tap a dot to see that check-in. '
           + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain.'}
       />
 
       {/* the rest of the day, keyed by date so walking to another day
           rebuilds it rather than editing the last one's draft note */}
-      {layered ? (
-        <DayMoments
-          key={onDate}
-          dateIso={onDate}
-          selectedH={selectedFor(onDate)}
-          onChanged={onChanged}
-          onAddLog={() => onAddLog(onDate)}
-          onEditLog={(m) => onEditLog(onDate, m)}
-          onAddInfo={(h) => onAddInfo(onDate, h)}
-          onEditEvent={onEditEvent}
-          onAddEvent={() => onAddEvent(onDate)}
-        />
-      ) : (
-        <DayDetail
-          key={onDate}
-          dateIso={onDate}
-          onChanged={onChanged}
-          onAddLog={() => onAddLog(onDate)}
-          onEditLog={(m) => onEditLog(onDate, m)}
-          onEditEvent={onEditEvent}
-          onAddEvent={() => onAddEvent(onDate)}
-        />
-      )}
+      <DayMoments
+        key={onDate}
+        dateIso={onDate}
+        selectedH={selectedFor(onDate)}
+        onChanged={onChanged}
+        onAddLog={() => onAddLog(onDate)}
+        onEditLog={(m) => onEditLog(onDate, m)}
+        onAddInfo={(h) => onAddInfo(onDate, h)}
+        onEditEvent={onEditEvent}
+        onAddEvent={() => onAddEvent(onDate)}
+      />
       </ScrollView>
       )}
     </Animated.View>

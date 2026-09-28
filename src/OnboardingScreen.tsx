@@ -1,8 +1,8 @@
 /**
- * The first ninety seconds — three screens, then a check-in.
+ * The first ninety seconds — four screens, then a check-in.
  *
  * What this deliberately does NOT do is the whole design. It asks for no
- * account, no medication list, no activity goal, no notification
+ * account, no medication list, no notification
  * permission, no Health permission and no choice of what to track.
  * Every one of those is a question the app cannot yet make useful, and
  * asking them before someone has recorded a single day is asking them
@@ -29,6 +29,16 @@
  * says Skip when nothing is chosen, and a skip is stored as a skip so
  * the app never asks again.
  *
+ * THE GOAL EARNED THE NEXT ONE (28 Sep 2026). What the person is
+ * getting back to is what Today now opens on, and the first version
+ * asked it there — a setup form sitting on top of the screen for every
+ * tester, new or old. It is a day-zero question in the way the
+ * diagnosis is: the answer is already in the head of someone who just
+ * installed this, and nothing about it needs a record first. One tap
+ * for the activity, one for how often, both skippable; a skip is
+ * stored, so Today never asks again. Phones that onboarded before it
+ * are offered it once, in Today's one-at-a-time slot.
+ *
  * THE FIRST SCREEN carries the promise and the boundaries together,
  * because the red flags are the one thing a person must have seen and
  * a screen of their own was where they got skipped past. THE THIRD is
@@ -52,7 +62,7 @@
  */
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View,
+  KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -60,6 +70,9 @@ import { Press } from './motion';
 import DiagnosisStep, { emptyDraft, draftToRaw } from './DiagnosisStep';
 import { Diagnosis, LOC_CHIP_IDS, LOC_NAMES, collapseSidedLocs, todayISO } from './model';
 import { themeBrand } from './painScale';
+import { GOAL_ACTIVITIES, GoalActivity, RecoveryGoal } from './recovery';
+import { WEEKLY_CHOICES, makeGoal, skippedGoal } from './RecoveryCards';
+import { capitalise } from './health/workoutNames';
 import { color, font, radius, size } from './theme';
 
 export interface OnboardingResult {
@@ -70,6 +83,9 @@ export interface OnboardingResult {
   /** the diagnosis record as it will be stored — status '' when the
    *  screen was passed over, which is a state and is kept */
   diagnosis: Diagnosis;
+  /** the goal as it will be stored — activity null when passed over,
+   *  which is a state and is kept, like the diagnosis */
+  goal: RecoveryGoal;
 }
 
 export interface OnboardingScreenProps {
@@ -86,16 +102,22 @@ export interface OnboardingScreenProps {
   review?: boolean;
 }
 
-/** the three screens, by name, so the code reads as the flow does */
+/** the four screens, by name, so the code reads as the flow does */
 const PROMISE = 0;
 const DIAGNOSIS = 1;
-const PLACES = 2;
+const GOAL = 2;
+const PLACES = 3;
 
 export default function OnboardingScreen({ onDone, review, onRestore }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(PROMISE);
   const [duration, setDuration] = useState<OnboardingResult['duration']>('');
   const [diagnosis, setDiagnosis] = useState(emptyDraft);
+  const [goal, setGoal] = useState<GoalActivity | null>(null);
+  const [goalOther, setGoalOther] = useState('');
+  const [weekly, setWeekly] = useState<number | null>(null);
+  /* "other" with no words is not an answer yet — the button still says Skip */
+  const goalAnswered = !!goal && (goal !== 'other' || !!goalOther.trim());
   /* the usual places, in the coarse words the first check-in's offer
      speaks. collapseSidedLocs is a no-op on these and stays, so a sided
      answer from any future source still stores as the chips read it. */
@@ -111,6 +133,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
     where: collapseSidedLocs(where),
     duration,
     diagnosis: draftToRaw(diagnosis, todayISO()),
+    goal: goalAnswered ? makeGoal(goal!, goalOther, weekly, todayISO()) : skippedGoal(todayISO()),
   });
 
   const advance = () => {
@@ -125,7 +148,8 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
      when nothing is chosen, the check-in's rule. Someone who installs
      this during a flare reaches the check-in in three taps. */
   const primaryLabel = step < lastStep
-    ? (step === DIAGNOSIS && !diagnosis.status ? 'Skip for now' : 'Continue')
+    ? ((step === DIAGNOSIS && !diagnosis.status) || (step === GOAL && !goalAnswered)
+      ? 'Skip for now' : 'Continue')
     : review ? 'Done' : 'Start my first check-in';
 
   const toggleIn = (list: string[], set: (v: string[]) => void, id: string) => {
@@ -239,6 +263,43 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
             </Text>
             <DiagnosisStep draft={diagnosis} onChange={setDiagnosis} />
           </>
+        ) : step === GOAL ? (
+          <>
+            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+              What are you trying{'\n'}to get back to?
+            </Text>
+            <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Pattern reads how your body responds to it, from your own
+              sessions and mornings, and suggests what to try next. You can
+              change this later.
+            </Text>
+            <View style={styles.chips}>
+              {GOAL_ACTIVITIES.map((a) => chip(
+                goal === a, capitalise(a),
+                () => { Haptics.selectionAsync().catch(() => {}); setGoal(goal === a ? null : a); },
+                'radio'
+              ))}
+            </View>
+            {goal === 'other' && (
+              <TextInput value={goalOther} onChangeText={setGoalOther} maxLength={40} autoFocus
+                placeholder="In your words" placeholderTextColor={color.textTertiary}
+                accessibilityLabel="Your activity, in your words" style={styles.input} />
+            )}
+            {goalAnswered && (
+              <>
+                <Text style={styles.smallQ} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  How many sessions a week?
+                </Text>
+                <View style={styles.chips}>
+                  {WEEKLY_CHOICES.map((w) => chip(
+                    weekly === w, String(w),
+                    () => { Haptics.selectionAsync().catch(() => {}); setWeekly(weekly === w ? null : w); },
+                    'radio'
+                  ))}
+                </View>
+              </>
+            )}
+          </>
         ) : (
           <>
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -309,7 +370,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
         )}
 
         <View style={styles.dots}>
-          {(review ? [PROMISE] : [PROMISE, DIAGNOSIS, PLACES]).map((i) => (
+          {(review ? [PROMISE] : [PROMISE, DIAGNOSIS, GOAL, PLACES]).map((i) => (
             <View
               key={i}
               style={[styles.dot, i === step && { backgroundColor: color.textSecondary }]}
@@ -368,6 +429,11 @@ const styles = StyleSheet.create({
   },
   chipText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '500' },
   chipTextOn: { color: '#FFFFFF', fontWeight: '600' },
+  input: {
+    color: color.textPrimary, borderColor: color.borderControl, borderWidth: 1,
+    borderRadius: 10, padding: 12, marginTop: 12, fontSize: font.body,
+    backgroundColor: color.bgSurface,
+  },
   smallQ: {
     color: color.textPrimary, fontSize: font.body, fontWeight: '600',
     marginTop: 22, marginBottom: 8,

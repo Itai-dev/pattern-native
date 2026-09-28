@@ -523,7 +523,7 @@ export const WIDGET_OFFER_AFTER_DAYS = 5;
 
 /** every card Today may offer, one at a time */
 export type TodayOffer =
-  | 'reminder' | 'copy' | 'activity' | 'diagnosis' | 'health' | 'background'
+  | 'reminder' | 'copy' | 'goal' | 'diagnosis' | 'health' | 'background'
   | 'experiment' | 'appointment' | 'widget';
 
 /** THE ORDER, BY WHAT THE PERSON IS HERE FOR. Each offer still waits
@@ -544,15 +544,16 @@ export type TodayOffer =
  *  gets the order the app shipped with — the default is never one of
  *  the other two guessed. */
 export const TODAY_OFFER_ORDER: Record<'seek' | 'manage' | 'unknown', TodayOffer[]> = {
-  unknown: ['reminder', 'copy', 'activity', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'],
-  seek: ['reminder', 'copy', 'activity', 'diagnosis', 'background', 'appointment', 'health', 'experiment', 'widget'],
-  manage: ['reminder', 'copy', 'activity', 'diagnosis', 'health', 'experiment', 'background', 'appointment', 'widget'],
+  unknown: ['reminder', 'copy', 'goal', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'],
+  seek: ['reminder', 'copy', 'goal', 'diagnosis', 'background', 'appointment', 'health', 'experiment', 'widget'],
+  manage: ['reminder', 'copy', 'goal', 'diagnosis', 'health', 'experiment', 'background', 'appointment', 'widget'],
 };
 
-/** Offer an intention only after the first recorded day. No daily score. */
-export const ACTIVITY_OFFER_AFTER_DAYS = 1;
-/** A short activity fits Today and the clinician report without a form. */
-export const ACTIVITY_TEXT_MAX = 120;
+/** The goal is asked in onboarding; a phone that onboarded before it
+ *  is offered it once, after the first recorded day — the check-in has
+ *  shown what the app is, and the question is two taps. It took the
+ *  free-text intention's place in the order, and its number. */
+export const GOAL_OFFER_AFTER_DAYS = 1;
 
 /** logged days before the diagnosis question is put on Today to an
  *  install that predates it. One: the first check-in has shown what

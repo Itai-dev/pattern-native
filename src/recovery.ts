@@ -81,6 +81,33 @@ export function goalLabel(activity: GoalActivity, other?: string): string {
   return t || 'my activity';
 }
 
+/**
+ * ONE GOAL, NOT TWO. Before the structured goal there was a free-text
+ * intention ("What do you want to keep doing?", prefs `goal.text`), and
+ * it is still what the clinician report prints and what a backup
+ * carries. Rather than migrate it — a write the person never made — the
+ * intention is READ as a goal whenever no structured one is stored: a
+ * known activity named in it becomes that activity, anything else is
+ * "other" in their own words. Saving a goal writes its label back to
+ * `goal.text`, so the report, the backup and Today can never name two
+ * different things. A stored skip wins over an old intention: the
+ * person was asked, and said not now.
+ */
+export function goalFromIntention(text: string | null): RecoveryGoal | null {
+  const t = (text || '').trim();
+  if (!t) return null;
+  const lower = t.toLowerCase();
+  const known = GOAL_ACTIVITIES.filter((a) => a !== 'other' && lower.indexOf(a) >= 0)[0];
+  return known
+    ? { v: 1, activity: known, label: known, weeklySessions: null, setOn: '' }
+    : { v: 1, activity: 'other', label: goalLabel('other', t), weeklySessions: null, setOn: '' };
+}
+
+/** the goal Today and Profile read: the stored one, else the intention's */
+export function currentGoal(stored: RecoveryGoal | null, intention: string | null): RecoveryGoal | null {
+  return stored || goalFromIntention(intention);
+}
+
 /* ── where they stand ────────────────────────────────────── */
 
 export type RecoveryStatusKind = 'learning' | 'tolerating' | 'hold' | 'lighter';
@@ -96,7 +123,7 @@ export interface RecoveryHero {
   /** goal sessions since Monday, any outcome — a session done is done */
   sessionsThisWeek: number;
   weeklyTarget: number | null;
-  /** "2 / 3 sessions this week", or "2 sessions this week" */
+  /** "2 sessions this week · aiming for 3", or "2 sessions this week" */
   progressLine: string;
   status: RecoveryStatus;
 }
@@ -141,9 +168,11 @@ export function recoveryHero(
     title: 'Back to ' + goal.label,
     sessionsThisWeek: n,
     weeklyTarget: t,
-    progressLine: t
-      ? n + ' / ' + t + ' sessions this week'
-      : n + (n === 1 ? ' session' : ' sessions') + ' this week',
+    /* the target is named beside the count, never as a fraction of it:
+       "1 / 3" and a bar that fills are a completion meter, and a week
+       short of its number reads as a failed week */
+    progressLine: n + (n === 1 ? ' session' : ' sessions') + ' this week'
+      + (t ? ' · aiming for ' + t : ''),
     status: statusOf(currentLevel(gs)),
   };
 }

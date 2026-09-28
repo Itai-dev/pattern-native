@@ -63,12 +63,12 @@ import {
   Moment, PainEvent, ValidBackup, addDays, cleanDiagnosis, diagnosisShort, iso, minutesNow, todayISO,
 } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
-import ActivityIntention from './src/ActivityIntention';
+import { GoalRow } from './src/RecoveryCards';
+import { RecoveryGoal, currentGoal } from './src/recovery';
 import { todayInsight } from './src/todayInsight';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import { PREF_SQUARE_PICKER } from './src/SquarePicker';
-import { PREF_TODAY_LAYERED } from './src/todayTiles';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
@@ -164,8 +164,16 @@ function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
 export default function App() {
   const [entries, setEntries] = useState(() => db.getAll());
   const [activity, setActivity] = useState(() => db.getGoal());
-  const changeActivity = useCallback((text: string) => {
-    db.setGoal(text);
+  /* THE GOAL, SAVED IN ONE PLACE for onboarding, Today and Profile. The
+     structured goal is stored whole; its label goes to the old free-text
+     intention too, because that is what the clinician report prints and
+     what a backup carries (recovery.ts, currentGoal). A removal is a
+     stored skip and clears the text, so the report stops naming it. */
+  const [recoveryGoal, setRecoveryGoal] = useState(() => db.getRecoveryGoal());
+  const saveGoal = useCallback((g: RecoveryGoal) => {
+    db.setRecoveryGoal(g);
+    db.setGoal(g.activity ? g.label : '');
+    setRecoveryGoal(g);
     setActivity(db.getGoal());
   }, []);
   /* Anyone with a record has already been onboarded, whatever the pref
@@ -252,7 +260,6 @@ export default function App() {
   /* may the lock screen carry the number — off until asked, see widget.ts */
   const [lockNumber, setLockNumber] = useState(() => db.getPref<boolean>(PREF_LOCK_NUMBER, false));
   const [squarePicker, setSquarePicker] = useState(() => db.getPref<boolean>(PREF_SQUARE_PICKER, false));
-  const [todayLayered, setTodayLayered] = useState(() => db.getPref<boolean>(PREF_TODAY_LAYERED, false));
   /* the next appointment, as state so Today's card follows the Profile
      row without a remount; the picker opens on mount when Today asked */
   const [appointment, setAppointment] = useState(() => db.getPref<string>(PREF_APPOINTMENT, ''));
@@ -492,6 +499,7 @@ export default function App() {
     const next = db.getAll();
     setEntries(next);
     setActivity(db.getGoal());
+    setRecoveryGoal(db.getRecoveryGoal());
     setEvents(db.getEvents());
     setHealthDays(storedHealthDays());
     setHealthSyncStatus(db.getHealthSyncStatus());
@@ -867,6 +875,9 @@ export default function App() {
                  be parsed back out of. The screen was put, so a '' here
                  means passed over, and Today will not ask again. */
               db.setDiagnosis(cleanDiagnosis(r.diagnosis));
+              /* the goal, skip included — a skip stored here is why Today
+                 never offers it to someone who passed it over */
+              saveGoal(r.goal);
               /* the duration seeds the report background's onset line,
                  and only into an empty field — words already written win */
               if (r.duration) {
@@ -985,15 +996,14 @@ export default function App() {
             <ScrollView style={{ width }} contentContainerStyle={styles.page}
               showsVerticalScrollIndicator={false}>
               <HomeScreen
-                activity={activity}
-                onActivityChange={changeActivity}
+                goal={currentGoal(recoveryGoal, activity)}
+                onGoalChange={saveGoal}
                 insight={todayInsight(healthNoticed)}
                 onOpenRecord={() => goToTab('trends')}
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
                 onAddInfo={() => openInfo(todayISO())}
-                onOpenToday={() => openDay(todayISO())}
                 onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
                 onOpenDiagnosis={() => { setProfile(true); setDiagnosisOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
@@ -1159,7 +1169,7 @@ export default function App() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
-              <ActivityIntention value={activity} onChange={changeActivity} />
+              <GoalRow goal={currentGoal(recoveryGoal, activity)} today={todayISO()} onChange={saveGoal} />
               {/* Only offered where the binary can actually do it — a
                   row promising a connection an old build cannot make is
                   a broken promise on a settings screen. The sheet
@@ -1345,25 +1355,6 @@ export default function App() {
                     day squares in place of the slider's thumb and track.
                     A switch and not a rollout, so it can be flipped on the
                     phone mid-week and flipped back. */}
-                {/* Today in layers: the fact, what went with it, what is
-                    ahead, what only counts up. Same switch-not-rollout
-                    reasoning as the picker below. */}
-                <View style={styles.row} accessible accessibilityRole="switch"
-                  accessibilityState={{ checked: todayLayered }}
-                  accessibilityLabel="Today in layers: the check-in, then Health, then what is ahead">
-                  <RowIcon name="layers-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Today in layers</Text>
-                    <Switch
-                      value={todayLayered}
-                      onValueChange={(on) => {
-                        db.setPref(PREF_TODAY_LAYERED, on);
-                        setTodayLayered(on);
-                      }}
-                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
-                    />
-                  </View>
-                </View>
                 <View style={styles.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: squarePicker }}
                   accessibilityLabel="Choose pain with squares instead of a slider">
@@ -1382,12 +1373,8 @@ export default function App() {
                 </View>
               </View>
               <Text style={styles.groupFooter}>
-                Two things being tried, both off by default. Today in layers puts
-                the last check-in first, then what Apple Health saw, then what is
-                ahead, then what only counts up; the day-so-far chart moves to
-                the day screen, where the check-ins sit on the chart — tap a
-                dot — instead of in a list. Squares show the eleven a day can wear, in place
-                of the slider: drag along the row or tap one.
+                Being tried, off by default: squares show the eleven a day can
+                wear, in place of the slider — drag along the row or tap one.
               </Text>
 
               <Text style={styles.groupTitle}>About</Text>
