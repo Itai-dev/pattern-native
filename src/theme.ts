@@ -32,15 +32,23 @@ export const color = {
 } as const;
 
 /** The pain colour scale is a single brightness ramp of one hue:
- *  0 sits in near-black darkness and 10 is a luminous near-white — pain
- *  rises as luminosity, an amount rather than a verdict. Pure white is
- *  reserved for controls and selection, so 10 always stops short of it.
+ *  0 is a pale near-white and 10 sinks to near-black — pain deepens as
+ *  darkness, an amount rather than a verdict. Pure white is reserved for
+ *  controls and selection, so 0 always stops short of it.
  *  Anchors are interpolated smoothly in painScale.painColor.
  *
+ *  LIGHT IS LESS (29 Sep 2026). The ramp first ran the other way, dark
+ *  at 0 rising to luminous at 10. The founder turned it over: light is
+ *  what people already read as "better", so a light low day and a dark
+ *  high one match the reading a person brings to the screen rather than
+ *  asking them to learn the reverse. The stops themselves did not
+ *  change, only which end is which.
+ *
  *  The HUE is the user's choice. Every theme keeps the same brightness
- *  story — anchors are channel-monotone, so luminance rises strictly from
- *  0 to 10 in every palette and the meaning of "brighter = more" never
- *  changes when the colour does. */
+ *  story — anchors are channel-monotone, so luminance falls strictly from
+ *  0 to 10 in every palette and the meaning of "darker = more" never
+ *  changes when the colour does. The black screen does not swallow a
+ *  near-black 10: every painted square carries a white hairline. */
 export type PainThemeId = 'blue' | 'violet' | 'rose' | 'mint' | 'violetPink';
 
 export interface PainTheme {
@@ -69,81 +77,81 @@ export const PAIN_THEMES: readonly PainTheme[] = [
   {
     id: 'blue', name: 'Pattern Blue', brand: '#0A84FF',
     anchors: [
-      [0, '#070C16'],
-      [1, '#11213D'],
-      [2, '#143869'],
-      [3, '#115098'],
-      [4, '#0E69CB'],
+      [0, '#EAF6FF'],
+      [1, '#BEE3FE'],
+      [2, '#8CD0FF'],
+      [3, '#5CBAFE'],
+      [4, '#37A1FE'],
       [5, '#0A84FF'],
-      [6, '#37A1FE'],
-      [7, '#5CBAFE'],
-      [8, '#8CD0FF'],
-      [9, '#BEE3FE'],
-      [10, '#EAF6FF'],
+      [6, '#0E69CB'],
+      [7, '#115098'],
+      [8, '#143869'],
+      [9, '#11213D'],
+      [10, '#070C16'],
     ],
   },
   {
     id: 'violet', name: 'Violet', brand: '#BF5AF2',
     anchors: [
-      [0, '#0E0714'],
-      [1, '#261242'],
-      [2, '#42216C'],
-      [3, '#613195'],
-      [4, '#8143C1'],
+      [0, '#F3EAFF'],
+      [1, '#E4CEFE'],
+      [2, '#D5B0FF'],
+      [3, '#C692FC'],
+      [4, '#B575F6'],
       [5, '#A455F0'],
-      [6, '#B575F6'],
-      [7, '#C692FC'],
-      [8, '#D5B0FF'],
-      [9, '#E4CEFE'],
-      [10, '#F3EAFF'],
+      [6, '#8143C1'],
+      [7, '#613195'],
+      [8, '#42216C'],
+      [9, '#261242'],
+      [10, '#0E0714'],
     ],
   },
   {
     id: 'violetPink', name: 'Violet to pink', brand: '#BF5AF2',
     anchors: [
-      [0, '#0E0714'],
-      [1, '#220E40'],
-      [2, '#3E1366'],
-      [3, '#5D1B88'],
-      [4, '#7E29A5'],
+      [0, '#F3EAFF'],
+      [1, '#FCBEE8'],
+      [2, '#EE99DE'],
+      [3, '#D976D5'],
+      [4, '#BE58CA'],
       [5, '#9F3DBB'],
-      [6, '#BE58CA'],
-      [7, '#D976D5'],
-      [8, '#EE99DE'],
-      [9, '#FCBEE8'],
-      [10, '#F3EAFF'],
+      [6, '#7E29A5'],
+      [7, '#5D1B88'],
+      [8, '#3E1366'],
+      [9, '#220E40'],
+      [10, '#0E0714'],
     ],
   },
   {
     id: 'rose', name: 'Rose', brand: '#FF375F',
     anchors: [
-      [0, '#14070B'],
-      [1, '#3B1025'],
-      [2, '#641B3B'],
-      [3, '#91284F'],
-      [4, '#BF3664'],
+      [0, '#FFEAF4'],
+      [1, '#FECCDE'],
+      [2, '#FDAEC7'],
+      [3, '#FB8EAF'],
+      [4, '#F66D97'],
       [5, '#F0447A'],
-      [6, '#F66D97'],
-      [7, '#FB8EAF'],
-      [8, '#FDAEC7'],
-      [9, '#FECCDE'],
-      [10, '#FFEAF4'],
+      [6, '#BF3664'],
+      [7, '#91284F'],
+      [8, '#641B3B'],
+      [9, '#3B1025'],
+      [10, '#14070B'],
     ],
   },
   {
     id: 'mint', name: 'Mint', brand: '#2AC0B0',
     anchors: [
-      [0, '#071412'],
-      [1, '#0E322E'],
-      [2, '#13524B'],
-      [3, '#1C756C'],
-      [4, '#229A8D'],
+      [0, '#EAFBF8'],
+      [1, '#C7F0EB'],
+      [2, '#A2E6DD'],
+      [3, '#7DDACF'],
+      [4, '#55CEC0'],
       [5, '#2AC0B0'],
-      [6, '#55CEC0'],
-      [7, '#7DDACF'],
-      [8, '#A2E6DD'],
-      [9, '#C7F0EB'],
-      [10, '#EAFBF8'],
+      [6, '#229A8D'],
+      [7, '#1C756C'],
+      [8, '#13524B'],
+      [9, '#0E322E'],
+      [10, '#071412'],
     ],
   },
 ] as const;

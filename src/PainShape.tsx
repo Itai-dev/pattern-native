@@ -3,8 +3,8 @@
  * Mind's morphing blob, in this app's own square language.
  *
  * ONE solid rounded square, nothing nested inside it. Its colour follows
- * the brightness ramp continuously under the finger — blue-black at 0
- * rising to icy near-white at 10 — with a single soft outer glow in the
+ * the brightness ramp continuously under the finger — icy near-white at
+ * 0 sinking to blue-black at 10 — with a single soft outer glow in the
  * same colour. The numeric score beneath carries the precise information;
  * this surface carries the feel of it. As pain rises the square gains a
  * little mass, it breathes when untouched, and it holds still when
@@ -51,8 +51,9 @@ export default function PainShape({ progress, size }: PainShapeProps) {
     return {
       backgroundColor: fill,
       transform: [{ scale }],
-      /* the one glow: the surface's own colour, soft and continuous —
-         brighter values naturally cast more light on the black ground */
+      /* the one glow: the surface's own colour, soft and continuous. A
+         dark high value casts almost no light on the black ground, so
+         the glow fades out on its own as pain rises — no rule needed */
       shadowColor: fill,
       shadowOpacity: interpolate(progress.value, [0, 10], [0.25, 0.6]),
       shadowRadius: interpolate(progress.value, [0, 10], [14, 26]),
@@ -67,7 +68,7 @@ export default function PainShape({ progress, size }: PainShapeProps) {
             position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
             borderRadius: radius,
             shadowOffset: { width: 0, height: 0 },
-            /* at 0 the surface is nearly black — the hairline keeps it
+            /* at 10 the surface is nearly black — the hairline keeps it
                present on the black screen without adding a second layer */
             borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)',
           },

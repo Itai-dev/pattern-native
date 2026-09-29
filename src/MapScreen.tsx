@@ -234,7 +234,7 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                             }
                           : {
                               backgroundColor: painColor(avg),
-                              /* keeps a near-black low-pain day visible on
+                              /* keeps a near-black high-pain day visible on
                                  the black ground */
                               borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
                               alignItems: 'center', justifyContent: 'center',

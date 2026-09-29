@@ -74,6 +74,8 @@ for (let i = 0; i <= 10; i++) {
   const C = 0.04 + 0.16 * Math.sin(Math.PI * t);
   out.violetPink.push(i === 0 ? '#0E0714' : i === 10 ? '#F3EAFF' : fit(L, C, toOk('#A455F0').h - 12 + 52 * t));
 }
+/* light is less: 0 at the pale end, 10 at the dark one (see theme.ts) */
+for (const k in out) out[k].reverse();
 /* round trip proof */
 const rt = fromOk(toOk('#11498C').L, toOk('#11498C').C, toOk('#11498C').h);
 console.log('roundtrip #11498C ->', rt);

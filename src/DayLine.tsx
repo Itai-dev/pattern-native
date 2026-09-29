@@ -19,7 +19,7 @@
  * user never entered, so it is the one thing here that is not copied.
  *
  * The dots keep the same hairline the day squares and swatches carry —
- * without it a 0 or a 1 is near-black on a near-black card and the record
+ * without it a 9 or a 10 is near-black on a near-black card and the record
  * looks like it lost a check-in.
  *
  * No SVG: this app has no drawing library and adding one is a native
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
   },
   /* the same hairline every other painted square in this app carries —
-     it is what keeps a 0 visible on a near-black card */
+     it is what keeps a 10 visible on a near-black card */
   dot: {
     position: 'absolute',
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)',

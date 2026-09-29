@@ -2,7 +2,7 @@
  * The colour theme picker. One choice: which hue carries the pain scale.
  * Every option shows its actual ramp — five swatches from 0 to 10 — so
  * the user picks from the real thing, not from a name. The meaning never
- * changes with the hue: darker is less, brighter is more, in every theme.
+ * changes with the hue: lighter is less, darker is more, in every theme.
  */
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -38,8 +38,8 @@ export default function AppearanceSheet({ onPick, onDone }: AppearanceSheetProps
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.lede}>
-          The colour that carries your pain scale. Darker always means less,
-          brighter always means more — only the hue changes.
+          The colour that carries your pain scale. Lighter always means less,
+          darker always means more — only the hue changes.
         </Text>
 
         <View style={styles.group}>

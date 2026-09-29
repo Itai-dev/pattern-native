@@ -1,7 +1,7 @@
 /**
  * One day as a rounded square — the app's whole visual language in a
  * component. A logged day is ONE solid colour: its daily average on the
- * brightness ramp, blue-black at 0 rising to icy near-white at 10. The
+ * brightness ramp, icy near-white at 0 sinking to blue-black at 10. The
  * number of check-ins behind the average travels as text and dots, never
  * as extra rings — a single clean surface, no bands, no stripes.
  *

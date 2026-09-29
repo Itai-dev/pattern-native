@@ -77,15 +77,15 @@ ok('ability is a separate scale', scale.ABILITY_END_LOW === 'Not able at all' &&
 
 /* ── colour interpolation ──────────────────────────────────── */
 group('colour interpolation');
-ok('0 is the very dark blue-black anchor', scale.painColor(0).toUpperCase() === '#070C16', scale.painColor(0));
-ok('10 is the icy near-white anchor', scale.painColor(10).toUpperCase() === '#EAF6FF', scale.painColor(10));
-ok('10 is never pure white', scale.painColor(10).toUpperCase() !== '#FFFFFF');
+ok('0 is the icy near-white anchor', scale.painColor(0).toUpperCase() === '#EAF6FF', scale.painColor(0));
+ok('10 is the very dark blue-black anchor', scale.painColor(10).toUpperCase() === '#070C16', scale.painColor(10));
+ok('0 is never pure white', scale.painColor(0).toUpperCase() !== '#FFFFFF');
 ok('5 is Pattern blue', scale.painColor(5).toUpperCase() === '#0A84FF', scale.painColor(5));
-ok('luminance rises monotonically 0→10', (() => {
-  let prev = -1;
+ok('luminance falls monotonically 0→10 (lighter is less)', (() => {
+  let prev = 2;
   for (let i = 0; i <= 10; i++) {
     const L = scale.luminanceOf(scale.painColor(i));
-    if (L <= prev) return false;
+    if (L >= prev) return false;
     prev = L;
   }
   return true;
@@ -96,7 +96,7 @@ ok('a decimal sits between its neighbours in luminance', (() => {
   const a = scale.luminanceOf(scale.painColor(4));
   const m = scale.luminanceOf(scale.painColor(4.5));
   const b = scale.luminanceOf(scale.painColor(5));
-  return m > a && m < b;
+  return m < a && m > b;
 })());
 ok('out-of-range clamps to the anchors',
   scale.painColor(-2) === scale.painColor(0) && scale.painColor(14) === scale.painColor(10));
@@ -105,16 +105,16 @@ ok('the whole-step ramp has eleven colours', scale.painRamp().length === 11);
 /* ── calendar readability: ink for every pain value ────────── */
 group('ink and contrast');
 ok('ink is the ramp’s own end: its darkest stop on a light square, its lightest on a dark one', (() => {
-  const dark = scale.painRamp()[0], light = scale.painRamp()[10];
+  const dark = scale.painRamp()[10], light = scale.painRamp()[0];
   for (let i = 0; i <= 10; i++) {
     const expected = scale.luminanceOf(scale.painColor(i)) > 0.179 ? dark : light;
     if (scale.inkOn(i) !== expected) return false;
   }
   return true;
 })());
-ok('the dark low end takes the light ink, the luminous high end the dark', (() =>
-  scale.inkOn(0) === scale.painRamp()[10] && scale.inkOn(3) === scale.painRamp()[10]
-  && scale.inkOn(10) === scale.painRamp()[0]
+ok('the light low end takes the dark ink, the dark high end the light', (() =>
+  scale.inkOn(0) === scale.painRamp()[10]
+  && scale.inkOn(10) === scale.painRamp()[0] && scale.inkOn(7) === scale.painRamp()[0]
 )());
 ok('both inks actually occur across the scale, and never pure black or white', (() => {
   const inks = new Set();
@@ -668,14 +668,14 @@ ok('every theme steps evenly on each side of 5: no neighbour pair differs from a
 })());
 ok('the default theme is blue', scale.getPainTheme() === 'blue');
 ok('blue keeps the documented anchors', (() =>
-  scale.painColor(0) === '#070C16' && scale.painColor(5) === '#0A84FF' && scale.painColor(10) === '#EAF6FF'
+  scale.painColor(0) === '#EAF6FF' && scale.painColor(5) === '#0A84FF' && scale.painColor(10) === '#070C16'
 )(), [scale.painColor(0), scale.painColor(5), scale.painColor(10)]);
-ok('every theme rises monotonically in luminance 0→10', (() => {
+ok('every theme falls monotonically in luminance 0→10', (() => {
   for (const th of themeMod.PAIN_THEMES) {
-    let prev = -1;
+    let prev = 2;
     for (let i = 0; i <= 10; i++) {
       const L = scale.luminanceOf(scale.painColor(i, th.id));
-      if (L <= prev) return false;
+      if (L >= prev) return false;
       prev = L;
     }
   }
@@ -683,7 +683,7 @@ ok('every theme rises monotonically in luminance 0→10', (() => {
 })());
 ok('no theme reaches pure white or pure black', (() =>
   themeMod.PAIN_THEMES.every((th) =>
-    scale.painColor(10, th.id) !== '#FFFFFF' && scale.painColor(0, th.id) !== '#000000')
+    scale.painColor(0, th.id) !== '#FFFFFF' && scale.painColor(10, th.id) !== '#000000')
 )());
 ok('switching the theme changes the colour but not the words', (() => {
   const before = scale.painColor(5);

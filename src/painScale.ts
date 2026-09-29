@@ -80,7 +80,7 @@ export function formatScoreAndLabel(v: number): string {
 }
 
 /* ── colour ──────────────────────────────────────────────────
-   One brightness ramp of the brand hue, interpolated smoothly between the
+   One brightness ramp of the brand hue, light at 0 and dark at 10, interpolated smoothly between the
    anchors in theme.ts — a decimal average gets its own colour rather than
    snapping to a step, so transitions between values never band. */
 
@@ -173,8 +173,10 @@ function contrastOf(a: number, b: number): number {
 export function inkOn(v: number): string {
   const bg = painColor(v);
   const lum = luminanceOf(bg);
-  const dark = active.anchors[0][1];
-  const light = active.anchors[active.anchors.length - 1][1];
+  /* by luminance, not position: which end of the list is dark is a
+     decision about the scale (theme.ts), and ink should not depend on it */
+  const a = active.anchors[0][1], b = active.anchors[active.anchors.length - 1][1];
+  const [dark, light] = luminanceOf(a) < luminanceOf(b) ? [a, b] : [b, a];
   const pick = lum > 0.179 ? dark : light;
   return contrastOf(lum, luminanceOf(pick)) >= 4.5 ? pick : inkForBg(bg);
 }
