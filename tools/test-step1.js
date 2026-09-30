@@ -1496,20 +1496,10 @@ ok('the report never says the app diagnosed anything', (() => {
   return html.indexOf('does not provide a diagnosis') > 0
     && html.indexOf('Provided by the patient') > 0;
 })());
-ok('every order of Today offers every card once, and the first two never move', (() => {
-  const ALL = ['reminder', 'copy', 'goal', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'];
-  return ['unknown', 'seek', 'manage'].every((p) => {
-    const o = th.TODAY_OFFER_ORDER[p];
-    return o.length === ALL.length && ALL.every((x) => o.indexOf(x) >= 0)
-      && o[0] === 'reminder' && o[1] === 'copy' && o[2] === 'goal' && o[3] === 'diagnosis';
-  });
-})());
-ok('seeking puts the history before the experiment; managing, the other way', (() => {
-  const s = th.TODAY_OFFER_ORDER.seek;
-  const m = th.TODAY_OFFER_ORDER.manage;
-  return s.indexOf('background') < s.indexOf('experiment')
-    && s.indexOf('appointment') < s.indexOf('experiment')
-    && m.indexOf('experiment') < m.indexOf('background');
+ok('Today offers four cards, once each, reminder and copy first', (() => {
+  const o = th.TODAY_OFFER_ORDER;
+  return o.length === 4 && ['reminder', 'copy', 'goal', 'health'].every((x) => o.indexOf(x) >= 0)
+    && o[0] === 'reminder' && o[1] === 'copy';
 })());
 
 /* ── the patient's own question, and the periods, in the PDF ── */

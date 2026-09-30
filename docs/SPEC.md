@@ -278,11 +278,10 @@ report background's onset line. Nothing else.
 
 **What the answer changes downstream.** The report's Background section opens with a
 Diagnosis row (the names as chosen, "No diagnosis yet — being investigated", or "No formal
-diagnosis"; no row when passed over). Today's one-at-a-time offers follow
-`TODAY_OFFER_ORDER` in `thresholds.ts`: someone seeking a diagnosis sees the background
-and the appointment before an experiment; someone managing one sees Health and the
-experiment before the background. Installs from before the question existed are asked once,
-as a card on Today after the first check-in; "Not now" stores the skip. Nothing about the
+diagnosis"; no row when passed over). Since 30 Sep 2026 it
+no longer reorders Today: Today offers only the reminder, the copy, the goal and Apple
+Health (`TODAY_OFFER_ORDER` in `thresholds.ts`), in that order, for everyone. Installs from
+before the question existed answer it in Profile; a null stays a null. Nothing about the
 answer is analysed, compared or sent — analytics counts only whether the screen was answered.
 
 ## 7. Daily check-in

@@ -39,8 +39,6 @@ import {
 } from './src/health/workouts';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
-import ExperimentSheet from './src/ExperimentSheet';
-import { experimentState } from './src/experiment';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import BackgroundSheet from './src/BackgroundSheet';
@@ -65,7 +63,6 @@ import {
 import { buildReportData, reportHtml } from './src/report';
 import { GoalRow } from './src/RecoveryCards';
 import { RecoveryGoal, currentGoal } from './src/recovery';
-import { todayInsight } from './src/todayInsight';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import { PREF_SQUARE_PICKER } from './src/SquarePicker';
@@ -83,7 +80,7 @@ registerCategory().catch(() => {}); // the Check in button on every prompt
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'event' | 'experiment' | 'info';
+type Sheet = null | 'checkin' | 'event' | 'info';
 
 /* "Thu, 21 Aug" comes from DayScreen, which is the other place a date is
    a heading. Two copies of the same format is how two screens end up
@@ -446,24 +443,6 @@ export default function App() {
       }
     }
   }, [healthNoticed]);
-
-  /* THE EXPERIMENT, read against the record on every render that
-     matters — entries change, a day passes, one starts or ends. The
-     experiment itself is a pref; its state is derived, never stored.
-     Ending by time is the state's call; App files it the moment the
-     person taps Done, and never before, so the answer stays on Today
-     until it has been read. */
-  const [experimentBump, setExperimentBump] = useState(0);
-  const experiment = useMemo(() => {
-    const e = db.getExperiment();
-    return e ? experimentState(e, entries, todayISO()) : null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, experimentBump]);
-  const endExperiment = useCallback((how: 'done' | 'stopped') => {
-    const closed = db.endExperiment(how, todayISO());
-    if (closed) track('experiment_ended', { how: how === 'stopped' ? 'stopped' : (experiment ? experiment.verdict : 'done') });
-    setExperimentBump((n) => n + 1);
-  }, [experiment]);
 
   /* the booked session past the line, if any — derived, never stored,
      from the calendar just read and the budget just computed */
@@ -998,14 +977,10 @@ export default function App() {
               <HomeScreen
                 goal={currentGoal(recoveryGoal, activity)}
                 onGoalChange={saveGoal}
-                insight={todayInsight(healthNoticed)}
-                onOpenRecord={() => goToTab('trends')}
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
                 onAddInfo={() => openInfo(todayISO())}
-                onOpenBackground={() => { setProfile(true); setBackgroundOpen(true); }}
-                onOpenDiagnosis={() => { setProfile(true); setDiagnosisOpen(true); }}
                 onOpenReminders={() => setProfile(true)}
                 onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
                 onShare={shareForAppointment}
@@ -1015,9 +990,6 @@ export default function App() {
                 aheadEditable={calendarEditable()}
                 onOpenAhead={openAhead}
                 onDismissAhead={dismissAhead}
-                experiment={experiment}
-                onStartExperiment={() => setSheet('experiment')}
-                onEndExperiment={endExperiment}
                 onSaveCopy={exportBackup}
                 lastCopy={lastCopy}
                 healthOfferable={health.available() && !healthRequestedOn()}
@@ -1111,18 +1083,6 @@ export default function App() {
         </Modal>
 
         <Modal
-          visible={sheet === 'experiment'}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={closeSheet}
-        >
-          <ExperimentSheet
-            onDone={() => { track('experiment_started'); setExperimentBump((n) => n + 1); closeSheet(); }}
-            onClose={closeSheet}
-          />
-        </Modal>
-
-        <Modal
           visible={sheet === 'info'}
           animationType="slide"
           presentationStyle="pageSheet"
@@ -1170,97 +1130,50 @@ export default function App() {
 
             <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
               <GoalRow goal={currentGoal(recoveryGoal, activity)} today={todayISO()} onChange={saveGoal} />
-              {/* Only offered where the binary can actually do it — a
-                  row promising a connection an old build cannot make is
-                  a broken promise on a settings screen. The sheet
-                  itself explains the TestFlight path if opened on the
-                  boundary. */}
-              {health.available() && (
-                <>
-                  <Text style={styles.groupTitle}>Apple Health</Text>
-                  <View style={styles.group}>
-                    <Pressable
-                      onPress={() => { track('health_setup_opened'); setHealthPanel('setup'); setHealthSheet(true); }}
-                      style={styles.row}
-                      accessibilityRole="button"
-                      accessibilityLabel="Apple Health. Use sleep and activity to add context automatically."
-                    >
-                      <RowIcon name="heart-outline" />
-                      <View style={[styles.rowMain, styles.rowLine]}>
-                        <Text style={styles.rowLabel}>Apple Health</Text>
-                        <Text style={styles.rowValue}>
-                          {healthRequestedOn() ? 'Set up' : 'Not set up'}
-                        </Text>
-                        <Text style={styles.rowChevron}>›</Text>
-                      </View>
-                    </Pressable>
-                    <Pressable onPress={openConnectedData}
-                      style={styles.row} accessibilityRole="button" accessibilityLabel="Connected data">
-                      <RowIcon name="list-outline" />
-                      <View style={[styles.rowMain, styles.rowLineLast]}>
-                        <Text style={styles.rowLabel}>Connected data</Text>
-                        <Text style={styles.rowChevron}>›</Text>
-                      </View>
-                    </Pressable>
-                  </View>
-                  <Text style={styles.groupFooter}>
-                    Use sleep and activity to add context automatically. Optional,
-                    read-only, and everything imported stays on this iPhone.
-                  </Text>
-                </>
-              )}
+              {/* FIVE GROUPS, NOT ELEVEN (30 Sep 2026). Profile had a group
+                  per setting and a paragraph under most of them, and read
+                  as a terms page. The settings are all still here; they
+                  are grouped by what they are for, and each group carries
+                  one sentence — the one that says what it does not do. */}
 
-              <Text style={styles.groupTitle}>Reminders</Text>
+              <Text style={styles.groupTitle}>Check-ins</Text>
               <View style={[styles.group, styles.groupPad]}>
                 <RemindersSection />
               </View>
-              {/* the calendar: only on a binary that carries the module.
-                  A switch, because the whole setting is yes or no; the
-                  permission is asked when it goes on, where the question
-                  explains itself. */}
-              {calendarAvailable() && (
-                <>
-                  <View style={styles.group}>
-                    <View style={styles.row} accessible accessibilityRole="switch"
-                      accessibilityState={{ checked: calendarUse }}
-                      accessibilityLabel="Use my calendar for reminder times">
-                      <RowIcon name="calendar-outline" />
-                      <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                        <Text style={styles.rowLabel}>Use my calendar</Text>
-                        <Switch
-                          value={calendarUse}
-                          onValueChange={async (on) => {
-                            if (on && !(await requestCalendar())) {
-                              Alert.alert('Calendar access is off',
-                                'Turn it on for Pattern in iPhone Settings and the prompts will follow your calendar.');
-                              return;
-                            }
-                            setCalendarOn(on);
-                            setCalendarUse(on);
-                            syncReminders().catch(() => {});
-                          }}
-                          trackColor={{ true: color.tint, false: color.bgSegmentActive }}
-                        />
-                      </View>
+              <View style={styles.group}>
+                {/* the calendar: only on a binary that carries the module.
+                    The permission is asked when it goes on, where the
+                    question explains itself. */}
+                {calendarAvailable() && (
+                  <View style={styles.row} accessible accessibilityRole="switch"
+                    accessibilityState={{ checked: calendarUse }}
+                    accessibilityLabel="Use my calendar for reminder times">
+                    <RowIcon name="calendar-outline" />
+                    <View style={[styles.rowMain, styles.rowLine]}>
+                      <Text style={styles.rowLabel}>Use my calendar</Text>
+                      <Switch
+                        value={calendarUse}
+                        onValueChange={async (on) => {
+                          if (on && !(await requestCalendar())) {
+                            Alert.alert('Calendar access is off',
+                              'Turn it on for Pattern in iPhone Settings and the prompts will follow your calendar.');
+                            return;
+                          }
+                          setCalendarOn(on);
+                          setCalendarUse(on);
+                          syncReminders().catch(() => {});
+                        }}
+                        trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                      />
                     </View>
                   </View>
-                  <Text style={styles.groupFooter}>
-                    A prompt after the events that read as exertion — a class,
-                    physio, a run, a long drive. Titles and times are read on this
-                    iPhone and never stored or sent; no event is ever named in a
-                    notification.
-                  </Text>
-                </>
-              )}
-
-              <Text style={styles.groupTitle}>Lock screen and watch</Text>
-              <View style={styles.group}>
+                )}
                 <View style={styles.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: lockNumber }}
                   accessibilityLabel="Show the number on the lock screen">
                   <RowIcon name="phone-portrait-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Show the number on the lock screen</Text>
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Number on lock screen</Text>
                     <Switch
                       value={lockNumber}
                       onValueChange={(on) => {
@@ -1273,15 +1186,60 @@ export default function App() {
                     />
                   </View>
                 </View>
+                {/* the picker under comparison: eleven day squares in place
+                    of the slider. A switch and not a rollout, so it can be
+                    flipped mid-week and flipped back. */}
+                <View style={styles.row} accessible accessibilityRole="switch"
+                  accessibilityState={{ checked: squarePicker }}
+                  accessibilityLabel="Choose pain with squares instead of a slider">
+                  <RowIcon name="apps-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Pick pain with squares</Text>
+                    <Switch
+                      value={squarePicker}
+                      onValueChange={(on) => {
+                        db.setPref(PREF_SQUARE_PICKER, on);
+                        setSquarePicker(on);
+                      }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
               </View>
               <Text style={styles.groupFooter}>
-                Off, the lock-screen widget shows only that you checked in, and
-                a tap opens the pain question. On, it shows today’s latest
-                number to anyone who lifts the phone. The home-screen widget
-                always shows it — that one is behind your passcode. The Apple
-                Watch app records a pain-only check-in and hands it to this
-                iPhone the next time Pattern is open.
+                Calendar titles are read on this iPhone and never stored or sent.
+                Off, the lock screen shows only that you checked in.
               </Text>
+
+              {/* Only offered where the binary can actually do it — a row
+                  promising a connection an old build cannot make is a
+                  broken promise on a settings screen. Connected data is
+                  one tap further, inside the Health sheet. */}
+              {health.available() && (
+                <>
+                  <Text style={styles.groupTitle}>Apple Health</Text>
+                  <View style={styles.group}>
+                    <Pressable
+                      onPress={() => { track('health_setup_opened'); setHealthPanel('setup'); setHealthSheet(true); }}
+                      style={styles.row}
+                      accessibilityRole="button"
+                      accessibilityLabel="Apple Health. Use sleep and activity to add context automatically."
+                    >
+                      <RowIcon name="heart-outline" />
+                      <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                        <Text style={styles.rowLabel}>Apple Health</Text>
+                        <Text style={styles.rowValue}>
+                          {healthRequestedOn() ? 'Set up' : 'Not set up'}
+                        </Text>
+                        <Text style={styles.rowChevron}>›</Text>
+                      </View>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.groupFooter}>
+                    Read-only, and everything imported stays on this iPhone.
+                  </Text>
+                </>
+              )}
 
               <Text style={styles.groupTitle}>Your report</Text>
               <View style={styles.group}>
@@ -1293,7 +1251,7 @@ export default function App() {
                   style={styles.row}
                   accessibilityRole="button"
                   accessibilityLabel="Diagnosis"
-                  accessibilityHint="Whether you have one, and what it is — the first line of your report, and what Today offers first"
+                  accessibilityHint="Whether you have one, and what it is — the first line of your report"
                 >
                   <RowIcon name="medkit-outline" />
                   <View style={[styles.rowMain, styles.rowLine]}>
@@ -1328,11 +1286,77 @@ export default function App() {
                 />
               </View>
               <Text style={styles.groupFooter}>
-                Two days before the appointment, Today offers the PDF. The date is
-                a reminder to the app, nothing more.
+                Two days before the appointment, Today offers the PDF.
               </Text>
 
-              <Text style={styles.groupTitle}>Appearance</Text>
+              <Text style={styles.groupTitle}>Your data</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={exportBackup}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Export backup"
+                >
+                  <RowIcon name="share-outline" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Export backup</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  onPress={restoreBackup}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Restore backup"
+                >
+                  <RowIcon name="download-outline" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Restore backup</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+                {/* a switch, because it is one — the row with On/Off text
+                    and a chevron said "opens something" */}
+                <View style={styles.row} accessible accessibilityRole="switch"
+                  accessibilityState={{ checked: analyticsOn }}
+                  accessibilityLabel="Share anonymous usage counts">
+                  <RowIcon name="stats-chart-outline" />
+                  <View style={[styles.rowMain, styles.rowLine]}>
+                    <Text style={styles.rowLabel}>Anonymous usage counts</Text>
+                    <Switch
+                      value={analyticsOn}
+                      onValueChange={(on) => { setAnalyticsEnabled(on); setAnalyticsOn(on); }}
+                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                    />
+                  </View>
+                </View>
+                <Pressable
+                  onPress={() => setPrivacy(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel="Privacy policy"
+                >
+                  <RowIcon name="lock-closed-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Privacy policy</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+              {/* It opens with when the record last had a home other than
+                  this phone, because that is the sentence that decides
+                  whether the rest matters today. The reinstall sentence
+                  stays: a tester lost a record to exactly that. */}
+              <Text style={styles.groupFooter}>
+                {(lastCopy
+                  ? 'Last copy saved ' + fmtDay(lastCopy.on) + ', holding '
+                    + lastCopy.days + (lastCopy.days === 1 ? ' day. ' : ' days. ')
+                  : 'No copy saved yet. ')
+                  + 'Reinstalling Pattern starts it empty; a copy you saved is the only way back. '
+                  + 'Usage counts say that something happened, never what you recorded.'}
+              </Text>
+
+              <Text style={styles.groupTitle}>About</Text>
               <View style={styles.group}>
                 <Pressable
                   onPress={() => setAppearance(true)}
@@ -1351,34 +1375,6 @@ export default function App() {
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
-                {/* the picker under comparison: the 0–10 scale as eleven
-                    day squares in place of the slider's thumb and track.
-                    A switch and not a rollout, so it can be flipped on the
-                    phone mid-week and flipped back. */}
-                <View style={styles.row} accessible accessibilityRole="switch"
-                  accessibilityState={{ checked: squarePicker }}
-                  accessibilityLabel="Choose pain with squares instead of a slider">
-                  <RowIcon name="apps-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Pick pain with squares</Text>
-                    <Switch
-                      value={squarePicker}
-                      onValueChange={(on) => {
-                        db.setPref(PREF_SQUARE_PICKER, on);
-                        setSquarePicker(on);
-                      }}
-                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
-                    />
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.groupFooter}>
-                Being tried, off by default: squares show the eleven a day can
-                wear, in place of the slider — drag along the row or tap one.
-              </Text>
-
-              <Text style={styles.groupTitle}>About</Text>
-              <View style={styles.group}>
                 <Pressable
                   onPress={() => setAbout(true)}
                   style={styles.row}
@@ -1404,87 +1400,6 @@ export default function App() {
                   </View>
                 </Pressable>
               </View>
-
-              <Text style={styles.groupTitle}>Your data</Text>
-              <View style={styles.group}>
-                {/* a switch, because it is one — the row with On/Off text
-                    and a chevron said "opens something" */}
-                <View style={styles.row} accessible accessibilityRole="switch"
-                  accessibilityState={{ checked: analyticsOn }}
-                  accessibilityLabel="Share anonymous usage counts">
-                  <RowIcon name="stats-chart-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Share anonymous usage counts</Text>
-                    <Switch
-                      value={analyticsOn}
-                      onValueChange={(on) => { setAnalyticsEnabled(on); setAnalyticsOn(on); }}
-                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
-                    />
-                  </View>
-                </View>
-                <Pressable
-                  onPress={() => setPrivacy(true)}
-                  style={styles.row}
-                  accessibilityRole="button"
-                  accessibilityLabel="Privacy policy"
-                >
-                  <RowIcon name="lock-closed-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Privacy policy</Text>
-                    <Text style={styles.rowChevron}>›</Text>
-                  </View>
-                </Pressable>
-              </View>
-              <Text style={styles.groupFooter}>
-                Counts that a thing happened — a check-in was completed, the app
-                was opened — never what you recorded. No pain scores, notes or
-                answers ever leave this phone. The counts go to Aptabase, an
-                open-source service hosted in the EU, under a random id linked
-                to nothing.
-              </Text>
-
-              <View style={styles.group}>
-                <Pressable
-                  onPress={exportBackup}
-                  style={styles.row}
-                  accessibilityRole="button"
-                  accessibilityLabel="Export backup"
-                >
-                  <RowIcon name="share-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Export backup</Text>
-                    <Text style={styles.rowChevron}>›</Text>
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  onPress={restoreBackup}
-                  style={styles.row}
-                  accessibilityRole="button"
-                  accessibilityLabel="Restore backup"
-                >
-                  <RowIcon name="download-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Restore backup</Text>
-                    <Text style={styles.rowChevron}>›</Text>
-                  </View>
-                </Pressable>
-              </View>
-              {/* a fact, not a row — iOS puts it under the group. It
-                  opens with when the record last had a home other than
-                  this phone, because that is the sentence that decides
-                  whether the rest of the paragraph matters today. */}
-              <Text style={styles.groupFooter}>
-                {(lastCopy
-                  ? 'Last copy saved ' + fmtDay(lastCopy.on) + ', holding '
-                    + lastCopy.days + (lastCopy.days === 1 ? ' day. ' : ' days. ')
-                  : 'No copy saved yet. ')
-                  + 'Your record rides in your iPhone’s own backup, so a new phone gets it back. '
-                  + 'A reinstall on this phone does not: iOS gives Pattern an empty start and never '
-                  + 'reads the backup, so a copy you saved yourself is the only way back. Apple '
-                  + 'Health context is kept out of both, and is re-read from Health instead. '
-                  + 'Restoring lets you replace or merge; you decide before anything changes.'}
-              </Text>
               {/* which code is actually running — the end of guessing
                   whether an update has landed. updateId is null when the
                   app runs its embedded bundle. */}
@@ -1504,8 +1419,7 @@ export default function App() {
                 </Pressable>
               </View>
               <Text style={styles.groupFooter}>
-                Removes every check-in, event and weekly rating from this
-                iPhone. There is no copy anywhere else.
+                Removes everything from this iPhone. There is no copy anywhere else.
               </Text>
             </ScrollView>
 

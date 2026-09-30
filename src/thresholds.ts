@@ -180,14 +180,6 @@ export const EXPERIMENT_MAX_DAYS = 28;
  *  makes on five-a-side elsewhere cannot honestly need more here */
 export const EXPERIMENT_MIN_GROUP_DAYS = 5;
 
-/** logged days before an experiment is offered — a person with no
- *  record has no baseline to compare a fortnight against */
-export const EXPERIMENT_OFFER_AFTER_DAYS = 7;
-
-/** "not now" rests the offer for this long. A fortnight, the length
- *  of the thing declined. */
-export const EXPERIMENT_REOFFER_DAYS = 14;
-
 /* ── Apple Health context ────────────────────────────────────
    The same person, the same 0–10 pain scale, and the same question — do
    two groups of days differ — so the same arithmetic applies. What
@@ -510,65 +502,32 @@ export const REPORT_DEFAULT_WINDOW_DAYS = 90;
 
 /* ── Today's offers ────────────────────────────────────────── */
 
-/** logged days before each offer may appear on Today. Ordered by how
- *  much each pays back a new user; the reminder is offered on the first
- *  check-in, so it has no constant here. The background waits three
- *  days because five minutes of history right after onboarding was the
- *  first thing every tester dismissed; the widget waits longest because
- *  a lock screen is worth explaining only to someone who has come back. */
+/** logged days before Apple Health is offered on Today. The reminder
+ *  is offered on the first check-in and the goal after the first day. */
 export const HEALTH_OFFER_AFTER_DAYS = 2;
-export const BACKGROUND_OFFER_AFTER_DAYS = 3;
-export const APPOINTMENT_OFFER_AFTER_DAYS = 4;
-export const WIDGET_OFFER_AFTER_DAYS = 5;
 
 /** every card Today may offer, one at a time */
-export type TodayOffer =
-  | 'reminder' | 'copy' | 'goal' | 'diagnosis' | 'health' | 'background'
-  | 'experiment' | 'appointment' | 'widget';
+export type TodayOffer = 'reminder' | 'copy' | 'goal' | 'health';
 
-/** THE ORDER, BY WHAT THE PERSON IS HERE FOR. Each offer still waits
- *  its own number of days above; the order decides only which shows
- *  when more than one is due. The first two never move: the reminder
- *  is the habit and the copy is what keeps the record. The diagnosis
- *  question comes next, once, only to an install that was never asked
- *  — it is one tap and it decides the rest of this list.
- *
- *  Someone still without a diagnosis is building a clearer picture for
- *  a doctor, so the background (onset, what was tried, family history)
- *  and the appointment it is for come before Health context and well
- *  before an experiment — "what helps" is a question for after the
- *  name. Someone MANAGING a named condition already has the
- *  history in a file somewhere; what they lack is the fortnight's
- *  answer and the morning-after context, so the experiment and Health
- *  move up and the background waits. Never asked, or passed over,
- *  gets the order the app shipped with — the default is never one of
- *  the other two guessed. */
-export const TODAY_OFFER_ORDER: Record<'seek' | 'manage' | 'unknown', TodayOffer[]> = {
-  unknown: ['reminder', 'copy', 'goal', 'diagnosis', 'health', 'background', 'experiment', 'appointment', 'widget'],
-  seek: ['reminder', 'copy', 'goal', 'diagnosis', 'background', 'appointment', 'health', 'experiment', 'widget'],
-  manage: ['reminder', 'copy', 'goal', 'diagnosis', 'health', 'experiment', 'background', 'appointment', 'widget'],
-};
+/** FOUR OFFERS, NOT NINE (30 Sep 2026). Today carried nine rotating
+ *  asks — diagnosis, background, appointment, widget and an experiment
+ *  among them — ordered three ways by what the person was here for, and
+ *  the screen read as a to-do list. What stays is what pays back in the
+ *  first week: the reminder is the habit, the copy is what keeps the
+ *  record, the goal is what the activity card reads, and Health is what
+ *  lets that card say anything. The rest live in Profile, where someone
+ *  who wants them finds them; the diagnosis is asked in onboarding.
+ *  One order for everyone: a list of four has nothing to reorder. */
+export const TODAY_OFFER_ORDER: TodayOffer[] = ['reminder', 'copy', 'goal', 'health'];
 
 /** The goal is asked in onboarding; a phone that onboarded before it
  *  is offered it once, after the first recorded day — the check-in has
- *  shown what the app is, and the question is two taps. It took the
- *  free-text intention's place in the order, and its number. */
+ *  shown what the app is, and the question is two taps. */
 export const GOAL_OFFER_AFTER_DAYS = 1;
-
-/** logged days before the diagnosis question is put on Today to an
- *  install that predates it. One: the first check-in has shown what
- *  the app is, and the question is one tap. Never to anyone who has
- *  answered or passed over it — a skip is an answer. */
-export const DIAGNOSIS_OFFER_AFTER_DAYS = 1;
 
 /** how many days before an appointment the summary is offered — two:
  *  enough to read it, not enough to forget it */
 export const APPOINTMENT_LEAD_DAYS = 2;
-
-/** how long after a date passes, or after "not now", before the
- *  appointment question is asked again — appointments recur, and a
- *  month is not nagging */
-export const APPOINTMENT_REASK_DAYS = 30;
 
 /** below this, the two halves of a window are called "about the same"
  *  on Patterns rather than given a direction. A quarter of a point is

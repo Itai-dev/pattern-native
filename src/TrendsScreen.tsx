@@ -1611,52 +1611,79 @@ export default function TrendsScreen({
         {openCard && <StandoutSheet card={openCard} onClose={() => setOpenCard(null)} />}
       </Modal>
 
-      {/* ── 3. your record ──────────────────────────────────
-          The appendix: how the days split by band, the most recorded
-          places and words, and behind a fold the whole of it — what you
-          noticed, the two ends, the tables, the events. Counts, never
-          findings, and the card says so inside itself. */}
+      {/* ── 3. the handoff ──────────────────────────────────
+          Straight after the findings, above the folded appendix: the
+          report is the thing this screen is most often opened to make. */}
+      {!!onShare && (
+        <Card title="Share with your clinician">
+          <Text style={styles.bodyText} allowFontScaling maxFontSizeMultiplier={1.4}>
+            A PDF of this record — your background, the numbers above, and what
+            they do and don’t mean. Made on this iPhone, sent only where you
+            send it, and it says on its face that it is self-recorded and not a
+            diagnosis.
+          </Text>
+          <Press
+            onPress={onShare}
+            pressOpacity={0.8}
+            style={styles.shareBtn}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !!sharing }}
+            accessibilityLabel={sharing ? 'Preparing the PDF' : 'Create the PDF and open the share sheet'}
+          >
+            <Text style={styles.shareBtnText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {sharing ? 'Preparing…' : 'Create report'}
+            </Text>
+          </Press>
+        </Card>
+      )}
+      {/* ── 4. your record ──────────────────────────────────
+          The appendix, folded WHOLE since 30 Sep 2026: the band chart
+          and the most-recorded lines used to show above the fold, and
+          Patterns read as three screens of counts before the report.
+          Closed, it is a title, the sentence about what it is not, and
+          one row. Counts, never findings, and the card says so inside
+          itself. */}
       <Card
         title="Your record"
         note="Counts of what you recorded, never findings. What you noticed is your own read of a day, so it can’t be weighed against the days you didn’t notice it."
       >
-        {feltBands.length > 0 && (
-          <>
-            <Text style={styles.subhead}>Days like this</Text>
-            <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
-            <Key items={feltBands} />
-            <InfoTip
-              label="About days like this"
-              text={'Your ' + data.days.length + ' logged ' + (data.days.length === 1 ? 'day' : 'days')
-                + ', grouped by how they averaged — the same days as the chart, counted by band. It says how many days were like this, not how you are doing.'}
-            />
-          </>
-        )}
-        {data.locations.length > 0 && (
-          <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            <Text style={styles.profileKey}>Most recorded areas   </Text>
-            {data.locations.slice(0, 3).map((l) => l.name).join(' · ')}
-          </Text>
-        )}
-        {data.qualities.length > 0 && (
-          <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            <Text style={styles.profileKey}>Most used words   </Text>
-            {data.qualities.slice(0, 3).map((q) => q.name).join(' · ')}
-          </Text>
-        )}
-
         {!recordOpen ? (
           <Press
             onPress={() => setRecordOpen(true)}
             pressOpacity={0.7}
             style={styles.more}
             accessibilityRole="button"
-            accessibilityLabel="Show everything: the hardest and easiest days, the tables and the events"
+            accessibilityLabel="Show your record: how the days split, the hardest and easiest days, the tables and the events"
           >
             <Text style={styles.moreText}>Show details ›</Text>
           </Press>
         ) : (
           <>
+            {feltBands.length > 0 && (
+              <>
+                <Text style={styles.subhead}>Days like this</Text>
+                <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
+                <Key items={feltBands} />
+                <InfoTip
+                  label="About days like this"
+                  text={'Your ' + data.days.length + ' logged ' + (data.days.length === 1 ? 'day' : 'days')
+                    + ', grouped by how they averaged — the same days as the chart, counted by band. It says how many days were like this, not how you are doing.'}
+                />
+              </>
+            )}
+            {data.locations.length > 0 && (
+              <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Text style={styles.profileKey}>Most recorded areas   </Text>
+                {data.locations.slice(0, 3).map((l) => l.name).join(' · ')}
+              </Text>
+            )}
+            {data.qualities.length > 0 && (
+              <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Text style={styles.profileKey}>Most used words   </Text>
+                {data.qualities.slice(0, 3).map((q) => q.name).join(' · ')}
+              </Text>
+            )}
+
             {!!he && (
               <View style={styles.subBlock}>
                 <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -1830,31 +1857,6 @@ export default function TrendsScreen({
         )}
       </Card>
 
-      {/* ── 4. the handoff ──────────────────────────────────
-          The PDF's natural home: at the foot, as the destination of
-          everything above it. */}
-      {!!onShare && (
-        <Card title="Share with your clinician">
-          <Text style={styles.bodyText} allowFontScaling maxFontSizeMultiplier={1.4}>
-            A PDF of this record — your background, the numbers above, and what
-            they do and don’t mean. Made on this iPhone, sent only where you
-            send it, and it says on its face that it is self-recorded and not a
-            diagnosis.
-          </Text>
-          <Press
-            onPress={onShare}
-            pressOpacity={0.8}
-            style={styles.shareBtn}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !!sharing }}
-            accessibilityLabel={sharing ? 'Preparing the PDF' : 'Create the PDF and open the share sheet'}
-          >
-            <Text style={styles.shareBtnText} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {sharing ? 'Preparing…' : 'Create report'}
-            </Text>
-          </Press>
-        </Card>
-      )}
     </View>
   );
 }

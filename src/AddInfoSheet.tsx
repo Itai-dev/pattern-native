@@ -44,7 +44,6 @@ import { track } from './analytics';
 import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
 import { LIMITATION_ID, MetricDef, eligibleNow, getMetric } from './metrics';
-import { EXPERIMENT_METRIC_ID, experimentQuestion } from './experiment';
 import { healthHintFor } from './health/context';
 import { HealthDay } from './health/types';
 import { inkOn, painColor } from './painScale';
@@ -87,9 +86,8 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
   const [noteDraft, setNoteDraft] = useState(() => (entry && entry.note) || '');
 
   /* ── the day's questions ──────────────────────────────────
-     How much pain limited the day, once, in the evening, and the
-     experiment's question while one runs — the same windows and the
-     same once-a-day rule the check-in used to apply. Today only: a
+     How much pain limited the day, once, in the evening — the same
+     window and the same once-a-day rule the check-in used to apply. Today only: a
      remembered attribution is recall bias invited into the one place
      it hurts most, so a past day's sheet asks nothing about the day. */
   const [askIds] = useState<string[]>(() => {
@@ -100,15 +98,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
     if (m && eligibleNow(m.eligibility, now, false, answerOf(entry, LIMITATION_ID) != null)) {
       ids.push(LIMITATION_ID);
     }
-    const x = getMetric(EXPERIMENT_METRIC_ID);
-    if (x && db.getExperiment() && eligibleNow(x.eligibility, now, false,
-      answerOf(entry, EXPERIMENT_METRIC_ID) != null)) ids.push(EXPERIMENT_METRIC_ID);
     return ids;
-  });
-  /* the phrase the experiment's question wears */
-  const [experimentWhat] = useState<string | null>(() => {
-    const e = db.getExperiment();
-    return e ? experimentQuestion(e) : null;
   });
   /* what Health already has for today — a hint above a question, never
      an answer to it */
@@ -463,12 +453,8 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           )}
 
           {askIds.map((id) => {
-            const base = getMetric(id);
-            if (!base) return null;
-            /* the experiment's question is the person's own phrase —
-               the registry's wording is the fallback it never shows */
-            const m = id === EXPERIMENT_METRIC_ID && experimentWhat
-              ? { ...base, question: experimentWhat } : base;
+            const m = getMetric(id);
+            if (!m) return null;
             return m.type === 'numeric' ? numericRow(m) : ordinalRow(m);
           })}
 
