@@ -58,6 +58,7 @@ import { fmtDay } from './DayScreen';
 import Slider from './Slider';
 import SquarePicker, { PREF_SQUARE_PICKER } from './SquarePicker';
 import PainShape from './PainShape';
+import PainOrb, { PAIN_ORB_AVAILABLE } from './PainOrb';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import { healthNowHint } from './health/context';
@@ -372,7 +373,11 @@ export default function CheckinScreen({
           accessibilityRole="image"
           accessibilityLabel={'Pain ' + speakScore(pain)}
         >
-          <PainShape progress={progress} size={square} />
+          {/* the orb where the binary carries Skia, the square where it
+              does not — same value, same words, see PainOrb.tsx */}
+          {PAIN_ORB_AVAILABLE
+            ? <PainOrb progress={progress} size={square} />
+            : <PainShape progress={progress} size={square} />}
         </View>
         <View
           style={styles.below}
