@@ -47,6 +47,20 @@ import {
 /** the day-scoped question's id — the evening answer is stored under
  *  it like any other day answer, three-state and revisable */
 export const EXPERIMENT_METRIC_ID = 'experiment.did.v1';
+/** the two-option experiment's evening question — 'a' or 'b' */
+export const EXPERIMENT_WHICH_ID = 'experiment.which.v1';
+
+/** a two-option experiment: "400 mg" against "200 mg" */
+export function isAB(exp: Experiment): exp is Experiment & { a: string; b: string } {
+  return !!exp.a && !!exp.b;
+}
+/** which evening question this experiment asks */
+export function experimentMetricId(exp: Experiment): string {
+  return isAB(exp) ? EXPERIMENT_WHICH_ID : EXPERIMENT_METRIC_ID;
+}
+/** the answer that counts as the first group — yes, or option A */
+function firstValue(exp: Experiment): string { return isAB(exp) ? 'a' : 'yes'; }
+function secondValue(exp: Experiment): string { return isAB(exp) ? 'b' : 'no'; }
 
 /* the type, its cap and its cleaner live in model.ts with the other
    domain shapes, so the backup validator can use them without a
@@ -64,6 +78,25 @@ export type { Experiment } from './model';
  *  elimination diet IS an n-of-1 experiment, and this is the shape of
  *  it. None of the six names a food as a culprit: they are habits a
  *  person might keep, not foods Pattern suspects. */
+/** Two-option examples, for the dose, the timing or the kind. Every
+ *  one is a comparison a person and their prescriber might agree to
+ *  run — none names a drug, a dose or a direction, because Pattern
+ *  never suggests one (AGENTS.md: a model proposes nothing about a
+ *  dose, and neither does the copy). */
+export const EXPERIMENT_AB_EXAMPLES: { what: string; a: string; b: string }[] = [
+  { what: 'my usual dose or the lower one', a: 'usual dose', b: 'lower dose' },
+  { what: 'taking it in the morning or the evening', a: 'morning', b: 'evening' },
+  { what: 'with food or without', a: 'with food', b: 'without' },
+  { what: 'heat or ice', a: 'heat', b: 'ice' },
+];
+
+/** said wherever a two-option experiment is set up or read: the
+ *  comparison is the person's, and a dose changes only with the person
+ *  who prescribed it */
+export const EXPERIMENT_DOSE_NOTE =
+  'If this is about a medicine, change a dose only as agreed with whoever prescribed it. '
+  + 'Pattern compares the mornings; it never suggests a dose.';
+
 export const EXPERIMENT_EXAMPLES = [
   'walk on days I would skip',
   'an early night',
@@ -78,6 +111,7 @@ export type ExperimentVerdict = 'running' | 'possible' | 'observation' | 'insuff
 export interface ExperimentPair {
   /** the date of the evening answer */
   date: string;
+  /** yes — or, on a two-option experiment, the first option */
   did: boolean;
   /** the next morning's first check-in */
   pain: number;
@@ -131,12 +165,13 @@ function dayOf(from: string, date: string): number {
 export function experimentPairs(exp: Experiment, entries: Entries, uptoIso: string): ExperimentPair[] {
   const out: ExperimentPair[] = [];
   const last = exp.endedOn && exp.endedOn < uptoIso ? exp.endedOn : uptoIso;
+  const id = experimentMetricId(exp), one = firstValue(exp), two = secondValue(exp);
   for (let d = exp.from, i = 0; d <= last && i < EXPERIMENT_MAX_DAYS; d = addDays(d, 1), i++) {
-    const a = answerOf(entries[d], EXPERIMENT_METRIC_ID);
-    if (!a || a.skipped || (a.value !== 'yes' && a.value !== 'no')) continue;
+    const a = answerOf(entries[d], id);
+    if (!a || a.skipped || (a.value !== one && a.value !== two)) continue;
     const next = morningPain(logsOf(entries[addDays(d, 1)]));
     if (!next) continue;
-    out.push({ date: d, did: a.value === 'yes', pain: next.pain });
+    out.push({ date: d, did: a.value === one, pain: next.pain });
   }
   return out;
 }
@@ -145,9 +180,10 @@ export function experimentPairs(exp: Experiment, entries: Entries, uptoIso: stri
 function answeredDays(exp: Experiment, entries: Entries, uptoIso: string): number {
   let n = 0;
   const last = exp.endedOn && exp.endedOn < uptoIso ? exp.endedOn : uptoIso;
+  const id = experimentMetricId(exp), one = firstValue(exp), two = secondValue(exp);
   for (let d = exp.from, i = 0; d <= last && i < EXPERIMENT_MAX_DAYS; d = addDays(d, 1), i++) {
-    const a = answerOf(entries[d], EXPERIMENT_METRIC_ID);
-    if (a && !a.skipped && (a.value === 'yes' || a.value === 'no')) n++;
+    const a = answerOf(entries[d], id);
+    if (a && !a.skipped && (a.value === one || a.value === two)) n++;
   }
   return n;
 }
@@ -207,7 +243,15 @@ export interface ExperimentCopy {
 /** the question the check-in puts, in the person's own words */
 export function experimentQuestion(exp: Experiment): string {
   const w = exp.what.trim();
-  return w.charAt(0).toUpperCase() + w.slice(1) + ' — did it happen today?';
+  const cap = w.charAt(0).toUpperCase() + w.slice(1);
+  if (isAB(exp)) return cap + ' — which was it today?';
+  return cap + ' — did it happen today?';
+}
+
+/** the two buttons under that question, in the person's words */
+export function experimentOptions(exp: Experiment): { id: string; label: string }[] {
+  if (isAB(exp)) return [{ id: 'a', label: exp.a }, { id: 'b', label: exp.b }];
+  return [{ id: 'no', label: 'Not today' }, { id: 'yes', label: 'Yes, today' }];
 }
 
 /** the ending's words, on every result: what a pair takes */
@@ -215,6 +259,7 @@ export const EXPERIMENT_NEEDS =
   'What counts: the evening answer, then a check-in before noon the next day.';
 
 export function experimentCopy(s: ExperimentState): ExperimentCopy {
+  if (isAB(s.exp)) return abCopy(s as ExperimentState & { exp: { a: string; b: string } });
   const what = '“' + s.exp.what.trim() + '”';
   const each = EXPERIMENT_MIN_GROUP_DAYS;
   if (s.verdict === 'running') {
@@ -257,5 +302,54 @@ export function experimentCopy(s: ExperimentState): ExperimentCopy {
       + n + ' (' + s.no + ' days).',
     caveat: 'You chose the days, so this is your record read back, not a test of the thing itself. '
       + HEALTH_NON_CAUSATION,
+  };
+}
+
+/** the same four shapes for a two-option experiment: the groups are
+ *  named by the person's own options, and the dose note travels with
+ *  every ended result, not only the setup */
+function abCopy(s: ExperimentState & { exp: { a: string; b: string } }): ExperimentCopy {
+  const A = '“' + s.exp.a.trim() + '”', B = '“' + s.exp.b.trim() + '”';
+  const what = '“' + s.exp.what.trim() + '”';
+  const each = EXPERIMENT_MIN_GROUP_DAYS;
+  const counts = s.yes + ' ' + A + ' and ' + s.no + ' ' + B + ' with a morning after';
+  if (s.verdict === 'running') {
+    if (s.extended) {
+      return {
+        title: 'Day ' + s.day + ' · ' + what + ' · still collecting.',
+        evidence: counts + '; ' + each + ' each way is the floor, and the answer comes the day it is reached. '
+          + EXPERIMENT_NEEDS,
+      };
+    }
+    return {
+      title: 'Day ' + s.day + ' of ' + s.planned + ' · ' + what,
+      evidence: counts + ' so far. ' + EXPERIMENT_NEEDS,
+    };
+  }
+  if (s.verdict === 'insufficient') {
+    return {
+      title: 'Not enough days each way to compare.',
+      evidence: counts + '; ' + each + ' each is the floor. ' + EXPERIMENT_NEEDS,
+      caveat: 'A real answer about the record, not about ' + A + ' or ' + B
+        + ': the mornings were not there to read.',
+    };
+  }
+  const y = s.yesMean as number, n = s.noMean as number, d = s.delta as number;
+  const evidence = 'Mornings after ' + A + ' averaged ' + y + ' (' + s.yes + ' days); after '
+    + B + ', ' + n + ' (' + s.no + ' days).';
+  if (s.verdict === 'observation') {
+    return {
+      title: 'No difference worth a sentence between mornings after ' + A + ' and after ' + B + '.',
+      evidence,
+      caveat: 'That is a finding too. ' + HEALTH_NON_CAUSATION + ' ' + EXPERIMENT_DOSE_NOTE,
+    };
+  }
+  const size = Math.abs(d);
+  return {
+    title: 'Mornings after ' + A + ' ran ' + size + (size === 1 ? ' point ' : ' points ')
+      + (d < 0 ? 'lower' : 'higher') + ' than mornings after ' + B + '.',
+    evidence,
+    caveat: 'You chose the days, so this is your record read back, not a trial. '
+      + HEALTH_NON_CAUSATION + ' ' + EXPERIMENT_DOSE_NOTE,
   };
 }

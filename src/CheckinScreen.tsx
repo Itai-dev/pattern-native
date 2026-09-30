@@ -68,7 +68,8 @@ import { color, font, size } from './theme';
 import {
   PAIN_END_HIGH, PAIN_END_LOW, formatScore, painLabel, speakScore, SCALE_VERSION,
 } from './painScale';
-import { Moment, MomentMeta, logsOf, minutesNow, nowMeta, todayISO } from './model';
+import { Moment, MomentMeta, answerOf, logsOf, minutesNow, nowMeta, todayISO } from './model';
+import { FATIGUE_ID, getMetric } from './metrics';
 import { fmtClock } from './clock';
 
 const SQUARE = 150;
@@ -153,6 +154,21 @@ export default function CheckinScreen({
   const [today] = useState(() => dateIso || todayISO());
   const [retro] = useState(() => (dateIso || todayISO()) !== todayISO());
 
+  /* TIRED, ONCE A DAY (1 Oct 2026). The one question beside the
+     number, and only on the first check-in of today: tiredness is what
+     people with chronic pain most often say goes with a bad day, and it
+     is only worth comparing if it is asked on ordinary days too, not
+     only when someone thinks to add it. It never gates Done, and left
+     alone it is recorded as nothing at all — never asked, not a skip —
+     the same rule the Add information sheet keeps. A remembered day and
+     an edit ask nothing: a recalled tiredness is shaped by the pain it
+     would be compared with. */
+  const [askTired] = useState(() => !editing && !retro
+    && logsOf(db.getDay(today)).length === 0
+    && answerOf(db.getDay(today), FATIGUE_ID) == null);
+  const [tired, setTired] = useState<string | null>(null);
+  const tiredLevels = (getMetric(FATIGUE_ID) || { levels: [] }).levels || [];
+
   /* a retro entry describes a time the user names; midday is only the
      picker's starting point, and the control is on screen the whole
      time — the time is part of what they enter. An edit starts from the
@@ -231,6 +247,7 @@ export default function CheckinScreen({
       editing ? (edit!.loc || []) : null, editing ? (edit!.q || []) : null,
       meta(), writtenAt ?? undefined
     );
+    if (askTired && tired) db.setAnswer(today, FATIGUE_ID, tired, minutes, null);
     setWrittenAt(minutes);
     return true;
   };
@@ -437,6 +454,39 @@ export default function CheckinScreen({
           <Text style={styles.endText}>{PAIN_END_HIGH.toUpperCase()}</Text>
         </View>
 
+        {askTired && tiredLevels.length > 0 && (
+          <View style={styles.tired} accessibilityRole="radiogroup"
+            accessibilityLabel="How tired do you feel? Optional">
+            <Text style={styles.tiredQ} allowFontScaling maxFontSizeMultiplier={1.4}>
+              How tired do you feel? <Text style={styles.tiredOpt}>Optional</Text>
+            </Text>
+            <View style={styles.tiredRow}>
+              {tiredLevels.map((l) => {
+                const on = tired === l.id;
+                return (
+                  <Pressable
+                    key={l.id}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setTired(on ? null : l.id);
+                    }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={l.label}
+                    accessibilityHint={on ? 'Tap again to unselect' : undefined}
+                    /* neutral, never the ramp: tiredness is not a pain value */
+                    style={({ pressed }) => [styles.tiredChip, on && styles.tiredChipOn,
+                      pressed && { opacity: 0.8 }]}
+                  >
+                    <Text allowFontScaling maxFontSizeMultiplier={1.4}
+                      style={[styles.tiredText, on && styles.tiredTextOn]}>{l.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* ONE BUTTON. It is the whole of what this screen asks, so it
             gets the whole width — and it is a button that waits: dimmed
             and inert until the slider has been touched, because the one
@@ -530,6 +580,17 @@ const styles = StyleSheet.create({
   endText: {
     color: color.textTertiary, fontSize: 11, fontWeight: '600', letterSpacing: 0.6,
   },
+  tired: { marginTop: 22 },
+  tiredQ: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '500', marginBottom: 10 },
+  tiredOpt: { color: color.textTertiary, fontWeight: '400' },
+  tiredRow: { flexDirection: 'row', gap: 8 },
+  tiredChip: {
+    flex: 1, minHeight: 40, borderRadius: 20, borderCurve: 'continuous', borderWidth: 1,
+    borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center',
+  },
+  tiredChipOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
+  tiredText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '500' },
+  tiredTextOn: { color: '#000000' },
   /* a full pill, the reference's button shape */
   primary: {
     minHeight: size.buttonH, borderRadius: size.buttonH / 2, borderCurve: 'continuous',

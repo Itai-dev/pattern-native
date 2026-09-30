@@ -318,11 +318,31 @@ associated symptoms, recorded per moment, never attributions, never fed to the e
 · the day's **note** · the door to a **flare or treatment**. Never mandatory; the interface
 must never call a pain-only entry incomplete. Where, the words and the symptoms attach to
 the check-in the sheet names at the top — the day's latest, or the dot tapped on the day page.
+**Tiredness** (Low / Medium / High, `fatigue.level.v1`) is offered here while today has no
+answer, and beside the pain slider on the first check-in of the day (1 Oct 2026) — optional,
+never gating Done, and left alone it is recorded as nothing, not a skip.
 
 Tri-state is kept: Done with nothing tapped under Where is "asked, nothing picked"
 (`locAsked`, `qAsked`, `symAsked`). The evening's questions are the exception — a
 question left alone in this sheet is *not* recorded as declined, because the sheet was
 opened to add something else; it stays due.
+
+### Today's lead card — what helps, what makes it worse (1 Oct 2026)
+
+One card (`src/HelpsCard.tsx`, read by `src/helps.ts`): the experiment running now, with
+the evening's question answerable inline; then every gated finding, sorted by side —
+better days, harder days, compared, what you can do, no difference — four shown, the rest
+in place behind "Show N more", each with "Why?" and its caveat. Sources: ended experiments,
+Health comparisons, dose comparisons (Health's doses and Pattern's own), tiredness beside
+pain, and the activity conclusion. Below it, a **Medicines** card only while a scheduled
+dose is due (within six hours, today only) or an as-needed medicine is kept: Taken /
+Skipped, one tap each. Medicines themselves live in Profile → Medicines (`src/meds.ts`);
+reminders are daily, one per time, and never name the medicine.
+
+An **experiment** is one thing yes-or-no, or two options compared ("usual dose" or "lower
+dose"), `experiment.did.v1` or `experiment.which.v1` in the evening, answered by the next
+morning's check-in. A two-option experiment carries, at setup and on every result, the note
+that a dose changes only as agreed with whoever prescribed it.
 
 ### 7.1 Timing eligibility (the evening's questions, in the Add information sheet)
 
