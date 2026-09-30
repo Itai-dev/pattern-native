@@ -33,6 +33,15 @@
  * Setting the goal is onboarding's job, or one offer here for a phone
  * that predates it; this screen never opens on a form.
  *
+ * WHAT HELPS LEADS (1 Oct 2026). The activity card at the top became
+ * one row of a wider card: what helps, what makes it worse (helps.ts,
+ * HelpsCard.tsx) — the experiment running now with tonight's question
+ * inline, then what the record found about Health, doses, tiredness
+ * and activity, by which way the days went. The goal is still asked in
+ * onboarding and kept in Profile; its conclusion is the activity row.
+ * Below it, a medicine card only while a dose is due. Then the
+ * check-in card, as before.
+ *
  * TWO CARDS, AND LITTLE ELSE (30 Sep 2026). The screen had grown to
  * nine things at once: the two cards, Health tiles, every detail of the
  * check-in, a "from your record" finding, an experiment, and one of nine
@@ -67,9 +76,11 @@ import * as db from './db';
 import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
-import { capacityView } from './health/capacity';
-import { RecoveryGoal, dailyGuidance, recoveryHero } from './recovery';
-import { ActivityCard, GoalSetup, makeGoal, skippedGoal } from './RecoveryCards';
+import { RecoveryGoal } from './recovery';
+import { GoalSetup, makeGoal, skippedGoal } from './RecoveryCards';
+import { DoseCard, ExperimentAsk, HelpsCard } from './HelpsCard';
+import { HelpsView } from './helps';
+import { DueDose, Medication } from './meds';
 import {
   APPOINTMENT_LEAD_DAYS, COPY_NUDGE_DAYS, GOAL_OFFER_AFTER_DAYS, HEALTH_OFFER_AFTER_DAYS,
   TODAY_OFFER_ORDER, TodayOffer,
@@ -140,6 +151,17 @@ export interface HomeScreenProps {
   /** the last saved copy, owned by App so the card clears the moment one
    *  is made — null when there has never been one */
   lastCopy: LastCopy | null;
+  /** the lead card's contents, read in App from every source (helps.ts) */
+  helps: HelpsView;
+  /** tonight's experiment question, when due and unanswered */
+  experimentAsk: ExperimentAsk | null;
+  onAnswerExperiment: (id: string) => void;
+  onStartExperiment: () => void;
+  onEndExperiment: (how: 'done' | 'stopped') => void;
+  /** medicine times due now and unanswered, and the as-needed ones */
+  dueDoses: DueDose[];
+  asNeeded: Medication[];
+  onMarkDose: (med: Medication, slot: number, status: 'taken' | 'skipped') => void;
 }
 
 export default function HomeScreen({
@@ -148,6 +170,8 @@ export default function HomeScreen({
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
   onSaveCopy, lastCopy,
+  helps, experimentAsk, onAnswerExperiment, onStartExperiment, onEndExperiment,
+  dueDoses, asNeeded, onMarkDose,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -256,13 +280,6 @@ export default function HomeScreen({
   const [editingGoal, setEditingGoal] = useState(false);
   const saveGoal = (g: RecoveryGoal) => { onGoalChange(g); setEditingGoal(false); };
   const goalSet = !!goal && !!goal.activity;
-  const hero = recoveryHero(goal, entries, healthDays, t);
-  const guidance = dailyGuidance(goal, entries, healthDays, t);
-  /* the card speaks when there is a goal to speak about, or sessions to
-     read — a skipped goal and an empty Health says nothing */
-  const showActivity = goalSet || guidance.state !== 'noActivity';
-  /* the per-activity conclusions, folded inside that card (capacity.ts) */
-  const capacity = capacityView(entries, healthDays, t);
 
   const due: Record<TodayOffer, boolean> = {
     /* only a phone that was never asked: onboarding asks now, and a
@@ -283,10 +300,13 @@ export default function HomeScreen({
         onCancel={() => setEditingGoal(false)}
         onRemove={goalSet ? () => saveGoal(skippedGoal(t)) : undefined}
       />
-    ) : showActivity ? (
-      <ActivityCard hero={hero} guidance={guidance} capacity={capacity}
-        onEdit={() => setEditingGoal(true)} onCheckIn={onLog} />
-    ) : null,
+    ) : (
+      <>
+        <HelpsCard view={helps} ask={experimentAsk} onAnswer={onAnswerExperiment}
+          onStart={onStartExperiment} onEnd={onEndExperiment} />
+        <DoseCard due={dueDoses} asNeeded={asNeeded} onMark={onMarkDose} />
+      </>
+    ),
     hero: (
       <>
       {/* ── what you last said ────────────────────────────── */}

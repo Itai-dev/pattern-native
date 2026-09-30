@@ -10,7 +10,11 @@ import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { Directory, Paths } from 'expo-file-system';
 import { getMetric } from './metrics';
 import { addDays } from './model';
-import { EXPERIMENT_WHAT_MAX, Experiment } from './model';
+import { Experiment, cleanExperiment } from './model';
+import {
+  DoseLog, MEDS_MAX, Medication, cleanDoseLogs, cleanMedication, cleanMedications, mergeDoseLogs,
+  withLog, withoutLog,
+} from './meds';
 import {
   Answer, BACKUP_VERSION, Background, CONTEXT_VERSION, ContextAnswers, Diagnosis, Entries, Entry,
   Duration, EventKind, FuncEntry, Hypothesis, LastCopy, Onset, PainEvent, Protocol, ProtocolStatus,
@@ -927,6 +931,7 @@ export function applyBackup(backup: ValidBackup, mode: RestoreMode): RestoreResu
   if (mode === 'replace') setDiagnosis(backup.diagnosis);
   else if (backup.diagnosis && !getDiagnosis()) setDiagnosis(backup.diagnosis);
   restoreExperiments(backup.experiments, mode);
+  restoreMedications(backup.medications, backup.doseLogs, mode);
   return {
     ok: true, mode, days: dayKeys.length, events: eventsAdded,
     func: backup.func.length, hypotheses: hypAdded, protocols: protAdded,
@@ -952,10 +957,15 @@ export function getExperiment(): Experiment | null {
 export function getExperimentHistory(): Experiment[] {
   return getPref<Experiment[]>(EXPERIMENTS_PREF, []);
 }
-export function startExperiment(what: string, todayIso: string): Experiment {
-  const e: Experiment = {
-    id: Date.now(), what: what.trim().slice(0, EXPERIMENT_WHAT_MAX), from: todayIso, status: 'running',
-  };
+export function startExperiment(
+  what: string, todayIso: string, options?: { a: string; b: string }
+): Experiment {
+  /* through the cleaner, so what is stored is exactly what a backup
+     would restore — options capped, and dropped unless both are real */
+  const e = cleanExperiment({
+    id: Date.now(), what, from: todayIso, status: 'running',
+    ...(options ? { a: options.a, b: options.b } : null),
+  }) as Experiment;
   setPref(EXPERIMENT_PREF, e);
   return e;
 }
@@ -991,6 +1001,59 @@ function restoreExperiments(list: Experiment[], mode: 'replace' | 'merge'): void
   if (running && !getExperiment() && have.indexOf(running.id) < 0) setPref(EXPERIMENT_PREF, running);
 }
 
+/* ── medicines (meds.ts) ────────────────────────────────────
+   Prefs, like the experiment: the list is a short document and the log
+   grows by a few rows a day. Both pass through their cleaners on the
+   way in, so what is stored is exactly what a backup would restore.
+   Deleting a medicine keeps its logged doses — what the person said
+   they took stays on their record, as a deleted experiment's answers
+   stay on their days — and the comparison stops reading them. */
+
+const MEDS_PREF = 'meds.list';
+const DOSES_PREF = 'meds.doses';
+
+export function getMedications(): Medication[] {
+  return cleanMedications(getPref<unknown>(MEDS_PREF, []));
+}
+/** add or replace by id; refused past MEDS_MAX */
+export function saveMedication(m: Medication): boolean {
+  const clean = cleanMedication(m);
+  if (!clean) return false;
+  const list = getMedications();
+  const i = list.findIndex((x) => x.id === clean.id);
+  if (i < 0 && list.length >= MEDS_MAX) return false;
+  if (i < 0) list.push(clean); else list[i] = clean;
+  setPref(MEDS_PREF, list);
+  return true;
+}
+export function removeMedication(id: number): void {
+  setPref(MEDS_PREF, getMedications().filter((m) => m.id !== id));
+}
+export function getDoseLogs(): DoseLog[] {
+  return cleanDoseLogs(getPref<unknown>(DOSES_PREF, []));
+}
+export function logDose(l: DoseLog): void {
+  setPref(DOSES_PREF, withLog(getDoseLogs(), l));
+}
+/** undo: the scheduled time returns to "not said" */
+export function unlogDose(medId: number, date: string, slot: number): void {
+  setPref(DOSES_PREF, withoutLog(getDoseLogs(), medId, date, slot));
+}
+/** replace takes the file's word; merge adds medicines this phone has
+ *  not seen by id, and doses without overwriting an answer given here */
+function restoreMedications(meds: Medication[], logs: DoseLog[], mode: 'replace' | 'merge'): void {
+  if (mode === 'replace') {
+    setPref(MEDS_PREF, meds);
+    setPref(DOSES_PREF, logs);
+    return;
+  }
+  const have = getMedications();
+  const ids = have.map((m) => m.id);
+  const add = meds.filter((m) => ids.indexOf(m.id) < 0);
+  if (add.length) setPref(MEDS_PREF, cleanMedications(have.concat(add)));
+  if (logs.length) setPref(DOSES_PREF, mergeDoseLogs(getDoseLogs(), logs));
+}
+
 /* ── the background ─────────────────────────────────────────
    One object in prefs — it is a document, not a table, and it changes a
    few times a year at most. cleanBackground runs on the way IN, so what
@@ -1022,6 +1085,7 @@ export function exportBackup(todayIso: string): string {
     entries: getAll(), events: getEvents(), func: getFunc(), goal: getGoal(),
     hypotheses: getHypotheses(), protocols: getProtocols(), modifiers: getModifiers(),
     experiments: getExperiments(),
+    medications: getMedications(), doseLogs: getDoseLogs(),
   };
   /* Shadow rows are health-derived and leave only when asked for. Off by
      default, and a restore never reads them back — see applyBackup. */

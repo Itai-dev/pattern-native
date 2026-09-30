@@ -100,7 +100,14 @@ export type EventName =
   /* the experiment: started, and how it ended (the verdict word, or
      'stopped'). Never the phrase, never the numbers. */
   | 'experiment_started'
-  | 'experiment_ended';
+  | 'experiment_ended'
+  /* medicines Pattern keeps: that one was added, changed or removed,
+     and that a dose was marked — never the name, the amount or the
+     answer's time */
+  | 'med_added'
+  | 'med_edited'
+  | 'med_removed'
+  | 'dose_marked';
 
 type PropValue = number | boolean | string;
 

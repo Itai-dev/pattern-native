@@ -169,11 +169,28 @@ async function scheduleOne(req: Notifications.NotificationRequestInput): Promise
   try { await Notifications.scheduleNotificationAsync(req); } catch { /* this one, not the week */ }
 }
 
+/** cancel the check-in queue only. Medicine reminders (medReminders.ts)
+ *  share iOS's list and have their own schedule; wiping the whole list
+ *  on every check-in rebuild silently turned them off. Falls back to
+ *  everything when iOS will not say what it holds. */
+async function cancelCheckinQueue(): Promise<void> {
+  try {
+    const all = await Notifications.getAllScheduledNotificationsAsync();
+    for (const r of all) {
+      if (isReminderId(r.identifier)) {
+        try { await Notifications.cancelScheduledNotificationAsync(r.identifier); } catch { /* next */ }
+      }
+    }
+  } catch {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  }
+}
+
 export async function reschedule(
   slots: Slot[], todayIso: string, todayMinutes: number[], nowMinutes: number,
   planner?: (dateIso: string) => Prompt[]
 ): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await cancelCheckinQueue();
   if (planner) {
     for (let d = 0; d < DAYS_AHEAD; d++) {
       const dateIso = addDays(todayIso, d);

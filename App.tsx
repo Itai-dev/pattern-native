@@ -47,6 +47,18 @@ import OnboardingScreen from './src/OnboardingScreen';
 import PrivacySheet from './src/PrivacySheet';
 import AppointmentRow, { PREF_APPOINTMENT } from './src/AppointmentRow';
 import RemindersSection from './src/RemindersSection';
+import ExperimentSheet from './src/ExperimentSheet';
+import MedicationsSheet from './src/MedicationsSheet';
+import {
+  experimentMetricId, experimentOptions, experimentQuestion, experimentState,
+} from './src/experiment';
+import { helpsView } from './src/helps';
+import { capacityView } from './src/health/capacity';
+import { Medication, dueDoses, withAppDoses } from './src/meds';
+import {
+  isMedReminderId, registerMedCategory, reminderTimes, syncMedReminders,
+} from './src/medReminders';
+import { eligibleNow, getMetric } from './src/metrics';
 import * as db from './src/db';
 import { cancelAll, configureHandler, isReminderId, registerCategory } from './src/reminders';
 import { startBackgroundPrompts } from './src/health/background';
@@ -58,7 +70,7 @@ import { aheadKey, bookedPastLine } from './src/health/ahead';
 import { syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
 import {
-  Moment, PainEvent, ValidBackup, addDays, cleanDiagnosis, diagnosisShort, iso, minutesNow, todayISO,
+  Moment, PainEvent, ValidBackup, addDays, answerOf, cleanDiagnosis, diagnosisShort, iso, minutesNow, todayISO,
 } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { GoalRow } from './src/RecoveryCards';
@@ -76,11 +88,12 @@ import {
 
 configureHandler(); // set once, before anything can be delivered
 registerCategory().catch(() => {}); // the Check in button on every prompt
+registerMedCategory().catch(() => {}); // Taken / Skipped on a medicine reminder
 /* the chosen hue is part of the app's identity — restore it before the
    first frame ever renders */
 setPainTheme(db.getPref<PainThemeId>('theme.pain', DEFAULT_PAIN_THEME));
 
-type Sheet = null | 'checkin' | 'event' | 'info';
+type Sheet = null | 'checkin' | 'event' | 'info' | 'experiment';
 
 /* "Thu, 21 Aug" comes from DayScreen, which is the other place a date is
    a heading. Two copies of the same format is how two screens end up
@@ -296,6 +309,10 @@ export default function App() {
   const healthRefreshCalls = useRef(0);
   const [healthSyncStatus, setHealthSyncStatus] = useState(() => db.getHealthSyncStatus());
   const [healthDays, setHealthDays] = useState(() => storedHealthDays());
+  /* the doses Pattern keeps (meds.ts) — read with the record, because
+     they sit beside it on Today and in the dose comparison */
+  const [doseLogs, setDoseLogs] = useState(() => db.getDoseLogs());
+  const [medsOpen, setMedsOpen] = useState(false);
 
   /* Foreground sync: on launch and on every return from background,
      because Health data arrives late — a watch syncs when it syncs.
@@ -378,17 +395,22 @@ export default function App() {
        remembered by medication so a shown change fades out loud. The
        identifiers remembered are HealthKit's opaque concept ids — a
        key, never a name, and local like everything else. */
-    const meds = healthCategories().indexOf('medications') >= 0;
+    /* and the doses Pattern keeps itself (meds.ts), folded in for this
+       comparison only — licensed by the person having added a medicine,
+       the same way connecting Medications licenses Health's */
+    const appMeds = db.getMedications();
+    const meds = healthCategories().indexOf('medications') >= 0 || appMeds.length > 0;
+    const doseDays = withAppDoses(healthDays, appMeds, doseLogs);
     const shownDoses = db.getPref<string[]>('health.shownDoses', []);
-    const doseAll = meds ? doseAssociations(entries, healthDays, shownDoses) : [];
+    const doseAll = meds ? doseAssociations(entries, doseDays, shownDoses) : [];
     const doseBest = strongestDose(doseAll);
     const doses = {
       best: doseBest,
       fading: doseAll.filter((a) => a.verdict === 'fading'),
       groups: doseAll.filter((a) => a.verdict === 'possible' || a.verdict === 'observation'),
-      progress: meds ? doseProgress(entries, healthDays) : [],
-      early: meds ? earlyDoses(entries, healthDays) : [],
-      first: meds ? firstDoses(entries, healthDays) : [],
+      progress: meds ? doseProgress(entries, doseDays) : [],
+      early: meds ? earlyDoses(entries, doseDays) : [],
+      first: meds ? firstDoses(entries, doseDays) : [],
     };
     /* and around a workout, the same construction again: licensed by
        the workouts category, remembered by activity name — a plain
@@ -417,7 +439,68 @@ export default function App() {
     const after = healthCategories().indexOf('workouts') >= 0
       ? afterWorkouts(entries, healthDays, todayISO()) : [];
     return { best, fading, groups, progress, early, first, doses, workouts, budget, after };
-  }, [entries, healthDays]);
+  }, [entries, healthDays, doseLogs]);
+
+  /* ── what helps, what makes it worse (helps.ts) ──────────────
+     The experiment is a pref and its state is derived, never stored;
+     the bump re-reads it after a start, an end or an evening answer. */
+  const [experimentBump, setExperimentBump] = useState(0);
+  const experiment = useMemo(() => {
+    const e = db.getExperiment();
+    return e ? experimentState(e, entries, todayISO()) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, experimentBump]);
+  const endExperiment = useCallback((how: 'done' | 'stopped') => {
+    const closed = db.endExperiment(how, todayISO());
+    if (closed) track('experiment_ended', { how: how === 'stopped' ? 'stopped' : (experiment ? experiment.verdict : 'done') });
+    setExperimentBump((n) => n + 1);
+  }, [experiment]);
+  /* tonight's question, on the card: the same window the Add
+     information sheet asks it in, and gone once answered */
+  const experimentAsk = useMemo(() => {
+    const e = db.getExperiment();
+    if (!e || !experiment || experiment.ended) return null;
+    const id = experimentMetricId(e);
+    const m = getMetric(id);
+    const t = todayISO();
+    if (!m || !eligibleNow(m.eligibility, minutesNow(), false, answerOf(entries[t], id) != null)) return null;
+    return { question: experimentQuestion(e), options: experimentOptions(e) };
+  }, [entries, experiment]);
+  const answerExperiment = useCallback((v: string) => {
+    const e = db.getExperiment();
+    if (!e) return;
+    db.setAnswer(todayISO(), experimentMetricId(e), v, minutesNow(), null);
+    refresh();
+    setExperimentBump((n) => n + 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const helps = useMemo(() => {
+    const t = todayISO();
+    return helpsView({
+      entries, todayIso: t, experiment,
+      past: db.getExperimentHistory().slice().reverse().map((x) => experimentState(x, entries, t)),
+      health: healthNoticed ? healthNoticed.groups : [],
+      doses: healthNoticed ? healthNoticed.doses.groups : [],
+      activity: (capacityView(entries, healthDays, t) || { insights: [] }).insights,
+    });
+  }, [entries, experiment, healthNoticed, healthDays]);
+
+  /* ── medicines (meds.ts): what is due now, and marking it ───── */
+  const [medsBump, setMedsBump] = useState(0);
+  const medList = useMemo(() => db.getMedications(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [medsBump, doseLogs]);
+  const due = useMemo(() => dueDoses(medList, doseLogs, todayISO(), minutesNow()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [medList, doseLogs, entries]);
+  const asNeeded = useMemo(() => medList.filter((m) => !m.times.length), [medList]);
+  const markDose = useCallback((med: Medication, slot: number, status: 'taken' | 'skipped') => {
+    const t = todayISO();
+    db.logDose({ medId: med.id, date: t, slot, h: minutesNow(), status });
+    /* that a dose was marked — never which, when, or which way */
+    track('dose_marked');
+    setDoseLogs(db.getDoseLogs());
+  }, []);
   /* "Shown" is written AFTER the render, as an effect — a memo is not a
      commit, and React may run or throw away a render without committing
      it, which had a finding marked as seen before any screen had drawn
@@ -477,6 +560,7 @@ export default function App() {
   const refresh = useCallback(() => {
     const next = db.getAll();
     setEntries(next);
+    setDoseLogs(db.getDoseLogs());
     setActivity(db.getGoal());
     setRecoveryGoal(db.getRecoveryGoal());
     setEvents(db.getEvents());
@@ -505,6 +589,10 @@ export default function App() {
       /* the reminder queue reaches a week ahead; every foreground
          tops it up, so a phone unopened for days never runs dry */
       syncReminders().catch(() => {});
+      /* medicine reminders repeat daily and need no topping up, but a
+         rebuild here re-asserts them after anything that cleared iOS's
+         list, and puts a restored backup's medicines on the schedule */
+      syncMedReminders().catch(() => {});
     };
     pull();
     const sub = AppState.addEventListener('change', (s) => {
@@ -525,6 +613,30 @@ export default function App() {
      replay the launch that already opened one. */
   useEffect(() => {
     const open = (r: Notifications.NotificationResponse | null) => {
+      /* A MEDICINE REMINDER: Taken or Skipped writes for every medicine
+         at that time, on the day the banner was delivered; a plain tap
+         opens Today, where the due row is. Remembered by its date like
+         the check-in, so a reload cannot write it twice. */
+      if (r && isMedReminderId(r.notification.request.identifier)) {
+        const stamp = 'med|' + String(r.notification.date) + '|' + r.actionIdentifier;
+        if (db.getPref<string>('meds.lastResponse', '') === stamp) return;
+        db.setPref('meds.lastResponse', stamp);
+        const action = r.actionIdentifier;
+        if (action !== 'taken' && action !== 'skipped') return;
+        const data = r.notification.request.content.data as { slot?: unknown } | undefined;
+        const slot = data && typeof data.slot === 'number' ? data.slot : null;
+        if (slot == null) return;
+        const when = new Date(r.notification.date);
+        const date = iso(when);
+        const h = minutesNow();
+        const at = reminderTimes(db.getMedications()).filter((x) => x.slot === slot)[0];
+        (at ? at.meds : []).forEach((m) => {
+          db.logDose({ medId: m.id, date, slot, h: date === todayISO() ? h : slot, status: action });
+        });
+        track('dose_marked');
+        setDoseLogs(db.getDoseLogs());
+        return;
+      }
       if (!r || !isReminderId(r.notification.request.identifier)) return;
       const stamp = String(r.notification.date);
       if (db.getPref<string>('reminders.lastOpened', '') === stamp) return;
@@ -992,6 +1104,14 @@ export default function App() {
                 onDismissAhead={dismissAhead}
                 onSaveCopy={exportBackup}
                 lastCopy={lastCopy}
+                helps={helps}
+                experimentAsk={experimentAsk}
+                onAnswerExperiment={answerExperiment}
+                onStartExperiment={() => setSheet('experiment')}
+                onEndExperiment={endExperiment}
+                dueDoses={due}
+                asNeeded={asNeeded}
+                onMarkDose={markDose}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background
@@ -1110,6 +1230,18 @@ export default function App() {
 
         {/* the profile — grouped like the iOS Settings app: inset cards,
             uniform rows, a coloured icon leading each one */}
+        <Modal
+          visible={sheet === 'experiment'}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={closeSheet}
+        >
+          <ExperimentSheet
+            onDone={() => { track('experiment_started'); setExperimentBump((n) => n + 1); closeSheet(); }}
+            onClose={closeSheet}
+          />
+        </Modal>
+
         <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setProfile(false); setApptPickerOnOpen(false); }} onDismiss={runAfterDismiss}>
           <View style={styles.sheet}>
             <View style={styles.navBar}>
@@ -1209,6 +1341,29 @@ export default function App() {
               <Text style={styles.groupFooter}>
                 Calendar titles are read on this iPhone and never stored or sent.
                 Off, the lock screen shows only that you checked in.
+              </Text>
+
+              {/* MEDICINES (1 Oct 2026): the list Pattern keeps, the times,
+                  and the reminders — a group of its own because it is
+                  neither a check-in setting nor Apple Health's */}
+              <Text style={styles.groupTitle}>Medicines</Text>
+              <View style={styles.group}>
+                <Pressable
+                  onPress={() => setMedsOpen(true)}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Medicines. ' + (medList.length ? medList.length + ' kept' : 'None yet')}
+                >
+                  <RowIcon name="medkit-outline" />
+                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
+                    <Text style={styles.rowLabel}>Medicines and reminders</Text>
+                    <Text style={styles.rowValue}>{medList.length ? String(medList.length) : 'None'}</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </View>
+                </Pressable>
+              </View>
+              <Text style={styles.groupFooter}>
+                Kept on this iPhone. Reminders show the time, never the name.
               </Text>
 
               {/* Only offered where the binary can actually do it — a row
@@ -1436,6 +1591,9 @@ export default function App() {
               <PrivacySheet onDone={() => setPrivacy(false)} contactEmail={FEEDBACK_EMAIL} />
             </Modal>
 
+            <Modal visible={medsOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setMedsOpen(false); setMedsBump((n) => n + 1); }}>
+              <MedicationsSheet onDone={() => { setMedsOpen(false); setMedsBump((n) => n + 1); refresh(); }} />
+            </Modal>
             <Modal visible={background} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setBackgroundOpen(false)}>
               <BackgroundSheet onClose={() => setBackgroundOpen(false)} />
             </Modal>

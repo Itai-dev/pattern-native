@@ -27,6 +27,7 @@ import {
 } from './metrics';
 import { formatScore, normalizePain, painLabel } from './painScale';
 import { DAY_SHAPE_MIN_DELTA } from './thresholds';
+import { DoseLog, Medication, cleanDoseLogs, cleanMedications } from './meds';
 
 export interface Moment {
   /** minutes since LOCAL midnight, 0–1439 — the identity of a moment and
@@ -1511,6 +1512,10 @@ export interface ValidBackup {
   modifiers: string[];
   /** every experiment, cleaned; empty on files from before them */
   experiments: Experiment[];
+  /** the medicines Pattern keeps and the doses logged against them
+   *  (meds.ts); empty on files from before them */
+  medications: Medication[];
+  doseLogs: DoseLog[];
 }
 
 const okNum = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 10;
@@ -1629,6 +1634,8 @@ export function validateBackup(json: string): ValidBackup | null {
       if (Array.isArray(raw)) raw.forEach((r) => { const e = cleanExperiment(r); if (e) out.push(e); });
       return out;
     })(),
+    medications: cleanMedications((d as { medications?: unknown }).medications),
+    doseLogs: cleanDoseLogs((d as { doseLogs?: unknown }).doseLogs),
   };
 }
 
@@ -1678,10 +1685,19 @@ export interface Experiment {
   status: 'running' | 'done' | 'stopped';
   /** the day it ended, by time or by hand; absent while running */
   endedOn?: string;
+  /** TWO OPTIONS instead of yes-or-no (1 Oct 2026) — "400 mg" against
+   *  "200 mg", "morning" against "evening". Both present or neither:
+   *  with them the evening question asks which one, and the mornings
+   *  after each are compared. The person's words, never a dose Pattern
+   *  named. Absent on every experiment started before this. */
+  a?: string;
+  b?: string;
 }
 
 /** the longest a description may be — a phrase, not a plan */
 export const EXPERIMENT_WHAT_MAX = 80;
+/** the longest one option may be — a label on a button */
+export const EXPERIMENT_OPTION_MAX = 32;
 
 /* ── the saved copy ─────────────────────────────────────────── */
 
@@ -1725,5 +1741,10 @@ export function cleanExperiment(raw: unknown): Experiment | null {
     id: r.id, what: r.what.trim().slice(0, EXPERIMENT_WHAT_MAX), from: r.from, status: r.status,
   };
   if (isIsoDate(r.endedOn)) e.endedOn = r.endedOn;
+  /* both options or neither: one option alone is a yes-or-no with a
+     label missing, and reading it as either would invent an answer */
+  const a = typeof r.a === 'string' ? r.a.trim().slice(0, EXPERIMENT_OPTION_MAX) : '';
+  const b = typeof r.b === 'string' ? r.b.trim().slice(0, EXPERIMENT_OPTION_MAX) : '';
+  if (a && b && a.toLowerCase() !== b.toLowerCase()) { e.a = a; e.b = b; }
   return e;
 }

@@ -43,7 +43,8 @@ import { Press } from './motion';
 import { track } from './analytics';
 import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
-import { LIMITATION_ID, MetricDef, eligibleNow, getMetric } from './metrics';
+import { FATIGUE_ID, LIMITATION_ID, MetricDef, eligibleNow, getMetric } from './metrics';
+import { experimentMetricId, experimentOptions, experimentQuestion } from './experiment';
 import { healthHintFor } from './health/context';
 import { HealthDay } from './health/types';
 import { inkOn, painColor } from './painScale';
@@ -98,7 +99,23 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
     if (m && eligibleNow(m.eligibility, now, false, answerOf(entry, LIMITATION_ID) != null)) {
       ids.push(LIMITATION_ID);
     }
+    /* tiredness, while today has none: the check-in offers it on the
+       first check-in only, and a person who passed it there may still
+       want to say it here — any time of today, since it asks "right now" */
+    if (getMetric(FATIGUE_ID) && answerOf(entry, FATIGUE_ID) == null) ids.push(FATIGUE_ID);
+    /* the experiment's evening question while one runs — back since
+       1 Oct 2026, when finding what helps became what Today is for */
+    const exp = db.getExperiment();
+    const xid = exp ? experimentMetricId(exp) : null;
+    const x = xid ? getMetric(xid) : null;
+    if (x && xid && eligibleNow(x.eligibility, now, false, answerOf(entry, xid) != null)) ids.push(xid);
     return ids;
+  });
+  /* the experiment's question and buttons wear the person's own words;
+     the registry's wording is the fallback it never shows */
+  const [expWords] = useState(() => {
+    const e = db.getExperiment();
+    return e ? { id: experimentMetricId(e), question: experimentQuestion(e), levels: experimentOptions(e) } : null;
   });
   /* what Health already has for today — a hint above a question, never
      an answer to it */
@@ -453,8 +470,10 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           )}
 
           {askIds.map((id) => {
-            const m = getMetric(id);
-            if (!m) return null;
+            const base = getMetric(id);
+            if (!base) return null;
+            const m = expWords && expWords.id === id
+              ? { ...base, question: expWords.question, levels: expWords.levels } : base;
             return m.type === 'numeric' ? numericRow(m) : ordinalRow(m);
           })}
 

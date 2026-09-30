@@ -110,6 +110,23 @@ workouts do not cluster under the line, or the mornings after workouts
 are no better than before it was shown. Then the moment is wrong or the
 number is, and the fix is the delivery, not the engine.
 
+7. **What helps, what makes it worse, as Today's subject (1 Oct 2026).**
+   The founder's call, after the 30 Sep simplification took the
+   experiment off Today: the question people bring is what helps and
+   what makes it worse, so Today now leads with one card gathering every
+   gated answer to it, with the experiment on top. Experiments gained a
+   two-option form for dose and timing questions (the person's words,
+   never a dose Pattern names); medicines are kept by Pattern with daily
+   reminders that never name them on the lock screen; tiredness is asked
+   beside the first check-in. Ships OTA — no native change.
+   *(built 2026-10-01: `src/helps.ts`, `src/HelpsCard.tsx`, `src/meds.ts`,
+   `src/medReminders.ts`, `src/MedicationsSheet.tsx`, `ExperimentSheet`)*
+
+   **Kill criterion:** after four weeks, testers with a medicine kept
+   mark fewer than half its scheduled times, or no tester starts a
+   second experiment after the first answers. Then the card is asking
+   for work the answers do not repay.
+
 **What this retires from the old Phase 1:** the weekly story. The
 self-experiment came back on 2026-09-11 as step 5, once the rule on
 engagement was rewritten (POSITIONING.md, principle 7): a countdown to

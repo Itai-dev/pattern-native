@@ -88,6 +88,12 @@ export function eligibleNow(
  *  the pain, the record and the report read it under this name */
 export const LIMITATION_ID = 'pain.interference.v1';
 
+/** tiredness, asked beside the first check-in of the day for everyone
+ *  (CheckinScreen) and offered in Add information while unanswered —
+ *  the one "accompanies" state the app asks without a focus, because
+ *  it is the one testers kept naming */
+export const FATIGUE_ID = 'fatigue.level.v1';
+
 /* ── the registry ───────────────────────────────────────────── */
 
 export type MetricType = 'ordinal' | 'numeric' | 'set';
@@ -257,6 +263,21 @@ export const METRICS: MetricDef[] = [
     type: 'ordinal', scope: 'day',
     levels: [lv('no', 'Not today'), lv('yes', 'Yes, today')],
     extremes: ['no', 'yes'],
+    wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'none',
+    protocolEligible: false,
+  },
+  /* the same evening question for a two-option experiment ("400 mg"
+     or "200 mg" today?). Its own id rather than yes/no reused: a stored
+     'yes' that meant "the first option" would read wrongly to anything
+     that ever looks at the day without the experiment beside it. The
+     labels shown are the person's own; these are the fallback. */
+  {
+    id: 'experiment.which.v1',
+    name: 'Your experiment',
+    question: 'Which one today?',
+    type: 'ordinal', scope: 'day',
+    levels: [lv('a', 'The first'), lv('b', 'The second')],
+    extremes: ['a', 'b'],
     wordingVersion: 1, eligibility: 'firstAfter1700', analysis: 'none',
     protocolEligible: false,
   },

@@ -164,27 +164,42 @@ Those move only when a day is added, never penalise a missed one, and
 never put a number on today. Between two opens of the same day nothing
 changes except data the user added.
 
-**The app helps you do more, in small steps (28 Sep 2026).** A mirror
-that only shows pain back was not helping anyone stay active. Today
-leads with one activity card (`src/RecoveryCards.tsx`), read from
-`src/health/capacity.ts`: CONCLUSIONS,
-not counts — "easy walking is going well; next time, 33 minutes" —
-with what they rest on behind "Why?". Sessions are grouped by activity
-and Apple's effort band, "went fine" is the next morning against this
-morning, and the next session is at most ten per cent longer at the
-same effort — held after a harder morning, eased back after two. It is
-read from the person's own sessions only, says it is not medical
-advice, and never shows a pain number. The card opens on the goal
-(`src/recovery.ts`) — what the person is getting back to, and sessions
-this week as a sentence, never a bar — then the one suggestion for
-today, with the per-activity conclusions folded under it. Every value is
-real or an honest "still learning", never mock data on a tester's phone.
-ONE card, ONE order of Today, ONE day page: a second card reading the
-same sessions, or a switch between two layouts, is the drift this
-replaced. The goal is asked in onboarding; Today never opens on a form.
-There is still no
-composite pain score: a daily "readiness" number makes activity follow
-pain, which is the boom-and-bust pacing exists to stop.
+**Today is for finding what helps and what makes it worse (1 Oct 2026).**
+Today leads with ONE card (`src/HelpsCard.tsx`, read from `src/helps.ts`):
+the experiment running now, with tonight's question inline, then what the
+record found, sorted by side — *went with better days*, *went with harder
+days*, *compared*, *what you can do*, *no difference found*. Every row is
+a verdict another module already gated and worded (`experiment.ts`,
+`health/engine.ts`, `health/doses.ts`, `health/capacity.ts`); helps.ts
+concludes nothing new except tiredness beside pain, which uses the
+experiment's floor and the engine's delta and says "went with". The
+sides never say "helps" or "hurts": the card asks the person's question,
+no row claims to answer it causally, and "no difference" is shown, not
+hidden. A second card reading the same sources, or a switch between two
+layouts, is the drift this replaced.
+
+- **Experiments** are one thing yes-or-no, or two options A-vs-B
+  ("usual dose" or "lower dose", "morning" or "evening"), for two weeks,
+  answered by the next mornings. The options are the person's words.
+  Pattern never names a drug, a dose or a direction, and every A-vs-B
+  setup and result carries the note that a dose changes only as agreed
+  with whoever prescribed it.
+- **Medicines** are kept by Pattern (`src/meds.ts`, Profile → Medicines):
+  name, amount as typed, times, reminder. Reminders
+  (`src/medReminders.ts`) are daily, one per time, and never show the
+  medicine's name on the lock screen. Taken / Skipped / not said are
+  three states; a skip is a tap, never an absence. Logged doses feed the
+  existing before-and-after comparison as if Health had them, deduped
+  against Health's. Today's medicine card shows only doses due now —
+  never yesterday, never a count of misses.
+- **Tiredness** (`fatigue.level.v1`, Low/Medium/High) is offered beside
+  the first check-in of the day, optional, never gating Done.
+- **Activity** (28 Sep's card) is one row: capacity.ts's top
+  conclusion, from the person's own sessions, not medical advice, never
+  a pain number. The goal is asked in onboarding and kept in Profile.
+
+There is still no composite pain score: a daily "readiness" number makes
+activity follow pain, which is the boom-and-bust pacing exists to stop.
 
 **The number is what the user entered.** Never invent a derived or composite
 score. Pain and ability are separate scales and are never averaged. The same

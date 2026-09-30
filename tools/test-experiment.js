@@ -179,5 +179,65 @@ ok('cleanExperiment keeps a real one, caps the phrase, drops junk', (() => {
     && x.cleanExperiment({ id: 1, what: 'x', from: '2026-08-01', status: 'paused' }) === null;
 })());
 
+group('two options: the dose, the timing');
+const W = x.EXPERIMENT_WHICH_ID;
+const AB = { id: 2, what: 'my usual dose or the lower one', from: day(1), status: 'running', a: 'usual dose', b: 'lower dose' };
+function abEntry(pain, which) {
+  const e = { pain, cap: null, note: '', logs: [{ h: 8 * 60, pain }] };
+  if (which !== undefined) {
+    e.ctx = { v: 1, a: {} };
+    e.ctx.a[W] = which === 'skip'
+      ? { value: '', h: 19 * 60, ts: 0, tz: 0, qv: 1, pid: null, skipped: 1 }
+      : { value: which, h: 19 * 60, ts: 0, tz: 0, qv: 1, pid: null };
+  }
+  return e;
+}
+ok('its own evening question: a or b, never yes/no', (() => {
+  const m = metrics.getMetric(W);
+  return m && m.eligibility === 'firstAfter1700' && metrics.validAnswerValue(W, 'a')
+    && metrics.validAnswerValue(W, 'b') && !metrics.validAnswerValue(W, 'yes')
+    && x.experimentMetricId(AB) === W && x.experimentMetricId(EXP) === M;
+})());
+ok('the question and the buttons are the person’s words', (() => {
+  const o = x.experimentOptions(AB);
+  return x.experimentQuestion(AB).indexOf('which was it today?') > 0
+    && o.length === 2 && o[0].id === 'a' && o[0].label === 'usual dose' && o[1].label === 'lower dose';
+})());
+ok('pairs read a/b; a yes/no answer on the same day does not count', (() => {
+  const E = {};
+  E[day(1)] = abEntry(5, 'a'); E[day(2)] = abEntry(3, 'b'); E[day(3)] = abEntry(6, 'skip');
+  E[day(4)] = entry(4, true); E[day(5)] = abEntry(2);
+  const p = x.experimentPairs(AB, E, day(6));
+  return p.length === 2 && p[0].did === true && p[0].pain === 3 && p[1].did === false && p[1].pain === 6;
+})());
+ok('an ended A/B names both options and carries the dose note', (() => {
+  const E = {};
+  for (let i = 1; i <= 15; i++) E[day(i)] = abEntry(i % 2 ? 6 : 3, i % 2 ? 'a' : 'b');
+  const s = x.experimentState(AB, E, day(16));
+  const c = x.experimentCopy(s);
+  const all = c.title + ' ' + c.evidence + ' ' + (c.caveat || '');
+  return s.ended && all.indexOf('“usual dose”') >= 0 && all.indexOf('“lower dose”') >= 0
+    && (c.caveat || '').indexOf(x.EXPERIMENT_DOSE_NOTE) >= 0;
+})());
+ok('no copy, ever, tells anyone to take more, less, or stop', (() => {
+  const E = {};
+  for (let i = 1; i <= 15; i++) E[day(i)] = abEntry(i % 2 ? 6 : 3, i % 2 ? 'a' : 'b');
+  const texts = [];
+  [day(3), day(16)].forEach((d) => { const c = x.experimentCopy(x.experimentState(AB, E, d)); texts.push(c.title, c.evidence, c.caveat || ''); });
+  texts.push(x.EXPERIMENT_DOSE_NOTE);
+  x.EXPERIMENT_AB_EXAMPLES.forEach((e) => texts.push(e.what, e.a, e.b));
+  const bad = /\b(should|take more|take less|stop taking|increase|reduce your|recommend)\b/i;
+  const dose = /\b\d+\s*(mg|ml|mcg|g)\b/i;
+  return texts.every((t) => !bad.test(t) && !dose.test(t));
+})());
+ok('options survive a backup only as a real pair', (() => {
+  const both = x.cleanExperiment({ ...AB, a: ' usual dose ', b: 'lower dose' });
+  const one = x.cleanExperiment({ ...AB, b: '' });
+  const same = x.cleanExperiment({ ...AB, b: 'Usual Dose' });
+  const long = x.cleanExperiment({ ...AB, a: 'y'.repeat(99) });
+  return both.a === 'usual dose' && both.b === 'lower dose' && !('a' in one) && !('b' in one)
+    && !('a' in same) && long.a.length === 32;
+})());
+
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
 process.exit(fail ? 1 : 0);

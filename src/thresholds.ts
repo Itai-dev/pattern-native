@@ -643,3 +643,31 @@ export const COPY_NUDGE_DAYS = 7;
  *  an input over this line is a bug upstream, and propose.ts refuses
  *  it rather than trimming a sentence into a different one. */
 export const AI_INPUT_MAX_CHARS = 1000;
+
+/* ── medicines kept by Pattern (meds.ts) ─────────────────────── */
+
+/** a dose logged within this of a Health dose of the same name, the
+ *  same day, is the same dose seen twice — a person using both lists
+ *  must not have every tablet counted double */
+export const MED_DEDUPE_MIN = 60;
+/** a scheduled time stops being offered on Today this long after it
+ *  passed: a morning dose still asking at midnight is a nag, and a
+ *  question about eight hours ago is a recall, not a record */
+export const MED_DUE_WINDOW_MIN = 6 * 60;
+
+/* ── tiredness beside pain (helps.ts) ────────────────────────── */
+
+/** days each way — felt very tired, felt little — before the two are
+ *  compared. The experiment's floor (EXPERIMENT_MIN_GROUP_DAYS) and for
+ *  the same reason: five a side is the least that stops one bad week
+ *  deciding the answer, and the difference must still clear
+ *  HEALTH_MIN_DELTA before anything is said. */
+export const TIRED_MIN_GROUP_DAYS = 5;
+/** how far back the tiredness comparison reads. Two months: long enough
+ *  to reach five a side at one answer a day with gaps, short enough
+ *  that a change in treatment is not averaged away into last spring. */
+export const TIRED_WINDOW_DAYS = 60;
+/** findings shown on Today's card before "Show N more".
+ *  Four: one screen, one glance — a list longer than that is the
+ *  Patterns tab, not Today. */
+export const HELPS_TODAY_MAX = 4;
