@@ -196,6 +196,19 @@ feature.
 skipped, and answered are distinguishable and stay that way through storage,
 backup and migration. A skip is never read as a negative.
 
+**Pain is information, recovery is the goal (2 Oct 2026).** The loop
+is understand → feel safely → move toward life → learn from it, not
+"how much does it hurt?" (`docs/POSITIONING.md`). Flare mode
+(`src/FlareSheet.tsx`) opens on a safety check that routes anything new
+or alarming to care before it offers anything else. Somatic tracking ends
+on "you practised noticing it", never on a score — a practice that
+reports pain going down is a pain-control exercise, which is the thing it
+exists to undo. Neither diagnoses: no "neuroplastic", no "it's in your
+brain", no "nothing is wrong", and no claim that Pattern treats or reduces
+pain. Every such screen says it is not medical advice, inside the screen.
+Pain becoming optional is decided but not shipped; until the storage and
+report change lands, the rule below stands.
+
 **Pain is the only mandatory answer.** Everything else is offered, never
 demanded, and a pain-only entry is never called incomplete anywhere.
 

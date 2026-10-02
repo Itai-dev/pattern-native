@@ -100,7 +100,14 @@ export type EventName =
   /* the experiment: started, and how it ended (the verdict word, or
      'stopped'). Never the phrase, never the numbers. */
   | 'experiment_started'
-  | 'experiment_ended';
+  | 'experiment_ended'
+  /* flare mode and somatic tracking: that one was opened, which STEP it
+     reached by name, and whether the ninety seconds ran out or were
+     left early. Never an answer — not the place, the words, the fear. */
+  | 'flare_opened'
+  | 'flare_step'
+  | 'tracking_opened'
+  | 'tracking_completed';
 
 type PropValue = number | boolean | string;
 

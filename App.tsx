@@ -39,6 +39,7 @@ import {
 } from './src/health/workouts';
 import { PairKind } from './src/health/windows';
 import EventSheet from './src/EventSheet';
+import FlareSheet, { FlareMode } from './src/FlareSheet';
 import TrendsScreen from './src/TrendsScreen';
 import AppearanceSheet from './src/AppearanceSheet';
 import BackgroundSheet from './src/BackgroundSheet';
@@ -230,6 +231,9 @@ export default function App() {
   }, [tab, width]);
 
   const [sheet, setSheet] = useState<Sheet>(null);
+  /* flare mode and somatic tracking — their own state rather than a
+     Sheet value, because the routine carries which door it came in by */
+  const [flare, setFlare] = useState<FlareMode | null>(null);
   /* the Add information sheet, over wherever you are — Today's card
      and the day page both open it, on a day and, from a tapped dot, on
      one of its check-ins. It holds everything the check-in stopped
@@ -992,6 +996,8 @@ export default function App() {
                 onDismissAhead={dismissAhead}
                 onSaveCopy={exportBackup}
                 lastCopy={lastCopy}
+                onFlare={() => setFlare('flare')}
+                onTrack={() => setFlare('track')}
                 healthOfferable={health.available() && !healthRequestedOn()}
                 /* the Health sheet is nested in the Profile sheet, so the
                    two open together — the same route the Background
@@ -1080,6 +1086,29 @@ export default function App() {
           onDismiss={runAfterDismiss}
         >
           <EventSheet event={editEvent} date={eventDate} onDone={closeSheet} onClose={closeSheet} />
+        </Modal>
+
+        <Modal
+          visible={flare !== null}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setFlare(null)}
+          onDismiss={runAfterDismiss}
+        >
+          {flare && (
+            <FlareSheet
+              mode={flare}
+              onClose={() => setFlare(null)}
+              /* the event sheet opens on a new flare, today, after this
+                 one has gone — the sequencing every sheet swap uses */
+              onLogFlare={() => {
+                afterDismiss.current = () => {
+                  setEditEvent(null); setEventDate(null); setSheet('event');
+                };
+                setFlare(null);
+              }}
+            />
+          )}
         </Modal>
 
         <Modal
