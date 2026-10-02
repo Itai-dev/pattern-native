@@ -169,6 +169,77 @@ only from the person's own record, fixed small steps, an automatic
 ease-back, and the disclaimer inside the card. A clinician reviewing the
 step rule is the first thing to do when one joins.
 
+## Pain is information, recovery is the goal · decided 2 Oct 2026
+
+*This is the rewrite this file requires before the code. It moves a
+PRT-informed practice out of "waits for clinical authorship", under the
+limits below, and it says which of the earlier refusals hold.*
+
+**What forced it.** The 28 Sep turn made Today lead with activity, but the
+loop underneath is still a pain check-in: open the app, say how much it
+hurts. Pain reprocessing therapy (Ashar et al., JAMA Psychiatry 2022, and its
+five-year follow-up) points at the mechanism a pain-first app
+feeds: pain → fear → monitoring → avoidance → more sensitivity. Its
+results moved with falling beliefs that pain signals damage. An app that
+asks "how much does it hurt?" first, every day, trains the monitoring.
+
+**The principle.** Pain is information, not the goal. Recovery is the
+goal. The loop becomes *understand → feel safely → move toward life →
+learn from the experience*, and the measure Pattern cares about is life
+regained: what the person is doing again, and how safe it feels to do it.
+
+**What Pattern does NOT claim, and this is the line that holds.** No
+treatment claim. Pattern does not deliver PRT, does not say it reduces
+pain, and does not tell anyone their pain is "neuroplastic", "in the
+brain" or "nothing wrong". The evidence is one trial cohort with mostly
+low-to-moderate nonspecific back pain; it does not generalise to every
+pain, and an app cannot tell which pain a person has. So the exercises
+are offered as practice, worded as education, and every one of them
+says, inside its own screen, that it is not medical advice and does not
+replace care. General Wellness positioning stands. A claim like
+"retrain your nervous system" or "reduce your pain" in the store
+listing, the site or the app is a regression.
+
+**What ships first (JS only, over the air).**
+
+- *Flare mode*, from one quiet row at the foot of Today. It opens on a
+  safety check, not a score: is this your familiar pain, louder, or
+  something new? New, or any listed warning sign, routes to care and
+  stops there. Familiar goes on: a minute to settle, ninety seconds of
+  noticing the sensation, "what are you afraid this means?", and one
+  small thing to do for the next twenty minutes instead of checking in
+  again. It offers to put the flare in the record, through the existing
+  event sheet, and asks nothing else.
+- *Somatic tracking*, ninety seconds, reachable from the same row and
+  from inside flare mode. Where, what it feels like in words, does it
+  move or change. It ends on "you practised noticing it without treating
+  it as an emergency" — never a before/after number, never "pain down by
+  two". Neither stores anything yet.
+
+**Decided, not shipped yet: pain becomes optional.** The daily pain
+check-in stops being the front door. Pain is still recorded when the
+person wants to, and the clinician summary says "not recorded" honestly
+rather than reading a missing day as a good one. This needs a storage
+change and a report change, so until it ships "pain is the only
+mandatory answer" in AGENTS.md stays the rule.
+
+**Later, in this order:** a "what happened?" after a session (kept going
+through sensations / stopped from fear / stopped because something felt
+wrong / felt safer than expected); a record of evidence in counts of
+living ("you have walked 17 times; 11 flares settled"); safety
+experiments and a harm-belief question asked weekly; corrective
+insights last, once there is data to support them.
+
+**What the earlier refusals still forbid in this plan.** No percentage
+toward a goal ("back to running 32%"), no before/after deltas on fear or
+danger ratings, and no sentence that pairs pain with activity as a
+verdict ("walking up 74% while pain stayed the same"). Progress is a
+sentence about minutes and occasions — "two weeks ago five minutes, this
+week fourteen" — and a fear rating is shown as the person's own answers,
+never as an arrow. A corrective insight is an association with a named
+threshold in `src/thresholds.ts` and the sentence about what it does not
+mean, like every other card.
+
 ## What Pattern is not
 
 - Not a treatment. The PROSPER-FM trial put symptom tracking in the control
@@ -186,8 +257,10 @@ treatments-tried log, weekly reflection, the clinician report, association
 observations, the fortnight experiment (one thing tried, the mornings
 after read back as a difference, no difference, or too few days).
 
-Waits for clinical authorship: ACT, CBT, CBT-I, PRT, graded exposure,
-anything touching medication decisions. Pacing *instruction* was on this
+Waits for clinical authorship: ACT, CBT, CBT-I, PRT as a programme, graded
+exposure, anything touching medication decisions. PRT-informed PRACTICE —
+somatic tracking and the flare routine, worded as education with no
+treatment claim — moved on 2 Oct 2026; see "Pain is information" above. Pacing *instruction* was on this
 list until 28 Sep 2026 — see "A tool, not a mirror" below for what moved
 and what still waits.
 

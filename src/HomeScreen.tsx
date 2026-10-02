@@ -140,6 +140,10 @@ export interface HomeScreenProps {
   /** the last saved copy, owned by App so the card clears the moment one
    *  is made — null when there has never been one */
   lastCopy: LastCopy | null;
+  /** flare mode — the whole routine, safety check first */
+  onFlare: () => void;
+  /** somatic tracking alone, as practice on an ordinary day */
+  onTrack: () => void;
 }
 
 export default function HomeScreen({
@@ -147,7 +151,7 @@ export default function HomeScreen({
   onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
-  onSaveCopy, lastCopy,
+  onSaveCopy, lastCopy, onFlare, onTrack,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -665,6 +669,41 @@ export default function HomeScreen({
           </View>
         </View>
       )}
+      {/* ── when it hurts: two doors, at the foot ─────────────
+          Last on the screen on purpose: the practice is not today's
+          headline and a flare is not the default. But the bottom of
+          Today is where a thumb lands, and on a bad day this is the
+          one thing on the screen that does something about it rather
+          than asking for a number (docs/POSITIONING.md, "Pain is
+          information"). No count, no streak, nothing that moves. */}
+      <View style={[styles.card, styles.cardGap]}>
+        <Press
+          onPress={onTrack}
+          pressOpacity={0.7}
+          style={styles.foot}
+          accessibilityRole="button"
+          accessibilityLabel="Notice a sensation, 90 seconds"
+          accessibilityHint="A short practice: watching a sensation without treating it as an emergency"
+        >
+          <Text style={styles.footCount} allowFontScaling maxFontSizeMultiplier={1.4}>
+            Notice a sensation · 90 seconds
+          </Text>
+          <Text style={styles.chev}>›</Text>
+        </Press>
+        <View style={styles.rule} />
+        <Press
+          onPress={onFlare}
+          pressOpacity={0.7}
+          style={[styles.foot, styles.footAfterRule]}
+          accessibilityRole="button"
+          accessibilityLabel="I'm having a flare"
+        >
+          <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.4}>
+            I’m having a flare
+          </Text>
+          <Text style={styles.chev}>›</Text>
+        </Press>
+      </View>
 
     </View>
   );
@@ -742,4 +781,5 @@ const styles = StyleSheet.create({
   },
   footCount: { color: color.textSecondary, fontSize: font.subheadline },
   footLink: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  footAfterRule: { marginTop: 6 },
 });
