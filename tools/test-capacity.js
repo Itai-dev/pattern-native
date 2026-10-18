@@ -10,6 +10,7 @@ const OUT = process.env.PATTERN_TEST_OUT || path.join(__dirname, '..', '.testbui
 const cap = require(path.join(OUT, 'health', 'capacity.js'));
 const norm = require(path.join(OUT, 'health', 'normalize.js'));
 const th = require(path.join(OUT, 'thresholds.js'));
+const report = require(path.join(OUT, 'report.js'));
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra) => {
@@ -185,6 +186,73 @@ ok('no conclusion, why or headline prints a pain value', (() => {
   const v = cap.capacityView(E, H, TODAY);
   const all = [v.headline].concat(v.insights.map((i) => i.text + ' ' + i.why)).join(' ');
   return !/\b(9|10)\b/.test(all) && /not damage/.test(cap.CAPACITY_NOTE) && /not medical advice/.test(cap.CAPACITY_NOTE);
+})());
+
+group('the clinician report’s activity line');
+/* twelve easy walks on alternate days: six of 20 min (one followed by a
+   harder morning, at 25), then six of 33. Pain 7 and 9, so a leaked
+   pain value is a visible number in the line. */
+function walks(E, H, days, minutes, harderOn) {
+  days.forEach((day, i) => sess(E, H, day, wk(minutes[i], 2, '52'), 7,
+    day === harderOn ? 7 + th.CAPACITY_HARDER_POINTS : 7));
+}
+const ODD = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23];
+const MINS = [20, 25, 20, 20, 20, 20, 33, 33, 33, 33, 33, 33];
+const line = (E, H, goal, windowDays, cats) => {
+  const data = report.buildReportData({ entries: E, events: [], func: [], goalText: goal,
+    todayIso: TODAY, windowDays: windowDays || 90, healthDays: H, healthCategories: cats || ['workouts'] });
+  const m = report.reportHtml(data).match(/<b>Walking, easy effort:<\/b>([^<]*)/);
+  return { data, text: m ? m[1] : null };
+};
+ok('then and now: the same median, two windows that share no session', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD, MINS, 3);
+  const { data, text } = line(E, H, 'walking');
+  return data.activity.then.minutes === 20 && data.activity.now.minutes === 33
+    && text === ' 12 sessions since 1 Sep with check-ins both mornings; 11 went fine '
+      + '(next-morning pain under ' + th.CAPACITY_HARDER_POINTS + ' points above that morning’s). '
+      + 'Their median length: 20 min in the first 6, 33 min in the latest 6.';
+})());
+ok('the latest median is the card’s own level', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD, MINS, 3);
+  const card = cap.activityLevel('walking', 'easy', cap.sessions(E, H, TODAY));
+  return line(E, H, 'walking').data.activity.now.minutes === card.level;
+})());
+ok('short of two windows, one median and no then', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD.slice(0, 4), MINS.slice(0, 4), 3);
+  const { data, text } = line(E, H, 'walking');
+  return data.activity.then === null
+    && /4 sessions since 1 Sep .*; 3 went fine .*Their median length: 20 min\.$/.test(text);
+})());
+ok('the window bounds which sessions count', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD, MINS, 3);
+  /* ten days back from the 28th starts on the 19th: three walks */
+  return /^ 3 sessions since 19 Sep/.test(line(E, H, 'walking', 10).text);
+})());
+ok('under the minimum known sessions, no line at all', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD.slice(0, th.CAPACITY_MIN_SESSIONS - 1), MINS, 0);
+  const r = line(E, H, 'walking');
+  return r.data.activity === null && r.text === null;
+})());
+ok('no chosen activity, a skipped one, or workouts not shared: no line', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD, MINS, 3);
+  return line(E, H, null).data.activity === null && line(E, H, '').data.activity === null
+    && line(E, H, 'walking', 90, ['sleep']).data.activity === null;
+})());
+ok('another activity is not the chosen one', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD, MINS, 3);
+  return line(E, H, 'swimming').data.activity === null;
+})());
+ok('the line never prints a pain value', (() => {
+  const E = {}, H = {};
+  walks(E, H, ODD, MINS, 3);
+  return !/\b(7|9)\b/.test(line(E, H, 'walking').text);
 })());
 
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');

@@ -24,7 +24,7 @@ import {
 } from './model';
 import { BAND_AT, formatScore, painLabel } from './painScale';
 import {
-  BAND_MIN_CHECKINS, BAND_MIN_DAYS, CHART_WEEKLY_ABOVE_DAYS, HALVES_MIN_DAYS,
+  BAND_MIN_CHECKINS, BAND_MIN_DAYS, CAPACITY_HARDER_POINTS, CAPACITY_RECENT, CHART_WEEKLY_ABOVE_DAYS, HALVES_MIN_DAYS,
   LIMITED_RECORD_DAYS, TERCILE_CONTRAST_MIN_DAYS, TERCILE_CONTRAST_MIN_SHARE_GAP,
   TERCILE_MIN_DAYS, TERCILE_MIN_SPREAD,
 } from './thresholds';
@@ -34,6 +34,8 @@ import {
   WORKOUT_NON_CAUSATION, WORKOUT_TIMING, WorkoutAssociation, workoutAssociations, workoutCopy,
 } from './health/workouts';
 import { capitalise, workoutName } from './health/workoutNames';
+import { activityLevel, sessions } from './health/capacity';
+import { goalFromIntention, goalMatches } from './recovery';
 import { noticedAssociations, strongestPossible } from './health/noticed';
 import { HEALTH_CATEGORIES, HealthCategory, HealthDay } from './health/types';
 
@@ -80,6 +82,23 @@ export interface ReportPeriod {
   to: string | null;
   factors: string[];
   status: Protocol['status'];
+}
+
+/** the chosen activity's sessions in this window, at its current
+ *  effort, described from the patient's own record. Never a pain value. */
+export interface ActivityProgress {
+  /** "walking, easy effort" — or "effort not recorded", never guessed */
+  name: string;
+  /** the first session counted */
+  since: string;
+  /** sessions with a morning check-in that day and the next */
+  known: number;
+  fine: number;
+  /** median length of the sessions that went fine, in the earliest and
+   *  the latest window. then is null until the windows cannot overlap;
+   *  either is null when its window holds no session that went fine. */
+  then: { n: number; minutes: number } | null;
+  now: { n: number; minutes: number } | null;
 }
 
 export interface ReportData {
@@ -168,6 +187,10 @@ export interface ReportData {
   hypothesis: Hypothesis | null;
   /** the periods that overlap the window, oldest first. Empty = none. */
   periods: ReportPeriod[];
+  /** the chosen activity, as one line beside its key-metrics cell.
+   *  null = no activity chosen, workouts not shared, or too few
+   *  sessions to say anything (activityProgressOf). */
+  activity: ActivityProgress | null;
 }
 
 /* ── what you flagged ────────────────────────────────────────
@@ -373,6 +396,7 @@ export function buildReportData(inp: ReportInput): ReportData | null {
       })
       .filter((n) => !!n.text),
     health: healthContext(inp.healthDays, inp.healthCategories || [], entries, days, startIso, todayIso),
+    activity: activityProgressOf(goalText, entries, inp.healthDays, inp.healthCategories || [], startIso, todayIso),
     background: inp.background || null,
     diagnosis: diagnosisLine(inp.diagnosis),
     hypothesis: inp.hypothesis && (inp.hypothesis.understand.trim()
@@ -450,6 +474,61 @@ function healthContext(
   const workoutsInWindow = workouts.filter((a) =>
     (a.verdict === 'possible' || a.verdict === 'observation') && !!seen[a.activity]);
   return { coverage, association, medications, doses: inWindow, workouts: workoutsInWindow };
+}
+
+/**
+ * "Twenty minutes of walking, was five in June" (POSITIONING.md) — the
+ * function line, from the sessions Health recorded and the check-ins
+ * the patient entered. capacity.ts's reading, re-worded for paper, so
+ * the page and Today's card can never disagree about a session.
+ *
+ * THE GROUP is the chosen activity at the effort of its newest session
+ * in the window — recovery.ts's currentLevel without its all-bands
+ * fallback, because twenty easy minutes then and thirty-three hard ones
+ * now is not progress, it is a different session.
+ *
+ * THEN AND NOW are the same rule on two windows that never share a
+ * session: activityLevel's median length of the sessions that went fine,
+ * over the latest CAPACITY_RECENT known sessions (exactly the card's
+ * level) and over the earliest ones that are not among them — so
+ * "then" needs CAPACITY_RECENT + CAPACITY_MIN_SESSIONS known sessions.
+ * Short of that the line names one median and no change; short of
+ * CAPACITY_MIN_SESSIONS (activityLevel's gate) there is no line.
+ *
+ * The goal is read the way Today reads it when only the intention is
+ * stored — saving a goal writes its label to goal.text — so this line
+ * and the "Chosen activity" cell beside it name the same thing.
+ */
+function activityProgressOf(
+  goalText: string | null,
+  entries: Entries,
+  healthDays: Record<string, HealthDay> | undefined,
+  categories: HealthCategory[],
+  start: string,
+  end: string
+): ActivityProgress | null {
+  const goal = goalFromIntention(goalText);
+  if (!goal || !healthDays || !categories.includes('workouts')) return null;
+  /* outcomes read from the whole record — the window bounds which
+     sessions count, not which mornings exist */
+  const gs = sessions(entries, healthDays, end)
+    .filter((x) => x.date >= start && goalMatches(goal, x.activity));
+  if (!gs.length) return null;
+  const newest = gs[gs.length - 1];
+  const known = gs.filter((x) => x.activity === newest.activity && x.band === newest.band
+    && (x.outcome === 'fine' || x.outcome === 'harder'));
+  const now = activityLevel(newest.activity, newest.band, known);
+  if (!now) return null;
+  const then = activityLevel(newest.activity, newest.band,
+    known.slice(0, Math.max(0, Math.min(CAPACITY_RECENT, known.length - CAPACITY_RECENT))));
+  return {
+    name: newest.activity + ', ' + (newest.band ? newest.band + ' effort' : 'effort not recorded'),
+    since: known[0].date,
+    known: known.length,
+    fine: known.filter((x) => x.outcome === 'fine').length,
+    then: then && then.fine && now.fine ? { n: then.known, minutes: then.level } : null,
+    now: now.fine ? { n: now.known, minutes: now.level } : null,
+  };
 }
 
 /** the limitation answers over the window, current wording only */
@@ -811,6 +890,24 @@ function metricCell(label: string, value: string, sub?: string): string {
     (sub ? '<div class="metric-s">' + esc(sub) + '</div>' : '') + '</div>';
 }
 
+/** the activity line: counts and minutes from the patient's own
+ *  sessions, with "went fine" defined inside the line it qualifies —
+ *  on paper there is no card note to point at. No verdict word: the
+ *  reader compares the two medians, the page does not. */
+function activityLine(a: ActivityProgress): string {
+  const mins = a.then && a.now
+    ? ' Their median length: ' + a.then.minutes + ' min in the first '
+      + a.then.n + ', ' + a.now.minutes + ' min in the latest ' + a.now.n + '.'
+    : a.now
+      ? ' Their median length: ' + a.now.minutes + ' min'
+        + (a.now.n < a.known ? ' in the latest ' + a.now.n : '') + '.'
+      : '';
+  return '<b>' + esc(capitalise(a.name)) + ':</b> ' + a.known
+    + (a.known === 1 ? ' session' : ' sessions') + ' since ' + esc(fmtShortDate(a.since))
+    + ' with check-ins both mornings; ' + a.fine + ' went fine (next-morning pain under '
+    + CAPACITY_HARDER_POINTS + ' points above that morning’s).' + mins;
+}
+
 /** the whole report as a print-first HTML document. White paper, dark
  *  text, Pattern blue as accent only — legible in grayscale, paginating
  *  naturally when long. */
@@ -966,7 +1063,11 @@ export function reportHtml(data: ReportData): string {
         fmtShortDate(data.abilityChange.first.week) + ' – ' + fmtShortDate(data.abilityChange.last.week)));
     }
   }
-  s.push('</div></section>');
+  s.push('</div>');
+  if (data.activity) {
+    s.push('<div class="note num" style="margin-top:8px">' + activityLine(data.activity) + '</div>');
+  }
+  s.push('</section>');
 
   // ── days by band — the count that grows as things improve ──
   /* The line chart below falls when the patient improves, which is
