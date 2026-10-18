@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pattern</title>
-<meta name="description" content="Pattern is for people who have pain and are not done living. A twenty-second check-in, your sleep and workouts from Apple Health beside it, and a sentence before the decision that costs tomorrow. Nothing about your body leaves the phone.">
+<meta name="description" content="Pattern is for people who have pain and are not done living. A twenty-second check-in, your sleep and workouts from Apple Health beside it, and a sentence before the decision that costs tomorrow. Nothing you tell it about your body leaves the phone.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -259,7 +259,7 @@
     <h1>Understand your pain.<br>Keep living.</h1>
     <p class="lede measure">Connect the dots between your pain and your life — sleep, movement, stress, the things you do every day — and get a sentence before the session that costs tomorrow. Twenty seconds a day. The rest you are already living.</p>
     <div class="cta">
-      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20invite">Ask for an invite</a>
+      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20invite&amp;body=Hi%20Itai%2C%0D%0A%0D%0AI%27d%20like%20to%20try%20Pattern.%0D%0A%0D%0A%28Optional%20-%20answer%20any%2C%20all%20or%20none.%20A%20few%20words%20is%20plenty.%29%0D%0A%0D%0A1.%20What%20are%20you%20trying%20to%20get%20back%20to%2C%20or%20keep%20doing%3F%0D%0A%0D%0A2.%20Do%20you%20wear%20an%20Apple%20Watch%2C%20or%20anything%20that%20writes%20to%20Apple%20Health%3F%0D%0A%0D%0A3.%20What%20kind%20of%20pain%20is%20it%3F%20In%20your%20own%20words%20-%20no%20detail%20needed.%0D%0A">Ask for an invite</a>
       <a class="btn" href="#how">See how it works</a>
     </div>
     <div class="with" aria-label="Works with Apple Health and Apple Watch">
@@ -298,16 +298,15 @@
         <p class="lede muted">Pain is the only question that needs an answer. Where it hurts and what it feels like are there when you want them, never demanded. Twenty seconds on a good day. Three seconds from your wrist on a bad one.</p>
         <p class="caveat">No streak to protect. No ring to close. A missed day is just a missed day.</p>
       </div>
-      <div class="phone" aria-label="The pain step: a square, the number 3, Mild, a slider, and two buttons">
-        <div class="bar"><span>✕</span>Check-in<span>›</span></div>
-        <div class="prog" aria-hidden="true"><i></i><i></i><i></i></div>
-        <p class="q">How intense is your pain right now?</p>
+      <div class="phone" aria-label="The pain step: a square, the number 3, Mild, a slider, and one button, Done">
+        <div class="bar"><span>‹</span>Check-in<span style="visibility:hidden"></span></div>
+        <p class="q">What is your pain level?</p>
         <div class="shape" aria-hidden="true"></div>
         <p class="score">3</p>
         <p class="word">Mild</p>
         <div class="slider" aria-hidden="true"><i></i></div>
         <div class="ends" aria-hidden="true"><span>NO PAIN</span><span>MOST INTENSE</span></div>
-        <div class="pair" aria-hidden="true"><span class="out">Add details</span><span class="fill">Log it</span></div>
+        <div class="pair" aria-hidden="true"><span class="fill">Done</span></div>
       </div>
     </div>
 
@@ -392,9 +391,9 @@
        other tracker, and the reason a person can be honest with it ── -->
   <section id="privacy">
     <h2>Nothing you tell it about your body<br>leaves the phone.</h2>
-    <p class="lede measure">No account. No sign-in. No server that has ever held a pain score. Your record is one file inside the app, protected by your passcode, and it travels only in your iPhone’s own backup or in a summary you choose to share.</p>
+    <p class="lede measure">No account. No sign-in. No server that has ever held a pain score. Your record is one file inside the app, protected by your passcode, and it travels only in your iPhone’s own backup, in a copy you save yourself, or in a summary you choose to share.</p>
     <ul class="plain">
-      <li><b>Local, by design.</b><span>The record is SQLite on the phone. Deleting the app deletes it. Pattern cannot see it, sell it or lose it for you.</span></li>
+      <li><b>Local, by design.</b><span>The record is SQLite on the phone. Deleting the app deletes it, and the iPhone’s backup will not bring it back to a reinstall — a copy you saved will. Pattern cannot see it, sell it or lose it for you.</span></li>
       <li><b>Counts, never content.</b><span>Anonymous usage counts — that a check-in happened, never what it said — go to an EU-hosted service you can switch off in Profile.</span></li>
       <li><b>Your words stay yours.</b><span>Notes, your background, what you want to ask the doctor: printed exactly as written, read by nothing, sent nowhere.</span></li>
     </ul>
@@ -462,16 +461,16 @@
       <div><span>Health</span><span>Read-only. Per-category consent through Apple’s own sheet. Imported values are never written into Pattern’s backup file, and live in a folder iOS leaves out of backups.</span></div>
       <div><span>Watch</span><span>Sends the number only. The phone is the only writer.</span></div>
       <div><span>Analytics</span><span>Anonymous counts that something happened, never what it said. Aptabase, EU-hosted. Off in Profile.</span></div>
-      <div><span>Stack</span><span>Expo · React Native · SwiftUI · no AI, no server</span></div>
+      <div><span>Stack</span><span>Expo · React Native · SwiftUI · no AI, no Pattern server</span></div>
     </div>
   </section>
 
   <!-- ── the invite ── -->
   <section id="beta">
     <h2>Understand your pattern.<br>Keep living your life.</h2>
-    <p class="lede muted measure">In private beta on TestFlight. iPhone required; Watch and Health optional. Tell me what you are trying to get back to, and I’ll send an invite.</p>
+    <p class="lede muted measure">In private beta on TestFlight. iPhone required; Watch and Health optional. The email opens with three short questions — answer any, or none. They help me see whether Pattern fits you yet.</p>
     <div class="cta">
-      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20invite">Ask for an invite</a>
+      <a class="btn primary" href="mailto:itaiagami@gmail.com?subject=Pattern%20invite&amp;body=Hi%20Itai%2C%0D%0A%0D%0AI%27d%20like%20to%20try%20Pattern.%0D%0A%0D%0A%28Optional%20-%20answer%20any%2C%20all%20or%20none.%20A%20few%20words%20is%20plenty.%29%0D%0A%0D%0A1.%20What%20are%20you%20trying%20to%20get%20back%20to%2C%20or%20keep%20doing%3F%0D%0A%0D%0A2.%20Do%20you%20wear%20an%20Apple%20Watch%2C%20or%20anything%20that%20writes%20to%20Apple%20Health%3F%0D%0A%0D%0A3.%20What%20kind%20of%20pain%20is%20it%3F%20In%20your%20own%20words%20-%20no%20detail%20needed.%0D%0A">Ask for an invite</a>
     </div>
     <p class="fine" style="margin-top:22px">Not a medical device. Sudden severe pain, chest pain, a serious injury, or pain with numbness, weakness, fever or loss of bladder or bowel control needs a doctor now, not a check-in.</p>
   </section>
