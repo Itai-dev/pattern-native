@@ -62,7 +62,7 @@ string and a Reminders string, the watch's second page (`WeekView.swift`).
 `tools/test-native-guards.js` passes on all of it (run 18 Oct). The
 on-device model is NOT in it — ROADMAP expected Phase 2's build to carry
 it, and `package.json` has no such module. It goes in before Mon 19 Oct
-or waits until after 28 Dec; not a second binary mid-cohort.
+or waits until wave 3's calls are done; not a second binary mid-cohort.
 
 **No new native target**: `targets/watch` and `targets/watch-complication`
 have been signed since build 47, profiles in EAS's store
@@ -226,19 +226,24 @@ of these. Each is a fix-first, not a pivot.
 **Safety.**
 - A tester followed "next time, N minutes" into a flare or an injury, or
   over their physio's plan. The not-medical-advice line did not hold;
-  read every word of that card's path before inviting again.
+  read every word of that card's path before inviting again. The sheet
+  says "safety stop, date" — what happened to them is not the app's to
+  keep (PHASE2-INTERVIEWS §5).
 - A tester checks their numbers many times a day, or feels watched — the
   harm "nothing rewards looking at your pain" exists to prevent. It
   outranks any retention number.
 - A record lost to an update, a build change or a restore that did not
   restore. One is enough.
-- Someone in crisis writes to you. Answer as a person, point them to
-  their clinician or the local emergency number; it is not feedback.
+- Someone in crisis writes to you. Answer as a person, as
+  PHASE2-INTERVIEWS §1.2 says: their doctor, the local emergency number
+  or a crisis line, never an assessment; note only "signposted, date".
+  It is not feedback.
 
 **A broken core loop.**
-- By day 8 of wave 1, nobody has morning check-ins on two consecutive
-  days, or nobody has connected Health: the card can answer no one, and
-  wave 2 would only measure that again.
+- By the end of wave 1's week-1 calls (Sun 8 Nov, the day before wave
+  2's invites), every wave-1 tester is at *not yet* on the card
+  (PHASE2-INTERVIEWS §3, question 5), or nobody has connected Health:
+  the card can answer no one, and wave 2 would only measure that again.
 - An old commit at the head of `production`, or a tester not on the
   update you published: no fix reaches anyone until that is repaired.
 - Build 49 crashes at launch or a check-in does not save: roll back
@@ -246,5 +251,35 @@ of these. Each is a fix-first, not a pivot.
   is understood.
 
 **Not on the list:** a wave that reads low. That is the answer Phase 2
-exists to get. Read it on 28 Dec with the others, and do not recruit past
+exists to get. Read it with the others after wave 3's calls, and do not recruit past
 fifteen to outrun it — the count is never the reason to advance.
+
+## Message to current testers (18 Oct update)
+
+*From the founder, by email or as a TestFlight group message, once, when
+the 18 Oct update is published and the head check passes. It answers
+§1 step 5 (force-quit twice) and step 6 (the morning reminder for whoever
+took the evening one). The Profile path is the app's own: the group is
+"Check-ins", the row "Daily reminder", the slots behind "Customise".*
+
+> Hi,
+>
+> There's an update to Pattern. To get it, force-quit the app twice: the
+> first launch downloads it, the second applies it.
+>
+> What you'll notice most:
+>
+> - A tap right at 5 on the slider now counts. Before, it did nothing.
+> - The activity card reads more plainly, and it offers a morning
+>   reminder, because it reads each session against the next morning's
+>   check-in. If you turned on the evening reminder earlier, the morning
+>   one is in Profile, under Check-ins: tap Customise beside Daily
+>   reminder.
+> - Links and buttons are white now. On Pattern, colour only ever means
+>   pain.
+>
+> One ask: reply with anything that confused you, even one word. That is
+> the most useful thing you can send me.
+>
+> Thanks,
+> Itai

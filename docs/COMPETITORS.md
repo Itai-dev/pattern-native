@@ -70,7 +70,8 @@ and email as collected; its owner advertises running virtual pharma
 studies by "leveraging" the user community — what is shared, and on what
 terms, is **unverified**. *Price:* $9.99–12.99/month, $69.99–89.99/year.
 *What Pattern refuses:* the community, chat and sharing with other users —
-**"nothing … leaves the phone in a form anyone else can read."**
+**"nothing you told it about your body leaves the phone in a form
+anyone else can read."**
 
 **PainScale** (Boston Scientific). US store page 404 on 18 Oct; withdrawn
 in New Zealand. Likely gone (**unverified**) — a recruit naming it wants a
@@ -108,7 +109,8 @@ cause, which POSITIONING calls a regression even when asked for.
 > Keep it if it's helping. Those are good at recording pain; Pattern asks
 > one number and reads the runs, climbs and classes your Watch already
 > logged against the next morning, so you find out which ones are going
-> fine — with no account and nothing on our servers.
+> fine — with no account, and nothing you tell it about your body
+> leaving your phone.
 
 Never knock the other app; a person who left one has a reason — ask it.
 
@@ -130,9 +132,11 @@ Checked against the code on `claude/team-loop-oct18`, 18 Oct 2026.
    morning; first answer after three such sessions (`src/thresholds.ts`,
    `CAPACITY_*`). Exakt reads the next day too — for **its own**
    prescribed plan. Pattern reads yours, with no plan.
-3. **No score, no streak, no ring.** Every number on screen is one the
-   person entered; pain and ability are never averaged
-   (`src/health/capacity.ts`: none shown, averaged or combined). Verified
+3. **No score, no streak, no ring.** Every pain number on screen is one
+   the person entered, or a plain average of those labelled as one
+   (Patterns); the card shows minutes, never pain, and pain and ability
+   are never averaged together (`src/health/capacity.ts`: none shown,
+   averaged or combined). Verified
    against Bearable (total symptom score), CareClinic (streaks), Reficio
    (rings), Pathways (unlockable Challenges); not checked for Manage My
    Pain or Migraine Buddy — say "unlike the ones I've looked at".
@@ -143,7 +147,8 @@ clinician — POSITIONING names that as the first job when one joins — and
 it is General Wellness, not a device (Exakt *is* one). Say "it reads your
 own sessions and suggests a small step; your physio's plan comes first",
 as the TestFlight note does. Never call it a rehab app, and never mention
-the on-device model (`docs/AI.md`): it is not in build 49.
+the on-device model (`docs/AI.md`): as planned it is not in build 49
+(PHASE2-LAUNCH §2), so no tester has it.
 
 ## 4. The segment nobody serves
 
@@ -159,7 +164,8 @@ a Watch that knows every session. Their question is POSITIONING's — *what
 is affecting my pain, and what can I actually do with that?* — answered
 from what they already do, with no plan to finish and no score to watch.
 That is "living actively with pain"; nothing found here is built for it.
-**A hypothesis until wave 1's day-8 email says otherwise.** And the
+**A hypothesis until wave 1's week-1 calls (PHASE2-INTERVIEWS §3) say
+otherwise.** And the
 landing page's "the part no other tracker does" holds for trackers, not
 for Exakt — keep the word "tracker" in it.
 
