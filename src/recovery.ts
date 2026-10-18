@@ -26,6 +26,7 @@
  * and a suggestion about a session is not clearance to do it.
  */
 import { Entries, logsOf, mondayOf } from './model';
+import { MORNING_FROM, MORNING_UNTIL } from './metrics';
 import { CAPACITY_MIN_SESSIONS } from './thresholds';
 import { ActivityLevel, EffortBand, Session, activityLevel, sessions } from './health/capacity';
 import { morningPain } from './health/windows';
@@ -229,10 +230,14 @@ function easier(band: EffortBand | null): string {
  * goal is set). Order matters: a session still waiting on its morning
  * is the freshest fact and speaks first; then a level if there is one;
  * then the early read.
+ *
+ * `nowMin` is the minute of the day, because whether a check-in can
+ * still answer a session depends on it. Left out, it is the start of
+ * the morning — the reading every caller got before the clock arrived.
  */
 export function dailyGuidance(
   goal: RecoveryGoal | null, entries: Entries, health: Record<string, HealthDay>, todayIso: string,
-  flareToday = false,
+  flareToday = false, nowMin: number = MORNING_FROM,
 ): DailyGuidance {
   const gs = goalSessions(sessions(entries, health, todayIso), goal);
   if (!gs.length) {
@@ -245,15 +250,43 @@ export function dailyGuidance(
 
   const newest = gs[gs.length - 1];
   if (newest.outcome === 'pending') {
+    /* CAN A CHECK-IN STILL ANSWER IT? capacity.ts has no clock, so it
+       calls a session pending until midnight — but the answer is the
+       first check-in of the MORNING band on each of the two days, so
+       after noon nothing logged today can give it one, and a session
+       whose own day had no morning check-in never will. The button used
+       to stay up regardless: the check-in landed, the card did not
+       move, and it asked again. Now it shows only inside the band, and
+       once the answer is out of reach the card says the session is in
+       and how a session is read. Never that a morning was missed —
+       Today does not mention a missed check-in. It stays 'waiting'
+       rather than falling through to a level, so the only thing noon
+       takes away is an ask that could not be met; at midnight the
+       session turns 'unknown' and counts toward nothing, as capacity.ts
+       already rules, and the card reads on. (18 Oct 2026) */
+    const yesterday = newest.date < todayIso;
+    const ownMorning = !!morningPain(logsOf(entries[newest.date]));
+    const morningLeft = nowMin < MORNING_UNTIL;
+    const readable = yesterday ? ownMorning && morningLeft : ownMorning || morningLeft;
+    if (!readable) {
+      return {
+        state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: false,
+        headline: yesterday ? 'Yesterday’s session is in.' : 'Today’s session is in.',
+        recommendation: 'Pattern reads a session against a morning check-in that day and the next.',
+      };
+    }
     /* yesterday's session and no morning check-in yet today: the one
-       tap that answers it is right here */
-    const mine = newest.date < todayIso && !morningPain(logsOf(entries[todayIso]));
+       tap that answers it is right here — from five, because a check-in
+       at three is the night's and answers nothing */
+    const mine = yesterday && !morningPain(logsOf(entries[todayIso]));
+    const inBand = nowMin >= MORNING_FROM;
     return {
-      state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: mine,
+      state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: mine && inBand,
       headline: mine ? 'Yesterday’s session is waiting on this morning’s check-in.'
         : 'Today’s session is in.',
-      recommendation: mine ? 'One check-in shows how it went.'
-        : 'Tomorrow morning’s check-in will show how it went.',
+      recommendation: !mine ? 'Tomorrow morning’s check-in will show how it went.'
+        : inBand ? 'One check-in shows how it went.'
+        : 'A check-in once it’s morning shows how it went.',
     };
   }
 

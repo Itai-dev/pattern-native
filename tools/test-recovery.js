@@ -8,6 +8,8 @@
 const path = require('path');
 const OUT = process.env.PATTERN_TEST_OUT || path.join(__dirname, '..', '.testbuild');
 const rec = require(path.join(OUT, 'recovery.js'));
+/* the morning band's edges, from the one definition the engine reads */
+const { MORNING_FROM, MORNING_UNTIL } = require(path.join(OUT, 'metrics.js'));
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra) => {
@@ -101,6 +103,46 @@ ok('today’s session: tomorrow will tell, no button', (() => {
   sess(E, H, TODAY, wk(30), 4);
   const g = rec.dailyGuidance(RUN, E, H, TODAY);
   return g.state === 'waiting' && g.checkIn === false && /Tomorrow morning/.test(g.recommendation);
+})());
+ok('before noon, yesterday’s session asks exactly as it did without a clock', (() => {
+  const E = {}, H = {};
+  sess(E, H, 27, wk(30), 4);
+  const plain = rec.dailyGuidance(RUN, E, H, TODAY);
+  return plain.checkIn === true && [MORNING_FROM, 8 * 60, MORNING_UNTIL - 1].every((m) =>
+    JSON.stringify(rec.dailyGuidance(RUN, E, H, TODAY, false, m)) === JSON.stringify(plain));
+})());
+ok('after noon: no button, and no word of a missed morning', (() => {
+  const E = {}, H = {};
+  sess(E, H, 27, wk(30), 4);
+  const noon = rec.dailyGuidance(RUN, E, H, TODAY, false, MORNING_UNTIL);
+  const late = rec.dailyGuidance(RUN, E, H, TODAY, false, 21 * 60);
+  const words = noon.headline + ' ' + noon.recommendation;
+  return noon.state === 'waiting' && noon.checkIn === false && noon.recommendedLoad === null
+    && JSON.stringify(noon) === JSON.stringify(late)
+    && !/miss|forgot|didn|should|late|this morning|one check-in/i.test(words);
+})());
+ok('a session no check-in can answer never shows the button', (() => {
+  /* yesterday had only an afternoon check-in: nothing to compare with */
+  const A = {}, HA = {};
+  A[d(27)] = entry([{ h: 15 * 60, pain: 4 }]);
+  sess(A, HA, 27, wk(30), 4);
+  const noBase = rec.dailyGuidance(RUN, A, HA, TODAY, false, 8 * 60);
+  /* checked in at one: the button must not come back asking again */
+  const B = {}, HB = {};
+  sess(B, HB, 27, wk(30), 4);
+  B[TODAY] = entry([{ h: 13 * 60, pain: 4 }]);
+  const after = rec.dailyGuidance(RUN, B, HB, TODAY, false, 13 * 60 + 5);
+  /* three in the morning: the band has not begun, so no button yet */
+  const night = rec.dailyGuidance(RUN, B, HB, TODAY, false, 3 * 60);
+  /* today's session, no morning check-in today, now afternoon:
+     tomorrow's check-in cannot finish it either */
+  const C = {}, HC = {};
+  C[TODAY] = entry([{ h: 13 * 60, pain: 4 }]);
+  sess(C, HC, TODAY, wk(30), 4);
+  const todayLate = rec.dailyGuidance(RUN, C, HC, TODAY, false, 14 * 60);
+  const todayEarly = rec.dailyGuidance(RUN, C, HC, TODAY, false, 9 * 60);
+  return !noBase.checkIn && !after.checkIn && !night.checkIn && /once it’s morning/.test(night.recommendation)
+    && !/Tomorrow morning/.test(todayLate.recommendation) && /Tomorrow morning/.test(todayEarly.recommendation);
 })());
 ok('short of a baseline after a stable morning: learning, with how many more', (() => {
   const E = {}, H = {};

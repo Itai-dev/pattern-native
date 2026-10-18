@@ -59,7 +59,7 @@ import { Press, useReduceMotion } from './motion';
 import { track } from './analytics';
 import {
   Entries, LastCopy, addDays, checkinCount,
-  copyOfferDue, legacyDayValue, logsOf, todayISO, unsavedDays,
+  copyOfferDue, legacyDayValue, logsOf, minutesNow, todayISO, unsavedDays,
 } from './model';
 import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
@@ -278,7 +278,9 @@ export default function HomeScreen({
   const saveGoal = (g: RecoveryGoal) => { onGoalChange(g); setEditingGoal(false); };
   const goalSet = !!goal && !!goal.activity;
   const hero = recoveryHero(goal, entries, healthDays, t);
-  const guidance = dailyGuidance(goal, entries, healthDays, t, flareToday);
+  /* the clock goes in because after noon a check-in can no longer
+     answer a waiting session, and the card stops asking for one */
+  const guidance = dailyGuidance(goal, entries, healthDays, t, flareToday, minutesNow());
   /* the card speaks when there is a goal to speak about, or sessions to
      read — a skipped goal and an empty Health says nothing */
   const showActivity = goalSet || guidance.state !== 'noActivity';

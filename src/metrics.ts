@@ -37,10 +37,19 @@ export const BANDS: { key: TimeBandKey; label: string; range: string }[] = [
   { key: 'night', label: 'Night', range: '22:00–04:59' },
 ];
 
+/** The morning band's edges, in minutes of the day. Named because a
+ *  second reader needs them: the activity card asks for a check-in only
+ *  while one can still answer a session, and a session's answer IS the
+ *  first check-in inside this band (health/windows.ts morningPain). An
+ *  inlined noon in recovery.ts would be a second definition of morning,
+ *  free to drift from the one the engine reads. */
+export const MORNING_FROM = 5 * 60;
+export const MORNING_UNTIL = 12 * 60;
+
 /** which part of the day a minute-of-day belongs to */
 export function bandOf(h: number): TimeBandKey {
-  if (h >= 5 * 60 && h < 12 * 60) return 'morning';
-  if (h >= 12 * 60 && h < 17 * 60) return 'afternoon';
+  if (h >= MORNING_FROM && h < MORNING_UNTIL) return 'morning';
+  if (h >= MORNING_UNTIL && h < 17 * 60) return 'afternoon';
   if (h >= 17 * 60 && h < 22 * 60) return 'evening';
   return 'night';
 }
