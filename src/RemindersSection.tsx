@@ -153,7 +153,7 @@ export default function RemindersSection() {
           value={anyOn}
           onValueChange={toggleAll}
           accessibilityLabel="Daily reminder"
-          trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+          trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
         />
       </View>
 
@@ -175,7 +175,7 @@ export default function RemindersSection() {
             value={adaptive}
             onValueChange={toggleAdaptive}
             accessibilityLabel="Follow Apple Health for reminder times"
-            trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+            trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
           />
         </View>
       )}
@@ -196,7 +196,7 @@ export default function RemindersSection() {
             value={s.on}
             onValueChange={(on) => toggle(s.key, on)}
             accessibilityLabel={LABELS[s.key] + ' reminder'}
-            trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+            trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
           />
         </View>
       ))}

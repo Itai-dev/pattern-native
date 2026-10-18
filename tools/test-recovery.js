@@ -142,7 +142,7 @@ ok('a session no check-in can answer never shows the button', (() => {
   const todayLate = rec.dailyGuidance(RUN, C, HC, TODAY, false, 14 * 60);
   const todayEarly = rec.dailyGuidance(RUN, C, HC, TODAY, false, 9 * 60);
   return !noBase.checkIn && !after.checkIn && !night.checkIn && /once it’s morning/.test(night.recommendation)
-    && !/Tomorrow morning/.test(todayLate.recommendation) && /Tomorrow morning/.test(todayEarly.recommendation);
+    && !/Tomorrow morning/.test(todayLate.recommendation) && todayEarly.checkIn === true && /this morning and one tomorrow/.test(todayEarly.recommendation);
 })());
 ok('short of a baseline after a stable morning: learning, with how many more', (() => {
   const E = {}, H = {};

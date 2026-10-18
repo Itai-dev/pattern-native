@@ -279,12 +279,19 @@ export function dailyGuidance(
        tap that answers it is right here — from five, because a check-in
        at three is the night's and answers nothing */
     const mine = yesterday && !morningPain(logsOf(entries[todayIso]));
+    /* today's session before this morning's check-in — a run at seven,
+       the app at nine: tomorrow's check-in alone cannot answer it, and
+       the tap that can is right here */
+    const both = !yesterday && !ownMorning;
     const inBand = nowMin >= MORNING_FROM;
     return {
-      state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: mine && inBand,
+      state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: (mine || both) && inBand,
       headline: mine ? 'Yesterday’s session is waiting on this morning’s check-in.'
         : 'Today’s session is in.',
-      recommendation: !mine ? 'Tomorrow morning’s check-in will show how it went.'
+      recommendation: both
+        ? (inBand ? 'A check-in this morning and one tomorrow morning show how it went.'
+          : 'A check-in once it’s morning, and one tomorrow morning, show how it went.')
+        : !mine ? 'Tomorrow morning’s check-in will show how it went.'
         : inBand ? 'One check-in shows how it went.'
         : 'A check-in once it’s morning shows how it went.',
     };

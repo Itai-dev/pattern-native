@@ -25,8 +25,11 @@ export const color = {
    *  quieter and still be the only red on the screen. */
   destructive: '#F05A50',
   shieldOk: '#7CC9A6',
-  /** the app's interactive tint — nav actions, links, selection */
-  tint: '#5BA8FF',
+  /** the app's interactive tint — nav actions, links, selection. WHITE
+   *  (18 Oct 2026): #5BA8FF sat between stops 3 and 4 of Pattern Blue,
+   *  so every link wore a score. Links differ by weight, not hue.
+   *  Switches do not use it: a white track swallows the white thumb. */
+  tint: '#FFFFFF',
   /** Pattern blue — the icon's rim, the brand's anchor hue */
   brand: '#0A84FF',
 } as const;

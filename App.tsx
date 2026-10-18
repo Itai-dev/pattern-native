@@ -1166,7 +1166,7 @@ export default function App() {
                           setCalendarUse(on);
                           syncReminders().catch(() => {});
                         }}
-                        trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                        trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
                       />
                     </View>
                   </View>
@@ -1185,7 +1185,7 @@ export default function App() {
                         /* the lock screen wears the change at once */
                         refreshWidget(db.getAll());
                       }}
-                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                      trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
                     />
                   </View>
                 </View>
@@ -1204,7 +1204,7 @@ export default function App() {
                         db.setPref(PREF_SQUARE_PICKER, on);
                         setSquarePicker(on);
                       }}
-                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                      trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
                     />
                   </View>
                 </View>
@@ -1329,7 +1329,7 @@ export default function App() {
                     <Switch
                       value={analyticsOn}
                       onValueChange={(on) => { setAnalyticsEnabled(on); setAnalyticsOn(on); }}
-                      trackColor={{ true: color.tint, false: color.bgSegmentActive }}
+                      trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
                     />
                   </View>
                 </View>
