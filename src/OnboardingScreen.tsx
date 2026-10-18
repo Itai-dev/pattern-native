@@ -310,8 +310,9 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               Where does it{'\n'}usually hurt?
             </Text>
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Tap any that apply — one or more places, or none. It seeds your
-              first check-in, nothing else.
+              Tap any that apply — one or more places, or none. When you add
+              where it hurts, these are offered as your usual places. Nothing
+              else uses them.
             </Text>
             <View style={styles.chips}>
               {LOC_CHIP_IDS.map((id) => chip(
@@ -365,10 +366,10 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
             style={styles.restoreBtn}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Used Pattern before? Restore a backup"
+            accessibilityLabel="Used Pattern before? Restore a saved copy"
           >
             <Text style={styles.restoreText} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Used Pattern before? Restore a backup
+              Used Pattern before? Restore a saved copy
             </Text>
           </Press>
         )}

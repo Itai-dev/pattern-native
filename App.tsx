@@ -714,7 +714,7 @@ export default function App() {
         setOnboarded(true);
       }
       Alert.alert(
-        mode === 'replace' ? 'Backup restored' : 'Backup merged',
+        mode === 'replace' ? 'Copy restored' : 'Copy merged',
         r.days + (r.days === 1 ? ' day' : ' days') +
         (r.events ? ', ' + r.events + (r.events === 1 ? ' event' : ' events') : '') +
         (r.func ? ', ' + r.func + ' weekly ' + (r.func === 1 ? 'rating' : 'ratings') : '') +
@@ -738,17 +738,17 @@ export default function App() {
       backup = null;
     }
     if (!backup) {
-      Alert.alert('Couldn’t read that file', 'It doesn’t look like a Pattern backup. Nothing was changed.');
+      Alert.alert('Couldn’t read that file', 'It doesn’t look like a copy saved from Pattern. Nothing was changed.');
       return;
     }
     const b = backup;
     const summary = Object.keys(b.entries).length + ' days, ' +
       b.events.length + ' events, ' + b.func.length + ' weekly ratings';
     Alert.alert(
-      'Restore backup',
+      'Restore a saved copy',
       'This file holds ' + summary + '.\n\n' +
-      'Replace: everything currently in Pattern is removed and the backup takes its place.\n' +
-      'Merge: backup days replace those same days, other days are kept, and nothing is duplicated.',
+      'Replace: everything currently in Pattern is removed and the copy takes its place.\n' +
+      'Merge: the copy’s days replace those same days, other days are kept, and nothing is duplicated.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Merge without duplicates', onPress: () => applyRestore(b, 'merge') },
@@ -758,7 +758,7 @@ export default function App() {
           onPress: () => {
             Alert.alert(
               'Replace everything?',
-              'Your current check-ins, events and weekly ratings will be removed and replaced by the backup. Export a backup of the current data first if you are unsure.',
+              'Your current check-ins, events and weekly ratings will be removed and replaced by the copy. Save a copy of what is here first if you are unsure.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Replace', style: 'destructive', onPress: () => applyRestore(b, 'replace') },
@@ -806,7 +806,7 @@ export default function App() {
           onPress: () => {
             Alert.alert(
               'This is permanent',
-              'There is no copy anywhere else. Deleted data cannot be recovered unless you exported a backup.',
+              'There is no copy anywhere else. Deleted data cannot be recovered unless you saved a copy.',
               [
                 { text: 'Keep my data', style: 'cancel' },
                 {
@@ -1298,11 +1298,11 @@ export default function App() {
                   onPress={exportBackup}
                   style={styles.row}
                   accessibilityRole="button"
-                  accessibilityLabel="Export backup"
+                  accessibilityLabel="Save a copy"
                 >
                   <RowIcon name="share-outline" />
                   <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Export backup</Text>
+                    <Text style={styles.rowLabel}>Save a copy</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>
@@ -1310,11 +1310,11 @@ export default function App() {
                   onPress={restoreBackup}
                   style={styles.row}
                   accessibilityRole="button"
-                  accessibilityLabel="Restore backup"
+                  accessibilityLabel="Restore a saved copy"
                 >
                   <RowIcon name="download-outline" />
                   <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Restore backup</Text>
+                    <Text style={styles.rowLabel}>Restore a saved copy</Text>
                     <Text style={styles.rowChevron}>›</Text>
                   </View>
                 </Pressable>

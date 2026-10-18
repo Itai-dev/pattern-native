@@ -293,7 +293,7 @@ One question, in a few seconds. Everything else is added afterwards, from Today.
 
 ### The one screen — pain (mandatory)
 
-> What is your pain level?
+> How intense is your pain right now?
 
 0–10 integer slider · 0 No pain · 1–3 Mild · 4–6 Moderate · 7–9 Severe · 10 Most intense.
 Full-width, 44pt minimum, integer snapping, light haptic on change, one animated pain square

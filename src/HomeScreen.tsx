@@ -443,7 +443,7 @@ export default function HomeScreen({
                 No check-ins yet today
               </Text>
               <Text style={styles.emptySub} allowFontScaling maxFontSizeMultiplier={1.4}>
-                A check-in takes about ten seconds, and the record is only ever
+                A check-in takes a few seconds, and the record is only ever
                 what you put in it.
               </Text>
             </View>
@@ -686,7 +686,7 @@ export default function HomeScreen({
               hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Save a copy of your record"
-              accessibilityHint="Opens the share sheet with a backup file. Choose Save to Files to keep it outside the app."
+              accessibilityHint="Opens the share sheet with a copy of your record. Choose Save to Files to keep it outside the app."
             >
               <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Save a copy

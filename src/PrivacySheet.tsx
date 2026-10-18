@@ -20,7 +20,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     body: [
       'Every check-in: pain score, time, body areas, quality words. Everything you write: notes, what you tried, the one thing you are testing for a fortnight. Your answers to the daily questions, and which questions were asked or skipped. Events, reminders, and your app preferences.',
       'This lives in a database inside the app’s own storage, protected by your device’s encryption and passcode. Deleting Pattern deletes all of it.',
-      'Your record is part of your iPhone’s own backup — iCloud Backup, or a backup to a computer — if you have one turned on. That backup is Apple’s, made and encrypted under your Apple Account; Pattern does not make it, cannot see it and cannot turn it off. It is what brings your record back on a new phone, and it is the only copy anywhere other than the one you export yourself.',
+      'Your record is part of your iPhone’s own backup — iCloud Backup, or a backup to a computer — if you have one turned on. That backup is Apple’s, made and encrypted under your Apple Account; Pattern does not make it, cannot see it and cannot turn it off. It is what brings your record back on a new phone, and it is the only copy anywhere other than one you save yourself.',
     ],
   },
   {
@@ -42,19 +42,19 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'When you share something yourself',
     body: [
-      'Pattern can produce a PDF summary of your record for a clinician. It is generated on your device and handed to the iOS share sheet — it goes only where you send it, and never to us. The same is true of the backup file you can export: it is written locally, and what happens to it afterwards is entirely your choice.',
+      'Pattern can produce a PDF summary of your record for a clinician. It is generated on your device and handed to the iOS share sheet — it goes only where you send it, and never to us. The same is true of the copy of your record you can save: it is written locally, and what happens to it afterwards is entirely your choice.',
     ],
   },
   {
     title: 'Apple Health',
     body: [
-      'If you connect Apple Health, Pattern reads only the categories you choose, never writes to Health, and keeps what it reads on this iPhone — apart from your record, in a place iOS leaves out of backups, so a new phone reads Health afresh rather than inheriting readings it never took. It is not in the backup file you export, and it is removed when you disconnect.',
+      'If you connect Apple Health, Pattern reads only the categories you choose, never writes to Health, and keeps what it reads on this iPhone — apart from your record, in a place iOS leaves out of backups, so a new phone reads Health afresh rather than inheriting readings it never took. It is not in a copy you save, and it is removed when you disconnect.',
     ],
   },
   {
     title: 'Your calendar',
     body: [
-      'If you turn on “Use my calendar” in Profile, Pattern reads the titles and times of your calendar events on this iPhone, to ask about your pain after the ones that read as exertion and to show what is booked against your own record. It never writes to your calendar — the one action it offers opens Apple’s own event editor. What it reads is not stored, is not in your backup file, and is not sent anywhere.',
+      'If you turn on “Use my calendar” in Profile, Pattern reads the titles and times of your calendar events on this iPhone, to ask about your pain after the ones that read as exertion and to show what is booked against your own record. It never writes to your calendar — the one action it offers opens Apple’s own event editor. What it reads is not stored, is not in a saved copy, and is not sent anywhere.',
     ],
   },
   {

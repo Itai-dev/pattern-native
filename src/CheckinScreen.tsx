@@ -1,7 +1,7 @@
 /**
  * The check-in: one question, and out.
  *
- *   What is your pain level?  — the slider; the shape moves with the
+ *   How intense is your pain right now?  — the slider; the shape moves with the
  *                               finger, the word snaps. Done writes the
  *                               moment and shows the tick.
  *
@@ -315,7 +315,7 @@ export default function CheckinScreen({
       </View>
 
       <Text style={styles.title}>
-        {editing ? 'What was your\npain level?' : 'What is your\npain level?'}
+        {timed ? 'How intense was\nyour pain?' : 'How intense is your\npain right now?'}
       </Text>
       {!!retroLine && (
         <Text style={styles.retroLine} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -420,7 +420,7 @@ export default function CheckinScreen({
             chosen={moved}
             onChange={choose}
             progress={progress}
-            accessibilityLabel="Pain right now, 0 to 10"
+            accessibilityLabel={timed ? 'Pain then, 0 to 10' : 'Pain right now, 0 to 10'}
             accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
           />
         ) : (
@@ -429,7 +429,7 @@ export default function CheckinScreen({
             chosen={moved}
             onChange={choose}
             progress={progress}
-            accessibilityLabel="Pain right now, 0 to 10"
+            accessibilityLabel={timed ? 'Pain then, 0 to 10' : 'Pain right now, 0 to 10'}
             accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
           />
         )}
