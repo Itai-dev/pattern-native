@@ -87,7 +87,10 @@ unexplained weight loss, or pain after a fall or crash —
 
 ## 2. Day 0 — the onboarding call (15 min)
 
-Send the TestFlight link the day before: install, do not open. Call by
+The TestFlight invite goes out on the wave's Monday (PHASE2-LAUNCH §3):
+install, do not open. Calls are Tuesday to Thursday of that week, so the
+first check-in lands inside the cohort week — and the day of that first
+check-in is **day 0**, the anchor of every day number below. Call by
 voice or video **without screen-share** — a shared screen shows the first
 pain number, and a recording keeps it. Think-aloud instead.
 
@@ -119,7 +122,8 @@ anything, and I'll call in about ten days.
 
 Not day 7: the card's first answer needs three sessions, each with a
 check-in that morning and the next — about day 6 at three runs a week
-(TEAM-LOOP round 4). Six questions, in order; the follow-ups are the only
+(TEAM-LOOP round 4). This call is the week-1 contact; there is no
+separate day-8 email. Six questions, in order; the follow-ups are the only
 permitted prompts.
 
 1. **"Walk me through the last time you opened Pattern — where were
@@ -135,8 +139,8 @@ permitted prompts.
    more points harder than this one. Listen for "it didn't hurt during",
    "I felt good after", "no pain". Write *right / partly / wrong* and
    the quote.
-4. **"Has Today ever said it wasn't suggesting longer? What did you make
-   of it?"** — not "did you have a flare". Tests round 2's flare-day line
+4. **"Has Today ever said nothing longer was suggested? What did you
+   make of it?"** — not "did you have a flare". Tests round 2's flare-day line
    without asking about the flare. If no, move on; never explain it.
 5. **"Has the card told you anything other than 'still learning' yet?
    What did you do the next time you went out?"** Write *not yet /
@@ -148,9 +152,12 @@ permitted prompts.
 Never ask whether they like it, and never correct a wrong read — it is
 the finding, and correcting it contaminates week 4.
 
-## 4. Week 4 — the exit conversation (day 29–35)
+## 4. Week 4 — the exit conversation (from the wave's read Monday)
 
-After day 28, so the call cannot be the reason they logged that week.
+Week 4 is days 21–27. The email goes on the Monday after the wave's
+week-4 window closes — 30 Nov, 14 Dec, 28 Dec (PHASE2-LAUNCH §3) — which
+is day 29–35 for anyone whose day 0 fell in the cohort week, so the call
+cannot be the reason they logged that week. Calls happen that week.
 **One email, identical for all ten**: the founder does not know who
 stopped and must not sound as if he does.
 
@@ -159,8 +166,9 @@ stopped and must not sound as if he does.
 > the result I most need to understand. Ten minutes on a call, or two
 > lines by reply, whichever is easier.
 
-**First, the count.** "Open History and count the days from [day 22] to
-[day 28] with any check-in — just the number of days." Read off their
+**First, the count.** "Open History and count the days from [date of
+day 21] to [date of day 27] with any check-in — just the number of
+days." Read off their
 screen, said by them, nothing else: recalled logging runs far above real
 logging (Stone 2002, below). It goes first, before the founder can lead.
 
@@ -195,7 +203,7 @@ AGENTS.md: no plaintext of the health record exists anywhere but the
 phone, and no support or debugging path may create one. Interview notes
 are a support path.
 
-**Notes may hold:** a pseudonym (T01–T10), channel, watch y/n, what they
+**Notes may hold:** a pseudonym (T01–T15), channel, watch y/n, what they
 did in the app, the §3 codes, verbatim quotes **about the app**,
 confusion points, contact dates, the week-4 day count, a reason code.
 
@@ -213,7 +221,8 @@ said*.
 
 **Where they live:** one spreadsheet on the founder's own device. Not in
 this repo, an issue or a commit, not pasted into an AI session, not in
-Aptabase. The name ↔ T-code map lives only in his email contacts.
+Aptabase. PHASE2-LAUNCH's cohort ledger is this sheet, not a second
+one. The name ↔ T-code map lives only in his email contacts.
 
 **The screening replies are the known exception.** Question 3 puts a
 description of someone's pain in a Gmail inbox. Volunteered, and not the
@@ -226,26 +235,37 @@ safer.
 
 One row per tester, filled as it happens. Codes, not prose; one quote.
 
-| T | Channel · knows founder | Watch | 1st check-in unaided · time | Reminder slot · morning fit | "Went fine" read | Hold-line read | 1st answer by wk 1 · next session | Biggest "huh" | Days 22–28 | Reason code |
+| T | Channel · knows founder | Watch | 1st check-in unaided · time | Reminder slot · morning fit | "Went fine" read | Hold-line read | 1st answer by wk 1 · next session | Biggest "huh" | Days 21–27 | Reason code |
 |---|---|---|---|---|---|---|---|---|---|---|
 | T01 | | | | | | | | | | |
 
 **Logging at week 4** means a check-in on **at least two separate days
-in days 22–28**. Not one: a single day can be a stray notification or
-one curious open, and two is a return. Not three or more: someone who
-logs only on hard days is using it as built, and a missed day is just a
-missed day.
+in days 21–27** — the same seven days `week_active` calls week 4 (days
+0–6 are week 1, `src/weeks.ts` on PR #22). Not one: a single day can be
+a stray notification or one curious open, and two is a return. Not three
+or more: someone who logs only on hard days is using it as built, and a
+missed day is just a missed day. This is Phase 2's number, in this file
+and in PHASE2-LAUNCH alike.
+
+**How it relates to `week_active{week:4}`.** That event says a phone
+made a check-in on *at least one* day of the same window, and nothing
+from anyone who turned analytics off. So per wave it is a cross-check,
+never the count: it should be at least the number of two-day loggers
+who left analytics on, and if it is lower, a date or a count is wrong —
+ask again, do not adjust. A gap above that is one-day weeks. It cannot
+turn a no-reply into a yes.
 
 **The denominator is everyone who had a day-0 call.** Nobody leaves it
 for a good reason — a lost phone, a busy month, a bad week are what real
 use looks like. Never installed: reported, not counted. **No reply at
 week 4 is *unknown*, never "stopped"** — three states — but the pass
-needs five known, so an unknown cannot count toward it.
+needs five known (eight of fifteen), so an unknown cannot count toward it.
 
 **The rule, written now so it cannot be argued later:**
 
-- **≥5 of 10 logging** — Phase 2 passes, unless the pass needs a tester
-  who knows the founder; then it does not.
+- **≥5 of 10 logging** (at least half, rounded up: 8 of 15 if wave 3
+  tops up, GROWTH Step 3) — Phase 2 passes, unless the pass needs a
+  tester who knows the founder; then it does not.
 - **<5 of 10** — the kill criterion has fired. Read the reason codes,
   not the quotes. Mostly *friction / confusion / notifications*: fix the
   named thing, then a **fresh** ten, never the same ten again. Mostly
@@ -261,11 +281,12 @@ rule): a week-4 number means nothing if the screen moved under it. Fix
 crashes and anything that blocks a check-in; queue the rest, and date
 every change that ships so the table can be read against it.
 
-**Two dates.** Build 48 expires about 14 Dec, so every day 0 falls
-before about 10 Nov, or a new build is on TestFlight first — an expiry
-in week 4 is a stopped tester the app did not cause. PR #22
-(`week_active`), if merged, cross-checks the day counts; it never
-replaces asking.
+**Two dates.** Build 48 expires about 14 Dec, inside waves 2 and 3's
+week 4 — an expiry in week 4 is a stopped tester the app did not cause.
+So every day 0 is on build 49 (PHASE2-LAUNCH §2), which stops about 19
+Jan, after the last week-4 call; if 49 slips, every wave moves two weeks
+with it. PR #22 (`week_active`), if merged, cross-checks the day counts;
+it never replaces asking.
 
 ## Sources
 

@@ -31,7 +31,7 @@
     --ink: #FFFFFF;
     --ink-2: #A0A0A8;
     --ink-3: #8E8E93;
-    --p0: #070C16; --p2: #152C52; --p5: #0A84FF; --p8: #5FBEFF; --p10: #EAF6FF;
+    --p0: #EAF6FF; --p2: #8CD0FF; --p5: #0A84FF; --p8: #143869; --p10: #070C16;
     --sans: "Instrument Sans", -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --display: "Schibsted Grotesk", "Instrument Sans", -apple-system, "SF Pro Display", Helvetica, Arial, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -44,7 +44,7 @@
     -webkit-font-smoothing: antialiased;
   }
   a { color: var(--ink); }
-  :focus-visible { outline: 2px solid var(--p8); outline-offset: 3px; border-radius: 4px; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
 
   .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
   .measure { max-width: 62ch; }
@@ -154,8 +154,8 @@
   .phone .q { font-family: var(--display); font-weight: 700; font-size: 21px; letter-spacing: -0.02em; text-align: center; line-height: 1.25; margin: 0 0 26px; }
   .shape {
     width: 132px; height: 132px; margin: 0 auto; border-radius: 32px;
-    background: linear-gradient(135deg, #1a55a8, #152C52);
-    box-shadow: 0 0 34px rgba(26,85,168,0.45); border: 1px solid rgba(255,255,255,0.16);
+    background: linear-gradient(135deg, #74C5FE, #5CBAFE);
+    box-shadow: 0 0 34px rgba(92,186,254,0.40); border: 1px solid rgba(255,255,255,0.16);
     animation: breathe 2.6s ease-in-out infinite alternate;
   }
   @keyframes breathe { from { transform: scale(1); } to { transform: scale(1.03); } }
@@ -169,7 +169,8 @@
   .pair .out { border: 1.5px solid var(--ink); }
   .pair .fill { background: var(--ink); color: #000; }
 
-  /* ── cards from Today: the budget, the evening before, the experiment.
+  /* ── cards from Today and Patterns: the budget, the evening before, the
+     activity card.
      White type, neutral surfaces. No colour, because none of these is a
      pain value — the rule the app keeps, kept here. */
   .card {
@@ -182,10 +183,9 @@
   .card .b { color: var(--ink-2); font-size: 15px; line-height: 1.5; margin: 0; }
   .card .act { display: flex; gap: 16px; margin-top: 12px; font-size: 14px; font-weight: 600; }
   .card .act span:last-child { color: var(--ink-3); font-weight: 500; }
-  .card .count { display: flex; gap: 5px; margin-top: 12px; }
-  .card .count i { flex: 1; height: 4px; border-radius: 2px; background: var(--track); }
-  .card .count i.on { background: var(--ink); }
-  .card .count i.miss { background: transparent; border: 1px solid var(--control); }
+  .card .t.hero { font-size: 22px; margin-bottom: 2px; }
+  .card .rl { height: 1px; background: var(--rule); margin: 14px 0; }
+  .card .ld { color: var(--ink); font-size: 15px; margin: 4px 0 0; }
 
   /* ── health tiles ── */
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -266,16 +266,16 @@
       <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.6 7 4.6c2 0 3.5 1.1 5 3 1.5-1.9 3-3 5-3 3.6 0 5.5 3.6 4.3 6.7-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>Apple Health</span>
       <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6" width="11" height="12" rx="3.2"/><path d="M9 6V3.5h6V6M9 18v2.5h6V18M18 10.5h1.2"/></svg>Apple Watch</span>
     </div>
-    <div class="strip" aria-label="A week of check-ins as squares. Darker is less pain, brighter is more. One day has nothing logged.">
-      <div class="d"><i class="c" style="background:#0f2447"></i><span class="l">S</span></div>
-      <div class="d"><i class="c" style="background:#152C52"></i><span class="l">M</span></div>
+    <div class="strip" aria-label="A week of check-ins as squares. Lighter is less pain, darker is more. One day has nothing logged.">
+      <div class="d"><i class="c" style="background:#BEE3FE"></i><span class="l">S</span></div>
+      <div class="d"><i class="c" style="background:#8CD0FF"></i><span class="l">M</span></div>
       <div class="d"><i class="c" style="background:#0A84FF"></i><span class="l">T</span></div>
       <div class="d"><i class="c empty"></i><span class="l">W</span></div>
-      <div class="d"><i class="c" style="background:#2d95ff"></i><span class="l">T</span></div>
-      <div class="d"><i class="c" style="background:#5FBEFF"></i><span class="l">F</span></div>
-      <div class="d"><i class="c" style="background:#1a55a8"></i><span class="l">S</span></div>
+      <div class="d"><i class="c" style="background:#0C77E5"></i><span class="l">T</span></div>
+      <div class="d"><i class="c" style="background:#143869"></i><span class="l">F</span></div>
+      <div class="d"><i class="c" style="background:#4AAEFE"></i><span class="l">S</span></div>
     </div>
-    <p class="fine" style="margin-top:14px">Your week, as you lived it. Darker is less. Brighter is more. The day you missed stays honest.</p>
+    <p class="fine" style="margin-top:14px">Your week, as you lived it. Lighter is less. Darker is more. The day you missed stays honest.</p>
   </section>
 
   <!-- ── who: defined by attitude, not condition ── -->
@@ -324,38 +324,41 @@
       <div class="leg">
         <div class="eyebrow">04 · Before the decision</div>
         <h3>The sentence before<br>the workout.</h3>
-        <p class="muted">Once your record has a line in it, Pattern speaks before you cross it: before the session, the evening before the booking, the fortnight you decide to test something. The part no other tracker does.</p>
+        <p class="muted">Once your record has a line in it, Pattern speaks before you cross it: before the session, the evening before the booking, and in the length of the next session. The part no other tracker does.</p>
       </div>
     </div>
   </section>
 
   <!-- ── before the decision: the app's actual bet, and the reason to
-       open it. Real card shapes from Today; illustrative numbers. ── -->
+       open it. Real card shapes from Today and Patterns; illustrative numbers. ── -->
   <section id="before">
     <div class="grid2">
       <div>
         <h2>Tomorrow morning is decided<br>this evening.</h2>
         <p class="lede muted">A record that only looks back tells you what you already know by the time you read it. Pattern reads your own record forward and puts the sentence where the decision is.</p>
-        <p class="muted">Your usual workout, and the minutes past which your next mornings ran harder — shown before you train. The class tomorrow that runs past that line, shown tonight, with one tap into your calendar. And one thing you want to test, for a fortnight, with an honest answer at the end.</p>
+        <p class="muted">Your usual workout, and the minutes past which your next mornings ran harder — shown before you train. The class tomorrow that runs past that line, shown tonight, with one tap into your calendar. And the next session, read from the ones you already do: a similar length or a little longer while your next mornings go fine, the same again after one that did not.</p>
         <p class="caveat">Every sentence describes your own record. Never “stop”, never “you should”, never a dose. Exercise helps most persistent pain; the target is the session that costs tomorrow, not moving.</p>
       </div>
       <div>
-        <div class="card" aria-label="A card from Today: your usual workout is about 40 minutes; past 55, your next mornings ran harder">
+        <div class="card" aria-label="A card from Patterns: your usual workout is about 40 minutes; past 55, your next mornings ran harder">
           <div class="ey">Before your next workout</div>
           <div class="t">Your usual workout is about 40 minutes. Past 55, your next mornings ran harder.</div>
-          <p class="b">Mornings after workouts of 55 min or more averaged 1.9 points higher, across 22 workouts. From your own record.</p>
+          <p class="b">A description of your record, not a limit.</p>
         </div>
-        <div class="card" aria-label="A card from Today: tomorrow's 75-minute class runs past your line, with the actions Open in Calendar and Fine as it is">
-          <div class="ey">Tomorrow</div>
-          <div class="t">Tomorrow’s class is booked for 75 minutes.</div>
-          <p class="b">Past 55, your next mornings ran harder. Yours to decide, this evening, while it is still a decision.</p>
+        <div class="card" aria-label="A card from Today: tomorrow's 75-minute spin class runs 20 minutes past your line, with the actions Open in Calendar and Fine as it is">
+          <div class="ey">Tomorrow at 6:30 PM: Spin class, 75 min</div>
+          <div class="t">That is 20 minutes past 55, where your next mornings ran harder.</div>
+          <p class="b">Your usual is about 40. A description of your record, not a limit.</p>
           <div class="act"><span>Open in Calendar</span><span>Fine as it is</span></div>
         </div>
-        <div class="card" aria-label="A card from Today: the experiment, no coffee after 2pm, day 9 of 14, five days each way still needed">
-          <div class="ey">Your experiment · day 9 of 14</div>
-          <div class="t">No coffee after 2pm.</div>
-          <p class="b">Each evening asks whether it happened; the next morning’s number is the outcome. At the end, one of three true things: the mornings differed, they did not, or there were too few days each way.</p>
-          <div class="count" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="miss"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="card" aria-label="The activity card from Today: back to running, 2 sessions this week, aiming for 3. Your recent sessions went fine. A similar session, or a little longer: 30 to 33 minutes at an easy effort">
+          <div class="t hero">Back to running</div>
+          <p class="b">2 sessions this week · aiming for 3</p>
+          <div class="rl" aria-hidden="true"></div>
+          <p class="b">Your recent sessions went fine.</p>
+          <div class="t" style="margin:6px 0 0">A similar session, or a little longer.</div>
+          <p class="ld num">30–33 min at an easy effort</p>
+          <p class="fine" style="margin:10px 0 0">It shows what followed your sessions, not what caused anything. This is not medical advice, and a clinician’s plan comes first.</p>
         </div>
       </div>
     </div>
@@ -378,9 +381,9 @@
         </div>
         <div class="cmp" aria-label="A possible association: sleep may be worth watching, based on 9 shorter-sleep and 7 longer-sleep nights">
           <div class="t">Sleep may be worth watching</div>
-          <div class="b">Your morning pain averaged 1.8 points higher after shorter-sleep nights.</div>
-          <div class="row"><span>Shorter sleep · 5h 50m</span><span>9 nights</span><div class="bar"><i style="width:62%;background:#3d9dff"></i></div></div>
-          <div class="row"><span>Longer sleep · 7h 30m</span><span>7 nights</span><div class="bar"><i style="width:44%;background:#1c4f9a"></i></div></div>
+          <div class="b">Your morning pain averaged 1.8 points lower after your longer-sleep nights than after your shorter-sleep ones.</div>
+          <div class="row"><span>Shorter sleep · 5h 50m</span><span>9 nights</span><div class="bar"><i style="width:62%;background:#0F64C1"></i></div></div>
+          <div class="row"><span>Longer sleep · 7h 30m</span><span>7 nights</span><div class="bar"><i style="width:44%;background:#2595FE"></i></div></div>
           <p class="fine" style="margin:12px 0 0">An association in your record, not a cause. Pattern waits for enough of your days before showing this, and tells you how many it still needs.</p>
         </div>
       </div>
@@ -409,11 +412,11 @@
         <div><b>Self-recorded pain summary</b></div>
         <div class="g">4 Aug – 5 Sep 2026 · 29 logged days · 61 check-ins</div>
         <h4>Background</h4>
-        <div><b>Diagnosis</b> &nbsp;No diagnosis yet — being investigated<br><b>How this pain began</b> &nbsp;Gradual, after a back-to-back race season · <b>Tried</b> &nbsp;Physio, rest weeks, a new mattress</div>
+        <div><b>Diagnosis</b> &nbsp;No diagnosis yet — being investigated<br><b>How this pain began</b> &nbsp;Gradual, after a back-to-back race season · <b>Anything else</b> &nbsp;Tried physio, rest weeks, a new mattress</div>
         <h4>What the patient wants to understand</h4>
         <div class="g">“How I get back to running, and why some mornings are so much worse than others.”</div>
         <h4>Key metrics</h4>
-        <div class="m"><div><b class="num">4.6/10</b><span class="g">Average</span></div><div><b class="num">2/10</b><span class="g">Lowest day</span></div><div><b class="num">8/10</b><span class="g">Highest day</span></div></div>
+        <div class="m"><div><b class="num">4.6/10</b><span class="g">Average pain</span></div><div><b class="num">2/10</b><span class="g">Lowest daily average</span></div><div><b class="num">8/10</b><span class="g">Highest daily average</span></div></div>
         <h4>Pain over time</h4>
         <svg viewBox="0 0 300 70" role="img" aria-label="Daily average pain over a month, with gaps on unlogged days">
           <rect x="0" y="45" width="300" height="25" fill="#F0F6EF"/>
@@ -423,7 +426,7 @@
           <polyline points="244,42 264,46 284,38" fill="none" stroke="#0A84FF" stroke-width="2"/>
           <g fill="#0A84FF"><circle cx="4" cy="44" r="2.5"/><circle cx="24" cy="40" r="2.5"/><circle cx="44" cy="32" r="2.5"/><circle cx="64" cy="36" r="2.5"/><circle cx="104" cy="20" r="2.5"/><circle cx="124" cy="26" r="2.5"/><circle cx="144" cy="18" r="2.5"/><circle cx="164" cy="30" r="2.5"/><circle cx="184" cy="34" r="2.5"/><circle cx="204" cy="28" r="2.5"/><circle cx="244" cy="42" r="2.5"/><circle cx="264" cy="46" r="2.5"/><circle cx="284" cy="38" r="2.5"/></g>
         </svg>
-        <div class="g" style="margin-top:8px">Based on self-recorded entries. This report does not provide a diagnosis or medical advice.</div>
+        <div class="g" style="margin-top:8px">Based on the patient’s self-recorded entries. This report does not provide a diagnosis or medical advice.</div>
       </div>
       <div>
         <h2>“How have you been?”<br>Now you can show it.</h2>
@@ -452,7 +455,7 @@
   <section id="hood">
     <h2>For the ones who read the spec.</h2>
     <div class="spec" style="margin-top:28px">
-      <div><span>Storage</span><span>Local SQLite. No account. Deleting the app deletes the record; a backup you keep in Files does not.</span></div>
+      <div><span>Storage</span><span>Local SQLite. No account. Deleting the app deletes the record; a copy you saved does not.</span></div>
       <div><span>Answers</span><span>Three states, kept apart: never asked, skipped, answered. A skip is never read as a no.</span></div>
       <div><span>Thresholds</span><span>Named, in one file, with the arithmetic that argues for each. Open to argument.</span></div>
       <div><span>Associations</span><span>Deterministic, on device. Your own lowest and highest third, middle third set aside. A card appears only past the gates — eighteen paired days, five per group, 1.5 points of pain, the same direction in both halves of the record. Gates, not proof.</span></div>

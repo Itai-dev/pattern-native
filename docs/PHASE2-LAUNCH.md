@@ -5,7 +5,8 @@ not a strategy: ROADMAP owns the phase and its kill criterion (fewer than
 5 of 10 logging in week 4), GROWTH the audience and the counting,
 AGENTS.md how a change ships; where this disagrees, this is wrong. Every
 step exists because skipping it makes the week-4 number unreadable.
-Delete this file after the last read on 28 Dec.*
+Delete this file after the last read — wave 3's week-4 calls, the week
+of 28 Dec.*
 
 ---
 
@@ -103,8 +104,10 @@ only the seven days in which its testers make their FIRST check-in; its
 week 4 runs from 21 days after that week's first day to 27 after its
 last. Back-to-back cohorts overlap by six days and only their sum can be
 read (GROWTH §2 on `claude/week-active-oct18`) — hence the empty weeks.
+Day 0 is a tester's first check-in, on the day-0 call; week 4 is days
+21–27, as in PHASE2-INTERVIEWS.
 
-| Wave | Invites go out | Cohort week | Size | Week-4 window | Read on |
+| Wave | Invites go out | Cohort week | Size | Week-4 window | Week-4 email and calls from |
 |---|---|---|---|---|---|
 | 1 | Mon 26 Oct | 26 Oct – 1 Nov | 3–4 | 16 – 28 Nov | Mon 30 Nov |
 | — | gap | 2 – 8 Nov | 0 | | |
@@ -112,9 +115,16 @@ read (GROWTH §2 on `claude/week-active-oct18`) — hence the empty weeks.
 | — | gap | 16 – 22 Nov | 0 | | |
 | 3 | Mon 23 Nov | 23 – 29 Nov | to reach 10 (≤15) | 14 – 26 Dec | Mon 28 Dec |
 
-The Phase 2 answer is the sum of the three numerators over the sum of the
-three denominators, read on 28 Dec: 5 of 10 passes (GROWTH's Step 3 asks
-8 of 15 — the same bar, if wave 3 tops up to fifteen).
+The Phase 2 answer is the week-4 calls' count — a check-in on at least
+two days of days 21–27, read off History by the tester
+(PHASE2-INTERVIEWS §6) — over everyone who had a day-0 call, summed
+across the three waves once wave 3's calls are done: 5 of 10 passes
+(GROWTH's Step 3 asks 8 of 15 — the same bar, if wave 3 tops up to
+fifteen). `week_active{week:4}`, read in Aptabase on the same Mondays,
+is the cross-check, not the count: it says a phone checked in on *any*
+day of the window, and nothing from a tester with analytics off. Two
+days is a return; one can be a stray open. PR #22's GROWTH §2 text calls
+`week_active` the pass — amend it to this before merging.
 
 **Wave 1 is small** so a broken core loop costs three strangers, not ten.
 It is also the warmest wave and will read high; do not let it set
@@ -122,16 +132,20 @@ expectations for wave 2.
 
 **Keeping a cohort clean:**
 - TestFlight **email invites only**, on the wave's Monday. A public link
-  in a post spreads past the week and the count. A reply after Wednesday
-  waits for the next wave.
-- Ask for the first check-in on install day. A straggler whose first
-  falls in a gap week is in no denominator and can add one to a
-  numerator; note them.
+  in a post spreads past the week and the count. Day-0 calls run Tuesday
+  to Thursday (PHASE2-INTERVIEWS §2); anyone who cannot be called by
+  Thursday waits for the next wave.
+- The first check-in happens on the day-0 call. A straggler whose first
+  falls in a gap week is in no `week_active` denominator and can add one
+  to a numerator; note them. They still count in the calls' count.
 - **No fresh install and no first check-in on any test phone during a
   wave week** — it is a `first_checkin` like any other.
-- The ledger holds dates and channel only. Answers to the invite email's
-  three questions are about someone's body; they stay in your inbox and
-  go in no sheet, tool or session.
+- The ledger is PHASE2-INTERVIEWS §6's one sheet on your own device:
+  pseudonym, dates, channel and the app codes, never anything about the
+  body. Answers to the invite email's three questions are about
+  someone's body; they stay in your inbox and go in no sheet, tool or
+  session. A no's reply is deleted once it is answered; every other
+  reply when Phase 2 closes (PHASE2-INTERVIEWS §5).
 
 ## 4. Channels · no paid ads
 
@@ -161,9 +175,10 @@ anything paid, and any channel that cannot be told apart by wave.
 Assembled from the round 2 draft and GTM's round 4 line. "Runs" became
 "sessions" because climbers and swimmers read this too.
 
-> Thanks for trying Pattern. Check in when you can — mornings matter
-> most, because the activity card reads each session against the next
-> morning. If Today offers a morning reminder, that's the one.
+> Thanks for trying Pattern. Check in when you can — it takes a few
+> seconds, and mornings matter most, because the activity card reads
+> each session against the next morning. If Today offers a morning
+> reminder, that's the one.
 >
 > Your sessions come from Apple Health; until it is connected (on Today,
 > or in Profile) the card has nothing to read. Its first answer comes
@@ -182,20 +197,24 @@ Assembled from the round 2 draft and GTM's round 4 line. "Runs" became
 **If PR #22 is not merged, the fallback count:** App Store Connect →
 TestFlight shows each tester's sessions on a build. Look at the start
 and end of the cohort's week-4 window; a count that rose is a tester who
-opened the app. Launches, not check-ins — a ceiling on "still logging",
-where `week_active` is a floor. Write down which you read.
+opened the app. Launches, not check-ins, and one day is enough — a
+ceiling on "still logging". Like `week_active`, it cross-checks the
+week-4 calls and never replaces them (§3). Write down which you read.
 
-## 6. While a cohort is running · 26 Oct → 28 Dec
+## 6. While a cohort is running · 26 Oct → wave 3's calls, early Jan
 
 - **Today is frozen** — layout, order, the ramp, the orb (the team loop's
-  standing rule) — until 28 Dec. Copy and bug fixes ship as normal, each
-  with the head check and "force-quit twice". **No second binary** unless
-  §7 forces one.
-- **Day 8 of each wave** (3 Nov, 17 Nov, 1 Dec): one short email — has
-  the activity card said anything but "still learning", and what
-  confused you? In Aptabase, per wave: `first_checkin`,
+  standing rule) — until wave 3's week-4 calls are done. Copy and bug
+  fixes ship as normal, each with the head check and "force-quit twice".
+  **No second binary** unless §7 forces one.
+- **Days 8–10 from each tester's day 0** (wave 1 about 4–8 Nov, wave 2
+  18–22 Nov, wave 3 2–6 Dec): the ten-minute week-1 call in
+  PHASE2-INTERVIEWS §3 — the one week-1 contact, no extra email, since
+  every message is a reminder too. In Aptabase, per wave: `first_checkin`,
   `health_connected`, `reminder_enabled` with slot `m`. The core loop,
-  counted without reading a word anyone wrote.
+  counted without reading a word anyone wrote. Only Today's one-tap
+  offer sends the slot; a reminder turned on in Profile sends
+  `reminder_enabled` with none (`RemindersSection.tsx`).
 - No nudge about missed days, by any route, the email included. A tester
   who has gone quiet has answered the question.
 
