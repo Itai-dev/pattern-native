@@ -270,7 +270,7 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn }: {
 export const ACTIVITY_NOTE =
   'Read from your own sessions: a session went fine when your next morning’s check-in was less than '
   + CAPACITY_HARDER_POINTS + ' points above that day’s morning. It shows what followed your sessions, '
-  + 'not what caused anything. Soreness after exercise is common and is not damage. Effort is Apple’s '
+  + 'not what caused anything. A morning can also be harder for reasons that have nothing to do with the session — a bad night, a flare, or the morning stiffness some conditions bring — which is why one harder morning only holds the next step, and never sets it back on its own. Soreness after exercise is common and is not damage. Effort is Apple’s '
   + '1–10 from your Watch or your own rating in Fitness. This is not medical advice, and a clinician’s '
   + 'plan comes first.';
 

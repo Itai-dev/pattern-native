@@ -23,7 +23,7 @@ import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { color, font, radius as radii, size } from './theme';
 import { Entries, checkinCount, dailyAverage, dateFromISO, iso, todayISO } from './model';
 import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
-import { formatCheckins, formatScore, inkOn, painColor, speakScore, themeBrand } from './painScale';
+import { formatCheckins, formatScore, inkOn, painColor, speakScore } from './painScale';
 import { Press } from './motion';
 import { InfoTitle } from './InfoTip';
 
@@ -84,7 +84,6 @@ interface MonthBlock {
 
 export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps) {
   const t = todayISO();
-  const brand = themeBrand();
   const { cell, radius, gridW } = useMemo(cellMetrics, []);
   const cellH = cell + 30;
 
@@ -209,13 +208,13 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                     style={[styles.cell, { width: cell, height: cellH }]}
                   >
                     {/* the date lives OUTSIDE the shape — a calendar first,
-                        a chart second. Today's is the theme accent. */}
+                        a chart second. Today's is white and bold: a hue here would read as a score. */}
                     <Text
                       allowFontScaling={false}
                       style={[
                         styles.dayNum,
                         { color: future ? color.textTertiary : color.textSecondary },
-                        isToday && { color: brand, fontWeight: '700' },
+                        isToday && { color: color.textPrimary, fontWeight: '700' },
                       ]}
                     >
                       {dayNum}

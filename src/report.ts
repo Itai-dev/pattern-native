@@ -1280,8 +1280,8 @@ export function reportHtml(data: ReportData): string {
   if (data.goalText && data.func.length) {
     s.push('<section><h2>Function over time</h2>');
     s.push('<div class="note">Activity: <b>' + esc(data.goalText) + '</b>. Self-rated ability, ' +
-      '0 = not able at all, 10 = fully able. Ability is a separate scale from pain — ' +
-      'a higher number is better.</div>');
+      '0 = not able at all, 10 = fully able. Ability is a separate scale from pain and runs ' +
+      'the other way: a higher number is more able.</div>');
     if (data.func.length) {
       s.push('<table style="margin-top:8px"><tr><th>Week of</th><th>Ability</th><th>Note</th></tr>');
       data.func.forEach((f) => {

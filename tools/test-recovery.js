@@ -92,6 +92,20 @@ ok('status follows the level of the newest effort band', (() => {
 
 group('today’s guidance');
 ok('no sessions at all', rec.dailyGuidance(RUN, {}, {}, TODAY).state === 'noActivity');
+ok('Health never asked for: the empty card says where sessions come from, not that there are none', (() => {
+  const off = rec.dailyGuidance(RUN, {}, {}, TODAY, false, MORNING_FROM, true);
+  const on = rec.dailyGuidance(RUN, {}, {}, TODAY);
+  return off.state === 'noActivity' && off.checkIn === false
+    && /isn’t connected/.test(off.recommendation) && /Profile/.test(off.recommendation)
+    && !/No sessions/.test(off.headline) && /No sessions recorded yet/.test(on.headline)
+    && !/caus|safe to|push|missed/i.test(off.headline + ' ' + off.recommendation);
+})());
+ok('Health never asked for changes nothing once a session is in', (() => {
+  const E = {}, H = {};
+  sess(E, H, 27, wk(30), 4);
+  return JSON.stringify(rec.dailyGuidance(RUN, E, H, TODAY, false, MORNING_FROM, true))
+    === JSON.stringify(rec.dailyGuidance(RUN, E, H, TODAY));
+})());
 ok('yesterday’s session and no check-in this morning: ask for it, with the button', (() => {
   const E = {}, H = {};
   sess(E, H, 27, wk(30), 4);
@@ -142,7 +156,7 @@ ok('a session no check-in can answer never shows the button', (() => {
   const todayLate = rec.dailyGuidance(RUN, C, HC, TODAY, false, 14 * 60);
   const todayEarly = rec.dailyGuidance(RUN, C, HC, TODAY, false, 9 * 60);
   return !noBase.checkIn && !after.checkIn && !night.checkIn && /once it’s morning/.test(night.recommendation)
-    && !/Tomorrow morning/.test(todayLate.recommendation) && /Tomorrow morning/.test(todayEarly.recommendation);
+    && !/Tomorrow morning/.test(todayLate.recommendation) && todayEarly.checkIn === true && /this morning and one tomorrow/.test(todayEarly.recommendation);
 })());
 ok('short of a baseline after a stable morning: learning, with how many more', (() => {
   const E = {}, H = {};

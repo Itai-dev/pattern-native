@@ -280,7 +280,9 @@ export default function HomeScreen({
   const hero = recoveryHero(goal, entries, healthDays, t);
   /* the clock goes in because after noon a check-in can no longer
      answer a waiting session, and the card stops asking for one */
-  const guidance = dailyGuidance(goal, entries, healthDays, t, flareToday, minutesNow());
+  /* healthOfferable is "available and never asked for" — the one state
+     in which the empty card can say Health is not connected */
+  const guidance = dailyGuidance(goal, entries, healthDays, t, flareToday, minutesNow(), healthOfferable);
   /* the card speaks when there is a goal to speak about, or sessions to
      read — a skipped goal and an empty Health says nothing */
   const showActivity = goalSet || guidance.state !== 'noActivity';
@@ -443,7 +445,7 @@ export default function HomeScreen({
                 No check-ins yet today
               </Text>
               <Text style={styles.emptySub} allowFontScaling maxFontSizeMultiplier={1.4}>
-                A check-in takes about ten seconds, and the record is only ever
+                A check-in takes a few seconds, and the record is only ever
                 what you put in it.
               </Text>
             </View>
@@ -686,7 +688,7 @@ export default function HomeScreen({
               hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Save a copy of your record"
-              accessibilityHint="Opens the share sheet with a backup file. Choose Save to Files to keep it outside the app."
+              accessibilityHint="Opens the share sheet with a copy of your record. Choose Save to Files to keep it outside the app."
             >
               <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Save a copy

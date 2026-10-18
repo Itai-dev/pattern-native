@@ -187,6 +187,12 @@ ok('no conclusion, why or headline prints a pain value', (() => {
   const all = [v.headline].concat(v.insights.map((i) => i.text + ' ' + i.why)).join(' ');
   return !/\b(9|10)\b/.test(all) && /not damage/.test(cap.CAPACITY_NOTE) && /not medical advice/.test(cap.CAPACITY_NOTE);
 })());
+ok('the shown note says a harder morning can have nothing to do with the session', (() => {
+  /* RecoveryCards.tsx is React Native and is not loaded here, so its source is read */
+  const src = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'RecoveryCards.tsx'), 'utf8');
+  return /nothing to do with the session/.test(src) && /morning stiffness/.test(src)
+    && /nothing to do with the session/.test(cap.CAPACITY_NOTE);
+})());
 
 group('the clinician report’s activity line');
 /* twelve easy walks on alternate days: six of 20 min (one followed by a

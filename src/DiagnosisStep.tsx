@@ -34,7 +34,6 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import { DIAGNOSES, DIAGNOSIS_OTHER_MAX, Diagnosis, DiagnosisStatus } from './model';
-import { themeBrand } from './painScale';
 import { color, font, radius } from './theme';
 
 /** the answer as it sits on screen, before cleanDiagnosis stores it */
@@ -96,7 +95,9 @@ export interface DiagnosisStepProps {
 }
 
 export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
-  const brand = themeBrand();
+  /* selection is white: themeBrand() is ramp stop 5, so a chosen
+     diagnosis wore a pain-5 hue */
+  const sel = color.textPrimary;
 
   const pick = (id: DiagnosisStatus) => {
     Haptics.selectionAsync().catch(() => {});
@@ -135,13 +136,13 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
               accessibilityState={{ selected: on }}
               accessibilityLabel={o.label}
               accessibilityHint={o.body}
-              style={[styles.row, on && { borderColor: brand }]}
+              style={[styles.row, on && { borderColor: sel }]}
             >
               <View style={styles.rowHead}>
-                {/* the mark is the brand, and only the mark: a row
+                {/* the mark is white, and only the mark: a row
                     flooded in colour would read as a pain value */}
-                <View style={[styles.radio, on && { borderColor: brand }]}>
-                  {on && <View style={[styles.radioDot, { backgroundColor: brand }]} />}
+                <View style={[styles.radio, on && { borderColor: sel }]}>
+                  {on && <View style={[styles.radioDot, { backgroundColor: sel }]} />}
                 </View>
                 <Text style={styles.rowLabel} allowFontScaling maxFontSizeMultiplier={1.3}>
                   {o.label}
@@ -176,7 +177,7 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
                   accessibilityState={{ checked: on }}
                   accessibilityLabel={d.name}
                   hitSlop={6}
-                  style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+                  style={[styles.chip, on && { backgroundColor: sel, borderColor: sel }]}
                 >
                   <Text style={[styles.chipText, on && styles.chipTextOn]}
                     allowFontScaling maxFontSizeMultiplier={1.3}>{d.name}</Text>
@@ -190,7 +191,7 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
               accessibilityState={{ checked: draft.otherOpen }}
               accessibilityLabel="Something else"
               hitSlop={6}
-              style={[styles.chip, draft.otherOpen && { backgroundColor: brand, borderColor: brand }]}
+              style={[styles.chip, draft.otherOpen && { backgroundColor: sel, borderColor: sel }]}
             >
               <Text style={[styles.chipText, draft.otherOpen && styles.chipTextOn]}
                 allowFontScaling maxFontSizeMultiplier={1.3}>Something else</Text>
@@ -249,7 +250,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
   },
   chipText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '500' },
-  chipTextOn: { color: '#FFFFFF', fontWeight: '600' },
+  chipTextOn: { color: color.bgSurface, fontWeight: '600' },
   input: {
     marginTop: 10, minHeight: 48, borderRadius: 14, borderCurve: 'continuous',
     paddingHorizontal: 14, paddingVertical: 12,

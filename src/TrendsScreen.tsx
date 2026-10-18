@@ -343,7 +343,7 @@ function MiniChart({
               : '',
             easier != null
               ? 'The shaded band is your own easier third — ' + formatScore(easier)
-                + ' and below. Lower is better, so a bar that stops inside it is a better day.'
+                + ' and below. Lower is less pain on this chart, so a bar that ends inside the band is in the range of your easier days.'
               : '',
           ].filter(Boolean).join(' ')}
         />

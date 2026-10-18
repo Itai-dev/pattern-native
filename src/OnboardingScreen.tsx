@@ -69,7 +69,7 @@ import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import DiagnosisStep, { emptyDraft, draftToRaw } from './DiagnosisStep';
 import { Diagnosis, LOC_CHIP_IDS, LOC_NAMES, collapseSidedLocs, todayISO } from './model';
-import { themeBrand } from './painScale';
+import { painColor } from './painScale';
 import { GOAL_ACTIVITIES, GoalActivity, RecoveryGoal } from './recovery';
 import { WEEKLY_CHOICES, makeGoal, skippedGoal } from './RecoveryCards';
 import { capitalise } from './health/workoutNames';
@@ -122,7 +122,6 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
      speaks. collapseSidedLocs is a no-op on these and stays, so a sided
      answer from any future source still stores as the chips read it. */
   const [where, setWhere] = useState<string[]>([]);
-  const brand = themeBrand();
 
   /* reading it again from Profile stops at the boundaries — the row says
      "what Pattern is and isn't", and re-asking questions of someone who
@@ -167,7 +166,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
       accessibilityLabel={label}
       /* the chip draws at ~36pt; the hand that taps it gets 44 */
       hitSlop={6}
-      style={[styles.chip, on && { backgroundColor: brand, borderColor: brand }]}
+      style={[styles.chip, on && styles.chipOn]}
     >
       <Text style={[styles.chipText, on && styles.chipTextOn]}
         allowFontScaling maxFontSizeMultiplier={1.3}>{label}</Text>
@@ -200,7 +199,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
                   key={i}
                   style={[
                     styles.mark,
-                    { backgroundColor: brand, opacity: 0.25 + v * 0.75 },
+                    { backgroundColor: painColor(v * 10) },
                   ]}
                 />
               ))}
@@ -311,8 +310,9 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               Where does it{'\n'}usually hurt?
             </Text>
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Tap any that apply — one or more places, or none. It seeds your
-              first check-in, nothing else.
+              Tap any that apply — one or more places, or none. When you add
+              where it hurts, these are offered as your usual places. Nothing
+              else uses them.
             </Text>
             <View style={styles.chips}>
               {LOC_CHIP_IDS.map((id) => chip(
@@ -366,10 +366,10 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
             style={styles.restoreBtn}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Used Pattern before? Restore a backup"
+            accessibilityLabel="Used Pattern before? Restore a saved copy"
           >
             <Text style={styles.restoreText} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Used Pattern before? Restore a backup
+              Used Pattern before? Restore a saved copy
             </Text>
           </Press>
         )}
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   inner: { flex: 1, paddingHorizontal: 28 },
   body: { flexGrow: 1, justifyContent: 'center', paddingVertical: 20 },
   marks: { flexDirection: 'row', gap: 10, marginBottom: 34 },
-  mark: { width: 34, height: 34, borderRadius: 10 },
+  mark: { width: 34, height: 34, borderRadius: 10, borderCurve: 'continuous', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   title: {
     color: color.textPrimary, fontSize: 34, fontWeight: '700',
     letterSpacing: -0.8, lineHeight: 40, marginBottom: 18,
@@ -433,7 +433,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
   },
   chipText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '500' },
-  chipTextOn: { color: '#FFFFFF', fontWeight: '600' },
+  chipOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
+  chipTextOn: { color: color.bgSurface, fontWeight: '600' },
   input: {
     color: color.textPrimary, borderColor: color.borderControl, borderWidth: 1,
     borderRadius: 10, padding: 12, marginTop: 12, fontSize: font.body,
