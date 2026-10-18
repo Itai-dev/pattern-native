@@ -70,8 +70,8 @@ export default function DiagnosisSheet({ onClose }: DiagnosisSheetProps) {
           whenever it changes.
         </Text>
         <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Printed on the first page of your clinician summary, exactly as
-          you set it here. Kept on this iPhone; never analysed, never sent.
+          Printed on the first page of the PDF, exactly as you set it
+          here. Kept on this iPhone; never analysed, never sent.
         </Text>
         <View style={styles.step}>
           <DiagnosisStep draft={draft} onChange={setDraft} />

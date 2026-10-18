@@ -436,7 +436,7 @@ export const METRICS: MetricDef[] = [
     notePlaceholder: 'e.g. started 20mg, stopped the evening dose',
     keywords: ['medication', 'meds', 'tablets', 'painkillers', 'dose', 'dosage'],
     excludedBecause:
-      'Medication is recorded as an event so it appears in your report, but Pattern never ' +
+      'Medication is recorded as an event so it appears in the PDF, but Pattern never ' +
       'analyses it for cause and never comments on a dose.',
   },
 ];

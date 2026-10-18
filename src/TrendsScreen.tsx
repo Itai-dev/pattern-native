@@ -1640,7 +1640,7 @@ export default function TrendsScreen({
             accessibilityLabel={sharing ? 'Preparing the PDF' : 'Create the PDF and open the share sheet'}
           >
             <Text style={styles.shareBtnText} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {sharing ? 'Preparing…' : 'Create report'}
+              {sharing ? 'Preparing…' : 'Create the PDF'}
             </Text>
           </Press>
         </Card>

@@ -157,7 +157,7 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
           <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
             Kept on this iPhone with the rest of your record. Nothing here is
             analysed or compared — it is printed exactly as written, only in the
-            report you choose to share.
+            PDF you choose to share.
           </Text>
 
           {BACKGROUND_FIELDS.map(({ key, label }) => (

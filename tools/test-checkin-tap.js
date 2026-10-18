@@ -140,5 +140,19 @@ const clears = (eventSheet.match(/on \? null :/g) || []).length;
 check('every optional answer in the event sheet says how to take it back',
   clears > 0 && clears === (eventSheet.match(/accessibilityHint=\{on \? CLEAR_HINT : undefined\}/g) || []).length);
 
+console.log('\nthe clinician document has one name: the PDF');
+{
+  /* code only — comments may say report or summary; what the patient
+     reads may not, or the same thing has two names on two screens */
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const files = ['App.tsx', 'src/HomeScreen.tsx', 'src/TrendsScreen.tsx', 'src/DiagnosisStep.tsx',
+    'src/DiagnosisSheet.tsx', 'src/BackgroundSheet.tsx', 'src/AppointmentRow.tsx',
+    'src/OnboardingScreen.tsx', 'src/AddInfoSheet.tsx', 'src/metrics.ts'];
+  const OLD = /clinician summary|clinician report|Your report|Create report|your summary|share a summary|the summary\.|your report|report you choose|report's first page|Pattern backup/i;
+  for (const f of files) check(f + ' never calls it a report or a summary', !OLD.test(strip(read(f))));
+  check('Today and Patterns both say Create the PDF',
+    />\s*Create the PDF\s*</.test(home) && /'Create the PDF'/.test(trends));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

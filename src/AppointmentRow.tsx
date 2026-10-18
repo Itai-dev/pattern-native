@@ -72,7 +72,7 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
         style={styles.row}
         accessibilityRole="button"
         accessibilityLabel={'Next appointment, ' + (value ? fmtDay(value) : 'not set')}
-        accessibilityHint="Opens a date picker. Two days before, Today offers the summary."
+        accessibilityHint="Opens a date picker. Two days before, Today offers the PDF."
       >
         <View style={styles.icon}>
           <Ionicons name="calendar-outline" size={21} color={color.textSecondary} />
@@ -99,7 +99,7 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
           >
             <Text style={styles.title}>Next appointment</Text>
             <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Two days before, Today will offer your summary. Nothing else is
+              Two days before, Today will offer the PDF. Nothing else is
               done with the date.
             </Text>
             <DateTimePicker

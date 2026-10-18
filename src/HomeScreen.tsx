@@ -473,8 +473,8 @@ export default function HomeScreen({
             {appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)}
           </Text>
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Your summary of the last three months is ready whenever you want
-            it — the numbers, your background, and what they do and don’t mean.
+            The PDF of the last three months is ready whenever you want it —
+            the numbers, your background, and what they do and don’t mean.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
