@@ -92,6 +92,20 @@ ok('status follows the level of the newest effort band', (() => {
 
 group('today’s guidance');
 ok('no sessions at all', rec.dailyGuidance(RUN, {}, {}, TODAY).state === 'noActivity');
+ok('Health never asked for: the empty card says where sessions come from, not that there are none', (() => {
+  const off = rec.dailyGuidance(RUN, {}, {}, TODAY, false, MORNING_FROM, true);
+  const on = rec.dailyGuidance(RUN, {}, {}, TODAY);
+  return off.state === 'noActivity' && off.checkIn === false
+    && /isn’t connected/.test(off.recommendation) && /Profile/.test(off.recommendation)
+    && !/No sessions/.test(off.headline) && /No sessions recorded yet/.test(on.headline)
+    && !/caus|safe to|push|missed/i.test(off.headline + ' ' + off.recommendation);
+})());
+ok('Health never asked for changes nothing once a session is in', (() => {
+  const E = {}, H = {};
+  sess(E, H, 27, wk(30), 4);
+  return JSON.stringify(rec.dailyGuidance(RUN, E, H, TODAY, false, MORNING_FROM, true))
+    === JSON.stringify(rec.dailyGuidance(RUN, E, H, TODAY));
+})());
 ok('yesterday’s session and no check-in this morning: ask for it, with the button', (() => {
   const E = {}, H = {};
   sess(E, H, 27, wk(30), 4);

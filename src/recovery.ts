@@ -237,14 +237,28 @@ function easier(band: EffortBand | null): string {
  */
 export function dailyGuidance(
   goal: RecoveryGoal | null, entries: Entries, health: Record<string, HealthDay>, todayIso: string,
-  flareToday = false, nowMin: number = MORNING_FROM,
+  flareToday = false, nowMin: number = MORNING_FROM, healthOff = false,
 ): DailyGuidance {
   const gs = goalSessions(sessions(entries, health, todayIso), goal);
   if (!gs.length) {
+    /* NOT "NONE RECORDED" WHEN PATTERN CANNOT LOOK. Someone with a goal
+       and a Watch sees this card from their first check-in, and Health is
+       not offered until the second logged day — and "Not now" on that
+       offer is final. "No sessions recorded yet" told a runner with
+       months of runs in Health that there were none, and "when Health
+       records one" said to wait for something already done; the one
+       thing that moves the card was named nowhere on it. With Health
+       never asked for (`healthOff`), it says where sessions come from
+       and where the switch is. A sentence, not a button: Today's layout
+       is frozen, and the offer card is the button. Once Health has been
+       asked for, the old words stand — iOS never says whether a read was
+       refused, so "not connected" could be false. (18 Oct 2026) */
     return {
       state: 'noActivity', sufficiency: 'none', recommendedLoad: null, checkIn: false,
-      headline: 'No sessions recorded yet.',
-      recommendation: 'When Apple Health records one, Pattern starts learning how your body responds.',
+      headline: healthOff ? 'Pattern can’t see your sessions yet.' : 'No sessions recorded yet.',
+      recommendation: healthOff
+        ? 'They come from Apple Health, which isn’t connected. It’s in Profile, whenever you want it.'
+        : 'When Apple Health records one, Pattern starts learning how your body responds.',
     };
   }
 

@@ -280,7 +280,9 @@ export default function HomeScreen({
   const hero = recoveryHero(goal, entries, healthDays, t);
   /* the clock goes in because after noon a check-in can no longer
      answer a waiting session, and the card stops asking for one */
-  const guidance = dailyGuidance(goal, entries, healthDays, t, flareToday, minutesNow());
+  /* healthOfferable is "available and never asked for" — the one state
+     in which the empty card can say Health is not connected */
+  const guidance = dailyGuidance(goal, entries, healthDays, t, flareToday, minutesNow(), healthOfferable);
   /* the card speaks when there is a goal to speak about, or sessions to
      read — a skipped goal and an empty Health says nothing */
   const showActivity = goalSet || guidance.state !== 'noActivity';
