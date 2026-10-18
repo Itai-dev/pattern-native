@@ -70,7 +70,11 @@ const COPY: Record<PromptKind, string> = {
      about the whole day, because several of these arrive daily */
   m: 'How intense is your pain right now? A few seconds, only if there is room for it.',
   d: 'How intense is your pain right now? A few seconds, only if there is room for it.',
-  e: 'How intense is your pain right now? A missed day is just a missed day.',
+  /* this one used to end "A missed day is just a missed day." — on the
+     lock screen of someone who had not checked in all day, which is the
+     one moment it reads as the opposite, and it broke the promise the
+     offer on Today makes: that a reminder never mentions a missed day */
+  e: 'How intense is your pain right now? One number is enough.',
   /* the learned ones say "often" and "usually": the phone scheduled
      them from a habit, not from today, and must not claim to know
      what today held. No medication is ever named — this lands on a

@@ -34,18 +34,28 @@ export interface SliderProps {
   /** optional continuous 0–max value, driven on the UI thread — for a shape
    *  that must move with the finger while the value itself snaps */
   progress?: SharedValue<number>;
+  /** whether the value on screen is one the person chose. The check-in
+   *  starts LIVE at five (see CheckinScreen), so its value is never null
+   *  — but until a finger lands it is not an answer either. Without this
+   *  the slider only knew "null or not", seeded its last step at 5, and a
+   *  tap at 5 changed nothing it could see: no change, no haptic, Done
+   *  stayed dim. Someone in a flare who IS at a five tapped, watched
+   *  nothing happen, and was left to drag away and back. Defaults to
+   *  value != null, so sheets with an unset scale behave as before. */
+  chosen?: boolean;
   accessibilityLabel?: string;
   accessibilityValue?: { min?: number; max?: number; now?: number; text?: string };
 }
 
 export default function Slider({
-  value, onChange, max = 10, progress, accessibilityLabel, accessibilityValue,
+  value, onChange, max = 10, progress, chosen = value != null,
+  accessibilityLabel, accessibilityValue,
 }: SliderProps) {
   const width = useSharedValue(0);
   const x = useSharedValue(0);
   const dragging = useSharedValue(false);
   // -1 means "no step chosen yet", so the very first touch always emits
-  const lastStep = useSharedValue(value == null ? -1 : value);
+  const lastStep = useSharedValue(value == null || !chosen ? -1 : value);
 
   /* the haptic tick is fired from JS but never awaited — a dropped tick is
      invisible, a blocked frame is not */
@@ -122,14 +132,21 @@ export default function Slider({
         accessibilityRole="adjustable"
         accessibilityLabel={accessibilityLabel}
         accessibilityValue={accessibilityValue}
-        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }]}
         onAccessibilityAction={(e) => {
+          /* a double-tap chooses what is on screen, as a tap on the thumb
+             does — otherwise VoiceOver reached the default five only by
+             swiping away and back */
+          if (e.nativeEvent.actionName === 'activate') {
+            if (value != null) onChange(value);
+            return;
+          }
           // VoiceOver swipes step the value, and an unset scale starts at 0
           const at = value == null ? -1 : value;
           const next = e.nativeEvent.actionName === 'increment'
             ? Math.min(max, at + 1)
             : Math.max(0, at < 0 ? 0 : at - 1);
-          if (next !== value) onChange(next);
+          if (next !== value || !chosen) onChange(next);
         }}
       >
         <View style={styles.track} />

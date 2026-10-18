@@ -124,6 +124,17 @@ export async function applySlots(next: Slot[]): Promise<ApplyResult> {
   return 'on';
 }
 
+/** the one-tap offer for someone with an activity card: the morning
+ *  slot, nothing else. The card reads ONLY mornings — a session's outcome
+ *  is the first check-in between 05:00 and noon that day against the
+ *  next (health/capacity.ts) — so an evening reminder accepted from
+ *  Today fed check-ins the card could not use and left it on "still
+ *  learning" for weeks. The planner already moves this slot to half an
+ *  hour after the person's usual wake when Health knows it. */
+export async function enableMorningReminder(): Promise<ApplyResult> {
+  return applySlots(savedSlots().map((s) => ({ ...s, on: s.key === 'm' })));
+}
+
 /** the one-tap offer: the evening slot at its saved time, nothing else */
 export async function enableEveningReminder(): Promise<ApplyResult> {
   return applySlots(savedSlots().map((s) => ({ ...s, on: s.key === 'e' })));

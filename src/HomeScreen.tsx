@@ -64,7 +64,9 @@ import {
 import { fmtDay } from './DayScreen';
 import { fmtClock } from './clock';
 import * as db from './db';
-import { anyReminderOn, enableEveningReminder, savedSlots } from './reminderSchedule';
+import {
+  anyReminderOn, enableEveningReminder, enableMorningReminder, savedSlots,
+} from './reminderSchedule';
 import { HealthDay } from './health/types';
 import { BookedAhead, aheadBody } from './health/ahead';
 import { capacityView } from './health/capacity';
@@ -178,10 +180,18 @@ export default function HomeScreen({
   const loggedDays = Object.values(entries).filter(e => checkinCount(e) > 0).length;
 
   /* The reminder offer: once, after the first check-in — the spec's
-     card, built. Taking it turns on the evening slot at its saved time
-     and asks iOS for permission right there, where the question
-     explains itself; "another time" opens Profile; "not now" is final.
-     Never shown to someone who already has one on. */
+     card, built. Taking it turns on ONE slot and asks iOS for permission
+     right there, where the question explains itself; "another time"
+     opens Profile; "not now" is final. Never shown to someone who
+     already has one on.
+
+     WHICH slot follows what Today leads with. With an activity card on
+     screen it is the morning: the card learns only from mornings — the
+     day of a session and the next — and an evening reminder taken from
+     here filled the record with check-ins it could not read, so a keen
+     tester could say yes and still see "still learning" in week four.
+     Without one, the evening stays: one check-in that looks back over
+     the day is the most a pain-only record asks. (18 Oct 2026) */
   const [remDismissed, setRemDismissed] = useState(
     () => db.getPref<boolean>('reminders.offer.dismissed', false)
   );
@@ -192,7 +202,7 @@ export default function HomeScreen({
   };
   const takeReminder = () => {
     dismissReminder();
-    enableEveningReminder().then((r) => {
+    (showActivity ? enableMorningReminder : enableEveningReminder)().then((r) => {
       if (r === 'on') track('reminder_enabled');
       if (r === 'denied') {
         Alert.alert(
@@ -202,8 +212,6 @@ export default function HomeScreen({
       }
     }).catch(() => {});
   };
-  const eveningSlot = savedSlots().filter((s) => s.key === 'e')[0] || { hour: 20, minute: 0 };
-  const eveningAt = fmtClock(eveningSlot.hour * 60 + eveningSlot.minute);
 
   /* THE COPY. The record is one SQLite file inside the app's own
      container, and deleting the app deletes it — there is no server
@@ -261,6 +269,13 @@ export default function HomeScreen({
   /* the card speaks when there is a goal to speak about, or sessions to
      read — a skipped goal and an empty Health says nothing */
   const showActivity = goalSet || guidance.state !== 'noActivity';
+  /* the morning slot is not named by its hour: when Health knows the
+     usual wake, the planner moves it to half an hour after, and a
+     button promising 08:00 would be wrong on the first morning */
+  const eveningSlot = savedSlots().filter((s) => s.key === 'e')[0] || { hour: 20, minute: 0 };
+  const remindLabel = showActivity
+    ? 'Remind me in the morning'
+    : 'Remind me at ' + fmtClock(eveningSlot.hour * 60 + eveningSlot.minute);
   /* the per-activity conclusions, folded inside that card (capacity.ts) */
   const capacity = capacityView(entries, healthDays, t);
 
@@ -537,10 +552,12 @@ export default function HomeScreen({
       {offer === 'reminder' && (
         <View style={[styles.card, styles.cardGap]}>
           <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Want a daily reminder?
+            {showActivity ? 'Want a morning reminder?' : 'Want a daily reminder?'}
           </Text>
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Checking in around the same time makes your record more useful.
+            {showActivity
+              ? 'Your activity card learns from mornings: a check-in on the morning of a session and the one after. '
+              : 'Checking in around the same time makes your record more useful. '}
             It stays quiet on a day you have already checked in around then,
             and it never mentions a missed day.
           </Text>
@@ -550,10 +567,10 @@ export default function HomeScreen({
               pressOpacity={0.8}
               hitSlop={6}
               accessibilityRole="button"
-              accessibilityLabel={'Remind me at ' + eveningAt}
+              accessibilityLabel={remindLabel}
             >
               <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Remind me at {eveningAt}
+                {remindLabel}
               </Text>
             </Press>
             <Press

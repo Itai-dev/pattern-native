@@ -43,7 +43,10 @@ import { HealthCategory, HealthDay, HealthService } from './types';
 
 const COPY: Record<'workout' | 'sleep', string> = {
   workout: 'Your workout just ended. How intense is your pain right now?',
-  sleep: 'Good morning. How intense is your pain right now? Last night is already beside it.',
+  /* no "Good morning": it lands on someone who may have woken in pain,
+     and a greeting that assumes the morning is good is the cheerful
+     voice the house style forbids */
+  sleep: "How intense is your pain this morning? Last night's sleep is already in your record.",
 };
 
 /** how many background prompts went out today — a pref, so a killed

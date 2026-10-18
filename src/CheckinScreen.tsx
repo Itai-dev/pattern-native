@@ -426,6 +426,7 @@ export default function CheckinScreen({
         ) : (
           <Slider
             value={pain}
+            chosen={moved}
             onChange={choose}
             progress={progress}
             accessibilityLabel="Pain right now, 0 to 10"
