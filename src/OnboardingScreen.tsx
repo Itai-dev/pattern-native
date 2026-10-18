@@ -207,12 +207,17 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
             </View>
 
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Make pain feel{'\n'}less random.
+              Understand{'\n'}your pain.
             </Text>
+            {/* the landing's first sentence, not its second: "Keep living"
+                is an order to someone who may be mid-flare, and Health is
+                named conditionally because it is not asked for until Today
+                — a watch sentence would be false for everyone on day one */}
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
               A quick check-in builds a record of how your pain changes and
-              what happens around it — the thing memory cannot give a doctor
-              — and turns it into a summary you can bring to an appointment.
+              what happens around it. With Apple Health, it also reads your
+              workouts against the next morning and suggests a small next
+              step. And it makes a summary you can bring to an appointment.
             </Text>
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
               One answer is enough. Everything else is optional, always.

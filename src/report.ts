@@ -799,7 +799,7 @@ function chartSvg(data: ReportData): string {
 /* ── the PDF document ────────────────────────────────────── */
 
 const INTRO =
-  'Based on your self-recorded entries. This report does not provide a diagnosis or medical advice.';
+  'Based on the patient’s self-recorded entries. This report does not provide a diagnosis or medical advice.';
 const LIMITED_NOTE =
   'This short record shows what was logged. More days are needed before changes over time can be meaningfully reviewed.';
 const FOOTER =
@@ -986,7 +986,7 @@ export function reportHtml(data: ReportData): string {
       const maxN = Math.max.apply(null, bands.map((b) => b.n));
       s.push('<section><h2>Days like this</h2>');
       s.push('<div class="note">Logged days grouped by their daily average, using the same ' +
-        'five bands as every other number here. As a record improves, the milder rows grow.</div>');
+        'five bands as every other number here, mildest first.</div>');
       s.push('<table style="margin-top:8px"><tr><th>Band</th><th>Days</th></tr>');
       bands.forEach((b) => {
         s.push('<tr><td style="width:130px">' + esc(b.label) + '</td>' +
@@ -1001,7 +1001,7 @@ export function reportHtml(data: ReportData): string {
   // ── pain over time ──
   s.push('<section><h2>' + (data.limited ? 'Pain recorded so far' : 'Pain over time') + '</h2>');
   s.push('<div class="note">Daily average pain, 0–10. Days without check-ins are shown as gaps' +
-    ' — the line never bridges a day that was not logged. Lower is better on this chart' +
+    ' — the line never bridges a day that was not logged. Lower is less pain on this chart' +
     (data.harderEasier ? '; the shaded band is the patient’s own easier third.' : '.') + '</div>');
   s.push('<div style="margin-top:8px">' + chartSvg(data) + '</div>');
   s.push('<div class="note num">Overall average ' + formatScore(data.avg) +

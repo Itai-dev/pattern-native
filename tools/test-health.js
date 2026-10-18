@@ -769,8 +769,8 @@ ok('the PDF leads its charts with the count that grows', (() => {
   const lineAt = html.indexOf('Pain over time') >= 0
     ? html.indexOf('Pain over time') : html.indexOf('Pain recorded so far');
   return bandsAt >= 0 && lineAt >= 0 && bandsAt < lineAt
-    && html.indexOf('the milder rows grow') >= 0
-    && html.indexOf('Lower is better on this chart') >= 0;
+    && html.indexOf('five bands as every other number here, mildest first') >= 0
+    && html.indexOf('Lower is less pain on this chart') >= 0;
 })());
 ok('a short report does not inherit an all-history association', (() => {
   const d = reportMod.buildReportData(repInput({

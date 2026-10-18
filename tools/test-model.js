@@ -581,7 +581,7 @@ ok('header carries the required lines',
   html20.indexOf('40 check-ins') > 0 &&
   html20.indexOf('Pain scale: 0 = no pain, 10 = most intense') > 0);
 ok('the specified intro replaces the old claim',
-  html20.indexOf('Based on your self-recorded entries. This report does not provide a diagnosis or medical advice.') > 0 &&
+  html20.indexOf('Based on the patient’s self-recorded entries. This report does not provide a diagnosis or medical advice.') > 0 &&
   html20.indexOf('order clinicians assess') < 0);
 ok('the specified footer is present',
   html20.indexOf('Self-recorded by the patient using Pattern. Events are shown alongside symptoms without implying causation.') > 0);
