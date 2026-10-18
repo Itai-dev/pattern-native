@@ -206,16 +206,17 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
             </View>
 
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Understand{'\n'}your pain.
+              A record of{'\n'}your pain.
             </Text>
-            {/* the landing's first sentence, not its second: "Keep living"
-                is an order to someone who may be mid-flare, and Health is
+            {/* not the landing's line: "Understand your pain. Keep living." is two
+                orders, to someone who may be mid-flare, and it promises an
+                understanding the app does not claim. This says what it is, and Health is
                 named conditionally because it is not asked for until Today
                 — a watch sentence would be false for everyone on day one */}
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
               A quick check-in builds a record of how your pain changes and
-              what happens around it. With Apple Health, it also reads your
-              workouts against the next morning and suggests a small next
+              what happens around it. With Apple Health, it also looks at how
+              your mornings go after a workout, and suggests a small next
               step. And it makes a summary you can bring to an appointment.
             </Text>
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>

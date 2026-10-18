@@ -237,7 +237,7 @@ export function levelInsight(l: ActivityLevel): Insight {
   let rank: number;
   if (l.step === 'up') {
     rank = 3;
-    text = 'Your ' + who + ' sessions went fine' + sofar(l) + '. Next time, go for '
+    text = 'Your ' + who + ' sessions went fine' + sofar(l) + '. Next time, '
       + l.next + ' minutes.';
   } else if (l.step === 'hold') {
     rank = 2;
@@ -245,9 +245,9 @@ export function levelInsight(l: ActivityLevel): Insight {
       + l.next + ' minutes again, rather than longer.';
   } else {
     rank = 1;
-    const easier = l.band === 'hard' ? ' or a moderate effort' : l.band === 'moderate' ? ' or an easy effort' : '';
+    const easier = l.band === 'hard' ? ' or a moderate effort instead' : l.band === 'moderate' ? ' or an easy effort instead' : '';
     text = 'Your recent ' + who + ' sessions were mostly followed by a harder next morning. '
-      + 'One option next time: ' + l.next + ' minutes' + easier + ', building back up from there.';
+      + 'Next time, ' + l.next + ' minutes' + easier + ', then building back up.';
   }
   return { key, text, why: whyOf(l), last: l.last, rank };
 }
@@ -263,7 +263,7 @@ function contrastInsight(good: ActivityLevel, bad: ActivityLevel): Insight {
   return {
     key: 'contrast.' + good.activity,
     text: 'Your ' + named(good.activity, good.band) + ' sessions went fine; the ' + bad.band
-      + ' ones were mostly followed by a harder next morning. Next time, go for ' + good.next
+      + ' ones were mostly followed by a harder next morning. Next time, ' + good.next
       + ' minutes at ' + (good.band === 'easy' ? 'an easy' : 'a moderate') + ' effort.',
     why: whyOf(good) + ' ' + whyOf(bad),
     last: good.last > bad.last ? good.last : bad.last,

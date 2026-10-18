@@ -215,7 +215,7 @@ export interface DailyGuidance {
    engine. Not "flares aren't damage": for inflammatory pain a flare can
    be active disease. (18 Oct 2026) */
 export const FLARE_NOTE =
-  'You logged a flare today, so this isn’t suggesting longer. Your own flare plan, or your clinician’s, comes first.';
+  'You logged a flare today, so nothing longer is suggested. Your flare plan, or your clinician’s, comes first.';
 
 function atEffort(band: EffortBand | null): string {
   return band ? ' at ' + (band === 'easy' ? 'an easy' : band === 'moderate' ? 'a moderate' : 'a hard') + ' effort' : '';
@@ -286,7 +286,7 @@ export function dailyGuidance(
       return {
         state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: false,
         headline: yesterday ? 'Yesterday’s session is in.' : 'Today’s session is in.',
-        recommendation: 'Pattern reads a session against a morning check-in that day and the next.',
+        recommendation: 'Pattern reads a session by comparing a morning check-in that day with the next morning’s.',
       };
     }
     /* yesterday's session and no morning check-in yet today: the one
