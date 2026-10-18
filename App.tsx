@@ -551,6 +551,10 @@ export default function App() {
      next action is parked here and fired from the closing modal's
      onDismiss (iOS-only callback, and this is an iOS-only app). */
   const afterDismiss = useRef<null | (() => void)>(null);
+  /* the event sheet's own Cancel guard, so a swipe down asks before it
+     drops a typed flare (EventSheet requestCloseRef). Null while the
+     sheet is not mounted — then there is nothing to lose. */
+  const eventClose = useRef<null | (() => void)>(null);
   const runAfterDismiss = useCallback(() => {
     const f = afterDismiss.current;
     afterDismiss.current = null;
@@ -1079,10 +1083,13 @@ export default function App() {
           visible={sheet === 'event'}
           animationType="slide"
           presentationStyle="pageSheet"
-          onRequestClose={closeSheet}
+          onRequestClose={() => (eventClose.current ? eventClose.current() : closeSheet())}
           onDismiss={runAfterDismiss}
         >
-          <EventSheet event={editEvent} date={eventDate} onDone={closeSheet} onClose={closeSheet} />
+          <EventSheet
+            event={editEvent} date={eventDate} onDone={closeSheet} onClose={closeSheet}
+            requestCloseRef={eventClose}
+          />
         </Modal>
 
         <Modal

@@ -17,8 +17,12 @@
  * 6. The day page's small controls reach 44pt by slop, and VoiceOver can
  *    do there what a finger does: change day, hear a figure as words,
  *    take back an optional answer (18 Oct 2026).
- * 6. Patterns gives no delta on pain and no verdict word, and every
+ * 7. Patterns gives no delta on pain and no verdict word, and every
  *    stand-out card carries its own "not" sentence (18 Oct 2026).
+ * 8. The event sheet asks before Cancel, a swipe down or the VoiceOver
+ *    escape throws away anything entered — and only then (18 Oct 2026).
+ * 9. Calendar dates follow Dynamic Type, capped at what a cell holds,
+ *    and the row grows with them (18 Oct 2026).
  */
 const fs = require('fs');
 const path = require('path');
@@ -153,6 +157,63 @@ console.log('\nthe clinician document has one name: the PDF');
   check('Today and Patterns both say Create the PDF',
     />\s*Create the PDF\s*</.test(home) && /'Create the PDF'/.test(trends));
 }
+
+console.log('\nthe event sheet asks before Cancel loses anything');
+const reqClose = (eventSheet.match(/const requestClose = \(\) => \{[\s\S]*?\n  \};/) || [''])[0];
+check('Cancel goes through the guard, never straight to onClose',
+  /<Press\s+onPress=\{requestClose\}[\s\S]{0,200}accessibilityLabel="Cancel"/.test(eventSheet) &&
+  !/onPress=\{onClose\}/.test(eventSheet));
+check('an untouched sheet still closes at once', /if \(!dirty\) \{ onClose\(\); return; \}/.test(reqClose));
+check('measured against what the sheet opened with, not against empty',
+  /const opened = useRef\(\{ kind, minutes, onset, duration, spread, doing, resp, intervention, text \}\)\.current;/.test(eventSheet));
+check('every answer, the kind and the time count as something to lose',
+  ['kind', 'minutes', 'onset', 'duration', 'resp', 'intervention', 'spread', 'doing', 'text']
+    .every((k) => new RegExp('\\b' + k + '\\b[^\\n]*opened\\.' + k + '\\b').test(reqClose)));
+check('Keep editing is the safe way out, Discard is destructive',
+  /\{ text: 'Keep editing', style: 'cancel' \}/.test(reqClose) &&
+  /\{ text: 'Discard', style: 'destructive', onPress: onClose \}/.test(reqClose));
+check('an edit says changes, not event — Delete is one screen away',
+  /editing \? 'Discard your changes\?' : 'Discard this event\?'/.test(reqClose));
+const app = read('App.tsx');
+const evAt = app.indexOf('<EventSheet');
+const eventModal = app.slice(app.lastIndexOf('<Modal', evAt), app.indexOf('/>', evAt));
+check('a swipe down on the sheet goes through the same guard',
+  /onRequestClose=\{\(\) => \(eventClose\.current \? eventClose\.current\(\) : closeSheet\(\)\)\}/.test(eventModal) &&
+  /requestCloseRef=\{eventClose\}/.test(eventModal) &&
+  /* allowSwipeDismissal dismisses first and reports after — nothing left to guard */
+  !/allowSwipeDismissal/.test(eventModal));
+check('so does the VoiceOver escape gesture', /onAccessibilityEscape=\{requestClose\}/.test(eventSheet));
+
+console.log('\ncalendar dates follow Dynamic Type, capped where the cell holds them');
+const dayText = mapScreen.slice(mapScreen.indexOf('<Text', mapScreen.indexOf('the date lives OUTSIDE')),
+  mapScreen.indexOf('{dayNum}'));
+check('the date scales, up to the computed cap, in a box that grows with it',
+  !!dayText && !/allowFontScaling=\{false\}/.test(dayText) &&
+  /maxFontSizeMultiplier=\{dayMax\}/.test(dayText) && /\{ height: dayH \}/.test(dayText));
+const daySize = Number((mapScreen.match(/const DAY_NUM_SIZE = (\d+);/) || [])[1]);
+const digitEm = Number((mapScreen.match(/const DAY_DIGIT_EM = ([\d.]+);/) || [])[1]);
+const dayLine = Number((mapScreen.match(/const DAY_NUM_LINE = ([\d.]+);/) || [])[1]);
+const narrowCap = Math.max(1, Math.floor(narrowCell / (daySize * 2 * digitEm) * 20) / 20);
+check('the cap is computed from the cell, and "31" at the cap fits a 375pt cell',
+  /Math\.floor\(cell \/ \(DAY_NUM_SIZE \* 2 \* DAY_DIGIT_EM\) \* 20\) \/ 20/.test(mapScreen) &&
+  /* 0.62em is an SF tabular digit; a smaller em would buy a cap the glyphs cannot keep */
+  digitEm >= 0.62 && daySize * narrowCap * 2 * digitEm <= narrowCell &&
+  /* and it is worth having: at least AX2 on the narrowest phone */
+  narrowCap >= 1.9);
+check('the row is sized from the drawn date, not a fixed 15pt',
+  dayLine >= 1.2 &&
+  /Math\.ceil\(DAY_NUM_SIZE \* DAY_NUM_LINE \* Math\.min\(fontScale, dayMax\)\)/.test(mapScreen) &&
+  /const cellH = cell \+ dayH \+ 15;/.test(mapScreen) &&
+  !/dayNum: \{[^}]*height: 15/.test(mapScreen));
+check('and follows a Text Size change made while the app is open',
+  /const \{ fontScale \} = useWindowDimensions\(\);/.test(mapScreen) &&
+  /useMemo\(\(\) => cellMetrics\(fontScale\), \[fontScale\]\)/.test(mapScreen));
+check('the "+" stays the size of the dots it extends',
+  /<Text allowFontScaling=\{false\} style=\{styles\.more\}>\+<\/Text>/.test(mapScreen));
+
+console.log('\nan answer hidden by switching kind is not saved');
+check('hidden flare answers stay out of the row', /const described = kind === 'flare' \|\| kind === 'illness';/.test(read('src/EventSheet.tsx'))
+  && /if \(described && onset\)/.test(read('src/EventSheet.tsx')));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
