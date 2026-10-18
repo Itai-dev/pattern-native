@@ -375,7 +375,7 @@ export function capacityView(
 /** what the card does not mean — inside the card, behind its (i) */
 export const CAPACITY_NOTE =
   'A session went fine when your next morning’s check-in was less than '
-  + CAPACITY_HARDER_POINTS + ' points above that day’s morning. Soreness in the hours after '
+  + CAPACITY_HARDER_POINTS + ' points above that day’s morning. A morning can also be harder for reasons that have nothing to do with the session — a bad night, a flare, or the morning stiffness some conditions bring — which is why one harder morning only holds the next step, and never sets it back on its own. Soreness in the hours after '
   + 'exercise is common and is not damage. Effort is Apple’s 1–10 from your Watch or your own '
   + 'rating in Fitness. The next step comes from your own record, in small steps — it is not '
   + 'medical advice, and a clinician’s plan comes first.';
