@@ -287,6 +287,14 @@ export function countDays(): number {
   return r ? r.n : 0;
 }
 
+/** the earliest day in the record, or null when it is empty. Dates are
+ *  ISO strings, so the smallest is the earliest — no rows parsed. Read
+ *  once per phone, for week_active's anchor (analytics.ts). */
+export function firstDate(): string | null {
+  const r = conn().getFirstSync<{ d: string | null }>('SELECT MIN(date) AS d FROM days');
+  return r && r.d ? r.d : null;
+}
+
 /** write one moment into a day; returns the updated entry.
  *  The UTC stamp and offset are taken here, at the write, so every screen
  *  agrees on what "now" means and none of them invents its own. */

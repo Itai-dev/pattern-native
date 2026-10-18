@@ -353,3 +353,25 @@ is another rewrite of this section, not an extension of this one.
   moved to Caches, which iOS never backs up, because App Review 5.1.3
   forbids personal health information in iCloud. Pattern still collects
   nothing.
+- **One event added on 18 Oct 2026, and the line did not move.** Phase 2
+  is judged on one number — of ten testers, how many still log in week
+  four — and the counts could not give it: no install identifier, a new
+  session every cold start, so a week-4 check-in cannot be tied to
+  anyone's week 1. `week_active` closes that. The first check-in a phone
+  makes in each week since its first one sends the week number, 1 to 13,
+  and nothing else: no date, no count of check-ins, no score, nothing
+  said. The phone does the arithmetic; what leaves it is a count of
+  weeks — the same kind of fact as "a check-in happened", and nothing
+  you told it about your body. **Why not an install id**, the usual way
+  and less code: an id is a key, and every event a phone ever sent would
+  line up behind it into a profile of one person's use — when they check
+  in, how long it takes, what they open — where today no two events can
+  be joined. A week number counted against `first_checkin` gives cohort
+  retention without one: of the phones whose first check-in fell in a
+  given week, how many sent week 4 three weeks later. Nothing links them,
+  and nothing could. It stops at week 13, a TestFlight build's ninety
+  days, so it answers the ladder and Phase 2 and does not become a
+  standing tenure stamp. Said plainly: at ten testers a cohort can be one
+  person, and a count of one is that person — already true of
+  `first_checkin`, and why it is read by cohort and never by the day.
+  The opt-out covers it like every other event, and the policy names it.
