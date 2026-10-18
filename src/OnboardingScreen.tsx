@@ -141,6 +141,33 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
     else onDone(result());
   };
 
+  /* THE WAY BACK (18 Oct 2026). Before this, a mis-tapped diagnosis or
+     goal could only be put right later in Profile, by someone who had to
+     know it was there. Back is safe on every step for one reason, and the
+     reason is load-bearing: NOTHING HERE IS WRITTEN UNTIL onDone. Every
+     answer lives in this component's state, the steps swap inside one
+     mounted screen, and App stores the diagnosis, goal and places only
+     when the last button is pressed. So stepping back moves `step` and
+     clears nothing, and the screen it lands on shows the answer as it was
+     left — a chosen row still chosen, a passed-over one still empty with
+     its button still saying Skip.
+
+     That is also what keeps three states three. Finishing still means
+     going forward through every screen, so each question has been put by
+     the time anything is stored: a skip is stored as a skip, never as
+     "never asked", and passing back over an answer never drops it. If a
+     step ever starts writing on Continue, this stops being true and back
+     must be scoped to the steps after that one.
+
+     Not on the first screen, which has nothing behind it, and so not in
+     review, which is only that screen. No animation to honour Reduce
+     Motion for: steps swap instantly forward, and back matches. */
+  const back = () => {
+    if (step <= PROMISE) return;
+    Haptics.selectionAsync().catch(() => {});
+    setStep(step - 1);
+  };
+
   /* There is no separate skip door. Every screen's one button leaves
      with whatever was filled in, everything being optional — and on
      the diagnosis screen the button admits what it does, saying Skip
@@ -181,9 +208,33 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
       <View
         style={[
           styles.inner,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          { paddingTop: insets.top, paddingBottom: insets.bottom + 24 },
         ]}
+        /* VoiceOver's two-finger scrub is iOS's back; it goes where the
+           button goes */
+        onAccessibilityEscape={step > PROMISE ? back : undefined}
       >
+      {/* where a navigation bar would be: 44pt under the safe area, the
+          place iOS puts back on every screen. Present on the first screen
+          too, empty, so nothing jumps when Back appears. It took the 24pt
+          the top padding had, so the screens sit 20pt lower, not 44. */}
+      <View style={styles.header}>
+        {step > PROMISE && (
+          <Press
+            onPress={back}
+            pressOpacity={0.6}
+            style={styles.back}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            accessibilityHint="The previous screen, with your answers as you left them"
+          >
+            <Text style={styles.backChev} allowFontScaling={false}>‹</Text>
+            <Text style={styles.backText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Back
+            </Text>
+          </Press>
+        )}
+      </View>
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
@@ -206,16 +257,17 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
             </View>
 
             <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Understand{'\n'}your pain.
+              A record of{'\n'}your pain.
             </Text>
-            {/* the landing's first sentence, not its second: "Keep living"
-                is an order to someone who may be mid-flare, and Health is
+            {/* not the landing's line: "Understand your pain. Keep living." is two
+                orders, to someone who may be mid-flare, and it promises an
+                understanding the app does not claim. This says what it is, and Health is
                 named conditionally because it is not asked for until Today
                 — a watch sentence would be false for everyone on day one */}
             <Text style={styles.body1} allowFontScaling maxFontSizeMultiplier={1.4}>
               A quick check-in builds a record of how your pain changes and
-              what happens around it. With Apple Health, it also reads your
-              workouts against the next morning and suggests a small next
+              what happens around it. With Apple Health, it also looks at how
+              your mornings go after a workout, and suggests a small next
               step. And it makes a summary you can bring to an appointment.
             </Text>
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -285,7 +337,11 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               ))}
             </View>
             {goal === 'other' && (
-              <TextInput value={goalOther} onChangeText={setGoalOther} maxLength={40} autoFocus
+              <TextInput value={goalOther} onChangeText={setGoalOther} maxLength={40}
+                /* focus is for a field that has just opened empty. Coming
+                   back to words already typed, a keyboard over the chips
+                   is in the way of the thing back was for. */
+                autoFocus={!goalOther}
                 placeholder="In your words" placeholderTextColor={color.textTertiary}
                 accessibilityLabel="Your activity, in your words" style={styles.input} />
             )}
@@ -392,6 +448,16 @@ const styles = StyleSheet.create({
   /* the avoider owns nothing it can overwrite — see CheckinScreen */
   root: { flex: 1, backgroundColor: color.bgRoot },
   inner: { flex: 1, paddingHorizontal: 28 },
+  header: { height: 44, flexDirection: 'row', alignItems: 'center' },
+  /* the target is 44 by at least 44, not the glyph; pulled left by its
+     own padding so the chevron lines up with the titles under it. White,
+     like every button here — a hue on this screen would be a pain value. */
+  back: {
+    minHeight: 44, minWidth: 44, marginLeft: -12, paddingHorizontal: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+  },
+  backChev: { color: color.textPrimary, fontSize: 26, lineHeight: 30, marginTop: -3 },
+  backText: { color: color.textPrimary, fontSize: font.body, fontWeight: '500' },
   body: { flexGrow: 1, justifyContent: 'center', paddingVertical: 20 },
   marks: { flexDirection: 'row', gap: 10, marginBottom: 34 },
   mark: { width: 34, height: 34, borderRadius: 10, borderCurve: 'continuous', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },

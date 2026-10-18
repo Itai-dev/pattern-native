@@ -420,7 +420,7 @@ export default function CheckinScreen({
             chosen={moved}
             onChange={choose}
             progress={progress}
-            accessibilityLabel={timed ? 'Pain then, 0 to 10' : 'Pain right now, 0 to 10'}
+            accessibilityLabel={timed ? 'Pain at that time, 0 to 10' : 'Pain right now, 0 to 10'}
             accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
           />
         ) : (
@@ -429,7 +429,7 @@ export default function CheckinScreen({
             chosen={moved}
             onChange={choose}
             progress={progress}
-            accessibilityLabel={timed ? 'Pain then, 0 to 10' : 'Pain right now, 0 to 10'}
+            accessibilityLabel={timed ? 'Pain at that time, 0 to 10' : 'Pain right now, 0 to 10'}
             accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
           />
         )}

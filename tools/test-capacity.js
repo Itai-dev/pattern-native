@@ -92,8 +92,8 @@ ok('an easy run and a hard run are levelled apart', (() => {
   [10, 12, 14].forEach((day) => sess(E, H, day, wk(20, 8, '37'), 4, 4));
   const v = cap.capacityView(E, H, TODAY);
   return v.insights.length === 2
-    && v.insights.some((i) => /^Your easy running sessions went fine so far\. Next time, go for 44 minutes\.$/.test(i.text))
-    && v.insights.some((i) => /^Your hard running sessions went fine so far\. Next time, go for 22 minutes\.$/.test(i.text));
+    && v.insights.some((i) => /^Your easy running sessions went fine so far\. Next time, 44 minutes\.$/.test(i.text))
+    && v.insights.some((i) => /^Your hard running sessions went fine so far\. Next time, 22 minutes\.$/.test(i.text));
 })());
 
 group('the level and the next step');
@@ -107,7 +107,7 @@ ok('short of CAPACITY_MIN_SESSIONS known sessions: no conclusion, and what it wa
 })());
 ok('up: ten per cent, at least one minute and at most five', (() => {
   const s = (min) => { const E = {}, H = {}; [10, 12, 14].forEach((day) => sess(E, H, day, wk(min), 4, 4)); return cap.capacityView(E, H, TODAY).insights[0].text; };
-  return /go for 33 minutes/.test(s(30)) && /go for 7 minutes/.test(s(6)) && /go for 125 minutes/.test(s(120));
+  return /Next time, 33 minutes/.test(s(30)) && /Next time, 7 minutes/.test(s(6)) && /Next time, 125 minutes/.test(s(120));
 })());
 ok('hold after one harder morning', (() => {
   const E = {}, H = {};
@@ -124,12 +124,12 @@ ok('ease after two of three, with the easier effort offered', (() => {
   sess(E, H, 12, wk(30, 8), 4, 4);
   sess(E, H, 14, wk(40, 8), 4, 7);
   const i = cap.capacityView(E, H, TODAY).insights[0];
-  return /^Your recent hard walking sessions were mostly followed by a harder next morning\. One option next time: 27 minutes or a moderate effort/.test(i.text);
+  return /^Your recent hard walking sessions were mostly followed by a harder next morning\. Next time, 27 minutes or a moderate effort instead/.test(i.text);
 })());
 ok('"so far" drops once the level rests on a full window', (() => {
   const E = {}, H = {};
   for (let i = 0, day = 1; i < th.CAPACITY_RECENT; i++, day += 2) sess(E, H, day, wk(20, 2), 4, 4);
-  return cap.capacityView(E, H, TODAY).insights[0].text === 'Your easy walking sessions went fine. Next time, go for 22 minutes.';
+  return cap.capacityView(E, H, TODAY).insights[0].text === 'Your easy walking sessions went fine. Next time, 22 minutes.';
 })());
 
 group('the conclusion that leads');
@@ -140,7 +140,7 @@ ok('within one activity, easy going well beside hard costing: one contrast, firs
   [15, 17, 19].forEach((day) => sess(E, H, day, wk(40, 2, '46'), 4, 4));
   const v = cap.capacityView(E, H, TODAY);
   return v.insights.length === 2 && v.insights[0].key === 'contrast.running'
-    && /^Your easy running sessions went fine; the hard ones were mostly followed by a harder next morning\. Next time, go for 33 minutes at an easy effort\.$/.test(v.insights[0].text)
+    && /^Your easy running sessions went fine; the hard ones were mostly followed by a harder next morning\. Next time, 33 minutes at an easy effort\.$/.test(v.insights[0].text)
     && /easy running/.test(v.insights[0].why) && /hard running/.test(v.insights[0].why)
     && /^Your easy swimming/.test(v.insights[1].text);
 })());
@@ -164,7 +164,7 @@ ok('pending minutes today, nothing earlier this week', (() => {
   sess(E, H, 27, wk(45, 2), 4, 4);       // Sunday: last week
   H[TODAY] = hday(TODAY, H[TODAY] ? H[TODAY].workouts.concat([wk(25, 2)]) : [wk(25, 2)]);
   return cap.capacityView(E, H, TODAY).headline
-    === 'Tomorrow morning’s check-in will tell Pattern how today’s 25 minutes went.';
+    === '25 minutes this week are still waiting on their morning check-ins.';
 })());
 ok('minutes that went fine, and the effort they mostly were', (() => {
   const E = {}, H = {};
@@ -217,7 +217,8 @@ ok('then and now: the same median, two windows that share no session', (() => {
   return data.activity.then.minutes === 20 && data.activity.now.minutes === 33
     && text === ' 12 sessions since 1 Sep with check-ins both mornings; 11 went fine '
       + '(next-morning pain under ' + th.CAPACITY_HARDER_POINTS + ' points above that morning’s). '
-      + 'Their median length: 20 min in the first 6, 33 min in the latest 6.';
+      + 'Median length: 20 min in the first 6, 33 min in the latest 6.'
+      + ' A description of the record, not what caused anything.';
 })());
 ok('the latest median is the card’s own level', (() => {
   const E = {}, H = {};
@@ -230,7 +231,7 @@ ok('short of two windows, one median and no then', (() => {
   walks(E, H, ODD.slice(0, 4), MINS.slice(0, 4), 3);
   const { data, text } = line(E, H, 'walking');
   return data.activity.then === null
-    && /4 sessions since 1 Sep .*; 3 went fine .*Their median length: 20 min\.$/.test(text);
+    && /4 sessions since 1 Sep .*; 3 went fine .*Median length: 20 min\. A description of the record, not what caused anything\.$/.test(text);
 })());
 ok('the window bounds which sessions count', (() => {
   const E = {}, H = {};

@@ -237,7 +237,7 @@ export function levelInsight(l: ActivityLevel): Insight {
   let rank: number;
   if (l.step === 'up') {
     rank = 3;
-    text = 'Your ' + who + ' sessions went fine' + sofar(l) + '. Next time, go for '
+    text = 'Your ' + who + ' sessions went fine' + sofar(l) + '. Next time, '
       + l.next + ' minutes.';
   } else if (l.step === 'hold') {
     rank = 2;
@@ -245,9 +245,9 @@ export function levelInsight(l: ActivityLevel): Insight {
       + l.next + ' minutes again, rather than longer.';
   } else {
     rank = 1;
-    const easier = l.band === 'hard' ? ' or a moderate effort' : l.band === 'moderate' ? ' or an easy effort' : '';
+    const easier = l.band === 'hard' ? ' or a moderate effort instead' : l.band === 'moderate' ? ' or an easy effort instead' : '';
     text = 'Your recent ' + who + ' sessions were mostly followed by a harder next morning. '
-      + 'One option next time: ' + l.next + ' minutes' + easier + ', building back up from there.';
+      + 'Next time, ' + l.next + ' minutes' + easier + ', then building back up.';
   }
   return { key, text, why: whyOf(l), last: l.last, rank };
 }
@@ -263,7 +263,7 @@ function contrastInsight(good: ActivityLevel, bad: ActivityLevel): Insight {
   return {
     key: 'contrast.' + good.activity,
     text: 'Your ' + named(good.activity, good.band) + ' sessions went fine; the ' + bad.band
-      + ' ones were mostly followed by a harder next morning. Next time, go for ' + good.next
+      + ' ones were mostly followed by a harder next morning. Next time, ' + good.next
       + ' minutes at ' + (good.band === 'easy' ? 'an easy' : 'a moderate') + ' effort.',
     why: whyOf(good) + ' ' + whyOf(bad),
     last: good.last > bad.last ? good.last : bad.last,
@@ -305,7 +305,10 @@ function headlineOf(all: Session[], todayIso: string): string {
   });
   if (!fine) {
     return pending
-      ? 'Tomorrow morning’s check-in will tell Pattern how today’s ' + pending + ' minutes went.'
+      /* not 'tomorrow will tell': a waiting session can need this
+         morning's check-in, or both, or be past answering after noon —
+         the card above says which. This only says it is still open. */
+      ? pending + ' minutes this week are still waiting on their morning check-ins.'
       : 'Nothing this week has a next-morning answer yet.';
   }
   const bands = (['easy', 'moderate', 'hard'] as EffortBand[]).filter((b) => mins[b]);
@@ -313,7 +316,7 @@ function headlineOf(all: Session[], todayIso: string): string {
     ? bands.slice().sort((a, b) => mins[b] - mins[a])[0] : null;
   return 'This week, ' + fine + ' minutes of activity went fine'
     + (mostly ? ', mostly ' + mostly : bands.length === 1 && !mins.none ? ', all ' + bands[0] : '') + '.'
-    + (pending ? ' Tomorrow morning will tell how today’s ' + pending + ' minutes went.' : '');
+    + (pending ? ' ' + pending + ' more are still waiting on their morning check-ins.' : '');
 }
 
 /**

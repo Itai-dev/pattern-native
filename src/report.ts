@@ -896,16 +896,18 @@ function metricCell(label: string, value: string, sub?: string): string {
  *  reader compares the two medians, the page does not. */
 function activityLine(a: ActivityProgress): string {
   const mins = a.then && a.now
-    ? ' Their median length: ' + a.then.minutes + ' min in the first '
+    ? ' Median length: ' + a.then.minutes + ' min in the first '
       + a.then.n + ', ' + a.now.minutes + ' min in the latest ' + a.now.n + '.'
     : a.now
-      ? ' Their median length: ' + a.now.minutes + ' min'
+      ? ' Median length: ' + a.now.minutes + ' min'
         + (a.now.n < a.known ? ' in the latest ' + a.now.n : '') + '.'
       : '';
   return '<b>' + esc(capitalise(a.name)) + ':</b> ' + a.known
     + (a.known === 1 ? ' session' : ' sessions') + ' since ' + esc(fmtShortDate(a.since))
     + ' with check-ins both mornings; ' + a.fine + ' went fine (next-morning pain under '
-    + CAPACITY_HARDER_POINTS + ' points above that morning’s).' + mins;
+    + CAPACITY_HARDER_POINTS + ' points above that morning’s).' + mins
+    /* the sentence about what it is not, inside what it qualifies */
+    + ' A description of the record, not what caused anything.';
 }
 
 /** the whole report as a print-first HTML document. White paper, dark

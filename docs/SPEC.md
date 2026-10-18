@@ -49,7 +49,7 @@ across days, body areas, times, and everyday context.
 
 Shortest expression:
 
-> Understand your pain.
+> A record of your pain.
 
 The user names what they want to understand. Pattern keeps that question steady, records the
 answers honestly — including the ones they skipped — and shows the record back to them as a
@@ -239,14 +239,14 @@ stored as a skip.
 
 **Screen 1 — Value, scope and safety, on one screen**
 
-> Understand your pain.
+> A record of your pain.
 >
 > A quick check-in builds a record of how your pain changes and what happens around it.
 > With Apple Health, it also reads your workouts against the next morning and suggests a
 > small next step. And it makes a summary you can bring to an appointment.
 
 Health is named, not asked for: the sentence is conditional so it stays true without a
-watch, and the permission stays on Today. "Keep living" stays on the landing page only.
+watch, and the permission stays on Today. The landing keeps "Understand your pain. Keep living."; in-app, both read as orders to someone mid-flare (18 Oct 2026).
 
 The red flags (sudden severe pain, chest pain, injury, numbness, weakness, fever, bladder or
 bowel loss) and the non-diagnosis line share this screen, because a safety screen of its own

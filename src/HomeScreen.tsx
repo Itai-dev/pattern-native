@@ -582,7 +582,7 @@ export default function HomeScreen({
           </Text>
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             {showActivity
-              ? 'Your activity card learns from mornings: a check-in on the morning of a session and the one after. '
+              ? 'Your activity card learns from a check-in on the morning of a session and the morning after. '
               : 'Checking in around the same time makes your record more useful. '}
             It stays quiet on a day you have already checked in around then,
             and it never mentions a missed day.

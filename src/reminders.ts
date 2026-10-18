@@ -80,7 +80,7 @@ const COPY: Record<PromptKind, string> = {
      what today held. No medication is ever named — this lands on a
      lock screen. */
   workout: 'Around now you often finish a workout. How intense is your pain right now?',
-  dose: 'You usually log a dose about an hour before now. How intense is your pain right now?',
+  dose: 'You often log a dose about an hour before this time. How intense is your pain right now?',
   /* the calendar knew the end; the title stays on the phone */
   calendar: 'Something in your calendar ended a while ago. How intense is your pain right now?',
   /* the same question, before: this number is what the one after
