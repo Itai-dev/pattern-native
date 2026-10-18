@@ -905,7 +905,9 @@ function activityLine(a: ActivityProgress): string {
   return '<b>' + esc(capitalise(a.name)) + ':</b> ' + a.known
     + (a.known === 1 ? ' session' : ' sessions') + ' since ' + esc(fmtShortDate(a.since))
     + ' with check-ins both mornings; ' + a.fine + ' went fine (next-morning pain under '
-    + CAPACITY_HARDER_POINTS + ' points above that morning’s).' + mins;
+    + CAPACITY_HARDER_POINTS + ' points above that morning’s).' + mins
+    /* the sentence about what it is not, inside what it qualifies */
+    + ' A description of the record, not what caused anything.';
 }
 
 /** the whole report as a print-first HTML document. White paper, dark

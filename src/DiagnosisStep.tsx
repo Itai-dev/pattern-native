@@ -205,7 +205,10 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
               placeholderTextColor={color.textTertiary}
               maxLength={DIAGNOSIS_OTHER_MAX}
               style={styles.input}
-              autoFocus
+              /* focus for a field just opened, not one coming back with
+                 words in it — onboarding's Back, or Profile's edit of a
+                 saved answer, would otherwise open on a keyboard */
+              autoFocus={!draft.other}
               accessibilityLabel="Something else — the diagnosis in your words"
             />
           )}

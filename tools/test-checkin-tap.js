@@ -10,6 +10,10 @@
  *    because the card reads only mornings (health/capacity.ts).
  * 3. No reminder that lands on a lock screen mentions a missed day — the
  *    offer on Today promises exactly that.
+ * 4. Onboarding has a way back, and back only moves the step: the answers
+ *    live in the screen's state until onDone, which is what keeps a skip
+ *    a skip after stepping back over it (18 Oct 2026).
+ * 5. Tab labels follow Dynamic Type, capped where the pill holds them.
  */
 const fs = require('fs');
 const path = require('path');
@@ -53,6 +57,33 @@ for (const f of ['src/reminders.ts', 'src/health/background.ts', 'src/health/pro
   const strings = code.match(/'[^'\n]*'|"[^"\n]*"|`[^`]*`/g) || [];
   check(f, !strings.some((s) => /missed/i.test(s)));
 }
+
+console.log('\nonboarding has a way back');
+const onboarding = read('src/OnboardingScreen.tsx');
+const backFn = (onboarding.match(/const back = \(\) => \{[\s\S]*?\n  \};/) || [''])[0];
+check('a back handler steps back one screen', /setStep\(step - 1\)/.test(backFn));
+check('and touches no answer and finishes nothing',
+  !!backFn && !/set(Diagnosis|Goal|GoalOther|Weekly|Where|Duration)\(|onDone/.test(backFn));
+check('nothing in onboarding writes to the record before onDone',
+  !/from '\.\/db'/.test(onboarding) && !/\bdb\./.test(onboarding));
+const backBtn = onboarding.slice(onboarding.indexOf('onPress={back}') - 200, onboarding.indexOf('onPress={back}') + 400);
+check('the control shows only after the first screen', /step > PROMISE && \(\s*<Press\s+onPress=\{back\}/.test(backBtn));
+check('it is a button VoiceOver calls Back',
+  /accessibilityRole="button"/.test(backBtn) && /accessibilityLabel="Back"/.test(backBtn));
+check('the VoiceOver escape gesture goes the same way',
+  /onAccessibilityEscape=\{step > PROMISE \? back : undefined\}/.test(onboarding));
+check('its target is 44pt and it is white, not a ramp colour',
+  /back: \{\s*minHeight: 44, minWidth: 44/.test(onboarding) &&
+  /backText: \{ color: color\.textPrimary/.test(onboarding));
+
+console.log('\ntab labels follow Dynamic Type');
+const tabBar = read('src/TabBar.tsx');
+check('no tab label opts out of scaling', !/allowFontScaling=\{false\}/.test(tabBar));
+const cap = Number((tabBar.match(/const TAB_LABEL_MAX_SCALE = ([\d.]+);/) || [])[1]);
+check('the cap is what a 40pt item holds (21 glyph + 3 gap + 13.1 × cap)',
+  cap > 1 && 21 + 3 + 13.1 * cap <= 40);
+check('every label uses it, on one line',
+  (tabBar.match(/maxFontSizeMultiplier=\{TAB_LABEL_MAX_SCALE\}\s+numberOfLines=\{1\}/g) || []).length === 2);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

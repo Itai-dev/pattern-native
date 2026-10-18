@@ -98,13 +98,11 @@ Build 49 stops about 19 Jan 2027, after the last read.
 
 ## 3. Cohorts · one calendar week each, a week of nobody between
 
-`week_active` carries a week number and nothing else, so cohorts are told
-apart only by when they started. A cohort is the seven days in which its
-testers make their FIRST check-in; its week 4 runs from 21 days after
-that week's first day to 27 days after its last. Back-to-back cohorts
-overlap by six days and only their sum can be read
-(`git show claude/week-active-oct18:docs/GROWTH.md`, §2). Hence the gap
-weeks below — nobody is invited in them, and nobody is told "next week".
+`week_active` carries a week number and nothing else, so a cohort is
+only the seven days in which its testers make their FIRST check-in; its
+week 4 runs from 21 days after that week's first day to 27 after its
+last. Back-to-back cohorts overlap by six days and only their sum can be
+read (GROWTH §2 on `claude/week-active-oct18`) — hence the empty weeks.
 
 | Wave | Invites go out | Cohort week | Size | Week-4 window | Read on |
 |---|---|---|---|---|---|
@@ -137,17 +135,17 @@ expectations for wave 2.
 
 ## 4. Channels · no paid ads
 
-The audience is active people with recurring musculoskeletal or
-inflammatory pain who wear a watch (POSITIONING, "Living actively with
-pain"), found where they train and where they do physio, not in
-chronic-illness forums. English-only app, founder in Israel: wave 1 is
-local and English-comfortable, where follow-up is a coffee, not a thread.
-**Read each community's rules before posting, every time; they change.**
-The post is the team log's draft (round 2), unchanged.
+Active people with recurring MSK or inflammatory pain who wear a watch,
+found where they train and do physio (POSITIONING, "Living actively with
+pain"). English-only, founder in Israel: wave 1 is local and
+English-comfortable, where follow-up is a coffee. The post is the team
+log's round 2 draft. **Post in the week before a wave (wave 1: 19–25
+Oct), invite on its Monday. Read each community's rules before every
+post; they change.**
 
 | Channel | The ask | Who to approach | The one risk |
 |---|---|---|---|
-| Your own physio, then two clinics you know | Put the post on the noticeboard or hand it to patients who still train | The clinic owner, in person, with the clinician page printed | It reads as the clinic recommending a medical app. The clinic agrees first, never passes you a patient's name, and the patient emails you themselves |
+| Your own physio, then two clinics you know | Put the post on the noticeboard or hand it to patients who still train | The clinic owner, in person, with your own clinician page printed | It reads as the clinic recommending a medical app. The clinic agrees first, never passes you a patient's name, and the patient emails you themselves |
 | Running clubs (club chat, not a race) | Post once in the club's chat; offer to talk after a session | The coach or chat admin, asked before posting | Skews to the least affected — people who are fine say yes to be nice. The screening questions sort them |
 | parkrun, where there is one | Ask whether a mention is allowed at all | The event director, never the finish funnel | parkrun forbids commercial promotion at events; leafleting burns the one local channel that recurs every Saturday |
 | Climbing gyms | Noticeboard post; recurring finger, shoulder, elbow pain | Gym manager or the route-setting staff | Climbing pain is often acute. Recurring means it keeps coming back or has lasted three months — say so in the post |
@@ -182,11 +180,10 @@ Assembled from the round 2 draft and GTM's round 4 line. "Runs" became
 > your own physio's or clinician's plan comes first.
 
 **If PR #22 is not merged, the fallback count:** App Store Connect →
-TestFlight lists each tester's sessions on a build. Two looks a week apart
-inside the cohort's week-4 window; a count that rose is a tester who
-opened the app. It counts launches, not check-ins, so it is a ceiling on
-"still logging", where `week_active` is a floor. Write down which one you
-read.
+TestFlight shows each tester's sessions on a build. Look at the start
+and end of the cohort's week-4 window; a count that rose is a tester who
+opened the app. Launches, not check-ins — a ceiling on "still logging",
+where `week_active` is a floor. Write down which you read.
 
 ## 6. While a cohort is running · 26 Oct → 28 Dec
 

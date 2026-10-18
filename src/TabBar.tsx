@@ -54,6 +54,26 @@ const LIQUID = (() => {
   try { return isLiquidGlassAvailable(); } catch { return false; }
 })();
 
+/* LABELS SCALE, UP TO WHAT THE PILL HOLDS (18 Oct 2026). They were fixed
+   at 11pt, so someone reading at a larger text size got the one row of
+   words in the app that ignored it. The pill is a fixed 60 and an item 50
+   with 5 above and below, which leaves 40 for the glyph (21), the gap (3)
+   and one line of label: 16pt of line. SF at 11pt sets a line of about
+   13.1, so 16 / 13.1 ≈ 1.22. Capped at 1.2: 13.2pt type on a ~15.8 line,
+   39.8 of the 40. Past it the item grows toward the pill's edge, the
+   selected wash touches it and then clips under overflow: hidden — and a
+   taller pill is the slab this file keeps refusing. Width is not the
+   limit: "Patterns" at 13.2pt semibold is ~53pt inside the 58 an item's
+   minimum leaves, and one line is enforced, so a label can only widen,
+   never wrap into a line the height cannot hold.
+   iOS's own tab bar meets the largest sizes differently: it does not
+   grow, it shows the item in the large-content viewer on a long press.
+   RN's core View carries that (accessibilityShowsLargeContentViewer, no
+   new native code, so it is safe over the air), and it is set too — but
+   nothing depends on it. The cap is what fits; the viewer is extra, and
+   only at the accessibility sizes. */
+const TAB_LABEL_MAX_SCALE = 1.2;
+
 /** one rounded square — the day. Filled when you are here. */
 function TodayGlyph({ active }: { active: boolean }) {
   return (
@@ -130,9 +150,11 @@ export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
         accessibilityRole="button"
         accessibilityLabel="Check in"
         accessibilityHint="Records how your pain is right now"
+        accessibilityShowsLargeContentViewer
+        accessibilityLargeContentTitle="Check in"
       >
         <LogGlyph />
-        <Text allowFontScaling={false} style={[styles.label, styles.labelActive]}>Log</Text>
+        <Text allowFontScaling maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE} numberOfLines={1} style={[styles.label, styles.labelActive]}>Log</Text>
       </Press>
     </React.Fragment>
   ) : null;
@@ -155,10 +177,14 @@ export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
         accessibilityRole="tab"
         accessibilityState={{ selected: active }}
         accessibilityLabel={t.label}
+        accessibilityShowsLargeContentViewer
+        accessibilityLargeContentTitle={t.label}
       >
         {glyphFor(t.key, active)}
         <Text
-          allowFontScaling={false}
+          allowFontScaling
+          maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
+          numberOfLines={1}
           style={[styles.label, active && styles.labelActive]}
         >
           {t.label}

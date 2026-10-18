@@ -164,7 +164,7 @@ ok('pending minutes today, nothing earlier this week', (() => {
   sess(E, H, 27, wk(45, 2), 4, 4);       // Sunday: last week
   H[TODAY] = hday(TODAY, H[TODAY] ? H[TODAY].workouts.concat([wk(25, 2)]) : [wk(25, 2)]);
   return cap.capacityView(E, H, TODAY).headline
-    === 'Tomorrow morning’s check-in will tell Pattern how today’s 25 minutes went.';
+    === '25 minutes this week are still waiting on their morning check-ins.';
 })());
 ok('minutes that went fine, and the effort they mostly were', (() => {
   const E = {}, H = {};
@@ -217,7 +217,8 @@ ok('then and now: the same median, two windows that share no session', (() => {
   return data.activity.then.minutes === 20 && data.activity.now.minutes === 33
     && text === ' 12 sessions since 1 Sep with check-ins both mornings; 11 went fine '
       + '(next-morning pain under ' + th.CAPACITY_HARDER_POINTS + ' points above that morning’s). '
-      + 'Median length: 20 min in the first 6, 33 min in the latest 6.';
+      + 'Median length: 20 min in the first 6, 33 min in the latest 6.'
+      + ' A description of the record, not what caused anything.';
 })());
 ok('the latest median is the card’s own level', (() => {
   const E = {}, H = {};
@@ -230,7 +231,7 @@ ok('short of two windows, one median and no then', (() => {
   walks(E, H, ODD.slice(0, 4), MINS.slice(0, 4), 3);
   const { data, text } = line(E, H, 'walking');
   return data.activity.then === null
-    && /4 sessions since 1 Sep .*; 3 went fine .*Median length: 20 min\.$/.test(text);
+    && /4 sessions since 1 Sep .*; 3 went fine .*Median length: 20 min\. A description of the record, not what caused anything\.$/.test(text);
 })());
 ok('the window bounds which sessions count', (() => {
   const E = {}, H = {};
