@@ -75,9 +75,9 @@ Watch use. Never: a pain score, a note, a body area, an answer, a
 medication, a phrase.
 
 What the retention curve still lacks: `day_active` exists, so week-4
-retention is computable in the Aptabase dashboard; nothing exports it
+retention is NOT computable (corrected 18 Oct 2026): with no install id and a new session per cold start, a week-4 `day_active` cannot be tied to a week-1 `first_checkin`. Closing it changes what leaves the phone, so POSITIONING first. Until then, count by hand; nothing exports it
 yet, and nobody has looked. **Look before recruiting beyond friends** —
-the number is the gate for Step 3, and it is now a query, not a build.
+the number is the gate for Step 3, and it is a decision and a build, not a query.
 
 Still open from the original list: `trends_opened` and `history_opened`
 are not events (Trends is a pager tab, always mounted, so "opened" would

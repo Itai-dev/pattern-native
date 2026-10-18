@@ -96,7 +96,7 @@ same fact shown a week later on Trends.
    weeks. The one thing on Today that counts toward something, and
    what it counts toward is an answer. Ships OTA. *(built 2026-09-11:
    `src/experiment.ts`, the evening question in the check-in, the
-   card and the offer on Today, `ExperimentSheet`)*
+   card and the offer on Today, `ExperimentSheet`; taken out of the app on 2026-09-30 when Today became two cards. `src/experiment.ts` stays, and the record and backups keep any experiment already run. Not on testers' phones as of 18 Oct 2026.)*
 6. **Same shape for sleep and food.** Bedtime: the sleep association
    read forward ("mornings after under six hours ran harder"). Evening:
    caffeine and water already pair with evening pain. Same engine,
@@ -111,7 +111,7 @@ are no better than before it was shown. Then the moment is wrong or the
 number is, and the fix is the delivery, not the engine.
 
 **What this retires from the old Phase 1:** the weekly story. The
-self-experiment came back on 2026-09-11 as step 5, once the rule on
+self-experiment came back on 2026-09-11 as step 5 (and left the app on 2026-09-30), once the rule on
 engagement was rewritten (POSITIONING.md, principle 7): a countdown to
 an answer is the honest kind of reason to open the app.
 

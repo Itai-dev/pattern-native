@@ -46,7 +46,9 @@ const COPY: Record<'workout' | 'sleep', string> = {
   /* no "Good morning": it lands on someone who may have woken in pain,
      and a greeting that assumes the morning is good is the cheerful
      voice the house style forbids */
-  sleep: "How intense is your pain this morning? Last night's sleep is already in your record.",
+  /* "right now", not "this morning": justWoke has no clock check, so
+     this can land at 13:00 on someone who slept late */
+  sleep: "How intense is your pain right now? Last night's sleep is already in your record.",
 };
 
 /** how many background prompts went out today — a pref, so a killed

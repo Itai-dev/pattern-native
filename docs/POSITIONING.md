@@ -103,7 +103,7 @@ different user and a different reason for tracking.
   thresholds need eight paired observations per side and a 1.5-point
   difference before Pattern says anything; that is weeks. To this person,
   silence reads as broken unless the app says up front that it tells you
-  when it cannot say yet, and counts down to when it can. The experiment
+  when it cannot say yet, and counts down to when it can. The activity card's "still learning" (the experiment did, until 30 Sep 2026)
   and the budget already do this; the copy has to promise it.
 - *"Life regained is the outcome" needs the thing that was cut.* The
   activity goal and its weekly rating were switched off because they asked
@@ -111,7 +111,7 @@ different user and a different reason for tracking.
   same day, and shipped on master as an intention, not a target:** one
   optional line on Today, "what do you want to keep doing?", in the
   person's words, printed in the clinician summary, never scored and
-  never rated weekly (`src/ActivityIntention.tsx`, offered after the
+  never rated weekly. *(18 Oct 2026: that file was deleted on 28 Sep. The goal is now asked in onboarding — an activity and an optional sessions-a-week, `src/recovery.ts` — and an old intention is read as that goal, never migrated.)* It was offered after the
   first recorded day). That is the lightest form the spine can take, and
   it keeps principle 7: nothing here moves without a day added and
   nothing rates today. Whether it also belongs on the day-zero screen in

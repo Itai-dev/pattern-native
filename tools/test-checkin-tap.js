@@ -43,6 +43,10 @@ check('enableMorningReminder turns on the m slot only',
 check('Today picks it when the activity card shows',
   /showActivity \? enableMorningReminder : enableEveningReminder/.test(home));
 
+console.log('\nVoiceOver reaches "Add information" on Today');
+check('the day card names the action', /name: 'addInfo', label: 'Add information'/.test(home));
+check('and routes it to the same handler', /actionName === 'addInfo'\) onAddInfo\(\)/.test(home));
+
 console.log('\nno lock-screen copy mentions a missed day');
 for (const f of ['src/reminders.ts', 'src/health/background.ts', 'src/health/prompts.ts']) {
   const code = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

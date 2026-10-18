@@ -138,7 +138,9 @@ export default function Slider({
              does — otherwise VoiceOver reached the default five only by
              swiping away and back */
           if (e.nativeEvent.actionName === 'activate') {
-            if (value != null) onChange(value);
+            /* emit, not onChange: the haptic is the one sign a VoiceOver
+               user gets that the choice landed and Done is live */
+            if (value != null) emit(value);
             return;
           }
           // VoiceOver swipes step the value, and an unset scale starts at 0

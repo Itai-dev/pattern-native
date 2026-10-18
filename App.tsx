@@ -986,6 +986,9 @@ export default function App() {
                 onShare={shareForAppointment}
                 appointment={appointment}
                 healthDays={healthDays}
+                /* the event's own date, so a flare logged late for this
+                   morning still counts; past days never do */
+                flareToday={events.some((e) => e.kind === 'flare' && e.date === todayISO())}
                 ahead={ahead}
                 aheadEditable={calendarEditable()}
                 onOpenAhead={openAhead}

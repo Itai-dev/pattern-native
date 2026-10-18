@@ -150,9 +150,9 @@ function currentLevel(gs: Session[]): ActivityLevel | null {
 
 function statusOf(level: ActivityLevel | null): RecoveryStatus {
   if (!level) return { kind: 'learning', line: 'Still learning how your body responds.' };
-  if (level.step === 'up') return { kind: 'tolerating', line: 'Your current load appears to be well tolerated.' };
-  if (level.step === 'hold') return { kind: 'hold', line: 'You may want to hold at this level before progressing.' };
-  return { kind: 'lighter', line: 'Your recent sessions were followed by harder mornings.' };
+  if (level.step === 'up') return { kind: 'tolerating', line: 'Your recent sessions went fine.' };
+  if (level.step === 'hold') return { kind: 'hold', line: 'Your last session was followed by a harder next morning.' };
+  return { kind: 'lighter', line: 'Your recent sessions were mostly followed by a harder next morning.' };
 }
 
 /** the hero's content, or null without an answered goal */
@@ -193,7 +193,28 @@ export interface DailyGuidance {
   sufficiency: 'none' | 'early' | 'enough';
   /** a check-in would answer something right now */
   checkIn: boolean;
+  /** one line under the suggestion saying why it is what it is — only
+   *  on a day the person logged a flare, otherwise absent */
+  note?: string;
 }
+
+/* A FLARE DAY DOES NOT GET "LONGER". When the person has logged a flare
+   for today, the card stops offering the step up and offers the same
+   length instead — at their own level, with no number of the app's own.
+   The pacing leaflets agree a flare is when you stop BUILDING, not when
+   you stop moving (NHS Fife, OUH, SFH; Nielson 2013 on the two pacing
+   traditions). Rejected: a line of caution under "a little longer" (two
+   messages, and the action wins); cutting the minutes (that is a flare
+   plan written by the app, which is a clinician's to write, and it makes
+   load follow pain); hiding the suggestion (reads as "don't move").
+   Gated ONLY on the person's own flare report, never a pain value — a
+   pain cut-off here would be a readiness score by another name. It
+   changes what Today shows today and nothing else: no level, outcome or
+   session is touched, so the report is not an attribution fed to the
+   engine. Not "flares aren't damage": for inflammatory pain a flare can
+   be active disease. (18 Oct 2026) */
+export const FLARE_NOTE =
+  'You logged a flare today, so this isn’t suggesting longer. Your own flare plan, or your clinician’s, comes first.';
 
 function atEffort(band: EffortBand | null): string {
   return band ? ' at ' + (band === 'easy' ? 'an easy' : band === 'moderate' ? 'a moderate' : 'a hard') + ' effort' : '';
@@ -210,7 +231,8 @@ function easier(band: EffortBand | null): string {
  * then the early read.
  */
 export function dailyGuidance(
-  goal: RecoveryGoal | null, entries: Entries, health: Record<string, HealthDay>, todayIso: string
+  goal: RecoveryGoal | null, entries: Entries, health: Record<string, HealthDay>, todayIso: string,
+  flareToday = false,
 ): DailyGuidance {
   const gs = goalSessions(sessions(entries, health, todayIso), goal);
   if (!gs.length) {
@@ -230,33 +252,42 @@ export function dailyGuidance(
       state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: mine,
       headline: mine ? 'Yesterday’s session is waiting on this morning’s check-in.'
         : 'Today’s session is in.',
-      recommendation: mine ? 'Check in now to see how it was tolerated.'
-        : 'Tomorrow morning’s check-in will show how it was tolerated.',
+      recommendation: mine ? 'One check-in shows how it went.'
+        : 'Tomorrow morning’s check-in will show how it went.',
     };
   }
 
   const level = currentLevel(gs);
   if (level) {
+    if (level.step === 'up' && flareToday) {
+      return {
+        state: 'repeat', sufficiency: 'enough', checkIn: false,
+        headline: 'Your recent sessions went fine.',
+        recommendation: 'A similar session.',
+        recommendedLoad: level.level + ' min' + atEffort(level.band),
+        note: FLARE_NOTE,
+      };
+    }
     if (level.step === 'up') {
       return {
         state: 'repeat', sufficiency: 'enough', checkIn: false,
-        headline: 'Your recent sessions were followed by stable next mornings.',
-        recommendation: 'Consider a similar session, or a little longer.',
+        headline: 'Your recent sessions went fine.',
+        recommendation: 'A similar session, or a little longer.',
         recommendedLoad: level.level + '–' + level.next + ' min' + atEffort(level.band),
       };
     }
     if (level.step === 'hold') {
       return {
         state: 'lighter', sufficiency: 'enough', checkIn: false,
-        headline: 'Your last session was followed by a harder morning.',
-        recommendation: 'You may want to keep today lighter and check in tomorrow.',
+        headline: 'Your last session was followed by a harder next morning.',
+        recommendation: 'The same length again, rather than longer.',
         recommendedLoad: 'Up to ' + level.level + ' min' + atEffort(level.band),
       };
     }
     return {
       state: 'lighter', sufficiency: 'enough', checkIn: false,
-      headline: 'Your recent sessions were followed by harder mornings.',
-      recommendation: 'You may want to go lighter for now before building back.',
+      headline: 'Your recent sessions were mostly followed by a harder next morning.',
+      recommendation: 'A little less for now, then building back up.',
       recommendedLoad: 'Around ' + level.next + ' min' + easier(level.band),
     };
   }
@@ -270,13 +301,13 @@ export function dailyGuidance(
   if (lastKnown && lastKnown.outcome === 'harder') {
     return {
       state: 'lighter', sufficiency: 'early', recommendedLoad: null, checkIn: false,
-      headline: 'Your last session was followed by a harder morning.',
-      recommendation: 'You may want to keep today lighter and check in tomorrow.',
+      headline: 'Your last session was followed by a harder next morning.',
+      recommendation: 'The same length again, rather than longer.',
     };
   }
   return {
     state: 'learning', sufficiency: known.length ? 'early' : 'none', recommendedLoad: null, checkIn: false,
-    headline: lastKnown ? 'Your last session was followed by a stable morning.' : 'Still learning your baseline.',
-    recommendation: moreWords + ' with a morning check-in that day and the next will show how your current load is tolerated.',
+    headline: lastKnown ? 'Your last session went fine.' : 'Still learning how your sessions go.',
+    recommendation: moreWords + ' with a morning check-in that day and the next, and Pattern will have an answer.',
   };
 }

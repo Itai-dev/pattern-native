@@ -84,8 +84,8 @@ ok('status follows the level of the newest effort band', (() => {
   const up = rec.recoveryHero(RUN, E, H, TODAY).status;
   sess(E, H, 16, wk(30, 2), 4, 7);
   const hold = rec.recoveryHero(RUN, E, H, TODAY).status;
-  return up.kind === 'tolerating' && /appears to be well tolerated/.test(up.line)
-    && hold.kind === 'hold' && /hold at this level/.test(hold.line);
+  return up.kind === 'tolerating' && /went fine/.test(up.line)
+    && hold.kind === 'hold' && /a harder next morning/.test(hold.line);
 })());
 
 group('today’s guidance');
@@ -107,20 +107,37 @@ ok('short of a baseline after a stable morning: learning, with how many more', (
   sess(E, H, 20, wk(30), 4, 4);
   const g = rec.dailyGuidance(RUN, E, H, TODAY);
   return g.state === 'learning' && g.sufficiency === 'early'
-    && /stable morning/.test(g.headline) && /^2 more sessions/.test(g.recommendation);
+    && /went fine/.test(g.headline) && /^2 more sessions/.test(g.recommendation);
 })());
 ok('short of a baseline after a harder morning: lighter, no load named', (() => {
   const E = {}, H = {};
   sess(E, H, 20, wk(30), 4, 7);
   const g = rec.dailyGuidance(RUN, E, H, TODAY);
-  return g.state === 'lighter' && g.recommendedLoad === null && /keep today lighter/.test(g.recommendation);
+  return g.state === 'lighter' && g.recommendedLoad === null && /rather than longer/.test(g.recommendation);
 })());
 ok('a level going up: repeat, with a load range at the effort', (() => {
   const E = {}, H = {};
   [10, 12, 14].forEach((day) => sess(E, H, day, wk(30, 5), 4, 4));
   const g = rec.dailyGuidance(RUN, E, H, TODAY);
   return g.state === 'repeat' && g.sufficiency === 'enough'
-    && g.recommendedLoad === '30–33 min at a moderate effort' && /Consider a similar session/.test(g.recommendation);
+    && g.recommendedLoad === '30–33 min at a moderate effort' && /A similar session/.test(g.recommendation);
+})());
+ok('a flare logged today: the same length, never longer, and the note says why', (() => {
+  const E = {}, H = {};
+  [10, 12, 14].forEach((day) => sess(E, H, day, wk(30, 5), 4, 4));
+  const g = rec.dailyGuidance(RUN, E, H, TODAY, true);
+  const plain = rec.dailyGuidance(RUN, E, H, TODAY);
+  return g.state === 'repeat' && g.recommendedLoad === '30 min at a moderate effort'
+    && !/longer/.test(g.recommendation) && g.note === rec.FLARE_NOTE
+    && plain.note === undefined && /–/.test(plain.recommendedLoad);
+})());
+ok('a flare never touches the hold or ease advice', (() => {
+  const E = {}, H = {};
+  sess(E, H, 8, wk(30, 8), 4, 4);
+  sess(E, H, 10, wk(40, 8), 4, 7);
+  sess(E, H, 12, wk(40, 8), 4, 7);
+  const a = rec.dailyGuidance(RUN, E, H, TODAY, true), b = rec.dailyGuidance(RUN, E, H, TODAY);
+  return JSON.stringify(a) === JSON.stringify(b);
 })());
 ok('two of three harder: lighter, an easier effort offered', (() => {
   const E = {}, H = {};

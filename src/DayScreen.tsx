@@ -521,6 +521,7 @@ export default function DayScreen({
             <Pressable
               key={k}
               onPress={() => setView(k)}
+              hitSlop={{ top: 4, bottom: 4 }}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
               accessibilityLabel={label}

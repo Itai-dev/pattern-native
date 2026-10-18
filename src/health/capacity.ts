@@ -224,9 +224,9 @@ function sofar(l: ActivityLevel): string {
 
 function whyOf(l: ActivityLevel): string {
   const who = named(l.activity, l.band);
-  const base = l.fine + ' of your last ' + l.known + ' ' + who + ' sessions were followed by a '
-    + 'morning no worse than the one before' + (l.fine ? ', and those usually lasted about '
-    + l.level + ' minutes.' : '.');
+  const base = l.fine + ' of your last ' + l.known + ' ' + who + ' sessions went fine'
+    + (l.fine === 1 ? ', and it lasted about ' + l.level + ' minutes.'
+      : l.fine ? ', and those usually lasted about ' + l.level + ' minutes.' : '.');
   return l.band ? base : base + ' Apple Health had no effort for these sessions, so they are read together.';
 }
 
@@ -237,17 +237,17 @@ export function levelInsight(l: ActivityLevel): Insight {
   let rank: number;
   if (l.step === 'up') {
     rank = 3;
-    text = capitalise(who) + ' is going well' + sofar(l) + '. Next time, go for '
+    text = 'Your ' + who + ' sessions went fine' + sofar(l) + '. Next time, go for '
       + l.next + ' minutes.';
   } else if (l.step === 'hold') {
     rank = 2;
-    text = 'Your last ' + who + ' session was followed by a harder morning. Stay at '
-      + l.next + ' minutes next time rather than going longer.';
+    text = 'Your last ' + who + ' session was followed by a harder next morning. Next time, '
+      + l.next + ' minutes again, rather than longer.';
   } else {
     rank = 1;
-    const easier = l.band === 'hard' ? ' or keep it moderate' : l.band === 'moderate' ? ' or keep it easy' : '';
-    text = capitalise(who) + ' is costing you the next morning' + sofar(l) + '. Try '
-      + l.next + ' minutes next time' + easier + ', and build back up from there.';
+    const easier = l.band === 'hard' ? ' or a moderate effort' : l.band === 'moderate' ? ' or an easy effort' : '';
+    text = 'Your recent ' + who + ' sessions were mostly followed by a harder next morning. '
+      + 'One option next time: ' + l.next + ' minutes' + easier + ', building back up from there.';
   }
   return { key, text, why: whyOf(l), last: l.last, rank };
 }
@@ -262,9 +262,9 @@ export function levelInsight(l: ActivityLevel): Insight {
 function contrastInsight(good: ActivityLevel, bad: ActivityLevel): Insight {
   return {
     key: 'contrast.' + good.activity,
-    text: capitalise(good.activity) + ' goes well for you at ' + (good.band === 'easy' ? 'an easy' : 'a moderate')
-      + ' effort. The ' + bad.band + ' sessions are the ones costing you the next morning — keep it '
-      + good.band + ', and build minutes there: next time, ' + good.next + ' minutes.',
+    text: 'Your ' + named(good.activity, good.band) + ' sessions went fine; the ' + bad.band
+      + ' ones were mostly followed by a harder next morning. Next time, go for ' + good.next
+      + ' minutes at ' + (good.band === 'easy' ? 'an easy' : 'a moderate') + ' effort.',
     why: whyOf(good) + ' ' + whyOf(bad),
     last: good.last > bad.last ? good.last : bad.last,
     rank: 0,
@@ -311,9 +311,9 @@ function headlineOf(all: Session[], todayIso: string): string {
   const bands = (['easy', 'moderate', 'hard'] as EffortBand[]).filter((b) => mins[b]);
   const mostly = bands.length > 1
     ? bands.slice().sort((a, b) => mins[b] - mins[a])[0] : null;
-  return 'This week, your body handled ' + fine + ' minutes of activity'
+  return 'This week, ' + fine + ' minutes of activity went fine'
     + (mostly ? ', mostly ' + mostly : bands.length === 1 && !mins.none ? ', all ' + bands[0] : '') + '.'
-    + (pending ? ' Tomorrow morning will tell how today’s ' + pending + ' went.' : '');
+    + (pending ? ' Tomorrow morning will tell how today’s ' + pending + ' minutes went.' : '');
 }
 
 /**

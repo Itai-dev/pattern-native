@@ -74,6 +74,7 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
         <View style={styles.chips}>
           {WEEKLY_CHOICES.map((n) => (
             <Press key={n} onPress={() => onSave(picked, other, n)} style={styles.chip}
+              hitSlop={{ top: 8, bottom: 4, left: 4, right: 4 }}
               accessibilityRole="button" accessibilityLabel={n + ' a week'}>
               <Text style={styles.chipText} allowFontScaling maxFontSizeMultiplier={1.3}>{n}</Text>
             </Press>
@@ -97,6 +98,7 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
         {GOAL_ACTIVITIES.map((a) => (
           <Press key={a} onPress={() => { setPicked(a); if (a !== 'other') setStep('often'); }}
             style={[styles.chip, picked === a && styles.chipOn]}
+            hitSlop={4}
             accessibilityRole="button" accessibilityState={{ selected: picked === a }}
             accessibilityLabel={capitalise(a)}>
             <Text style={[styles.chipText, picked === a && styles.chipTextOn]}
@@ -221,6 +223,9 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn }: {
       <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>{guidance.recommendation}</Text>
       {!!guidance.recommendedLoad && (
         <Text style={styles.load} allowFontScaling maxFontSizeMultiplier={1.3}>{guidance.recommendedLoad}</Text>
+      )}
+      {!!guidance.note && (
+        <Text style={styles.body} allowFontScaling maxFontSizeMultiplier={1.4}>{guidance.note}</Text>
       )}
       {guidance.checkIn && (
         <Press onPress={onCheckIn} style={styles.link} accessibilityRole="button" accessibilityLabel="Check in">

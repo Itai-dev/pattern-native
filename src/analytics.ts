@@ -17,8 +17,10 @@
  *     characters — long enough for 'evening' or 'sameAreas', too short
  *     for anything a person wrote about themselves.
  *
- * The user can turn it off in Profile. The identifier is a random id
- * minted on this device, linked to nothing. Events go to Aptabase
+ * The user can turn it off in Profile. There is no install identifier:
+ * one random session id per cold start, linked to nothing — which is
+ * also why week-4 retention cannot be read from these events (GROWTH §2,
+ * corrected 18 Oct 2026). Events go to Aptabase
  * (EU-hosted, open source), named in the privacy policy; until an app key
  * was configured (24 Aug 2026), every call was a no-op; the ingestion
  * shape was verified against the live endpoint before the first ship.

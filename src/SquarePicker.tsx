@@ -138,8 +138,11 @@ export default function SquarePicker({
         accessibilityRole="adjustable"
         accessibilityLabel={accessibilityLabel}
         accessibilityValue={accessibilityValue}
-        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }]}
         onAccessibilityAction={(e) => {
+          /* a double-tap chooses what is on screen — the same as the
+             slider, so the two controls being compared behave alike */
+          if (e.nativeEvent.actionName === 'activate') { onChange(value); return; }
           const cur = chosen ? value : -1;
           const next = e.nativeEvent.actionName === 'increment'
             ? Math.min(PAIN_MAX, cur + 1)

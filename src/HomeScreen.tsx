@@ -98,6 +98,14 @@ import { color, font, radius, size } from './theme';
  *  and sized against the type around it, which is Trends' type. */
 const SQUARE = 58, SQ_RADIUS = 15;
 
+/* The offer buttons are bare 15pt text, about 18pt tall, so the touch
+   area has to come from hitSlop: drawing a 44pt box would make every
+   offer card taller, and Today's layout is not to move. 12 above stays
+   inside the row's 12pt gap; 16 below stays inside the card's 16pt
+   padding; sideways stays at 6 so neighbours 12pt apart meet and do
+   not overlap. 18 + 12 + 16 = 46. (18 Oct 2026) */
+const OFFER_SLOP = { top: 12, bottom: 16, left: 6, right: 6 };
+
 export interface HomeScreenProps {
   entries: Entries;
   /** the goal Today reads — recovery.ts currentGoal, so an old free-text
@@ -121,6 +129,9 @@ export interface HomeScreenProps {
   appointment: string;
   /** the stored Health days, which the activity card reads */
   healthDays: Record<string, HealthDay>;
+  /** the person logged a flare for today — the card then offers the
+   *  same length rather than longer (recovery.ts, FLARE_NOTE) */
+  flareToday?: boolean;
   /** Profile, where the reminder times live — for "choose another time" */
   onOpenReminders: () => void;
   /** the binary can read Health and it has not been set up — the only
@@ -149,7 +160,7 @@ export default function HomeScreen({
   onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
-  onSaveCopy, lastCopy,
+  onSaveCopy, lastCopy, flareToday = false,
 }: HomeScreenProps) {
   const t = todayISO();
   const entry = entries[t] || null;
@@ -203,7 +214,9 @@ export default function HomeScreen({
   const takeReminder = () => {
     dismissReminder();
     (showActivity ? enableMorningReminder : enableEveningReminder)().then((r) => {
-      if (r === 'on') track('reminder_enabled');
+      /* which slot, so the morning offer can be seen to land — a
+         letter, nothing about the person */
+      if (r === 'on') track('reminder_enabled', { slot: showActivity ? 'm' : 'e' });
       if (r === 'denied') {
         Alert.alert(
           'Notifications are off for Pattern',
@@ -265,7 +278,7 @@ export default function HomeScreen({
   const saveGoal = (g: RecoveryGoal) => { onGoalChange(g); setEditingGoal(false); };
   const goalSet = !!goal && !!goal.activity;
   const hero = recoveryHero(goal, entries, healthDays, t);
-  const guidance = dailyGuidance(goal, entries, healthDays, t);
+  const guidance = dailyGuidance(goal, entries, healthDays, t, flareToday);
   /* the card speaks when there is a goal to speak about, or sessions to
      read — a skipped goal and an empty Health says nothing */
   const showActivity = goalSet || guidance.state !== 'noActivity';
@@ -315,6 +328,12 @@ export default function HomeScreen({
           accessibilityLabel={'Today, ' + speakScore(value)
             + (latest ? ', last check-in ' + fmtClock(latest.h) : '')}
           accessibilityHint="Opens the day’s detail, where you can edit or remove it"
+          /* the "Add information" row inside this card is its own press,
+             but VoiceOver folds a nested button into its accessible parent
+             and never lands on it. A named action on the card is the way
+             in: swipe up or down, then double-tap, same handler. */
+          accessibilityActions={[{ name: 'addInfo', label: 'Add information' }]}
+          onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'addInfo') onAddInfo(); }}
         >
           <View style={styles.head}>
             <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -383,6 +402,9 @@ export default function HomeScreen({
             onPress={onAddInfo}
             pressOpacity={0.7}
             style={styles.foot}
+            /* 38 + 6 into the card's bottom padding = 44, without the
+               card growing; nothing upward, so the hero still opens the day */
+            hitSlop={{ bottom: 6 }}
             accessibilityRole="button"
             accessibilityLabel="Add information"
             accessibilityHint="Opens a sheet: where it hurts, how it feels, and a note"
@@ -454,7 +476,7 @@ export default function HomeScreen({
             <Press
               onPress={() => { track('appointment_pdf'); onShare(); }}
               pressOpacity={0.8}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Create the PDF for your appointment"
             >
@@ -465,7 +487,7 @@ export default function HomeScreen({
             <Press
               onPress={onOpenAppointment}
               pressOpacity={0.7}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Change the appointment date"
             >
@@ -504,7 +526,7 @@ export default function HomeScreen({
               <Press
                 onPress={onOpenAhead}
                 pressOpacity={0.8}
-                hitSlop={6}
+                hitSlop={OFFER_SLOP}
                 accessibilityRole="button"
                 accessibilityLabel="Open this event in Calendar"
                 accessibilityHint="Opens Apple's event editor. Nothing changes unless you save."
@@ -517,7 +539,7 @@ export default function HomeScreen({
             <Press
               onPress={onDismissAhead}
               pressOpacity={0.7}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Leave this session as it is"
             >
@@ -565,7 +587,7 @@ export default function HomeScreen({
             <Press
               onPress={takeReminder}
               pressOpacity={0.8}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel={remindLabel}
             >
@@ -576,7 +598,7 @@ export default function HomeScreen({
             <Press
               onPress={() => { dismissReminder(); onOpenReminders(); }}
               pressOpacity={0.8}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Choose another time"
             >
@@ -587,7 +609,7 @@ export default function HomeScreen({
             <Press
               onPress={dismissReminder}
               pressOpacity={0.7}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Not now — reminders stay in Profile"
             >
@@ -615,7 +637,7 @@ export default function HomeScreen({
             <Press
               onPress={() => { dismissHealth(); onOpenHealth(); }}
               pressOpacity={0.8}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Connect Apple Health"
             >
@@ -626,7 +648,7 @@ export default function HomeScreen({
             <Press
               onPress={dismissHealth}
               pressOpacity={0.7}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Not now — Apple Health stays in Profile"
             >
@@ -659,7 +681,7 @@ export default function HomeScreen({
             <Press
               onPress={() => { track('copy_offer_taken'); onSaveCopy(); }}
               pressOpacity={0.8}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Save a copy of your record"
               accessibilityHint="Opens the share sheet with a backup file. Choose Save to Files to keep it outside the app."
@@ -671,7 +693,7 @@ export default function HomeScreen({
             <Press
               onPress={dismissCopy}
               pressOpacity={0.7}
-              hitSlop={6}
+              hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Not now"
             >
