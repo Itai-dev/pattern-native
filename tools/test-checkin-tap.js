@@ -14,6 +14,8 @@
  *    live in the screen's state until onDone, which is what keeps a skip
  *    a skip after stepping back over it (18 Oct 2026).
  * 5. Tab labels follow Dynamic Type, capped where the pill holds them.
+ * 6. Patterns gives no delta on pain and no verdict word, and every
+ *    stand-out card carries its own "not" sentence (18 Oct 2026).
  */
 const fs = require('fs');
 const path = require('path');
@@ -84,6 +86,20 @@ check('the cap is what a 40pt item holds (21 glyph + 3 gap + 13.1 × cap)',
   cap > 1 && 21 + 3 + 13.1 * cap <= 40);
 check('every label uses it, on one line',
   (tabBar.match(/maxFontSizeMultiplier=\{TAB_LABEL_MAX_SCALE\}\s+numberOfLines=\{1\}/g) || []).length === 2);
+
+console.log('\nPatterns: no pain delta, and the not-sentence on each card');
+const trends = read('src/TrendsScreen.tsx');
+check('the halves carry no delta and no verdict word',
+  !/lower — easier|higher — harder|About the same across/.test(trends)
+  && !/DIRECTION_SAME_BELOW/.test(trends));
+check('the halves line says what it is not',
+  /Averages of what you entered, not a measure of how you are doing\./.test(trends));
+check('a stand-out card draws its own note',
+  /\{!!card\.note && \(/.test(trends) && /note: c\.caveat/.test(trends)
+  && /note: BUDGET_NOTE_SHORT/.test(trends) && /note: bestCopy\.disclaimer/.test(trends)
+  && /note: doseBestCopy\.disclaimer/.test(trends) && /note: workoutBestCopy\.disclaimer/.test(trends));
+check('Your pain says what its numbers are not',
+  /not a score of how you are doing\."/.test(trends));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

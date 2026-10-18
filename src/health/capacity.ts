@@ -308,7 +308,7 @@ function headlineOf(all: Session[], todayIso: string): string {
       /* not 'tomorrow will tell': a waiting session can need this
          morning's check-in, or both, or be past answering after noon —
          the card above says which. This only says it is still open. */
-      ? pending + ' minutes this week are still waiting on their morning check-ins.'
+      ? pending + ' minutes this week don’t have a next-morning answer yet.'
       : 'Nothing this week has a next-morning answer yet.';
   }
   const bands = (['easy', 'moderate', 'hard'] as EffortBand[]).filter((b) => mins[b]);
@@ -316,7 +316,7 @@ function headlineOf(all: Session[], todayIso: string): string {
     ? bands.slice().sort((a, b) => mins[b] - mins[a])[0] : null;
   return 'This week, ' + fine + ' minutes of activity went fine'
     + (mostly ? ', mostly ' + mostly : bands.length === 1 && !mins.none ? ', all ' + bands[0] : '') + '.'
-    + (pending ? ' ' + pending + ' more are still waiting on their morning check-ins.' : '');
+    + (pending ? ' ' + pending + ' more don’t have a next-morning answer yet.' : '');
 }
 
 /**

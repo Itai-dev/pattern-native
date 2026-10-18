@@ -44,7 +44,7 @@ import {
   associationCopy, earlyCopy, fadedCopy, factorLabel, firstTitle, groupLabels, isCategorical,
 } from './health/engine';
 import { FirstDays, HealthProgress } from './health/noticed';
-import { LoadBudget, budgetCopy } from './health/budget';
+import { BUDGET_NOTE_SHORT, LoadBudget, budgetCopy } from './health/budget';
 import {
   AFTER_WORKOUTS_NOTE, AFTER_WORKOUTS_PENDING, AfterWorkout, workoutLabel,
 } from './health/afterWorkouts';
@@ -59,7 +59,7 @@ import {
 import { capitalise } from './health/workoutNames';
 import { DigestCard, recordSays } from './digest';
 import { color, font, radius, size } from './theme';
-import { DIRECTION_SAME_BELOW, FIRST_DAYS_OPEN } from './thresholds';
+import { FIRST_DAYS_OPEN } from './thresholds';
 
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const shortDate = (iso: string) => {
@@ -353,12 +353,18 @@ function MiniChart({
 }
 
 /**
- * The change across the window, in words, with the direction named.
+ * The two halves of the range, as the report prints them — and no more.
  *
- * "First half 4.8, second half 3.6" makes the reader do the subtraction
- * AND remember which way is good. It says it: 1.2 lower, easier. The two
- * numbers stay, because the sentence is a reading of them and a reading
- * should never replace the thing it read.
+ * This named a direction ("1.2 lower", then "easier" or "harder")
+ * until 18 Oct 2026. That is a delta on
+ * pain with a verdict word, which the app refuses: at Month (halves need
+ * HALVES_MIN_DAYS logged) it is fortnight against fortnight, and the
+ * second half holds today, so one check-in could turn "easier" into
+ * "harder" between two opens. The clinician's page already says only
+ * the two averages; this now says the same words, so the screen and the
+ * page cannot disagree, and the reader is not handed the subtraction.
+ * Rejected: keeping "about the same" alone — a verdict that only ever
+ * speaks when it is good news is still a verdict.
  *
  * WHITE, not the ramp. This line used to be tinted painColor(2) or
  * painColor(8) to say which way it went — and it is a DIFFERENCE between
@@ -373,20 +379,11 @@ function MiniChart({
  * between two opens on the same day.
  */
 function Direction({ first, second }: { first: number; second: number }) {
-  const delta = first - second;
-  const size = Math.abs(delta);
-  const same = size < DIRECTION_SAME_BELOW;
-  const better = delta > 0;
   return (
     <View style={styles.direction}>
-      <Text style={[styles.directionText, { color: same ? color.textSecondary : color.textPrimary }]}
-        allowFontScaling maxFontSizeMultiplier={1.4}>
-        {same
-          ? 'About the same across this period'
-          : formatScore(size) + (better ? ' lower — easier' : ' higher — harder')}
-      </Text>
       <Text style={styles.directionSub} allowFontScaling maxFontSizeMultiplier={1.4}>
-        First half {formatScore(first)} · second half {formatScore(second)}
+        {'First half of this range averaged ' + formatScore(first) + ', second half '
+          + formatScore(second) + '. Averages of what you entered, not a measure of how you are doing.'}
       </Text>
     </View>
   );
@@ -844,7 +841,7 @@ const digestStyles = StyleSheet.create({
 /** the sentence every stand-out card is qualified by — inside the sheet
  *  that opens it and behind the (i) on the section, never far from the
  *  numbers it qualifies */
-const STANDOUT_NOTE = 'A pattern in what you recorded, never proof of cause. Nothing here moves on its own — only when you add a check-in.';
+const STANDOUT_NOTE = 'A pattern in what you recorded, never proof of cause. Nothing here moves on its own — only when you add a check-in or Apple Health adds a day.';
 
 /**
  * One thing that stands out: the sentence, one line under it, and what
@@ -859,6 +856,11 @@ interface Standout {
   /** behind "Show more" until asked for — the first-days lists, of
    *  which ten can exist in the first week */
   folded?: boolean;
+  /** what the line does not mean, ON the card. The (i) on the section
+   *  heading sits outside every card and the sheet is a tap away, so a
+   *  card showing averages or minutes without this was a claim on its
+   *  own on the page a person opens five times a day. */
+  note?: string;
 }
 
 /** the card on the page: sentence, line, and the door — white on the
@@ -870,6 +872,9 @@ function StandoutCard({ card, onOpen }: { card: Standout; onOpen: () => void }) 
       <Text style={styles.standoutLine} numberOfLines={3} allowFontScaling maxFontSizeMultiplier={1.4}>
         {card.line}
       </Text>
+      {!!card.note && (
+        <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>{card.note}</Text>
+      )}
       {card.detail !== null && (
         <Text style={styles.standoutMore} allowFontScaling maxFontSizeMultiplier={1.3}>Learn more ›</Text>
       )}
@@ -877,7 +882,7 @@ function StandoutCard({ card, onOpen }: { card: Standout; onOpen: () => void }) 
   );
   if (card.detail === null) {
     return (
-      <View style={styles.card} accessible accessibilityLabel={card.title + '. ' + card.line}>
+      <View style={styles.card} accessible accessibilityLabel={card.title + '. ' + card.line + (card.note ? ' ' + card.note : '')}>
         {body}
       </View>
     );
@@ -889,7 +894,7 @@ function StandoutCard({ card, onOpen }: { card: Standout; onOpen: () => void }) 
       pressOpacity={0.92}
       style={styles.card}
       accessibilityRole="button"
-      accessibilityLabel={card.title + '. ' + card.line}
+      accessibilityLabel={card.title + '. ' + card.line + (card.note ? ' ' + card.note : '')}
       accessibilityHint="Opens this in full: the numbers behind it and what it does not mean"
     >
       {body}
@@ -1141,7 +1146,7 @@ export default function TrendsScreen({
      carries the sentence and one line; `detail` is what opens. */
   const standouts: Standout[] = [];
   says.forEach((c) => standouts.push({
-    key: c.key, title: c.title, line: c.evidence,
+    key: c.key, title: c.title, line: c.evidence, note: c.caveat,
     detail: (
       <>
         <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{c.evidence}</Text>
@@ -1157,6 +1162,7 @@ export default function TrendsScreen({
      and grey numbers, no colour — colour is for pain. */
   if (budgetCard) standouts.push({
     key: 'budget', title: 'Before your next workout', line: budgetCard.title,
+    note: BUDGET_NOTE_SHORT,
     detail: <DigestRow card={budgetCard} first />,
   });
   /* AFTER YOUR WORKOUTS. The workout and the next morning, row by row,
@@ -1193,6 +1199,7 @@ export default function TrendsScreen({
     const a = wk.best;
     standouts.push({
       key: 'best.workout', title: workoutBestCopy.title, line: workoutBestCopy.body,
+      note: workoutBestCopy.disclaimer,
       detail: (
         <>
           <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{workoutBestCopy.body}</Text>
@@ -1212,6 +1219,7 @@ export default function TrendsScreen({
     const a = dz.best;
     standouts.push({
       key: 'best.dose', title: doseBestCopy.title, line: doseBestCopy.body,
+      note: doseBestCopy.disclaimer,
       detail: (
         <>
           <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{doseBestCopy.body}</Text>
@@ -1231,6 +1239,7 @@ export default function TrendsScreen({
     const a = healthNoticed.best;
     standouts.push({
       key: 'best.' + a.kind, title: bestCopy.title, line: bestCopy.body,
+      note: bestCopy.disclaimer,
       detail: (
         <>
           <Text style={styles.noticeBody} allowFontScaling maxFontSizeMultiplier={1.4}>{bestCopy.body}</Text>
@@ -1476,7 +1485,7 @@ export default function TrendsScreen({
           sentences that read it. The extremes open their days. */}
       <Card
         title={data.limited ? 'Pain recorded so far' : 'Your pain'}
-        note="Blank days were not logged. Colour is the day’s average pain, 0–10."
+        note="Blank days were not logged. Colour is the day’s average pain, 0–10. Every number here is an average of what you entered — not a score of how you are doing."
       >
         <View style={styles.painHead}>
           <Text style={styles.painAvg} allowFontScaling maxFontSizeMultiplier={1.3}>

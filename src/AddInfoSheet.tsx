@@ -336,8 +336,8 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
       {!entry ? (
         <View style={styles.body}>
           <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Information goes with a day’s check-ins. Check in first, then there is
-            something to add to.
+            Information goes with a check-in, and there isn’t one on this day to
+            add it to.
           </Text>
         </View>
       ) : (
@@ -427,7 +427,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                 {!allWords && (
                   <Press onPress={() => setAllWords(true)} style={styles.more} pressOpacity={0.7}
                     accessibilityRole="button" accessibilityLabel="Show every word">
-                    <Text style={styles.moreText}>Show more ›</Text>
+                    <Text style={styles.moreText}>Show every word ›</Text>
                   </Press>
                 )}
               </View>
@@ -440,7 +440,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                   about to keep. */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Also right now
+                  Also at the time
                 </Text>
                 <View style={styles.chipCloud}>
                   {chipRow(

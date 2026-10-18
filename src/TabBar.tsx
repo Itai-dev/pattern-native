@@ -151,7 +151,7 @@ export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
         accessibilityLabel="Check in"
         accessibilityHint="Records how your pain is right now"
         accessibilityShowsLargeContentViewer
-        accessibilityLargeContentTitle="Check in"
+        accessibilityLargeContentTitle="Log"
       >
         <LogGlyph />
         <Text allowFontScaling maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE} numberOfLines={1} style={[styles.label, styles.labelActive]}>Log</Text>

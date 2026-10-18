@@ -244,7 +244,7 @@ function DayPage({
               <Text style={styles.empty} allowFontScaling maxFontSizeMultiplier={1.4}>
                 {dateIso === todayISO()
                   ? 'No check-ins yet today.'
-                  : 'Nothing was logged on this day.'}
+                  : 'No check-ins on this day.'}
               </Text>
             ) : (
               <>
@@ -613,7 +613,7 @@ export default function DayScreen({
         label="About this chart"
         style={styles.fineTip}
         text={'Tap a dot to see that check-in. '
-          + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain.'}
+          + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain. Average and range are of those check-ins alone.'}
       />
 
       {/* the rest of the day, keyed by date so walking to another day

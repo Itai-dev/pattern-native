@@ -119,7 +119,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
       const detail = e instanceof Error ? e.message : String(e);
       Alert.alert(
         'Couldn’t save this event',
-        'Nothing was recorded. The storage engine said:\n\n' + detail.slice(0, 300)
+        'Nothing was saved yet, and what you wrote is still here. The error, if you want to pass it on:\n\n' + detail.slice(0, 300)
       );
       return;
     }
@@ -363,7 +363,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               accessibilityLabel="Where the pain spreads to"
             />
 
-            <Text style={[styles.q, styles.qLater]}>How long did it last?</Text>
+            <Text style={[styles.q, styles.qLater]}>How long has it lasted?</Text>
             <View style={styles.pickRow}>
               {DURATIONS.map((d) => {
                 const on = duration === d;

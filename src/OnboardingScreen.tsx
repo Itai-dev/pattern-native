@@ -218,7 +218,9 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
           place iOS puts back on every screen. Present on the first screen
           too, empty, so nothing jumps when Back appears. It took the 24pt
           the top padding had, so the screens sit 20pt lower, not 44. */}
-      <View style={styles.header}>
+      {/* shorter on the first screen, where there is no Back: on an SE
+          the full bar pushed the red-flag card further below the fold */}
+      <View style={[styles.header, step === PROMISE && { height: 24 }]}>
         {step > PROMISE && (
           <Press
             onPress={back}

@@ -529,12 +529,10 @@ export const GOAL_OFFER_AFTER_DAYS = 1;
  *  enough to read it, not enough to forget it */
 export const APPOINTMENT_LEAD_DAYS = 2;
 
-/** below this, the two halves of a window are called "about the same"
- *  on Patterns rather than given a direction. A quarter of a point is
- *  under the scale's own resolution — a day is logged in whole numbers
- *  and the halves are means of a handful of them — so a smaller gap is
- *  rounding, not a direction, and naming one would be reading the noise. */
-export const DIRECTION_SAME_BELOW = 0.25;
+/* DIRECTION_SAME_BELOW retired 18 Oct 2026: Patterns no longer gives the
+   two halves of a window a direction ("1.2 lower — easier") — a delta on
+   pain with a verdict word, able to flip between two opens of one day.
+   It prints both averages, as the PDF always has, and nothing between. */
 
 /** how many first-days lists on Patterns stay open before the fold —
  *  two: enough to see what the section is, few enough that it is a
