@@ -14,6 +14,9 @@
  *    live in the screen's state until onDone, which is what keeps a skip
  *    a skip after stepping back over it (18 Oct 2026).
  * 5. Tab labels follow Dynamic Type, capped where the pill holds them.
+ * 6. The day page's small controls reach 44pt by slop, and VoiceOver can
+ *    do there what a finger does: change day, hear a figure as words,
+ *    take back an optional answer (18 Oct 2026).
  * 6. Patterns gives no delta on pain and no verdict word, and every
  *    stand-out card carries its own "not" sentence (18 Oct 2026).
  */
@@ -100,6 +103,42 @@ check('a stand-out card draws its own note',
   && /note: doseBestCopy\.disclaimer/.test(trends) && /note: workoutBestCopy\.disclaimer/.test(trends));
 check('Your pain says what its numbers are not',
   /not a score of how you are doing\."/.test(trends));
+
+console.log('\nthe day page, for a hand that shakes and for VoiceOver');
+const dayScreen = read('src/DayScreen.tsx');
+const moments = read('src/DayMoments.tsx');
+const mapScreen = read('src/MapScreen.tsx');
+const eventSheet = read('src/EventSheet.tsx');
+const theme = read('src/theme.ts');
+const slop = (moments.match(/const ACT_SLOP = \{ top: (\d+), bottom: (\d+), left: (\d+), right: (\d+) \};/) || [])
+  .slice(1).map(Number);
+const actH = Number((moments.match(/\bact: \{ minHeight: (\d+)/) || [])[1]);
+const actGap = Number((moments.match(/\bacts: \{[^}]*?gap: (\d+)/) || [])[1]);
+check('Edit, Add information and Delete reach 44pt tall, and never overlap',
+  slop.length === 4 && actH + slop[0] + slop[1] >= 44 && slop[2] + slop[3] <= actGap);
+check('all three carry it',
+  (moments.match(/style=\{styles\.act\}/g) || []).length === 3 &&
+  (moments.match(/style=\{styles\.act\}\s+hitSlop=\{ACT_SLOP\}/g) || []).length === 3);
+/* the narrowest grid: a 375pt phone at 2x, where the card's two
+   hairlines cost a whole point — the same sum cellMetrics makes */
+const pageX = Number((theme.match(/const PAGE_X = (\d+);/) || [])[1]);
+const mapPad = Number((mapScreen.match(/const CARD_PAD = (\d+);/) || [])[1]);
+const mapGap = Number((mapScreen.match(/const GAP = (\d+);/) || [])[1]);
+const narrowCell = Math.floor((375 - pageX * 2 - mapPad * 2 - 1 - mapGap * 6) / 7);
+check('a calendar day is 44pt wide on a 375pt phone, slop included',
+  /const CELL_SLOP = GAP \/ 2;/.test(mapScreen) && narrowCell + mapGap >= 44 &&
+  /hitSlop=\{\{ left: CELL_SLOP, right: CELL_SLOP \}\}/.test(mapScreen));
+check('VoiceOver changes day from the date, one step each way',
+  /accessibilityRole=\{view === 'day' \? 'adjustable' : 'header'\}/.test(dayScreen) &&
+  /actionName === 'increment'\) stepDay\(1\)/.test(dayScreen) &&
+  /actionName === 'decrement'\) stepDay\(-1\)/.test(dayScreen));
+check('a jump between days is a cut under Reduce Motion',
+  (dayScreen.match(/scrollToOffset\(\{ offset: (last|to) \* itemW, animated: !rm \}\)/g) || []).length === 2);
+check('a figure is spoken in words, not "slash" and "dash"',
+  /' out of 10'/.test(dayScreen) && /replace\('–', ' to '\)/.test(dayScreen) && /' out of 10'/.test(moments));
+const clears = (eventSheet.match(/on \? null :/g) || []).length;
+check('every optional answer in the event sheet says how to take it back',
+  clears > 0 && clears === (eventSheet.match(/accessibilityHint=\{on \? CLEAR_HINT : undefined\}/g) || []).length);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

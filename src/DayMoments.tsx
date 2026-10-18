@@ -43,6 +43,13 @@ import { PAIN_MAX } from './painScale';
 import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
 import { color, font, radius, size } from './theme';
 
+/** Edit, Add information and Delete are words in a row, 36pt tall and
+ *  only as wide as the word — "Edit" is about 30pt, under Apple's 44
+ *  both ways, in a row that ends in Delete. The slop brings each to 44
+ *  without moving a pixel: 36 + 4 + 4 tall, and 9 a side is half the
+ *  row's 18pt gap, so two targets meet mid-gap and never overlap. */
+const ACT_SLOP = { top: 4, bottom: 4, left: 9, right: 9 };
+
 export interface DayMomentsProps {
   dateIso: string;
   /** the dot tapped on the chart above, by its minute. Undefined or
@@ -142,6 +149,7 @@ export default function DayMoments({
               onPress={() => onEditLog(m)}
               pressOpacity={0.7}
               style={styles.act}
+              hitSlop={ACT_SLOP}
               accessibilityRole="button"
               accessibilityLabel={'Edit the ' + fmtClock(m.h) + ' check-in'}
             >
@@ -151,6 +159,7 @@ export default function DayMoments({
               onPress={() => onAddInfo(m.h)}
               pressOpacity={0.7}
               style={styles.act}
+              hitSlop={ACT_SLOP}
               accessibilityRole="button"
               accessibilityLabel={'Add information to the ' + fmtClock(m.h) + ' check-in'}
             >
@@ -160,13 +169,19 @@ export default function DayMoments({
               onPress={() => deleteMoment(m)}
               pressOpacity={0.7}
               style={styles.act}
+              hitSlop={ACT_SLOP}
               accessibilityRole="button"
               accessibilityLabel={'Delete the ' + fmtClock(m.h) + ' check-in'}
             >
               <Text style={[styles.actText, styles.actQuiet]}>Delete</Text>
             </Press>
             {logs.length > 1 && (
-              <Text style={styles.actHint} allowFontScaling maxFontSizeMultiplier={1.3}>
+              <Text
+                style={styles.actHint} allowFontScaling maxFontSizeMultiplier={1.3}
+                /* a screen reader does not tap dots — the chart is one
+                   adjustable element, so this names its gesture instead */
+                accessibilityLabel="Swipe up or down on the chart for another check-in"
+              >
                 Tap another dot for another check-in
               </Text>
             )}
@@ -274,7 +289,9 @@ export default function DayMoments({
                   key={id}
                   style={[styles.row, i > 0 && styles.rowLine]}
                   accessible
-                  accessibilityLabel={met!.name + ', ' + value + (a.note ? '. Note: ' + a.note : '')}
+                  /* "6 out of 10" — read raw, "6/10" is "six slash ten" */
+                  accessibilityLabel={met!.name + ', ' + value.replace(/\/10$/, ' out of 10')
+                    + (a.note ? '. Note: ' + a.note : '')}
                 >
                   <View style={styles.rowMid}>
                     <Text style={styles.rowText} allowFontScaling maxFontSizeMultiplier={1.3}>{met!.name}</Text>

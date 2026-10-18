@@ -31,6 +31,13 @@ const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const WEEKSTART = 1; // Monday-first
 const GAP = 7;
 const MAX_DOTS = 3;
+/** a day's target, sideways. A cell is as wide as seven fit — 37pt on
+ *  a 375pt phone — so half the gap each side is what brings it to 44
+ *  (37 + 3.5 + 3.5) without moving the grid. Half and no more: two
+ *  neighbours meet in the middle of the gap and never overlap. Rows
+ *  need none — a cell is its square plus 30pt of date and dots. */
+const CELL_SLOP = GAP / 2;
+const WD_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
 
@@ -189,7 +196,11 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                 const openable = !future && (!!e || daysBack <= RETRO_CHECKIN_MAX_DAYS);
                 const dayNum = Number(dISO.slice(8, 10));
 
-                const label = new Date(dISO.replace(/-/g, '/')).toDateString().slice(0, 10) +
+                /* "Saturday 18 October", in the order the rest of the app
+                   writes a date. toDateString gave "Sat Oct 18" — US order
+                   and two abbreviations, spoken however the voice guessed. */
+                const dd = dateFromISO(dISO);
+                const label = WD_LONG[dd.getDay()] + ' ' + dd.getDate() + ' ' + MONTHS[dd.getMonth()] +
                   (avg == null
                     ? ', no check-ins'
                     : ', average pain ' + speakScore(avg) + ', ' + formatCheckins(n));
@@ -201,6 +212,7 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                     onPress={() => onDayPress(dISO)}
                     pressScale={0.96}
                     pressOpacity={1}
+                    hitSlop={{ left: CELL_SLOP, right: CELL_SLOP }}
                     accessibilityRole="button"
                     accessibilityLabel={(isToday ? 'Today, ' : '') + label}
                     accessibilityHint={e ? 'Opens the day'

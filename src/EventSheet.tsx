@@ -27,6 +27,13 @@ import {
 import { fmtClock } from './clock';
 import { color, font, size } from './theme';
 
+/** An answer here can be taken back: a second tap on the chosen pill
+ *  clears it, which is how an answer goes back to unanswered — and
+ *  unanswered stays out of the row entirely (see save). A sighted
+ *  person sees the pill let go; VoiceOver only hears "selected", so it
+ *  is told. Not on "What happened?", which always has an answer. */
+const CLEAR_HINT = 'Double-tap again to clear this answer';
+
 export interface EventSheetProps {
   /** present = edit this event instead of creating a new one */
   event?: PainEvent | null;
@@ -167,7 +174,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
         </Press>
         {/* the same words as the button that opens it — one thing, one
             name, from Today to here to the list it is read back in */}
-        <Text style={styles.navTitle} numberOfLines={1}>
+        <Text style={styles.navTitle} numberOfLines={1} accessibilityRole="header">
           {editing ? 'Edit event' : 'Flare or treatment'}
         </Text>
         <Press
@@ -190,7 +197,10 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.q}>What happened?</Text>
+        {/* every question is a heading, so the VoiceOver rotor steps
+            question to question instead of through every pill — a long
+            form is a lot of swipes to someone in the middle of a flare */}
+        <Text style={styles.q} accessibilityRole="header">What happened?</Text>
         {/* pills in two rows rather than six stacked rows: Flare is the
             common case and already chosen, and "When" was landing below
             the fold behind five options most people scroll past */}
@@ -218,14 +228,16 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
           })}
         </View>
 
-        <Text style={[styles.q, styles.qLater]}>When?</Text>
+        <Text style={[styles.q, styles.qLater]} accessibilityRole="header">When?</Text>
         <Press
           onPress={() => setShowPicker(!showPicker)}
           pressOpacity={0.8}
           style={styles.timeRow}
           accessibilityRole="button"
           accessibilityLabel={'Time, ' + fmtClock(minutes)}
-          accessibilityHint="Opens a time picker"
+          /* it toggles — the same row closes the picker it opened */
+          accessibilityState={{ expanded: showPicker }}
+          accessibilityHint={showPicker ? 'Closes the time picker' : 'Opens a time picker'}
         >
           <Text style={styles.timeText}>{fmtClock(minutes)}</Text>
           <Text style={styles.timeHint}>{showPicker ? 'Done' : 'Change'}</Text>
@@ -244,7 +256,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
 
         {kind === 'treatment' && (
           <>
-            <Text style={[styles.q, styles.qLater]}>What did you try?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">What did you try?</Text>
             <View style={styles.pickRow}>
               {INTERVENTIONIDS.map((id) => {
                 const on = intervention === id;
@@ -259,6 +271,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={INTERVENTIONS[id]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -270,7 +283,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               })}
             </View>
 
-            <Text style={[styles.q, styles.qLater]}>How did it go?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How did it go?</Text>
             <Text style={styles.sub}>
               Your own impression, afterwards. Pattern records it; it does not
               advise on treatment.
@@ -289,6 +302,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={RESPONSE_LABELS[r]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -315,7 +329,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
             hold, and they are the two nobody can reconstruct later. */}
         {(kind === 'flare' || kind === 'illness') && (
           <>
-            <Text style={[styles.q, styles.qLater]}>How did it come on?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How did it come on?</Text>
             <View style={styles.pickRow}>
               {ONSETS.map((o) => {
                 const on = onset === o;
@@ -330,6 +344,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={ONSET_LABELS[o]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -341,7 +356,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               })}
             </View>
 
-            <Text style={[styles.q, styles.qLater]}>What were you doing?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">What were you doing?</Text>
             <TextInput
               value={doing}
               onChangeText={setDoing}
@@ -352,7 +367,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               accessibilityLabel="What you were doing when it started"
             />
 
-            <Text style={[styles.q, styles.qLater]}>Does it spread anywhere?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">Does it spread anywhere?</Text>
             <TextInput
               value={spread}
               onChangeText={setSpread}
@@ -363,7 +378,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               accessibilityLabel="Where the pain spreads to"
             />
 
-            <Text style={[styles.q, styles.qLater]}>How long has it lasted?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How long has it lasted?</Text>
             <View style={styles.pickRow}>
               {DURATIONS.map((d) => {
                 const on = duration === d;
@@ -378,6 +393,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={DURATION_LABELS[d]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -391,7 +407,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
           </>
         )}
 
-        <Text style={[styles.q, styles.qLater]}>Anything else?</Text>
+        <Text style={[styles.q, styles.qLater]} accessibilityRole="header">Anything else?</Text>
         <TextInput
           value={text}
           onChangeText={setText}
