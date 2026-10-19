@@ -19,7 +19,7 @@
  * scrolling through empty grids for a year before the record starts.
  */
 import React, { useMemo } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { color, font, radius as radii, size } from './theme';
 import { Entries, checkinCount, dailyAverage, dateFromISO, iso, todayISO } from './model';
 import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
@@ -31,6 +31,32 @@ const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const WEEKSTART = 1; // Monday-first
 const GAP = 7;
 const MAX_DOTS = 3;
+/** a day's target, sideways. A cell is as wide as seven fit — 37pt on
+ *  a 375pt phone — so half the gap each side is what brings it to 44
+ *  (37 + 3.5 + 3.5) without moving the grid. Half and no more: two
+ *  neighbours meet in the middle of the gap and never overlap. Rows
+ *  need none — a cell is its square plus 30pt or more of date and dots. */
+const CELL_SLOP = GAP / 2;
+
+/** THE DATE NUMBER FOLLOWS DYNAMIC TYPE, up to what a cell holds. It was
+ *  pinned at 12pt, and 12pt is the size a low-vision reader cannot read
+ *  in the one place they go looking for a day. The cap is arithmetic off
+ *  the cell, not taste: the widest date is two digits, "31", bold when
+ *  it is today, and an SF tabular digit is about 0.62em — 0.65 leaves
+ *  room for the bold. Two of them at 12 × cap must fit the cell's own
+ *  width (the gap belongs to the neighbour), so
+ *      cap = cell / (12 × 2 × 0.65)
+ *  — 2.35× on a 375pt phone (28pt, Dynamic Type AX3), 2.5× at 393,
+ *  2.85× at 430. Past it a date runs into the next column's.
+ *
+ *  The row grows with the number rather than the number overflowing a
+ *  box sized for 12pt, which would draw it over the square it labels or
+ *  into the dots of the week above. 1.25 is the 15/12 the box always
+ *  had. */
+const DAY_NUM_SIZE = 12;
+const DAY_DIGIT_EM = 0.65;
+const DAY_NUM_LINE = 1.25;
+const WD_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
 
@@ -69,11 +95,16 @@ export interface MapScreenProps {
  * centred, which splits that remainder evenly instead of letting the
  * whole calendar lean left inside its card.
  */
-function cellMetrics() {
+function cellMetrics(fontScale: number) {
   const inner = Math.min(Dimensions.get('window').width, 520)
     - size.pageX * 2 - CARD_PAD * 2 - StyleSheet.hairlineWidth * 2;
   const cell = Math.floor((inner - GAP * 6) / 7);
-  return { cell, radius: cell * 0.24, gridW: cell * 7 + GAP * 6 };
+  /* floored to a twentieth, so the cap is a number someone can say */
+  const dayMax = Math.max(1, Math.floor(cell / (DAY_NUM_SIZE * 2 * DAY_DIGIT_EM) * 20) / 20);
+  /* the size the date is actually drawn at — maxFontSizeMultiplier
+     takes the smaller of the two, and so does this */
+  const dayH = Math.ceil(DAY_NUM_SIZE * DAY_NUM_LINE * Math.min(fontScale, dayMax));
+  return { cell, radius: cell * 0.24, gridW: cell * 7 + GAP * 6, dayMax, dayH };
 }
 
 interface MonthBlock {
@@ -84,8 +115,13 @@ interface MonthBlock {
 
 export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps) {
   const t = todayISO();
-  const { cell, radius, gridW } = useMemo(cellMetrics, []);
-  const cellH = cell + 30;
+  /* from the hook, not Dimensions, so a Text Size change made while
+     the app is open re-lays the grid instead of leaving the date in a
+     row sized for the old one */
+  const { fontScale } = useWindowDimensions();
+  const { cell, radius, gridW, dayMax, dayH } = useMemo(() => cellMetrics(fontScale), [fontScale]);
+  /* the square, the date over it, 4 under the date, 3 + 8 of dots */
+  const cellH = cell + dayH + 15;
 
   /* every month from this one back to the one holding the oldest entry,
      newest first */
@@ -189,7 +225,11 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                 const openable = !future && (!!e || daysBack <= RETRO_CHECKIN_MAX_DAYS);
                 const dayNum = Number(dISO.slice(8, 10));
 
-                const label = new Date(dISO.replace(/-/g, '/')).toDateString().slice(0, 10) +
+                /* "Saturday 18 October", in the order the rest of the app
+                   writes a date. toDateString gave "Sat Oct 18" — US order
+                   and two abbreviations, spoken however the voice guessed. */
+                const dd = dateFromISO(dISO);
+                const label = WD_LONG[dd.getDay()] + ' ' + dd.getDate() + ' ' + MONTHS[dd.getMonth()] +
                   (avg == null
                     ? ', no check-ins'
                     : ', average pain ' + speakScore(avg) + ', ' + formatCheckins(n));
@@ -201,6 +241,7 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                     onPress={() => onDayPress(dISO)}
                     pressScale={0.96}
                     pressOpacity={1}
+                    hitSlop={{ left: CELL_SLOP, right: CELL_SLOP }}
                     accessibilityRole="button"
                     accessibilityLabel={(isToday ? 'Today, ' : '') + label}
                     accessibilityHint={e ? 'Opens the day'
@@ -210,9 +251,10 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                     {/* the date lives OUTSIDE the shape — a calendar first,
                         a chart second. Today's is white and bold: a hue here would read as a score. */}
                     <Text
-                      allowFontScaling={false}
+                      maxFontSizeMultiplier={dayMax}
                       style={[
                         styles.dayNum,
+                        { height: dayH },
                         { color: future ? color.textTertiary : color.textSecondary },
                         isToday && { color: color.textPrimary, fontWeight: '700' },
                       ]}
@@ -262,7 +304,12 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                         <View key={k}
                           style={[styles.dot, { backgroundColor: color.textSecondary }]} />
                       ))}
-                      {n > MAX_DOTS && <Text style={styles.more}>+</Text>}
+                      {/* the fourth dot, drawn like the dots: they are
+                          fixed 3.5pt shapes, and a "+" left to scale on
+                          its own grew past 20pt in an 8pt row and ran
+                          into the date of the week below. The count is
+                          in the cell's spoken label. */}
+                      {n > MAX_DOTS && <Text allowFontScaling={false} style={styles.more}>+</Text>}
                     </View>
                   </Press>
                 );
@@ -317,9 +364,10 @@ const styles = StyleSheet.create({
   },
   cell: { alignItems: 'center' },
   cellNum: { fontWeight: '600', fontVariant: ['tabular-nums'], letterSpacing: -0.3 },
+  /* height is dayH, set where it is drawn — it follows the text size */
   dayNum: {
-    fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'],
-    marginBottom: 4, height: 15, textAlign: 'center',
+    fontSize: DAY_NUM_SIZE, fontWeight: '600', fontVariant: ['tabular-nums'],
+    marginBottom: 4, textAlign: 'center',
   },
   dots: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 8, marginTop: 3 },
   dot: { width: 3.5, height: 3.5, borderRadius: 2, opacity: 0.9 },

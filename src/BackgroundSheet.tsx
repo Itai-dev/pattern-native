@@ -47,7 +47,7 @@ const HINTS: Record<string, string> = {
   allergies: 'Medicines, foods, anything significant',
   lifestyle: 'Work, exercise, sleep, alcohol, caffeine — the usual shape',
   changes: 'Health, life, stress, work, sleep, activity — anything major',
-  family: 'Conditions in the family that might plausibly matter',
+  family: 'Conditions in the family that might matter',
   other: 'Anything a clinician should know that fits nowhere above',
 };
 
@@ -62,7 +62,7 @@ const QUESTIONS: Record<string, string> = {
   allergies: 'Any allergies worth knowing about?',
   lifestyle: 'What does an ordinary week look like?',
   changes: 'Around the time it started or changed, did anything major change?',
-  family: 'Any family history that might plausibly matter?',
+  family: 'Any family history that might matter?',
   other: 'Anything else a clinician should know?',
 };
 
@@ -157,7 +157,7 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
           <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
             Kept on this iPhone with the rest of your record. Nothing here is
             analysed or compared — it is printed exactly as written, only in the
-            report you choose to share.
+            PDF you choose to share.
           </Text>
 
           {BACKGROUND_FIELDS.map(({ key, label }) => (
@@ -189,7 +189,7 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
           </Text>
           <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
             Exactly as written, and exactly how it will print on the first page
-            of your clinician report. Tap anything to change it; everything can
+            of the PDF. Tap anything to change it; everything can
             be edited later from Profile.
           </Text>
           {BACKGROUND_FIELDS.map(({ key, label }, i) => (
@@ -213,8 +213,8 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
           ))}
           {BACKGROUND_FIELDS.every(({ key }) => !draft[key].trim()) && (
             <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Nothing yet — every question was skipped, which is a fine answer.
-              The report simply carries no background section.
+              Nothing yet — every question was skipped.
+              The PDF leaves the background section out.
             </Text>
           )}
           <Press
@@ -240,7 +240,7 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
             {at === 0 && (
               <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
                 A few questions, one at a time — the background a clinician
-                would ask for in the room, for the first page of your report.
+                would ask for in the room, for the first page of the PDF.
                 Skip anything; it all stays on this iPhone, in your words.
               </Text>
             )}

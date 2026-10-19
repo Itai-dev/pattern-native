@@ -218,7 +218,9 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
           place iOS puts back on every screen. Present on the first screen
           too, empty, so nothing jumps when Back appears. It took the 24pt
           the top padding had, so the screens sit 20pt lower, not 44. */}
-      <View style={styles.header}>
+      {/* shorter on the first screen, where there is no Back: on an SE
+          the full bar pushed the red-flag card further below the fold */}
+      <View style={[styles.header, step === PROMISE && { height: 24 }]}>
         {step > PROMISE && (
           <Press
             onPress={back}
@@ -268,7 +270,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               A quick check-in builds a record of how your pain changes and
               what happens around it. With Apple Health, it also looks at how
               your mornings go after a workout, and suggests a small next
-              step. And it makes a summary you can bring to an appointment.
+              step. And it makes a PDF you can bring to an appointment.
             </Text>
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
               One answer is enough. Everything else is optional, always.
@@ -301,7 +303,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>
                 No account, no sign-in, nothing sent to Pattern. It rides in your
                 iPhone’s own backup, so a new phone gets it back. What you write
-                leaves your hands only if you export it or share a summary
+                leaves your hands only if you save a copy or share the PDF
                 yourself.
               </Text>
             </View>

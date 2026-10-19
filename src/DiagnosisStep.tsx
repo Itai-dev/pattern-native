@@ -162,8 +162,8 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
             What has been diagnosed?
           </Text>
           <Text style={styles.namedHint} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Tap any that apply. It prints on the first page of your
-            clinician summary, as you chose it here.
+            Tap any that apply. It prints on the first page of the
+            PDF, as you chose it here.
           </Text>
           <View style={styles.chips}>
             {DIAGNOSES.map((d) => {

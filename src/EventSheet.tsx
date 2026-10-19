@@ -10,7 +10,7 @@
  * updates the row in place, and Delete asks before removing it. Save is
  * guarded against repeated taps so one tap is always one event.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
@@ -27,6 +27,13 @@ import {
 import { fmtClock } from './clock';
 import { color, font, size } from './theme';
 
+/** An answer here can be taken back: a second tap on the chosen pill
+ *  clears it, which is how an answer goes back to unanswered — and
+ *  unanswered stays out of the row entirely (see save). A sighted
+ *  person sees the pill let go; VoiceOver only hears "selected", so it
+ *  is told. Not on "What happened?", which always has an answer. */
+const CLEAR_HINT = 'Double-tap again to clear this answer';
+
 export interface EventSheetProps {
   /** present = edit this event instead of creating a new one */
   event?: PainEvent | null;
@@ -37,9 +44,19 @@ export interface EventSheetProps {
   date?: string | null;
   onDone: () => void;
   onClose: () => void;
+  /** the host's swipe-down lands here. A pageSheet in this React Native
+   *  is modalInPresentation unless allowSwipeDismissal is set, so a
+   *  swipe is only an ATTEMPT: UIKit holds the sheet in place and fires
+   *  onRequestClose, and the host hands that attempt to the same guard
+   *  Cancel uses instead of closing on it. Do not set
+   *  allowSwipeDismissal on this sheet — then the swipe dismisses first
+   *  and reports after, and there is nothing left to ask about. */
+  requestCloseRef?: { current: (() => void) | null };
 }
 
-export default function EventSheet({ event, date: forDate, onDone, onClose }: EventSheetProps) {
+export default function EventSheet({
+  event, date: forDate, onDone, onClose, requestCloseRef,
+}: EventSheetProps) {
   const editing = !!(event && event.id != null);
   const [kind, setKind] = useState<EventKind>(event ? event.kind : 'flare');
   const [minutes, setMinutes] = useState(event ? event.h : minutesNow());
@@ -63,6 +80,14 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
   const [text, setText] = useState(event ? event.text : '');
   const [saving, setSaving] = useState(false);
   const savedRef = useRef(false);
+  /* WHAT THE SHEET OPENED WITH — the yardstick for "would Cancel lose
+     anything". useRef keeps the first render's values, which are the
+     initial state above: the defaults for a new event, the row's own
+     answers for an edit. Measured against that rather than against
+     empty, because an edit opens full — against empty, every Cancel of
+     an untouched edit would ask, and a question asked every time is a
+     question the thumb learns to tap through. */
+  const opened = useRef({ kind, minutes, onset, duration, spread, doing, resp, intervention, text }).current;
 
   const date = event ? event.date : forDate || todayISO();
   const dayCheckins = checkinCount(db.getDay(date));
@@ -93,10 +118,15 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
        nothing. */
     if (kind === 'treatment' && intervention) row.intervention = intervention;
     if (kind === 'treatment' && resp) row.resp = resp;
-    if (onset) row.onset = onset;
-    if (duration) row.duration = duration;
-    if (spread.trim()) row.spread = spread.trim();
-    if (doing.trim()) row.doing = doing.trim();
+    /* the four flare questions are only on screen for a flare or an
+       illness. Answered and then hidden by switching kind, they were
+       still written — a treatment row carrying an onset nobody gave it.
+       What was not on screen when Save was tapped is not an answer. */
+    const described = kind === 'flare' || kind === 'illness';
+    if (described && onset) row.onset = onset;
+    if (described && duration) row.duration = duration;
+    if (described && spread.trim()) row.spread = spread.trim();
+    if (described && doing.trim()) row.doing = doing.trim();
     /* A failed write must be a message, not a crash — and it must
        re-arm Save, or the sheet is stuck holding words it cannot keep.
 
@@ -119,7 +149,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
       const detail = e instanceof Error ? e.message : String(e);
       Alert.alert(
         'Couldn’t save this event',
-        'Nothing was recorded. The storage engine said:\n\n' + detail.slice(0, 300)
+        'Nothing was saved yet, and what you wrote is still here. The error, if you want to pass it on:\n\n' + detail.slice(0, 300)
       );
       return;
     }
@@ -148,16 +178,60 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
     );
   };
 
+  /* Cancel, and the swipe and the escape gesture that mean Cancel. A
+     shaky tap on Cancel used to throw away a flare described in the
+     middle of one, with no way back — and the words are the part nobody
+     can write again later. So it asks, but ONLY when something would be
+     lost: an untouched sheet closes at once, as it always did.
+
+     "Something" is anything that differs from what the sheet opened
+     with: words (stray spaces aside — save trims them anyway), any
+     pill, the kind, the time. The time counts because on an edit,
+     moving the time IS the change.
+
+     The copy says what goes and nothing louder. An edit says CHANGES,
+     not event: "Discard this event?" one screen from "Delete this
+     event?" reads as the same question, and the answer to one is not
+     the answer to the other. Keep editing is the cancel-style button,
+     so the escape route out of the alert is the one that keeps the
+     words. */
+  const requestClose = () => {
+    if (savedRef.current) return;
+    const same = (a?: string | null, b?: string | null) => (a || '').trim() === (b || '').trim();
+    const dirty = kind !== opened.kind || minutes !== opened.minutes
+      || onset !== opened.onset || duration !== opened.duration
+      || resp !== opened.resp || intervention !== opened.intervention
+      || !same(spread, opened.spread) || !same(doing, opened.doing) || !same(text, opened.text);
+    if (!dirty) { onClose(); return; }
+    Alert.alert(
+      editing ? 'Discard your changes?' : 'Discard this event?',
+      editing ? 'The event stays as it was before you opened it.' : 'Nothing here has been saved.',
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: onClose },
+      ]
+    );
+  };
+  /* re-pointed after every render, so a swipe reads the answers on
+     screen now — not the ones from the render that first set it */
+  useEffect(() => {
+    if (!requestCloseRef) return;
+    requestCloseRef.current = requestClose;
+    return () => { requestCloseRef.current = null; };
+  });
+
   const pickerDate = new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60);
 
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      /* the VoiceOver scrub is Cancel, so it asks the same question */
+      onAccessibilityEscape={requestClose}
     >
       <View style={styles.navBar}>
         <Press
-          onPress={onClose}
+          onPress={requestClose}
           style={[styles.navBtn, styles.navLeft]}
           hitSlop={10}
           accessibilityRole="button"
@@ -167,7 +241,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
         </Press>
         {/* the same words as the button that opens it — one thing, one
             name, from Today to here to the list it is read back in */}
-        <Text style={styles.navTitle} numberOfLines={1}>
+        <Text style={styles.navTitle} numberOfLines={1} accessibilityRole="header">
           {editing ? 'Edit event' : 'Flare or treatment'}
         </Text>
         <Press
@@ -190,7 +264,10 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.q}>What happened?</Text>
+        {/* every question is a heading, so the VoiceOver rotor steps
+            question to question instead of through every pill — a long
+            form is a lot of swipes to someone in the middle of a flare */}
+        <Text style={styles.q} accessibilityRole="header">What happened?</Text>
         {/* pills in two rows rather than six stacked rows: Flare is the
             common case and already chosen, and "When" was landing below
             the fold behind five options most people scroll past */}
@@ -218,14 +295,16 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
           })}
         </View>
 
-        <Text style={[styles.q, styles.qLater]}>When?</Text>
+        <Text style={[styles.q, styles.qLater]} accessibilityRole="header">When?</Text>
         <Press
           onPress={() => setShowPicker(!showPicker)}
           pressOpacity={0.8}
           style={styles.timeRow}
           accessibilityRole="button"
           accessibilityLabel={'Time, ' + fmtClock(minutes)}
-          accessibilityHint="Opens a time picker"
+          /* it toggles — the same row closes the picker it opened */
+          accessibilityState={{ expanded: showPicker }}
+          accessibilityHint={showPicker ? 'Closes the time picker' : 'Opens a time picker'}
         >
           <Text style={styles.timeText}>{fmtClock(minutes)}</Text>
           <Text style={styles.timeHint}>{showPicker ? 'Done' : 'Change'}</Text>
@@ -244,7 +323,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
 
         {kind === 'treatment' && (
           <>
-            <Text style={[styles.q, styles.qLater]}>What did you try?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">What did you try?</Text>
             <View style={styles.pickRow}>
               {INTERVENTIONIDS.map((id) => {
                 const on = intervention === id;
@@ -259,6 +338,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={INTERVENTIONS[id]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -270,7 +350,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               })}
             </View>
 
-            <Text style={[styles.q, styles.qLater]}>How did it go?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How did it go?</Text>
             <Text style={styles.sub}>
               Your own impression, afterwards. Pattern records it; it does not
               advise on treatment.
@@ -289,6 +369,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={RESPONSE_LABELS[r]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -315,7 +396,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
             hold, and they are the two nobody can reconstruct later. */}
         {(kind === 'flare' || kind === 'illness') && (
           <>
-            <Text style={[styles.q, styles.qLater]}>How did it come on?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How did it come on?</Text>
             <View style={styles.pickRow}>
               {ONSETS.map((o) => {
                 const on = onset === o;
@@ -330,6 +411,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={ONSET_LABELS[o]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -341,7 +423,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               })}
             </View>
 
-            <Text style={[styles.q, styles.qLater]}>What were you doing?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">What were you doing?</Text>
             <TextInput
               value={doing}
               onChangeText={setDoing}
@@ -352,7 +434,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               accessibilityLabel="What you were doing when it started"
             />
 
-            <Text style={[styles.q, styles.qLater]}>Does it spread anywhere?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">Does it spread anywhere?</Text>
             <TextInput
               value={spread}
               onChangeText={setSpread}
@@ -363,7 +445,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
               accessibilityLabel="Where the pain spreads to"
             />
 
-            <Text style={[styles.q, styles.qLater]}>How long did it last?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How long has it lasted?</Text>
             <View style={styles.pickRow}>
               {DURATIONS.map((d) => {
                 const on = duration === d;
@@ -378,6 +460,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={DURATION_LABELS[d]}
+                    accessibilityHint={on ? CLEAR_HINT : undefined}
                     style={[styles.pick, on && styles.pickOn]}
                   >
                     <Text style={[styles.pickText, on && styles.pickTextOn]}
@@ -391,7 +474,7 @@ export default function EventSheet({ event, date: forDate, onDone, onClose }: Ev
           </>
         )}
 
-        <Text style={[styles.q, styles.qLater]}>Anything else?</Text>
+        <Text style={[styles.q, styles.qLater]} accessibilityRole="header">Anything else?</Text>
         <TextInput
           value={text}
           onChangeText={setText}

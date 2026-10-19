@@ -164,7 +164,7 @@ ok('pending minutes today, nothing earlier this week', (() => {
   sess(E, H, 27, wk(45, 2), 4, 4);       // Sunday: last week
   H[TODAY] = hday(TODAY, H[TODAY] ? H[TODAY].workouts.concat([wk(25, 2)]) : [wk(25, 2)]);
   return cap.capacityView(E, H, TODAY).headline
-    === '25 minutes this week are still waiting on their morning check-ins.';
+    === '25 minutes this week don’t have a next-morning answer yet.';
 })());
 ok('minutes that went fine, and the effort they mostly were', (() => {
   const E = {}, H = {};
@@ -259,7 +259,8 @@ ok('another activity is not the chosen one', (() => {
 ok('the line never prints a pain value', (() => {
   const E = {}, H = {};
   walks(E, H, ODD, MINS, 3);
-  return !/\b(7|9)\b/.test(line(E, H, 'walking').text);
+  const t = line(E, H, 'walking').text;
+  return t !== null && !/\b(7|9)\b/.test(t);
 })());
 
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');

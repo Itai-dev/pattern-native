@@ -75,7 +75,10 @@ export default function RemindersSection() {
     const r = await applySlots(next);
     const nowOn = next.some((s) => s.on);
     /* the habit lever, counted: that it moved, never the hour */
-    if (nowOn && !wasOn) track('reminder_enabled');
+    /* which slots, as their letters ('m', 'me') — the same prop Today's
+       one-tap offer sends, so the morning reminder can be counted
+       wherever it was turned on. Never the hour. */
+    if (nowOn && !wasOn) track('reminder_enabled', { slot: next.filter((s) => s.on).map((s) => s.key).join('') });
     if (!nowOn && wasOn) track('reminder_disabled');
     if (r === 'denied') { setStatus(DENIED); return; }
     setStatus(r === 'on' ? await planLine() : 'Off');

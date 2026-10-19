@@ -139,6 +139,17 @@ const PREF_SWIPED = 'daypager.swiped';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const M3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WD_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const M_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+  'August', 'September', 'October', 'November', 'December'];
+
+/** "Monday 24 August" — the same date, for VoiceOver. The short form
+ *  exists to fit the narrowest title; spoken, "Mon" and "Aug" are read
+ *  however the voice guesses them, and a sentence is never short of room. */
+function speakDay(dateIso: string): string {
+  const d = dateFromISO(dateIso);
+  return WD_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + M_LONG[d.getMonth()];
+}
 
 /** "Mon, 24 Aug" — short enough for the large title on the narrowest
  *  phone, which is why the app writes a date this way everywhere */
@@ -168,10 +179,17 @@ export interface DayScreenProps {
   onAddInfo: (dateIso: string, h?: number) => void;
 }
 
+/** a figure as VoiceOver should say it. Read raw, "4.5/10" is "four
+ *  point five slash ten" and "3–6" is "three dash six" — a range heard
+ *  as a subtraction. The words carry the same fact the eye gets. */
+function spokenValue(value: string, unit?: string): string {
+  return value.replace('–', ' to ') + (unit === '/10' ? ' out of 10' : unit || '');
+}
+
 /* ── one figure of three ────────────────────────────────────── */
 function Stat({ value, unit, label }: { value: string; unit?: string; label: string }) {
   return (
-    <View style={styles.stat} accessible accessibilityLabel={label + ' ' + value + (unit || '')}>
+    <View style={styles.stat} accessible accessibilityLabel={label + ', ' + spokenValue(value, unit)}>
       <Text style={styles.statV} allowFontScaling maxFontSizeMultiplier={1.3}>
         {value}
         {!!unit && <Text style={styles.statUnit}>{unit}</Text>}
@@ -233,9 +251,11 @@ function DayPage({
               style={styles.cardTitle}
               allowFontScaling maxFontSizeMultiplier={1.3}
               /* the nudge teaches the gesture by doing it, which VoiceOver
-                 cannot see. The hint is the same fact, said the one way a
-                 screen reader can receive it. */
-              accessibilityHint="Swipe left or right for another day"
+                 cannot see. And under VoiceOver a one-finger swipe sideways
+                 moves focus, not the pager, so the hint points at the
+                 control that does change the day for a screen reader: the
+                 date in the top bar, which is adjustable (see stepDay). */
+              accessibilityHint="Swipe up or down on the date at the top for another day"
             >
               Pain through the day
             </Text>
@@ -244,7 +264,7 @@ function DayPage({
               <Text style={styles.empty} allowFontScaling maxFontSizeMultiplier={1.4}>
                 {dateIso === todayISO()
                   ? 'No check-ins yet today.'
-                  : 'Nothing was logged on this day.'}
+                  : 'No check-ins on this day.'}
               </Text>
             ) : (
               <>
@@ -375,11 +395,28 @@ export default function DayScreen({
     setAt(Math.max(0, Math.min(last, Math.round(x / itemW))));
   };
 
+  /* Under Reduce Motion the jump is a cut, not a flight across the
+     week. A cut reports only the index it lands on, so there is nothing
+     for `jumping` to hold back — it stays false, and no momentum end has
+     to arrive to release it. */
   const jumpToToday = useCallback(() => {
-    jumping.current = true;
+    jumping.current = !rm;
     setAt(last);
-    list.current?.scrollToOffset({ offset: last * itemW, animated: true });
-  }, [last, itemW]);
+    list.current?.scrollToOffset({ offset: last * itemW, animated: !rm });
+  }, [last, itemW, rm]);
+
+  /* One day either way, for VoiceOver — the adjustable date in the top
+     bar. The pager's own gesture is out of its reach: one finger
+     sideways moves focus, and the three-finger scroll pages by the
+     scroll view's width rather than the card's and does not snap, so
+     each page lands further off centre. The Today jump, one step long. */
+  const stepDay = useCallback((dir: 1 | -1) => {
+    const to = Math.max(0, Math.min(last, at + dir));
+    if (to === at) return;
+    jumping.current = !rm;
+    setAt(to);
+    list.current?.scrollToOffset({ offset: to * itemW, animated: !rm });
+  }, [at, last, itemW, rm]);
 
   const scrollX = useSharedValue(start * itemW);
   const page = useSharedValue(start);
@@ -486,6 +523,19 @@ export default function DayScreen({
           minimumFontScale={0.8}
           allowFontScaling
           maxFontSizeMultiplier={1.2}
+          /* the date IS the day pager, for VoiceOver — see stepDay. On
+             the calendar it is only a heading. */
+          accessibilityRole={view === 'day' ? 'adjustable' : 'header'}
+          accessibilityLabel={view === 'day' ? 'Day' : undefined}
+          accessibilityValue={view === 'day'
+            ? { text: (onDate === t ? 'Today, ' : '') + speakDay(onDate) } : undefined}
+          accessibilityHint={view === 'day' ? 'Swipe up or down for another day' : undefined}
+          accessibilityActions={view === 'day' ? [{ name: 'increment' }, { name: 'decrement' }] : undefined}
+          onAccessibilityAction={(e) => {
+            if (view !== 'day') return;
+            if (e.nativeEvent.actionName === 'increment') stepDay(1);
+            else if (e.nativeEvent.actionName === 'decrement') stepDay(-1);
+          }}
         >
           {view === 'day' ? fmtDay(onDate) : 'Every day'}
         </Text>
@@ -613,7 +663,7 @@ export default function DayScreen({
         label="About this chart"
         style={styles.fineTip}
         text={'Tap a dot to see that check-in. '
-          + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain.'}
+          + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain. Average and range are of those check-ins alone.'}
       />
 
       {/* the rest of the day, keyed by date so walking to another day

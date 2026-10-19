@@ -551,6 +551,10 @@ export default function App() {
      next action is parked here and fired from the closing modal's
      onDismiss (iOS-only callback, and this is an iOS-only app). */
   const afterDismiss = useRef<null | (() => void)>(null);
+  /* the event sheet's own Cancel guard, so a swipe down asks before it
+     drops a typed flare (EventSheet requestCloseRef). Null while the
+     sheet is not mounted — then there is nothing to lose. */
+  const eventClose = useRef<null | (() => void)>(null);
   const runAfterDismiss = useCallback(() => {
     const f = afterDismiss.current;
     afterDismiss.current = null;
@@ -785,7 +789,7 @@ export default function App() {
     const path = FileSystem.cacheDirectory + 'pattern-backup-' + todayISO() + '.json';
     try {
       await FileSystem.writeAsStringAsync(path, json);
-      const r = await Share.share({ url: path, message: 'Pattern backup ' + todayISO() });
+      const r = await Share.share({ url: path, message: 'Pattern — saved copy ' + todayISO() });
       if (r.action === Share.sharedAction) setLastCopy(db.markCopied(todayISO()));
     } catch {
       // sharing the text itself still gets the data out of the app
@@ -1079,10 +1083,13 @@ export default function App() {
           visible={sheet === 'event'}
           animationType="slide"
           presentationStyle="pageSheet"
-          onRequestClose={closeSheet}
+          onRequestClose={() => (eventClose.current ? eventClose.current() : closeSheet())}
           onDismiss={runAfterDismiss}
         >
-          <EventSheet event={editEvent} date={eventDate} onDone={closeSheet} onClose={closeSheet} />
+          <EventSheet
+            event={editEvent} date={eventDate} onDone={closeSheet} onClose={closeSheet}
+            requestCloseRef={eventClose}
+          />
         </Modal>
 
         <Modal
@@ -1244,7 +1251,7 @@ export default function App() {
                 </>
               )}
 
-              <Text style={styles.groupTitle}>Your report</Text>
+              <Text style={styles.groupTitle}>The PDF</Text>
               <View style={styles.group}>
                 {/* the diagnosis, above the background it leads: a
                     diagnosis arrives, and "still looking" is the answer
@@ -1254,7 +1261,7 @@ export default function App() {
                   style={styles.row}
                   accessibilityRole="button"
                   accessibilityLabel="Diagnosis"
-                  accessibilityHint="Whether you have one, and what it is — the first line of your report"
+                  accessibilityHint="Whether you have one, and what it is — the first line of the PDF"
                 >
                   <RowIcon name="medkit-outline" />
                   <View style={[styles.rowMain, styles.rowLine]}>
@@ -1267,8 +1274,8 @@ export default function App() {
                   onPress={() => setBackgroundOpen(true)}
                   style={styles.row}
                   accessibilityRole="button"
-                  accessibilityLabel="Background for your clinician report"
-                  accessibilityHint="Diagnoses, medications, history — printed on the report's first page, in your words"
+                  accessibilityLabel="Background for the PDF"
+                  accessibilityHint="Diagnoses, medications, history — printed on the first page of the PDF, in your words"
                 >
                   <RowIcon name="document-text-outline" />
                   <View style={[styles.rowMain, styles.rowLine]}>
