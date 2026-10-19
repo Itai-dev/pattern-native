@@ -295,7 +295,8 @@ const styles = StyleSheet.create({
   insight: { marginTop: 12 },
   insightText: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21 },
   fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 4 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  /* 4 + 8 = the old 12, with the first row's top slop inside the box */
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4, paddingTop: 8 },
   chip: {
     minHeight: 36, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 18,
     borderWidth: 1, borderColor: color.borderControl,

@@ -399,6 +399,8 @@ const styles = StyleSheet.create({
   chipText: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '500' },
   acts: {
     flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 12, paddingTop: 10,
+    /* room for ACT_SLOP's bottom inside the row, given back below */
+    paddingBottom: 4, marginBottom: -4,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
   },
   act: { minHeight: 36, justifyContent: 'center' },

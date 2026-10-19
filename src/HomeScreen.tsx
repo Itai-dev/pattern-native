@@ -740,7 +740,14 @@ const styles = StyleSheet.create({
   },
   bgOfferActions: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    flexWrap: 'wrap', gap: 12, marginTop: 14,
+    /* the slop must sit inside this row's own bounds to be hit-testable,
+       so the row carries it as padding and gives it back as margin; and
+       when the buttons wrap, the rows stand 28 apart so the 12 + 16 of two
+       rows' slop meet and do not overlap — a near-miss under 'Remind me'
+       must not land on 'Not now', which is final. A single row draws
+       exactly as before: 2 + 12 above, 16 − 16 below. */
+    flexWrap: 'wrap', columnGap: 12, rowGap: 28,
+    marginTop: 2, paddingTop: 12, paddingBottom: 16, marginBottom: -16,
   },
   bgOfferGo: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   bgOfferLater: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },

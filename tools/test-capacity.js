@@ -259,7 +259,8 @@ ok('another activity is not the chosen one', (() => {
 ok('the line never prints a pain value', (() => {
   const E = {}, H = {};
   walks(E, H, ODD, MINS, 3);
-  return !/\b(7|9)\b/.test(line(E, H, 'walking').text);
+  const t = line(E, H, 'walking').text;
+  return t !== null && !/\b(7|9)\b/.test(t);
 })());
 
 console.log('\n' + (fail ? 'FAILED ' : 'PASSED ') + pass + ' assertions, ' + fail + ' failures');
