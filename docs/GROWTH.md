@@ -66,7 +66,8 @@ in prose. The identifier is per cold start; there is no installation id.
 
 What is actually counted (the union in `analytics.ts` is the authority;
 this list is the summary): `app_open`, `day_active`,
-`onboarding_completed`, `first_checkin`, `checkin_completed` (seconds,
+`onboarding_completed`, `first_checkin`, `week_active` (the week number
+since the first check-in, 1–13, once a week), `checkin_completed` (seconds,
 whether context was added, whether the slider moved),
 `checkin_abandoned`, the check-in steps walked or skipped, event and
 experiment lifecycle, Health connected (a count of categories),
@@ -74,10 +75,22 @@ reminders on/off, PDF made and shared, appointment set, widget and
 Watch use. Never: a pain score, a note, a body area, an answer, a
 medication, a phrase.
 
-What the retention curve still lacks: `day_active` exists, so week-4
-retention is NOT computable (corrected 18 Oct 2026): with no install id and a new session per cold start, a week-4 `day_active` cannot be tied to a week-1 `first_checkin`. Closing it changes what leaves the phone, so POSITIONING first. Until then, count by hand; nothing exports it
-yet, and nobody has looked. **Look before recruiting beyond friends** —
-the number is the gate for Step 3, and it is a decision and a build, not a query.
+What the retention curve lacked, corrected and closed on 18 Oct 2026:
+with no install id and a new session per cold start, a week-4
+`day_active` cannot be tied to a week-1 `first_checkin`, so week-4
+retention was NOT computable. `week_active` (POSITIONING, 18 Oct 2026)
+makes it countable without an id. **How to read it in Aptabase:** pick a
+cohort's week — the seven days its testers made their first check-in —
+and count `first_checkin` in it; that is the denominator. Count
+`week_active` filtered to `week` = 4 from 21 days after that week's
+first day to 27 days after its last; that is the numerator. Phase 2
+passes at 5 of 10. Recruit a cohort into one week and nobody into the
+next, or two cohorts' week-4 windows overlap by six days and only their
+sum can be read. Phones that predate the event anchor on their record's
+first day, so read only cohorts recruited after it reached phones. A
+tester who turns analytics off reads as gone, so the number is a floor.
+**Look before recruiting beyond friends** — the number is the gate for
+Step 3.
 
 Still open from the original list: `trends_opened` and `history_opened`
 are not events (Trends is a pager tab, always mounted, so "opened" would

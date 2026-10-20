@@ -18,9 +18,10 @@
  *     for anything a person wrote about themselves.
  *
  * The user can turn it off in Profile. There is no install identifier:
- * one random session id per cold start, linked to nothing — which is
- * also why week-4 retention cannot be read from these events (GROWTH §2,
- * corrected 18 Oct 2026). Events go to Aptabase
+ * one random session id per cold start, linked to nothing. Retention is
+ * read without one (18 Oct 2026): week_active carries the week number
+ * since the first check-in, counted on the phone, and is read against
+ * first_checkin (GROWTH §2; POSITIONING, Known commercial facts). Events go to Aptabase
  * (EU-hosted, open source), named in the privacy policy; until an app key
  * was configured (24 Aug 2026), every call was a no-op; the ingestion
  * shape was verified against the live endpoint before the first ship.
@@ -28,6 +29,8 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as db from './db';
+import { todayISO } from './model';
+import { weekToSend } from './weeks';
 
 /* set when the Aptabase app is created; empty = analytics entirely off */
 const APP_KEY = 'A-EU-5124485143';
@@ -48,6 +51,11 @@ export type EventName =
   | 'onboarding_completed'
   | 'first_checkin'
   | 'checkin_completed'
+  /* a check-in happened in the Nth week since the first one: the week
+     number only, 1–13, at most once per week (weeks.ts). No date, no
+     count of check-ins, nothing it said. Retention without an install
+     id — POSITIONING, 18 Oct 2026. */
+  | 'week_active'
   | 'checkin_abandoned'
   /* an optional step was walked through or skipped: the step's NAME
      ('where', 'feel'…), so each one can be judged on its own. Never
@@ -109,6 +117,10 @@ type PropValue = number | boolean | string;
 const PREF_ENABLED = 'analytics.enabled';
 const PREF_LASTDAY = 'analytics.lastDay';
 const PREF_FIRSTSENT = 'analytics.firstCheckinSent';
+/* the day week 1 starts on, and the last week counted — both stay on
+   the phone; only the week number is ever sent */
+const PREF_FIRSTDAY = 'analytics.firstDay';
+const PREF_WEEKSENT = 'analytics.weekSent';
 
 export function analyticsEnabled(): boolean {
   return db.getPref<boolean>(PREF_ENABLED, true);
@@ -174,8 +186,41 @@ export function trackLaunch(todayIso: string): void {
  *  number rather than a fear. That it moved, never where to. */
 export function trackCheckin(seconds: number, contextAdded: boolean, moved: boolean): void {
   track('checkin_completed', { seconds, context: contextAdded, moved });
+  /* before first_checkin's flag moves, so a phone on its first
+     check-in anchors week 1 on today — the day first_checkin counts it */
+  trackWeek(todayISO());
   if (!db.getPref<boolean>(PREF_FIRSTSENT, false)) {
     db.setPref(PREF_FIRSTSENT, true);
     track('first_checkin');
   }
+}
+
+/**
+ * week_active, at most once per week since the first check-in, with the
+ * week number as its one prop. Called from both paths that add a
+ * check-in — the phone's (trackCheckin) and the watch's drain — because
+ * the question is who still LOGS in week 4, and a watch check-in is one.
+ *
+ * The anchor is stored the first time this runs. A phone that sent
+ * first_checkin before this event existed has none, so it takes the
+ * first day in its record — the best date it has, and earlier than the
+ * real first check-in only if days were back-filled or a copy restored.
+ * Any other phone is on its first check-in now, so its anchor is today.
+ * "Delete everything" wipes both prefs with first_checkin's flag, so a
+ * phone that starts over is counted as starting over, consistently.
+ *
+ * Like day_active and first_checkin, the bookkeeping runs whether or
+ * not analytics is on, and track() alone decides whether anything is
+ * sent — so turning analytics back on never replays a backlog of weeks.
+ */
+export function trackWeek(todayIso: string): void {
+  let first = db.getPref<string>(PREF_FIRSTDAY, '');
+  if (!first) {
+    first = (db.getPref<boolean>(PREF_FIRSTSENT, false) && db.firstDate()) || todayIso;
+    db.setPref(PREF_FIRSTDAY, first);
+  }
+  const week = weekToSend(first, todayIso, db.getPref<number>(PREF_WEEKSENT, 0));
+  if (week == null) return;
+  db.setPref(PREF_WEEKSENT, week);
+  track('week_active', { week });
 }

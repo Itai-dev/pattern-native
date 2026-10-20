@@ -20,6 +20,7 @@
  * our own watch app is honest, inventing a value for it is not.
  */
 import * as db from './db';
+import { trackWeek } from './analytics';
 import { Entries, momentFromEpoch, nowMeta, todayISO } from './model';
 import { SCALE_VERSION } from './painScale';
 import { watchContext } from './watchContext';
@@ -58,6 +59,9 @@ export function drainWatchCheckins(): number {
     });
     wrote++;
   });
+  /* who still logs in week 4 includes whoever logs on the wrist; the
+     week is the phone's today, the day the check-ins reached it */
+  if (wrote) trackWeek(todayISO());
   return wrote;
 }
 
