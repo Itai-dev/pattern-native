@@ -149,3 +149,30 @@ typography guidance:
   icon, named for what it is for.
 - **Watch:** the crown is drawn and its scroll indicator shown; a Smart
   Stack widget carries the next step in minutes.
+
+## Apple Health pass · 20 Oct
+
+The founder pointed at Apple Health's Summary as the reference. Taken:
+
+- **Today is a Summary.** Large title, the rehab focus as a section
+  header with Edit, then a stack of cards in Health's anatomy: icon and
+  label on top with a timestamp and chevron, a big rounded value with a
+  small grey unit, one line under it. Cards: the check-in (the one with
+  a button), Next run, Morning pain (with the week as seven small
+  squares on the right, where Health puts its mini-visual), This week
+  (Runs · Minutes · Longest, split by hairlines like Health's Activity
+  card), Sleep from Apple Health.
+- **Sessions is a Health chart page.** D / W / M / 6M, a TOTAL header,
+  white minute bars on a light grid with the axis on the right, and each
+  day's morning pain square under its bar. Tap a day and the header
+  shows that day. Then "Highlights", Health's word for one sentence that
+  says something true.
+- **Insights is Highlights.** One card per finding: the category, one
+  bold sentence, one small chart, the grey "not" line.
+- **Check-in sheets** take Health's add-data bar: Cancel, the title with
+  the time under it, Add.
+
+Not taken, on purpose: **category colour.** Health's identity is an
+orange Activity, a red Heart, a teal Sleep. Here colour means pain and
+nothing else, so categories get white icons and the only hue on the
+screen is a pain value. And no rings, which are Health's other signature.
