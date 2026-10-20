@@ -176,3 +176,20 @@ Not taken, on purpose: **category colour.** Health's identity is an
 orange Activity, a red Heart, a teal Sleep. Here colour means pain and
 nothing else, so categories get white icons and the only hue on the
 screen is a pain value. And no rings, which are Health's other signature.
+
+## Type and icons · 20 Oct
+
+- **Every number is SF Pro Rounded; all text is SF Pro.** In React Native
+  on iOS the rounded face is the system font's rounded design — no font
+  file ships. (The mockups fall back to Nunito and Inter only on
+  non-Apple screens; Apple's licence does not allow hosting SF.)
+- **Icons are SF Symbols, filled, white**: `figure.run`, `figure.walk`,
+  `bed.double.fill`, `square.fill`, `clock.fill`, `calendar`,
+  `chart.bar.fill`, `chart.line.uptrend.xyaxis`, `hourglass`,
+  `doc.text.fill`. Apple's licence allows SF Symbols inside apps on Apple
+  platforms; never in the app icon or a logo.
+- **How they ship:** `expo-symbols` renders the real symbols natively, but
+  it is a native module, so it rides build 49. It is required inside
+  try/catch (AGENTS.md, additive native modules): binaries without it
+  fall back to the nearest `@expo/vector-icons` glyph, which is already
+  in every binary. The runtime does not bump.
