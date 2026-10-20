@@ -121,3 +121,31 @@ around 14 Dec, so a native build is due anyway.
 28 Sep. A week-4 retention number means little if the screen changes
 under it — so ship Phase 1 once, before wave 1 starts (26 Oct), and then
 hold the layout for the length of Phase 2.
+
+## Apple design pass · 20 Oct
+
+Applied to the mockups the same day, from Apple's fluid-interface and
+typography guidance:
+
+- **Platform type.** SF Pro throughout; SF Pro Rounded for the big
+  numbers (the sports feel comes from here, not from colour). Tracking
+  per size: −3.5% on the hero, −2.2% on titles, +4% on small caps labels.
+  Everything scales with Dynamic Type.
+- **One filled card per screen** — the thing to do now. The next-step
+  hero sits on the ground, unboxed. Simplicity, not minimalism: the most
+  important thing is the most obvious.
+- **Floating glass tab bar** (Today · Sessions · Insights) with a
+  separate round + for logging, content scrolling under it, a soft fade
+  instead of a divider. Reduce Transparency makes it solid.
+- **Check-ins are sheets** with a grabber and Cancel top-left, rising
+  from the bottom over a pushed-back Today, dismissed by a flick.
+- **One continuous pain track** instead of eleven buttons: the thumb
+  tracks the finger 1:1, snaps to the whole number with a critically
+  damped spring, one selection haptic per step, VoiceOver adjustable.
+- **Press feedback on touch-down** (scale 0.97, 100 ms). Reduce Motion
+  swaps slides for cross-fades; nothing loops on a calm screen.
+- **Grouped inset lists** for Sessions and Insights, inset separators,
+  chevrons where a row opens detail. The PDF is a row with a document
+  icon, named for what it is for.
+- **Watch:** the crown is drawn and its scroll indicator shown; a Smart
+  Stack widget carries the next step in minutes.
