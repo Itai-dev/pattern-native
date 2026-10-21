@@ -277,3 +277,10 @@ Shipped over the air on `claude/redesign-build` (PR #24):
 Not yet: Sessions and Insights tabs, the Watch and widget, SF Symbols,
 the "pain during the session" prompt, morning stiffness, a focus label
 on Today and in the check-in pill.
+
+**Decided 21 Oct (owner):** Apple Health is asked in onboarding, on its
+own screen after the diagnosis. Health is the app's main input, and a
+person who will not connect it is not the person the redesign is for.
+"Not now" stays (pain is the only mandatory answer, and App Review does
+not allow demanding a permission an app can work without), and Today
+still offers it later to anyone who passed.

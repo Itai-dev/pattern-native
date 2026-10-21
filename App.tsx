@@ -25,7 +25,7 @@ import HealthSheet from './src/HealthSheet';
 import ConnectedDataSheet from './src/ConnectedDataSheet';
 import { HealthKitService, deviceClock } from './src/health/healthkit';
 import {
-  healthCategories, healthRequestedOn, storedHealthDays, syncHealth,
+  healthCategories, healthRequestedOn, markHealthRequested, storedHealthDays, syncHealth,
 } from './src/health/sync';
 import {
   earlyLooks, firstDays, healthProgress, loadBudgetFor, noticedAssociations, strongestPossible,
@@ -888,7 +888,16 @@ export default function App() {
         <SafeAreaProvider>
           <OnboardingScreen
             onRestore={restoreBackup}
+            health={{ available: health.available(), request: (c) => health.requestAuthorization(c) }}
             onDone={(r) => {
+              /* Health was asked on its own screen: the sheet completed,
+                 which is all Pattern records (HealthSheet does the same),
+                 and the first sync starts now */
+              if (r.health) {
+                markHealthRequested(r.health);
+                track('health_connected', { categories: r.health.length });
+                resyncHealth();
+              }
               /* counts only, never content — the closed-list rule. That
                  the diagnosis question was answered or passed over is a
                  count; which answer is about their body and stays here. */

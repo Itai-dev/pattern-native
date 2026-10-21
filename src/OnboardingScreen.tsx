@@ -69,6 +69,8 @@ import { GOAL_ACTIVITIES, GoalActivity, RecoveryGoal } from './recovery';
 import { WEEKLY_CHOICES, makeGoal, skippedGoal } from './RecoveryCards';
 import { capitalise } from './health/workoutNames';
 import { DEFAULT_SLOTS, ensurePermission } from './reminders';
+import Icon from './Icon';
+import type { HealthCategory } from './health/types';
 import { fmtClock } from './clock';
 import { color, font, size } from './theme';
 
@@ -89,6 +91,22 @@ export interface OnboardingResult {
   reminder: number | null;
   /** which of the last screen's two buttons finished it */
   then: 'checkin' | 'today';
+  /** the Health categories iOS's sheet was shown for, or null when the
+   *  step was passed over. What was GRANTED belongs to Health, not to
+   *  Pattern — this records only that the question was put. */
+  health: HealthCategory[] | null;
+}
+
+/** what the Health step offers: the three the activity card, the
+ *  roadmap and the sleep comparison read */
+const HEALTH_ASK: HealthCategory[] = ['workouts', 'sleep', 'movement'];
+
+/** the Health connection, from App — absent in review mode */
+export interface OnboardingHealth {
+  /** false on a binary without HealthKit, or not an iPhone */
+  available: boolean;
+  /** present iOS's sheet; resolves once it has closed */
+  request: (categories: HealthCategory[]) => Promise<void>;
 }
 
 export interface OnboardingScreenProps {
@@ -103,6 +121,7 @@ export interface OnboardingScreenProps {
      safety card shown once and never again is not reachable — it is
      remembered or lost. */
   review?: boolean;
+  health?: OnboardingHealth;
 }
 
 /** the five screens, by name, so the code reads as the flow does.
@@ -111,8 +130,17 @@ const PROMISE = 0;
 const GOAL = 1;
 const PLACES = 2;
 const DIAGNOSIS = 3;
-const REMINDER = 4;
-const STEPS = [PROMISE, GOAL, PLACES, DIAGNOSIS, REMINDER];
+/* APPLE HEALTH EARNED A SCREEN (21 Oct 2026). It was asked on Today on
+   day two, after the app had shown its worth, on the argument that a
+   permission before a single check-in reads as a grab. The founder
+   reversed it: the activity card, the roadmap and the medals all read
+   sessions from Health, and without it the app the redesign built is
+   mostly empty. "Not now" stays — pain is the only mandatory answer
+   (AGENTS.md), App Review does not allow an app to demand a permission
+   it can live without, and Today still offers it later. */
+const HEALTH = 4;
+const REMINDER = 5;
+const STEPS = [PROMISE, GOAL, PLACES, DIAGNOSIS, HEALTH, REMINDER];
 
 /* the redesign's greys, named here until theme.ts carries them */
 const GREY_TEXT = '#98989F';
@@ -190,7 +218,7 @@ const MORNING_TIMES = [7 * 60, 7 * 60 + 30, 8 * 60, 8 * 60 + 30];
 /* the same words Profile's reminder row uses when iOS says no */
 const DENIED = 'Notifications are off for Pattern — turn them on in iPhone Settings.';
 
-export default function OnboardingScreen({ onDone, review, onRestore }: OnboardingScreenProps) {
+export default function OnboardingScreen({ onDone, review, onRestore, health }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(PROMISE);
   const [duration, setDuration] = useState<OnboardingResult['duration']>('');
@@ -211,6 +239,12 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
   const [remindOn, setRemindOn] = useState(false);
   const [remindAt, setRemindAt] = useState(MORNING_DEFAULT);
   const [remindNote, setRemindNote] = useState('');
+  /* the iOS sheet is iOS's, like the notification prompt: asking here
+     writes nothing to the record. App marks Health as set up on onDone,
+     with everything else, so back and forth stays free. */
+  const [healthAsked, setHealthAsked] = useState<HealthCategory[] | null>(null);
+  const [healthBusy, setHealthBusy] = useState(false);
+  const healthAvailable = !!health && health.available;
 
   /* reading it again from Profile stops at the boundaries — the row says
      "what Pattern is and isn't", and re-asking questions of someone who
@@ -226,7 +260,26 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
       : skippedGoal(todayISO()),
     reminder: remindOn ? remindAt : null,
     then,
+    health: healthAsked,
   });
+
+  /* Connect: iOS's sheet, then on. A sheet that failed to present
+     records nothing and stays on the screen, as Profile's does. */
+  const connectHealth = async () => {
+    if (!health || healthBusy) return;
+    if (healthAsked) { advance(); return; }
+    setHealthBusy(true);
+    try {
+      await health.request(HEALTH_ASK);
+      setHealthAsked(HEALTH_ASK);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setStep(step + 1);
+    } catch {
+      /* nothing recorded */
+    } finally {
+      setHealthBusy(false);
+    }
+  };
 
   const advance = (then: OnboardingResult['then'] = 'checkin') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -285,6 +338,7 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
       : step === DIAGNOSIS ? !!diagnosis.status
         : true;
   const primaryLabel = review ? 'Done'
+    : step === HEALTH ? (!healthAvailable || healthAsked ? 'Continue' : 'Connect Apple Health')
     : step === PROMISE ? 'Get started'
       : step === REMINDER ? 'Take your first check-in'
         : answered ? 'Continue' : 'Skip for now';
@@ -584,6 +638,41 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
               )}
             </View>
           </>
+        ) : step === HEALTH ? (
+          <>
+            <View style={styles.healthMark} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+              <Icon name="heart.fill" size={34} />
+            </View>
+            {title('Connect Apple Health')}
+            {healthAvailable ? (
+              <>
+                {lede('So Pattern can see how your mornings go after a session. It only reads, and nothing leaves this iPhone.')}
+                <View style={styles.group}>
+                  {([
+                    ['figure.run', 'Workouts', 'Type, length and effort. Your next step and your roadmap are built from these.'],
+                    ['bed.double.fill', 'Sleep', 'Hours asleep, shown next to the morning after.'],
+                    ['figure.walk', 'Steps and activity', 'A daily total, so a busy day without a workout still counts.'],
+                  ] as const).map(([icon, name, body], i) => (
+                    <View key={name} style={styles.groupRow}>
+                      <View style={styles.groupIcon}><Icon name={icon} size={24} /></View>
+                      <View style={styles.groupText}>
+                        <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.3}>{name}</Text>
+                        <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>{body}</Text>
+                      </View>
+                      {i < 2 && <View style={styles.groupSep} />}
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {healthAsked
+                    ? 'Asked. You can change what Pattern reads in the Health app, or in Profile.'
+                    : 'Pattern never writes to Apple Health. Without it, check-ins still work — the activity card just has no sessions to learn from. You can connect later in Profile.'}
+                </Text>
+              </>
+            ) : (
+              lede('Apple Health needs the newest version of Pattern from TestFlight. Once it’s installed, connect it in Profile — the activity card and your roadmap are built from it.')
+            )}
+          </>
         ) : step === DIAGNOSIS ? (
           <>
             {title('Do you have a diagnosis?')}
@@ -661,7 +750,8 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
 
       <View style={styles.bottom}>
         <Press
-          onPress={() => advance('checkin')}
+          onPress={() => (step === HEALTH && healthAvailable && !review ? connectHealth() : advance('checkin'))}
+          disabled={healthBusy}
           pressScale={0.985}
           style={[styles.primary, skipLook && styles.primarySkip]}
           accessibilityRole="button"
@@ -674,6 +764,19 @@ export default function OnboardingScreen({ onDone, review, onRestore }: Onboardi
         {/* the way to finish without a check-in: the reminder screen is
             the last, and "now" is not always the moment for the first
             number. Everything above is stored the same either way. */}
+        {!review && step === HEALTH && healthAvailable && !healthAsked && (
+          <Press
+            onPress={() => advance()}
+            pressOpacity={0.7}
+            style={styles.linkBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Not now"
+            accessibilityHint="You can connect Apple Health later in Profile"
+          >
+            <Text style={styles.linkText} allowFontScaling maxFontSizeMultiplier={1.3}>Not now</Text>
+          </Press>
+        )}
+
         {!review && step === REMINDER && (
           <Press
             onPress={() => advance('today')}
@@ -841,6 +944,10 @@ const styles = StyleSheet.create({
   primarySkip: { backgroundColor: color.bgSurface },
   primaryText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
   primaryTextSkip: { color: color.textPrimary },
+  healthMark: {
+    width: 64, height: 64, borderRadius: 16, backgroundColor: color.bgSurface,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 18,
+  },
   linkBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   linkText: { color: GREY_TEXT, fontSize: font.subheadline },
 });

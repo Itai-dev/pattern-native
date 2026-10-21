@@ -264,11 +264,13 @@ export default function HomeScreen({
     setCopySeenState(unsaved);
   };
 
-  /* Apple Health, offered once a record exists to sit beside. It left
-     onboarding with the other day-zero asks: a permission request
-     before the first check-in was friction wearing a privacy costume,
-     and a card on day two arrives when there is a night's sleep to
-     show next to a morning's number. */
+  /* Apple Health, offered again once a record exists to sit beside —
+     for whoever passed it in onboarding. It is asked there first since
+     21 Oct 2026 (OnboardingScreen, HEALTH): the activity card, the
+     roadmap and the medals all read sessions from it. The card stays
+     the second chance, on day two, when there is a night's sleep to
+     show next to a morning's number; healthOfferable is false once the
+     onboarding sheet has been shown, so it never asks twice. */
   const [healthDismissed, setHealthDismissed] = useState(
     () => db.getPref<boolean>('health.offer.dismissed', false)
   );
