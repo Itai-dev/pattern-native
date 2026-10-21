@@ -1155,7 +1155,7 @@ export default function App() {
 
         {/* a medal's moment — only over Today, never over another sheet */}
         <UnlockSheet
-          a={onboarded && sheet == null && !profile && coachOpen == null ? unlock : null}
+          a={onboarded && tab === 'today' && !dayScreen && sheet == null && !profile && coachOpen == null ? unlock : null}
           activity={(currentGoal(recoveryGoal, activity) || { activity: null }).activity}
           roadmap={coach.roadmap}
           onClose={() => closeUnlock()}

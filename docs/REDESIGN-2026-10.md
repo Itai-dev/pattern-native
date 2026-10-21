@@ -260,3 +260,20 @@ crystal (finding out, gem), dark titanium (over time, circle). Rejected:
 bronze → diamond tiers (a rank makes pacing look worth less, and warm
 metals put hue on screen) and pain-ramp gradients (a blue medal reads as
 a pain level). Never a square.
+
+## Phase 1 build · 21 Oct
+
+Shipped over the air on `claude/redesign-build` (PR #24):
+
+- **Coach:** `src/coach.ts`, `Medal.tsx`, `CoachScreen.tsx`,
+  `UnlockSheet.tsx`, opened from the goal header on Today.
+- **Check-in:** the pain question is a sheet with the hero square and a
+  plain slider. `PainOrb.tsx` is now unused but kept for now.
+- **Today:** re-skinned in Health summary style (`SummaryCard.tsx`).
+  Order and content are unchanged.
+- **Onboarding:** Welcome → Goal → Focus → Diagnosis → Reminder, the
+  reminder off by default. No Health step.
+
+Not yet: Sessions and Insights tabs, the Watch and widget, SF Symbols,
+the "pain during the session" prompt, morning stiffness, a focus label
+on Today and in the check-in pill.
