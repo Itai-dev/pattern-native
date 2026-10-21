@@ -214,7 +214,7 @@ export default function DayMoments({
           minute. */}
       {events.length > 0 && (
         <View style={styles.card}>
-          <CardHeader icon="flame" label="Events" />
+          <CardHeader icon="flame.fill" label="Events" />
           <View style={styles.rows}>
             {events.map((ev, i) => (
               <Press
@@ -301,7 +301,7 @@ export default function DayMoments({
         if (!shown.length) return null;
         return (
           <View style={styles.card}>
-            <CardHeader icon="list" label="That day’s questions" />
+            <CardHeader icon="list.bullet" label="That day’s questions" />
             <View style={styles.rows}>
               {shown.map(({ id, m: met, a }, i) => {
                 const skipped = a.skipped === 1;
@@ -352,7 +352,7 @@ export default function DayMoments({
         return (
           <View style={styles.block}>
             <View style={styles.blockHead}>
-              <CardHeader icon="heart" label="From Apple Health" />
+              <CardHeader icon="heart.fill" label="From Apple Health" />
             </View>
             <ContextTiles tiles={tiles} />
             {doses.map((d) => (

@@ -269,7 +269,7 @@ function DayPage({
               accessibilityHint="Swipe up or down on the date at the top for another day"
             >
               {/* the clock, because the chart is the day against it */}
-              <CardHeader icon="time" label="Pain through the day" />
+              <CardHeader icon="clock.fill" label="Pain through the day" />
             </View>
 
             {avg == null ? (
