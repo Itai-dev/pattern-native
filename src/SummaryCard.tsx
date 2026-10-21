@@ -28,6 +28,7 @@ import React, { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { size } from './theme';
+import Icon, { FALLBACK, IconName as SFName } from './Icon';
 
 export const ROUNDED = 'ui-rounded';
 
@@ -45,7 +46,11 @@ export const summary = {
   gap: 10,
 } as const;
 
-export type IconName = keyof typeof Ionicons.glyphMap;
+/** an SF Symbol name (drawn by Icon, with its Ionicons stand-in on older
+ *  binaries) or, for code written before Icon, an Ionicons name */
+export type IconName = SFName | keyof typeof Ionicons.glyphMap;
+
+const isSF = (n: string): n is SFName => Object.prototype.hasOwnProperty.call(FALLBACK, n);
 
 /* a run of digits, with the separators a figure carries inside it —
    "07:40", "28–33", "4.5" — so a range stays one rounded run */
@@ -75,7 +80,11 @@ export function CardHeader({ icon, label, meta, chevron }: {
 }) {
   return (
     <View style={styles.head}>
-      <Ionicons name={icon} size={18} color={summary.text} style={styles.icon} />
+      <View style={styles.icon}>
+        {isSF(icon)
+          ? <Icon name={icon} size={18} color={summary.text} />
+          : <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={summary.text} />}
+      </View>
       <Text style={styles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
         {typeof label === 'string' ? <Num>{label}</Num> : label}
       </Text>
@@ -90,22 +99,26 @@ export function CardHeader({ icon, label, meta, chevron }: {
 }
 
 export function Chevron() {
-  return <Ionicons name="chevron-forward" size={16} color={summary.chevron} style={styles.chev} />;
+  return <View style={styles.chev}><Icon name="chevron.right" size={14} color={summary.chevron} weight="bold" /></View>;
 }
 
 /** the big value: "33 min", "2 Mild". `prefix` is Health's "Avg" slot —
  *  "Up to", "Around" — set small, so the number stays the thing read */
-export function BigValue({ value, unit, prefix }: {
+export function BigValue({ value, unit, prefix, compact }: {
   value: string;
   unit?: string;
   prefix?: string;
+  /** a figure the app worked out (an average), not one the person
+   *  entered or did: set smaller, because the redesign's hero is what
+   *  was done, and a derived pain number at hero size invites checking */
+  compact?: boolean;
 }) {
   return (
     <View style={styles.valueRow}>
       {!!prefix && (
         <Text style={styles.unit} allowFontScaling maxFontSizeMultiplier={1.3}>{prefix}</Text>
       )}
-      <Text style={styles.value} allowFontScaling maxFontSizeMultiplier={1.3}>{value}</Text>
+      <Text style={[styles.value, compact && styles.valueCompact]} allowFontScaling maxFontSizeMultiplier={1.3}>{value}</Text>
       {!!unit && (
         <Text style={[styles.unit, styles.unitShrink]} allowFontScaling maxFontSizeMultiplier={1.3}>
           {unit}
@@ -151,6 +164,7 @@ const styles = StyleSheet.create({
     fontFamily: ROUNDED, color: summary.text, fontSize: 40, fontWeight: '700',
     letterSpacing: -0.8, fontVariant: ['tabular-nums'],
   },
+  valueCompact: { fontSize: 28, lineHeight: 32 },
   unit: { fontFamily: ROUNDED, color: summary.secondary, fontSize: 20, fontWeight: '600' },
   unitShrink: { flexShrink: 1 },
 });

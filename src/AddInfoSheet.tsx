@@ -31,6 +31,14 @@
  * are shown back as what was marked, never fed to the engine
  * (attributions are not findings), and the note reaches the PDF only
  * when the share asks.
+ *
+ * THE CHECK-IN'S SHEET, SINCE THE OCTOBER REDESIGN (21 Oct 2026). Same
+ * ground (#0E0E10), same grabber, same Cancel | title | Done bar, so the
+ * two sheets read as one family. A chosen chip is WHITE WITH BLACK INK,
+ * as on the onboarding steps. It used to wear the check-in's own pain
+ * colour, which made a "burning" or a "left knee" look like a score —
+ * a chip is a word the person marked, and only a pain value takes the
+ * ramp. Every number is in the rounded face.
  */
 import React, { useMemo, useState } from 'react';
 import {
@@ -46,12 +54,20 @@ import { fmtClock } from './clock';
 import { LIMITATION_ID, MetricDef, eligibleNow, getMetric } from './metrics';
 import { healthHintFor } from './health/context';
 import { HealthDay } from './health/types';
-import { inkOn, painColor } from './painScale';
+import Icon from './Icon';
+import { Num, summary } from './SummaryCard';
 import {
   LOC_CHIP_IDS, LOC_NAMES, LOC_SECTIONS, Moment, QUALITYIDS, QUALITY_NAMES, SYMPTOMS_ASKED,
   SYMPTOM_NAMES, answerOf, collapseSidedLocs, defaultLocs, logsOf, minutesNow, todayISO,
 } from './model';
-import { color, font, radius, size } from './theme';
+import { color, font, size } from './theme';
+
+/** the check-in sheet's ground (CheckinScreen's SHEET_BG): a step up
+ *  from Today's black, so the sheet reads as lifted, and far under the
+ *  #1C1C1E of a chip or a row */
+const SHEET_BG = '#0E0E10';
+/** the context pill's ink, a hair under white — a label, not a control */
+const PILL_INK = '#EBEBF0';
 
 export interface AddInfoSheetProps {
   dateIso: string;
@@ -76,7 +92,6 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
     return logs[0] || null;
   });
   const isToday = dateIso === todayISO();
-  const pain = moment ? moment.pain : 5;
 
   const [loc, setLoc] = useState<string[]>(moment && moment.loc ? moment.loc.slice() : []);
   const [quality, setQuality] = useState<string[]>(moment && moment.q ? moment.q.slice() : []);
@@ -179,19 +194,12 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           accessibilityRole="checkbox"
           accessibilityState={{ checked: on }}
           accessibilityLabel={names[id] || id}
-          style={[
-            styles.chip, big && styles.chipBig,
-            on
-              /* a chosen chip wears the check-in's own pain colour — it
-                 belongs to that moment; the border keeps a selected chip
-                 visible when a low value paints it nearly black */
-              ? { backgroundColor: painColor(pain), borderColor: 'rgba(255,255,255,0.3)' }
-              : { backgroundColor: color.bgSurface, borderColor: color.borderDivider },
-          ]}
+          /* white when chosen, black ink — never the ramp: see the header */
+          style={[styles.chip, big && styles.chipBig, on && styles.chipOn]}
         >
           <Text
             allowFontScaling maxFontSizeMultiplier={1.4}
-            style={[styles.chipText, on && { color: inkOn(pain) }]}
+            style={[styles.chipText, on && styles.chipTextOn]}
           >
             {names[id] || id}
           </Text>
@@ -214,7 +222,8 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           accessibilityRole="button"
           accessibilityLabel={'Add a note about: ' + m.name}
         >
-          <Text style={styles.qNoteAddText}>+ Add a note</Text>
+          <Icon name="plus" size={15} color={summary.secondary} weight="semibold" />
+          <Text style={styles.qNoteAddText}>Add a note</Text>
         </Press>
       );
     }
@@ -241,7 +250,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
       </Text>
       {!!healthHintFor(m.id, healthToday) && (
         <Text style={styles.qHealth} allowFontScaling maxFontSizeMultiplier={1.4}>
-          {healthHintFor(m.id, healthToday)}
+          <Num>{healthHintFor(m.id, healthToday) as string}</Num>
         </Text>
       )}
       <View style={styles.options}>
@@ -270,7 +279,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                 style={[styles.optText, on && styles.optTextOn]}>
                 {l.label}
               </Text>
-              {on && <Text style={styles.optCheck} allowFontScaling={false}>✓</Text>}
+              {on && <Icon name="checkmark" size={16} color="#000000" weight="bold" />}
             </Pressable>
           );
         })}
@@ -287,7 +296,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           {m.question}
         </Text>
         <Text style={styles.qValue} allowFontScaling maxFontSizeMultiplier={1.4}>
-          {v == null ? 'Not answered' : v + '/10'}
+          {v == null ? 'Not answered' : <Num>{v + '/10'}</Num>}
         </Text>
         <Slider
           value={v}
@@ -298,8 +307,12 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
             : { min: 0, max: 10, now: v, text: v + ' out of 10' }}
         />
         <View style={styles.ends}>
-          <Text style={styles.endText}>{(m.ends ? m.ends[0] : '0').toUpperCase()}</Text>
-          <Text style={styles.endText}>{(m.ends ? m.ends[1] : '10').toUpperCase()}</Text>
+          <Text style={styles.endText} maxFontSizeMultiplier={1.3}>
+            <Num>{(m.ends ? m.ends[0] : '0').toUpperCase()}</Num>
+          </Text>
+          <Text style={styles.endText} maxFontSizeMultiplier={1.3}>
+            <Num>{(m.ends ? m.ends[1] : '10').toUpperCase()}</Num>
+          </Text>
         </View>
         {noteRow(m)}
       </View>
@@ -311,6 +324,9 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.root}
     >
+      {/* the grabber, drawn here as the check-in draws it: a React
+          Native pageSheet does not ask UIKit for one */}
+      <View style={styles.grabber} accessibilityElementsHidden importantForAccessibility="no" />
       <View style={styles.navBar}>
         <Press
           onPress={onClose}
@@ -319,17 +335,19 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           accessibilityRole="button"
           accessibilityLabel="Cancel"
         >
-          <Text style={styles.navBtnText}>Cancel</Text>
+          <Text style={styles.navBtnText} maxFontSizeMultiplier={1.4}>Cancel</Text>
         </Press>
-        <Text style={styles.navTitle} numberOfLines={1}>Add information</Text>
+        {/* centred between two equal-width ends, so it sits on the
+            sheet's centre rather than on what is left */}
+        <Text style={styles.navTitle} numberOfLines={1} maxFontSizeMultiplier={1.4}>Add information</Text>
         <Press
           onPress={save}
-          style={styles.navBtn}
+          style={[styles.navBtn, styles.navRight]}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Save and close"
         >
-          <Text style={[styles.navBtnText, styles.navBtnStrong]}>Done</Text>
+          <Text style={[styles.navBtnText, styles.navBtnStrong]} maxFontSizeMultiplier={1.4}>Done</Text>
         </Press>
       </View>
 
@@ -350,12 +368,19 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           {/* which check-in the chips below belong to — said once, at
               the top, so an answer about "where" is never ambiguous
               about when */}
-          <Text style={styles.about} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {moment
-              ? 'About the ' + fmtClock(moment.h) + ' check-in'
-                + (isToday ? '' : ' on ' + fmtDay(dateIso))
-              : isToday ? 'About today' : 'About ' + fmtDay(dateIso)}
-          </Text>
+          {/* as a pill, the check-in sheet's context pill: a label, not a
+              control */}
+          <View style={styles.about}>
+            <Icon name="clock.fill" size={13} color={PILL_INK} />
+            <Text style={styles.aboutText} allowFontScaling maxFontSizeMultiplier={1.4}>
+              <Num>
+                {moment
+                  ? 'About the ' + fmtClock(moment.h) + ' check-in'
+                    + (isToday ? '' : ' on ' + fmtDay(dateIso))
+                  : isToday ? 'About today' : 'About ' + fmtDay(dateIso)}
+              </Num>
+            </Text>
+          </View>
 
           {moment && (
             <>
@@ -381,6 +406,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                     accessibilityLabel={(prev.fromHistory ? 'Same as last time: ' : 'Your usual places: ')
                       + prev.ids.map((id) => LOC_NAMES[id] || id).join(', ')}
                   >
+                    <Icon name="arrow.uturn.backward" size={14} color={summary.text} weight="semibold" />
                     <Text style={styles.sameAsText} allowFontScaling maxFontSizeMultiplier={1.3}>
                       {prev.fromHistory ? 'Same as last time' : 'Your usual places'}
                     </Text>
@@ -397,7 +423,8 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                     accessibilityRole="button"
                     accessibilityLabel="Show every place, left and right, in sections"
                   >
-                    <Text style={styles.moreText}>Show every place ›</Text>
+                    <Text style={styles.moreText}>Show every place</Text>
+                    <Icon name="chevron.down" size={12} color={summary.secondary} weight="semibold" />
                   </Press>
                 ) : (
                   LOC_SECTIONS.map((sec) => (
@@ -427,7 +454,8 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                 {!allWords && (
                   <Press onPress={() => setAllWords(true)} style={styles.more} pressOpacity={0.7}
                     accessibilityRole="button" accessibilityLabel="Show every word">
-                    <Text style={styles.moreText}>Show every word ›</Text>
+                    <Text style={styles.moreText}>Show every word</Text>
+                    <Icon name="chevron.down" size={12} color={summary.secondary} weight="semibold" />
                   </Press>
                 )}
               </View>
@@ -490,9 +518,11 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
               accessibilityLabel="Something happened: log a flare or treatment"
               accessibilityHint="Closes this sheet and opens the flare or treatment questions"
             >
+              <Icon name="flame.fill" size={18} color={summary.text} />
               <Text style={styles.eventLink} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Something happened? Log a flare or treatment ›
+                Something happened? Log a flare or treatment
               </Text>
+              <Icon name="chevron.right" size={14} color={summary.chevron} weight="semibold" />
             </Press>
           )}
 
@@ -507,81 +537,114 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgSheet },
+  root: { flex: 1, backgroundColor: SHEET_BG },
+  grabber: {
+    width: 36, height: 5, borderRadius: 3, alignSelf: 'center', marginTop: 8,
+    backgroundColor: color.borderControl,
+  },
+  /* the check-in's bar: no rule under it — the sheet's ground is the
+     bar's ground, as in Health's own entry sheets */
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
+    paddingHorizontal: size.pageX, marginTop: 4,
   },
-  navTitle: { flex: 1, textAlign: 'center', color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  navBtn: { minWidth: 72, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  navTitle: {
+    flex: 1, flexShrink: 1, textAlign: 'center', color: color.textPrimary,
+    fontSize: font.body, fontWeight: '600',
+  },
+  navBtn: { minWidth: 72, minHeight: 44, justifyContent: 'center' },
   navLeft: { alignItems: 'flex-start' },
+  navRight: { alignItems: 'flex-end' },
   navBtnText: { color: color.tint, fontSize: font.body },
   navBtnStrong: { fontWeight: '600' },
-  body: { padding: size.sheetX, paddingTop: 18, paddingBottom: 60 },
+  body: { paddingHorizontal: size.pageX, paddingTop: 16, paddingBottom: 60 },
   about: {
-    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600', marginBottom: 6,
+    alignSelf: 'flex-start', maxWidth: '100%',
+    minHeight: 28, paddingHorizontal: 12, borderRadius: 14, borderCurve: 'continuous',
+    backgroundColor: summary.surface, flexDirection: 'row', alignItems: 'center', gap: 6,
   },
-  lead: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21 },
-  /* the sections, ruled off from each other so five optional things
-     read as five */
-  section: {
-    paddingTop: 20, paddingBottom: 6, gap: 10,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
+  aboutText: { flexShrink: 1, color: PILL_INK, fontSize: font.footnote, fontWeight: '600' },
+  lead: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8 },
+  /* the sections stand apart by air, not by rules: five optional things
+     read as five because each starts with its own question */
+  section: { paddingTop: 28, gap: 12 },
+  /* each section opens on a question — the check-in's question weight,
+     a size down, since this sheet asks several */
+  sectionTitle: {
+    color: color.textPrimary, fontSize: 20, fontWeight: '700', letterSpacing: -0.3, lineHeight: 25,
   },
-  sectionTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 22 },
   subTitle: {
-    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
+    color: summary.secondary, fontSize: font.footnote, fontWeight: '600',
     marginTop: 14, marginBottom: 10,
   },
-  chipCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  chip: { paddingVertical: 11, paddingHorizontal: 17, borderRadius: 22, borderCurve: 'continuous', borderWidth: 1 },
-  chipBig: { minHeight: 48, justifyContent: 'center' },
-  chipText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
-  more: { paddingVertical: 8, alignSelf: 'flex-start' },
-  moreText: { color: color.textTertiary, fontSize: font.subheadline },
-  /* the shortcut, drawn as a quiet outlined pill rather than as a chip:
-     it is an action on the chips below, not one of them */
+  /* the onboarding chips, to the pixel: #1C1C1E, a 44pt capsule, white
+     with black ink once chosen */
+  chipCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    minHeight: 44, justifyContent: 'center', paddingHorizontal: 16,
+    borderRadius: 22, borderCurve: 'continuous', backgroundColor: summary.surface,
+  },
+  /* the symptoms are 48 because the hands tapping them are the ones
+     that hurt */
+  chipBig: { minHeight: 48, borderRadius: 24 },
+  chipOn: { backgroundColor: color.textPrimary },
+  chipText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
+  chipTextOn: { color: '#000000' },
+  more: {
+    minHeight: 40, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5,
+  },
+  moreText: { color: summary.secondary, fontSize: font.subheadline, fontWeight: '500' },
+  /* the shortcut, a secondary capsule rather than a chip: it is an
+     action on the chips below, not one of them */
   sameAs: {
-    alignSelf: 'flex-start', minHeight: 38, justifyContent: 'center', paddingHorizontal: 16,
-    borderRadius: 19, borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+    alignSelf: 'flex-start', minHeight: 38, paddingHorizontal: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: 19, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack,
   },
   sameAsText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   /* the day's questions */
   qHealth: {
-    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: -4,
+    color: summary.secondary, fontSize: font.footnote, lineHeight: 18, marginTop: -4,
     fontVariant: ['tabular-nums'],
   },
   qValue: {
-    color: color.textSecondary, fontSize: font.subheadline, fontVariant: ['tabular-nums'], marginTop: -4,
+    color: summary.secondary, fontSize: font.subheadline, fontWeight: '600',
+    fontVariant: ['tabular-nums'], marginTop: -4,
   },
+  /* the levels, one full-width row each, white once chosen — the chip's
+     selected state at row width */
   options: { gap: 8 },
   optRow: {
-    minHeight: 52, borderRadius: 14, borderCurve: 'continuous', paddingHorizontal: 15, paddingVertical: 13,
+    minHeight: 52, borderRadius: summary.radius, borderCurve: 'continuous',
+    paddingHorizontal: 16, paddingVertical: 13,
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.borderDivider,
+    backgroundColor: summary.surface,
   },
-  optText: { flex: 1, color: '#D0D0D6', fontSize: font.body, fontWeight: '600', lineHeight: 21 },
-  optRowOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
+  optText: { flex: 1, color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 21 },
+  optRowOn: { backgroundColor: color.textPrimary },
   optTextOn: { color: '#000000' },
-  optCheck: { color: '#000000', fontSize: 15, fontWeight: '700' },
-  qNoteAdd: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },
-  qNoteAddText: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },
-  ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 2 },
-  endText: { color: color.textTertiary, fontSize: 11, fontWeight: '600', letterSpacing: 0.6 },
+  qNoteAdd: { alignSelf: 'flex-start', minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  qNoteAddText: { color: summary.secondary, fontSize: font.subheadline, fontWeight: '500' },
+  ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2, paddingHorizontal: 6 },
+  /* the check-in's anchors: small caps in the grey that says "about the
+     control", numbers rounded */
+  endText: { color: summary.tertiary, fontSize: 12, fontWeight: '600', letterSpacing: 0.5 },
   /* the field reads at body size: this is the place in the app the
      person writes a sentence rather than picks an answer */
   input: {
     color: color.textPrimary, fontSize: font.body, lineHeight: 24,
     minHeight: 58, textAlignVertical: 'top',
-    borderRadius: radius.button, borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
-    backgroundColor: color.bgSurface,
-    paddingHorizontal: 14, paddingVertical: 12,
+    borderRadius: summary.radius, borderCurve: 'continuous',
+    backgroundColor: summary.surface,
+    paddingHorizontal: 16, paddingVertical: 12,
   },
   noteInput: { minHeight: 110 },
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 8 },
-  eventRow: { minHeight: 48, justifyContent: 'center', marginTop: 14 },
-  eventLink: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  fine: { color: summary.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 8 },
+  /* the door to the event sheet, as a grouped row: icon, words, chevron */
+  eventRow: {
+    minHeight: 54, marginTop: 28, paddingHorizontal: 16, paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: summary.radius, borderCurve: 'continuous', backgroundColor: summary.surface,
+  },
+  eventLink: { flex: 1, color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 });

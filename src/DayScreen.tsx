@@ -53,6 +53,15 @@
  * the switch that chose between them. The selection is kept here, beside the pager, because the dot lives in
  * the card above and the words live below it, and it is per day: walk
  * to another day and it lands on that day's newest check-in.
+ *
+ * IN THE OCTOBER REDESIGN'S CLOTHES (21 Oct 2026). A re-skin, not a
+ * rebuild: the pager, the calendar, the selection and every label are
+ * as they were. The card takes SummaryCard's grammar — the #1C1C1E
+ * surface at 16pt corners with no hairline, an icon-and-label header, the
+ * figures in the rounded face — and the switch takes the Sessions
+ * segment (Sessions.dc.html). The day's own pain stays on the dots and on
+ * the one square below; the figures stay white, because an average and a
+ * range are read as numbers, and the ramp is for the values entered.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -69,6 +78,8 @@ import MapScreen from './MapScreen';
 import DayMoments from './DayMoments';
 import { shownH } from './dayGlance';
 import InfoTip from './InfoTip';
+import Icon from './Icon';
+import { CardHeader, Num, ROUNDED, summary } from './SummaryCard';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import {
@@ -76,7 +87,7 @@ import {
   dateFromISO, iso, logsOf, todayISO,
 } from './model';
 import { formatRange, formatScore } from './painScale';
-import { color, font, radius, size } from './theme';
+import { color, font, size } from './theme';
 
 /* The pager's proportions — see the comment at the top of the file. SIDE
    is the content padding at both ends, so an offset of i × itemW puts
@@ -247,9 +258,9 @@ function DayPage({
     <Animated.View style={[{ width: itemW, height: cardH }, pageStyle]}>
         <Animated.View style={[contentStyle, { flex: 1 }]}>
           <View style={[styles.card, { flex: 1 }]}>
-            <Text
-              style={styles.cardTitle}
-              allowFontScaling maxFontSizeMultiplier={1.3}
+            <View
+              accessible
+              accessibilityLabel="Pain through the day"
               /* the nudge teaches the gesture by doing it, which VoiceOver
                  cannot see. And under VoiceOver a one-finger swipe sideways
                  moves focus, not the pager, so the hint points at the
@@ -257,8 +268,9 @@ function DayPage({
                  date in the top bar, which is adjustable (see stepDay). */
               accessibilityHint="Swipe up or down on the date at the top for another day"
             >
-              Pain through the day
-            </Text>
+              {/* the clock, because the chart is the day against it */}
+              <CardHeader icon="clock.fill" label="Pain through the day" />
+            </View>
 
             {avg == null ? (
               <Text style={styles.empty} allowFontScaling maxFontSizeMultiplier={1.4}>
@@ -514,7 +526,7 @@ export default function DayScreen({
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Text style={styles.backChev} allowFontScaling={false}>‹</Text>
+          <Icon name="chevron.left" size={18} color={summary.text} weight="semibold" />
         </Press>
         <Text
           style={styles.title}
@@ -537,7 +549,7 @@ export default function DayScreen({
             else if (e.nativeEvent.actionName === 'decrement') stepDay(-1);
           }}
         >
-          {view === 'day' ? fmtDay(onDate) : 'Every day'}
+          {view === 'day' ? <Num>{fmtDay(onDate)}</Num> : 'Every day'}
         </Text>
         {/* one tap out of a pager you can swipe a long way into — the same
             control the record carries, and only once you have gone somewhere.
@@ -698,32 +710,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: size.pageX, paddingTop: 6, paddingBottom: 14,
   },
+  /* a round #1C1C1E button with the system chevron — no hairline: on
+     black the surface is its own edge, as on every card */
   back: {
     width: 38, height: 38, borderRadius: 19, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+    backgroundColor: summary.surface,
   },
-  backChev: { color: color.textPrimary, fontSize: 26, lineHeight: 30, marginTop: -3 },
+  /* the redesign's title weight and tracking (System.dc.html: 34 / 800,
+     −2.2%), a step smaller because a date is longer than a word */
   title: {
-    flex: 1, color: color.textPrimary, fontSize: font.title1, fontWeight: '700',
-    letterSpacing: -0.5,
+    flex: 1, color: color.textPrimary, fontSize: 30, fontWeight: '800',
+    letterSpacing: -0.6,
   },
   todayBtn: { minHeight: 38, justifyContent: 'center', paddingLeft: 6 },
-  /* the Day / Calendar switch — the record's own segment, to the pixel */
+  /* the Day / Calendar switch — the Sessions segment (Sessions.dc.html):
+     a #1C1C1E track, the chosen half in #636366. 40 tall rather than
+     the mockup's 32, so each half is a 44pt target with its slop. */
   segment: {
-    flexDirection: 'row', gap: 4, padding: 4,
+    flexDirection: 'row', gap: 2, padding: 2,
     marginHorizontal: size.pageX, marginBottom: 12,
-    borderRadius: radius.segmentTrack, borderCurve: 'continuous',
-    backgroundColor: color.bgSurface,
+    borderRadius: 9, borderCurve: 'continuous',
+    backgroundColor: summary.surface,
   },
   segItem: {
-    flex: 1, minHeight: 36, borderRadius: radius.segment, borderCurve: 'continuous',
+    flex: 1, minHeight: 36, borderRadius: 7, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8,
   },
-  segItemOn: { backgroundColor: color.bgSegmentActive },
-  segText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
-  segTextOn: { color: color.textPrimary },
+  segItemOn: { backgroundColor: summary.chevron },
+  segText: { color: color.textPrimary, fontSize: 13, fontWeight: '500' },
+  segTextOn: { fontWeight: '600' },
   /* the calendar measures its cells against the page gutter, so it is
      given exactly that gutter */
   calendar: { paddingHorizontal: size.pageX },
@@ -733,41 +749,34 @@ const styles = StyleSheet.create({
      screen keeps rather than covering */
   page: { paddingBottom: 140 },
 
-  /* Trends' card, to the pixel — same surface, same 16pt padding, and
-     below it the same type doing the same jobs: a figure is title3, a
-     label is footnote, a sentence is subheadline. Nothing here gets a
-     size no other card in the app uses. */
+  /* SummaryCard's card: the same surface, corners and padding Today's
+     cards wear, so walking from Today into a day changes the subject
+     and not the furniture. The padding is the card grammar's 14 / 16 / 16,
+     two points under the 32 cardHeight() budgets — the spare falls to
+     the foot of the card rather than clipping a figure. */
   card: {
     marginHorizontal: GAP,
-    borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-    padding: size.cardPad,
-  },
-  cardTitle: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    letterSpacing: -0.2,
+    borderRadius: summary.radius, borderCurve: 'continuous', backgroundColor: summary.surface,
+    paddingTop: 14, paddingHorizontal: 16, paddingBottom: 16,
   },
   plotWrap: { marginTop: 16 },
   empty: {
-    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21,
+    color: summary.secondary, fontSize: font.subheadline, lineHeight: 21,
     marginTop: 12,
   },
 
   stats: { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
   stat: { flex: 1, alignItems: 'center', gap: 1 },
-  statRule: { width: StyleSheet.hairlineWidth, height: 30, backgroundColor: color.borderDivider },
-  /* the same spec as a Trends metric tile's value */
+  statRule: { width: StyleSheet.hairlineWidth, height: 30, backgroundColor: summary.separator },
+  /* every number rounded: the figure and its "/10" alike, the unit
+     small and grey as BigValue sets one */
   statV: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    fontFamily: ROUNDED, color: color.textPrimary, fontSize: 22, fontWeight: '700',
+    letterSpacing: -0.3, fontVariant: ['tabular-nums'],
   },
-  statUnit: { fontSize: font.footnote, fontWeight: '600', color: color.textSecondary },
-  statL: { color: color.textSecondary, fontSize: font.footnote },
+  statUnit: { fontFamily: ROUNDED, fontSize: font.footnote, fontWeight: '600', color: summary.secondary },
+  statL: { color: summary.secondary, fontSize: font.footnote },
 
   /* the (i) sits where the sentence sat, in the same gutter */
   fineTip: { marginTop: 6, paddingHorizontal: size.contentX },
-  fine: {
-    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
-    marginTop: 14, paddingHorizontal: size.contentX,
-  },
 });

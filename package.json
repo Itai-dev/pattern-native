@@ -21,6 +21,7 @@
     "expo-sharing": "~57.0.14",
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
+    "expo-symbols": "~57.0.3",
     "expo-updates": "~57.0.15",
     "expo-widgets": "~57.0.12",
     "react": "19.2.3",

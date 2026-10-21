@@ -14,6 +14,12 @@
  * this look; the next open of the screen starts folded again, so the
  * screen is the same every time and never asks to be reset.
  *
+ * THE GLYPH IS THE SYSTEM'S (21 Oct 2026, the October redesign): SF
+ * Symbols' info.circle, filled once open, through Icon — Apple's own
+ * mark on a binary with expo-symbols, the Ionicon stand-in on an older
+ * one. Grey closed, white open: a control, so never a hue. Numbers in
+ * the note are rounded, like every number on the card it qualifies.
+ *
  * Three shapes, one glyph:
  *   InfoGlyph — the ring alone, for a header row that owns its state
  *   InfoTip   — the ring right-aligned on its own row, text below
@@ -21,8 +27,10 @@
  */
 import React, { ReactNode, useState } from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import Icon from './Icon';
 import { Press } from './motion';
-import { color, font } from './theme';
+import { Num, summary } from './SummaryCard';
+import { font } from './theme';
 
 export function InfoGlyph({ open, onPress, label }: {
   open: boolean;
@@ -40,9 +48,8 @@ export function InfoGlyph({ open, onPress, label }: {
       accessibilityState={{ expanded: open }}
       accessibilityHint={open ? 'Hides the explanation' : 'Shows what this does and does not mean'}
     >
-      <View style={[styles.ring, open && styles.ringOn]}>
-        <Text style={[styles.i, open && styles.iOn]} allowFontScaling={false}>i</Text>
-      </View>
+      <Icon name={open ? 'info.circle.fill' : 'info.circle'} size={20}
+        color={open ? summary.text : summary.tertiary} weight="regular" />
     </Press>
   );
 }
@@ -51,7 +58,7 @@ export function InfoGlyph({ open, onPress, label }: {
 function Body({ children }: { children: ReactNode }) {
   return (
     <Text style={styles.text} allowFontScaling maxFontSizeMultiplier={1.4}>
-      {children}
+      {typeof children === 'string' ? <Num>{children}</Num> : children}
     </Text>
   );
 }
@@ -113,16 +120,5 @@ const styles = StyleSheet.create({
   /* 32 drawn, 48 touchable with the slop — the floor for a hand that
      hurts, without a ring the size of a button */
   hit: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  ring: {
-    width: 20, height: 20, borderRadius: 10,
-    borderWidth: 1.5, borderColor: color.textTertiary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ringOn: { backgroundColor: color.textPrimary, borderColor: color.textPrimary },
-  i: {
-    color: color.textTertiary, fontSize: 12, fontWeight: '700', lineHeight: 14,
-    fontStyle: 'italic',
-  },
-  iOn: { color: '#000000' },
-  text: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 6 },
+  text: { color: summary.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 6 },
 });

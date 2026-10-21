@@ -9,6 +9,15 @@
  * The same sheet edits an existing event: fields arrive filled, Save
  * updates the row in place, and Delete asks before removing it. Save is
  * guarded against repeated taps so one tap is always one event.
+ *
+ * THE CHECK-IN'S SHEET, SINCE THE OCTOBER REDESIGN (21 Oct 2026): the
+ * #0E0E10 ground, the grabber, Cancel | title | Save, every question at
+ * the question weight, and the answers as the onboarding chips — #1C1C1E,
+ * white with black ink once chosen. They were grey pills that turned a
+ * lighter grey, which on this ground was hard to tell from not chosen.
+ * Delete is a #1C1C1E capsule in white, not a red word: it asks first,
+ * the alert carries the system's destructive red, and a hue on a screen
+ * about a flare reads as part of the flare.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -25,7 +34,14 @@ import {
   PainEvent, RESPONSES, RESPONSE_LABELS, Response, checkinCount, minutesNow, todayISO,
 } from './model';
 import { fmtClock } from './clock';
+import Icon from './Icon';
+import { Num, ROUNDED, summary } from './SummaryCard';
 import { color, font, size } from './theme';
+
+/** the check-in sheet's ground — see CheckinScreen's SHEET_BG */
+const SHEET_BG = '#0E0E10';
+/** the redesign's capsule height */
+const BUTTON_H = 54;
 
 /** An answer here can be taken back: a second tap on the chosen pill
  *  clears it, which is how an answer goes back to unanswered — and
@@ -229,6 +245,8 @@ export default function EventSheet({
       /* the VoiceOver scrub is Cancel, so it asks the same question */
       onAccessibilityEscape={requestClose}
     >
+      {/* drawn here: a React Native pageSheet does not ask UIKit for one */}
+      <View style={styles.grabber} accessibilityElementsHidden importantForAccessibility="no" />
       <View style={styles.navBar}>
         <Press
           onPress={requestClose}
@@ -237,23 +255,25 @@ export default function EventSheet({
           accessibilityRole="button"
           accessibilityLabel="Cancel"
         >
-          <Text style={styles.navBtnText}>Cancel</Text>
+          <Text style={styles.navBtnText} maxFontSizeMultiplier={1.4}>Cancel</Text>
         </Press>
         {/* the same words as the button that opens it — one thing, one
             name, from Today to here to the list it is read back in */}
-        <Text style={styles.navTitle} numberOfLines={1} accessibilityRole="header">
+        <Text style={styles.navTitle} numberOfLines={1} accessibilityRole="header"
+          maxFontSizeMultiplier={1.4}>
           {editing ? 'Edit event' : 'Flare or treatment'}
         </Text>
         <Press
           onPress={save}
           disabled={saving}
-          style={styles.navBtn}
+          style={[styles.navBtn, styles.navRight]}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityState={{ disabled: saving }}
           accessibilityLabel="Save event"
         >
-          <Text style={[styles.navBtnText, styles.navBtnStrong, saving && styles.navBtnOff]}>
+          <Text style={[styles.navBtnText, styles.navBtnStrong, saving && styles.navBtnOff]}
+            maxFontSizeMultiplier={1.4}>
             Save
           </Text>
         </Press>
@@ -306,8 +326,9 @@ export default function EventSheet({
           accessibilityState={{ expanded: showPicker }}
           accessibilityHint={showPicker ? 'Closes the time picker' : 'Opens a time picker'}
         >
-          <Text style={styles.timeText}>{fmtClock(minutes)}</Text>
-          <Text style={styles.timeHint}>{showPicker ? 'Done' : 'Change'}</Text>
+          <Icon name="clock.fill" size={18} color={summary.text} />
+          <Text style={styles.timeText} maxFontSizeMultiplier={1.4}>{fmtClock(minutes)}</Text>
+          <Text style={styles.timeHint} maxFontSizeMultiplier={1.4}>{showPicker ? 'Done' : 'Change'}</Text>
         </Press>
         {showPicker && (
           <DateTimePicker
@@ -384,7 +405,7 @@ export default function EventSheet({
                 the sheet says so rather than silently hiding it */}
             {editing && event!.helped != null && (
               <Text style={styles.sub}>
-                Recorded earlier as {event!.helped}/10 on the old scale — kept as it was.
+                <Num>{'Recorded earlier as ' + event!.helped + '/10 on the old scale — kept as it was.'}</Num>
               </Text>
             )}
           </>
@@ -491,11 +512,13 @@ export default function EventSheet({
         {editing && (
           <Press
             onPress={confirmDelete}
+            pressScale={0.97}
             style={styles.deleteRow}
             accessibilityRole="button"
             accessibilityLabel="Delete this event"
           >
-            <Text style={styles.deleteText}>Delete this event</Text>
+            <Icon name="trash" size={17} color={summary.text} />
+            <Text style={styles.deleteText} maxFontSizeMultiplier={1.4}>Delete this event</Text>
           </Press>
         )}
       </ScrollView>
@@ -504,45 +527,66 @@ export default function EventSheet({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgSheet },
+  root: { flex: 1, backgroundColor: SHEET_BG },
+  grabber: {
+    width: 36, height: 5, borderRadius: 3, alignSelf: 'center', marginTop: 8,
+    backgroundColor: color.borderControl,
+  },
+  /* the check-in's bar: two equal-width ends so the title is centred on
+     the sheet, and no rule under it */
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
+    paddingHorizontal: size.pageX, marginTop: 4,
   },
-  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  navBtn: { minWidth: 72, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  navTitle: {
+    flex: 1, flexShrink: 1, textAlign: 'center',
+    color: color.textPrimary, fontSize: font.body, fontWeight: '600',
+  },
+  navBtn: { minWidth: 72, minHeight: 44, justifyContent: 'center' },
   navLeft: { alignItems: 'flex-start' },
+  navRight: { alignItems: 'flex-end' },
   navBtnText: { color: color.tint, fontSize: font.body },
   navBtnStrong: { fontWeight: '600' },
-  navBtnOff: { color: color.textTertiary },
-  body: { padding: size.sheetX, paddingTop: 20, paddingBottom: 40 },
-  q: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  navBtnOff: { color: summary.tertiary },
+  body: { paddingHorizontal: size.pageX, paddingTop: 16, paddingBottom: 40 },
+  /* a question, at the check-in's question weight a size down — this
+     sheet asks several, and each is a heading for the rotor */
+  q: { color: color.textPrimary, fontSize: 20, fontWeight: '700', letterSpacing: -0.3, lineHeight: 25 },
   qLater: { marginTop: 28 },
-  sub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
+  sub: { color: summary.secondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 6 },
+  /* a grouped row: the clock, the time in the rounded face, the word
+     that says what a tap does */
   timeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    minHeight: 48, marginTop: 10, paddingHorizontal: 14,
-    borderRadius: 12, borderCurve: 'continuous', backgroundColor: color.bgSurface,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    minHeight: 54, marginTop: 12, paddingHorizontal: 16,
+    borderRadius: summary.radius, borderCurve: 'continuous', backgroundColor: summary.surface,
   },
-  timeText: { color: color.textPrimary, fontSize: font.body, fontVariant: ['tabular-nums'] },
-  timeHint: { color: color.tint, fontSize: font.subheadline },
-  /* the fixed answers, as a wrapping row of pills. Not a chat, not a
-     scale — a short list of the things people actually say. */
-  pickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  timeText: {
+    flex: 1, fontFamily: ROUNDED, color: color.textPrimary, fontSize: font.body, fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  timeHint: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  /* the fixed answers, as a wrapping row of chips. Not a chat, not a
+     scale — a short list of the things people actually say. The
+     onboarding chips, to the pixel. */
+  pickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   pick: {
-    minHeight: 44, borderRadius: 12, borderCurve: 'continuous', paddingHorizontal: 14, justifyContent: 'center',
-    backgroundColor: color.bgSurface,
-    borderWidth: 1, borderColor: color.borderDivider,
+    minHeight: 44, borderRadius: 22, borderCurve: 'continuous', paddingHorizontal: 16,
+    justifyContent: 'center', backgroundColor: summary.surface,
   },
-  pickOn: { borderColor: color.textPrimary, backgroundColor: color.bgSegmentActive },
-  pickText: { color: '#D0D0D6', fontSize: font.subheadline, fontWeight: '500' },
-  pickTextOn: { color: color.textPrimary, fontWeight: '600' },
+  pickOn: { backgroundColor: color.textPrimary },
+  pickText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
+  pickTextOn: { color: '#000000' },
   input: {
-    marginTop: 10, minHeight: 60, borderRadius: 12, borderCurve: 'continuous', padding: 12,
-    backgroundColor: color.bgSurface, color: color.textPrimary, fontSize: font.body,
+    marginTop: 12, minHeight: 60, borderRadius: summary.radius, borderCurve: 'continuous',
+    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: summary.surface, color: color.textPrimary, fontSize: font.body,
     textAlignVertical: 'top',
   },
-  deleteRow: { marginTop: 32, minHeight: 44, justifyContent: 'center' },
-  deleteText: { color: color.danger, fontSize: font.body },
+  deleteRow: {
+    marginTop: 32, minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingHorizontal: 16, backgroundColor: summary.surface,
+  },
+  deleteText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
 });

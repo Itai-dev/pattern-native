@@ -43,6 +43,7 @@ import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Moment } from './model';
 import { fmtClock } from './clock';
 import { formatScore, painColor, speakScore } from './painScale';
+import { ROUNDED } from './SummaryCard';
 import { color, font } from './theme';
 
 /** minutes in a day — the x axis, in full, always */
@@ -70,25 +71,20 @@ const RING_GAP = 3, RING_W = 2;
  *  44-point target: Apple's minimum, measured from the dot's centre. */
 const REACH = 22;
 
-/** an event's mark on the floor of the plot: a small neutral square,
- *  the same shape the day squares wear and none of their colour */
-const EV_W = 7;
+/** an event's mark on the floor of the plot: a short upright tick, grey.
+ *  It was a small neutral square until the October redesign, and in
+ *  that system a square IS a pain value — every square on screen wears
+ *  the ramp — so a grey one read as a score nobody gave. A tick says
+ *  "at this minute" and nothing about height. */
+const EV_W = 3;
+const EV_H = 9;
 
-/** how many marks make a dotted rule at card width. Fixed rather than
- *  derived: a count that changed with width would make the same rule look
- *  denser on a bigger phone. */
-const DOTS = 40;
-
-/** a dotted rule, drawn as marks rather than as borderStyle: 'dotted' —
- *  iOS renders a dotted border on a hairline box inconsistently, and a
- *  gridline that sometimes disappears is worse than none */
-function Dotted() {
-  return (
-    <View style={styles.dotted} pointerEvents="none">
-      {Array.from({ length: DOTS }, (_, i) => <View key={i} style={styles.dottedMark} />)}
-    </View>
-  );
-}
+/** the grid's lines, the Sessions chart's (Sessions.dc.html): hairlines
+ *  in the separator grey, the floor one step lighter so 0 reads as the
+ *  ground. Solid, so nothing depends on how iOS draws a dotted border on
+ *  a hairline box — the reason the old grid drew its dots one by one. */
+const GRID_LINE = '#38383A';
+const GRID_FLOOR = '#48484A';
 
 export interface DayLineProps {
   logs: Moment[];
@@ -206,9 +202,10 @@ export default function DayLine({
 
         <View style={[styles.plot, { height }]} onLayout={onLayout}>
           {grid && GRID.map((g) => (
-            <View key={g} style={[styles.gridRow, { top: y(g) - 1 }]}>
-              <Dotted />
-            </View>
+            <View key={g} pointerEvents="none" style={[
+              styles.gridRow,
+              { top: y(g), backgroundColor: g === 0 ? GRID_FLOOR : GRID_LINE },
+            ]} />
           ))}
 
           {/* nothing is drawn until the plot has been measured — one frame,
@@ -318,19 +315,15 @@ const GUTTER_W = 24;
 const styles = StyleSheet.create({
   body: { flexDirection: 'row' },
   gutter: { width: GUTTER_W },
+  /* numbers, so the rounded face — the Sessions axis, in the same grey */
   gutterText: {
     position: 'absolute', left: 0, right: 6,
     textAlign: 'right', lineHeight: 16,
-    color: color.textTertiary, fontSize: font.footnote,
-    fontVariant: ['tabular-nums'],
+    color: color.textTertiary, fontSize: 12, fontWeight: '600',
+    fontFamily: ROUNDED, fontVariant: ['tabular-nums'],
   },
   plot: { flex: 1 },
-  gridRow: { position: 'absolute', left: 0, right: 0, height: 2 },
-  dotted: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dottedMark: {
-    width: 2, height: 2, borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
+  gridRow: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth },
   /* the same hairline every other painted square in this app carries —
      it is what keeps a 10 visible on a near-black card */
   dot: {
@@ -342,7 +335,7 @@ const styles = StyleSheet.create({
     borderWidth: RING_W, borderColor: 'rgba(255,255,255,0.9)',
   },
   evMark: {
-    position: 'absolute', bottom: 0, width: EV_W, height: EV_W, borderRadius: 2,
+    position: 'absolute', bottom: 0, width: EV_W, height: EV_H, borderRadius: EV_W / 2,
     backgroundColor: color.textSecondary,
   },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },

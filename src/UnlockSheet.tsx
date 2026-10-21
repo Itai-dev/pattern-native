@@ -16,7 +16,7 @@
 import React, { useEffect } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from './Icon';
 import * as Haptics from 'expo-haptics';
 import { Press, useReduceMotion } from './motion';
 import Medal from './Medal';
@@ -59,12 +59,12 @@ export default function UnlockSheet({ a, activity, roadmap, onClose, onOpenRoadm
           {now && (
             <Press style={styles.next} onPress={onOpenRoadmap} accessibilityRole="button"
               accessibilityLabel={'Next on your roadmap: ' + now.title}>
-              <Ionicons name="flag" size={20} color="#FFFFFF" />
+              <Icon name="flag.fill" size={20} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.nextLabel}>Next on your roadmap</Text>
                 <Text style={styles.nextTitle}>{now.title}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#636366" />
+              <Icon name="chevron.right" size={14} color="#636366" weight="bold" />
             </Press>
           )}
           <Text style={styles.fine} maxFontSizeMultiplier={1.4}>Earned by what you did, not by how it felt.</Text>

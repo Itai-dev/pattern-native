@@ -91,8 +91,12 @@ check('no tab label opts out of scaling', !/allowFontScaling=\{false\}/.test(tab
 const cap = Number((tabBar.match(/const TAB_LABEL_MAX_SCALE = ([\d.]+);/) || [])[1]);
 check('the cap is what a 40pt item holds (21 glyph + 3 gap + 13.1 × cap)',
   cap > 1 && 21 + 3 + 13.1 * cap <= 40);
+/* every Text in the bar is a label; the + carries none (the October
+   mockup), so the count is the bar's own, not a fixed two */
+const tabTexts = (tabBar.match(/<Text\b/g) || []).length;
 check('every label uses it, on one line',
-  (tabBar.match(/maxFontSizeMultiplier=\{TAB_LABEL_MAX_SCALE\}\s+numberOfLines=\{1\}/g) || []).length === 2);
+  tabTexts >= 1 &&
+  (tabBar.match(/maxFontSizeMultiplier=\{TAB_LABEL_MAX_SCALE\}\s+numberOfLines=\{1\}/g) || []).length === tabTexts);
 
 console.log('\nPatterns: no pain delta, and the not-sentence on each card');
 const trends = read('src/TrendsScreen.tsx');

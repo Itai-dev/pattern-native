@@ -35,7 +35,10 @@ import * as Haptics from 'expo-haptics';
 import * as db from './db';
 import { Press } from './motion';
 import { BACKGROUND_FIELDS, BACKGROUND_FIELD_MAX, cleanBackground } from './model';
-import { color, font, radius, size } from './theme';
+import Icon from './Icon';
+import { list, settings } from './SettingsList';
+import { ROUNDED } from './SummaryCard';
+import { color, font } from './theme';
 
 /** what sits under each label as the empty-state hint — examples, not
  *  demands, and none of them imply a field is expected to be filled */
@@ -117,28 +120,29 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.root}
     >
-      <View style={styles.navBar}>
-        <View style={styles.navSpacer}>
+      <View style={settings.navBar}>
+        <View style={settings.navSpacer}>
           {mode === 'interview' && at > 0 && (
             <Press
               onPress={stepBack}
               hitSlop={10}
+              style={styles.navBack}
               accessibilityRole="button"
               accessibilityLabel="Back to the previous question"
             >
-              <Text style={styles.navBack} allowFontScaling={false}>‹</Text>
+              <Icon name="chevron.left" size={20} color={list.text} weight="semibold" />
             </Press>
           )}
         </View>
-        <Text style={styles.navTitle}>Background</Text>
+        <Text style={settings.navTitle}>Background</Text>
         <Press
           onPress={save}
-          style={styles.navBtn}
+          style={settings.navBtn}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Save and close"
         >
-          <Text style={styles.navBtnText}>Done</Text>
+          <Text style={settings.navBtnText}>Done</Text>
         </Press>
       </View>
 
@@ -220,11 +224,11 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
           <Press
             onPress={save}
             pressScale={0.985}
-            style={styles.primary}
+            style={settings.primary}
             accessibilityRole="button"
             accessibilityLabel="Save the background and close"
           >
-            <Text style={styles.primaryText}>Done</Text>
+            <Text style={settings.primaryText}>Done</Text>
           </Press>
         </ScrollView>
       ) : (
@@ -260,13 +264,13 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
             <Press
               onPress={stepNext}
               pressScale={0.985}
-              style={styles.primary}
+              style={[settings.primary, styles.qPrimary]}
               accessibilityRole="button"
               accessibilityLabel={answered ? 'Continue' : 'Skip this question'}
             >
               {/* the button admits what it does — a skip walks through the
                   same door as an answer, and says so, the check-in's rule */}
-              <Text style={styles.primaryText}>{answered ? 'Continue' : 'Skip'}</Text>
+              <Text style={settings.primaryText}>{answered ? 'Continue' : 'Skip'}</Text>
             </Press>
             <Text style={styles.qCount} allowFontScaling maxFontSizeMultiplier={1.3}>
               {at + 1} of {BACKGROUND_FIELDS.length}
@@ -278,57 +282,47 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
   );
 }
 
+/* the frame and the primary are Profile's (SettingsList) */
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgSheet },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
-  },
-  navSpacer: { width: 64, minHeight: 44, justifyContent: 'center' },
-  navBack: { color: color.textPrimary, fontSize: 26, lineHeight: 30, paddingLeft: 4 },
-  navTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
-  navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
-  body: { padding: size.sheetX, paddingTop: 18, paddingBottom: 40 },
-  lead: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21 },
+  root: { flex: 1, backgroundColor: list.ground },
+  navBack: { minHeight: 44, justifyContent: 'center', paddingLeft: 2 },
+  body: { padding: 20, paddingTop: 14, paddingBottom: 48 },
+  lead: { color: list.text, fontSize: font.subheadline, lineHeight: 21 },
   leadFine: {
-    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: 8,
+    color: list.secondary, fontSize: font.footnote, lineHeight: 18, marginTop: 8,
   },
   field: { marginTop: 18 },
-  label: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '600' },
+  label: { color: list.secondary, fontSize: font.footnote, fontWeight: '600' },
+  /* a field is the card's surface, with no rim: on black the #1C1C1E
+     is its own edge, the way the cards are drawn */
   input: {
-    color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21,
+    color: list.text, fontSize: font.subheadline, lineHeight: 21,
     minHeight: 44, textAlignVertical: 'top',
-    borderRadius: radius.button, borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
-    backgroundColor: color.bgSurface,
-    paddingHorizontal: 12, paddingVertical: 10, marginTop: 6,
+    borderRadius: 12, borderCurve: 'continuous',
+    backgroundColor: list.surface,
+    paddingHorizontal: 14, paddingVertical: 11, marginTop: 6,
   },
   /* ── the interview ── */
   interview: { flex: 1 },
-  qBody: { padding: size.sheetX, paddingTop: 26, flexGrow: 1 },
+  qBody: { padding: 20, paddingTop: 22, flexGrow: 1 },
   qTitle: {
-    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
-    letterSpacing: -0.4, lineHeight: 30, marginBottom: 10,
+    color: list.text, fontSize: font.title2, fontWeight: '700',
+    letterSpacing: -0.33, lineHeight: 28, marginBottom: 10,
   },
   qInput: { minHeight: 96, marginTop: 14, fontSize: font.body, lineHeight: 23 },
-  qBottom: { padding: size.sheetX, paddingTop: 0, paddingBottom: 24 },
+  qBottom: { padding: 20, paddingTop: 0, paddingBottom: 24 },
+  qPrimary: { marginTop: 0 },
+  /* a count of questions, not of anything about the person — rounded
+     because it is a number, grey because it is only where you are */
   qCount: {
-    color: color.textTertiary, fontSize: font.footnote,
+    color: list.tertiary, fontSize: font.footnote, fontFamily: ROUNDED, fontWeight: '600',
     textAlign: 'center', marginTop: 12, fontVariant: ['tabular-nums'],
   },
   reviewRow: {
     marginTop: 16, paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: list.separator,
   },
   reviewText: {
-    color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4,
+    color: list.text, fontSize: font.subheadline, lineHeight: 21, marginTop: 4,
   },
-  primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, borderCurve: 'continuous',
-    backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 20, paddingHorizontal: 16,
-  },
-  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
 });
