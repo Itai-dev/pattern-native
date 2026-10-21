@@ -1666,12 +1666,16 @@ export default function TrendsScreen({
   const findings = standouts.filter((c) => !c.building);
   const building = standouts.filter((c) => c.building);
   /* the one line the Still finding out card carries: how many, and the
-     first two by name, so the card says what it holds without opening */
-  const buildingLine = building.length + (building.length === 1 ? ' look is' : ' looks are')
+     first two by name, so the card says what it holds without opening.
+     The names are titles ("After your workouts", a medicine as the
+     person typed it), so they are listed after a colon, not run into a
+     sentence where their capitals read as a typo. */
+  const shown = building.slice(0, 2).map((c) => c.title.replace(/,.*$/, ''));
+  const buildingLine = building.length + (building.length === 1 ? ' look' : ' looks')
     + ' still building up'
-    + (building.length > 0
-      ? ' — ' + building.slice(0, 2).map((c) => c.title.replace(/,.*$/, '')).join(', ')
-        + (building.length > 2 ? ' and more.' : '.')
+    + (shown.length > 0
+      ? ': ' + shown.join(' · ')
+        + (building.length > 2 ? ' · ' + (building.length - 2) + ' more' : '')
       : '.');
   const buildingCard: Standout = {
     key: 'collecting', title: 'Still finding out', line: buildingLine, detail: <></>,
