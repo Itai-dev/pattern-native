@@ -13,16 +13,30 @@
  * iPhone's own date wheel in a bottom card, Done and Clear the only
  * buttons, because every spin already applied. The Today card that asks
  * opens this same picker, so there is one place a date is chosen.
+ *
+ * THE OCTOBER REDESIGN (21 Oct 2026). The picker is a sheet of the
+ * check-in's family: the #0E0E10 ground, 28pt corners and a grabber, the
+ * white 54pt capsule for Save with the date in the rounded face, and
+ * Clear as a quiet grey word — it was the danger orange, and a hue in
+ * this app is a pain value; clearing a date is not one, and it is undone
+ * by setting it again. The row keeps Profile's geometry so it lines up
+ * with its neighbours, with the calendar as a white SF Symbol.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import Icon from './Icon';
 import { EASE_OUT, reduceMotion } from './motion';
 import { dateFromISO, iso, todayISO } from './model';
 import { fmtDay } from './DayScreen';
-import { color, font, radius } from './theme';
+import { Num, summary } from './SummaryCard';
+import { color, font } from './theme';
+
+/** the check-in sheet's ground — see CheckinScreen's SHEET_BG */
+const SHEET_BG = '#0E0E10';
+/** the redesign's capsule height */
+const BUTTON_H = 54;
 
 export const PREF_APPOINTMENT = 'appointment.date';
 
@@ -75,12 +89,12 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
         accessibilityHint="Opens a date picker. Two days before, Today offers the PDF."
       >
         <View style={styles.icon}>
-          <Ionicons name="calendar-outline" size={21} color={color.textSecondary} />
+          <Icon name="calendar" size={20} color={summary.text} />
         </View>
         <View style={styles.main}>
           <Text style={styles.label}>Next appointment</Text>
-          <Text style={styles.value} numberOfLines={1}>{value ? fmtDay(value) : 'Not set'}</Text>
-          <Text style={styles.chevron}>›</Text>
+          <Text style={styles.value} numberOfLines={1}>{value ? <Num>{fmtDay(value)}</Num> : 'Not set'}</Text>
+          <Icon name="chevron.right" size={14} color={summary.chevron} weight="semibold" />
         </View>
       </Pressable>
 
@@ -97,7 +111,8 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
               },
             ]}
           >
-            <Text style={styles.title}>Next appointment</Text>
+            <View style={styles.grabber} accessibilityElementsHidden importantForAccessibility="no" />
+            <Text style={styles.title} accessibilityRole="header">Next appointment</Text>
             <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
               Two days before, Today will offer the PDF. Nothing else is
               done with the date.
@@ -110,9 +125,11 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
               minimumDate={dateFromISO(todayISO())}
               onChange={(_, d) => { if (d) setDraft(iso(d)); }}
             />
-            <Pressable onPress={done} style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.85 }]}
+            <Pressable onPress={done} style={({ pressed }) => [styles.doneBtn, pressed && styles.pressed]}
               accessibilityRole="button" accessibilityLabel={'Save ' + fmtDay(draft)}>
-              <Text style={styles.doneText}>Save {fmtDay(draft)}</Text>
+              <Text style={styles.doneText} maxFontSizeMultiplier={1.4}>
+                <Num>{'Save ' + fmtDay(draft)}</Num>
+              </Text>
             </Pressable>
             {!!value && (
               <Pressable onPress={clear} style={styles.clearBtn}
@@ -136,24 +153,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
   label: { color: color.textPrimary, fontSize: font.body, flex: 1 },
-  value: { color: color.textSecondary, fontSize: font.body, maxWidth: 160 },
-  chevron: { color: color.textTertiary, fontSize: 20, marginTop: -2 },
+  value: { color: summary.secondary, fontSize: font.body, maxWidth: 160 },
   scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  /* a sheet: the redesign's 28pt corners and the check-in's ground */
   card: {
-    backgroundColor: color.bgSheet,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 20, paddingBottom: 34,
+    backgroundColor: SHEET_BG,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28, borderCurve: 'continuous',
+    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 34,
+  },
+  grabber: {
+    width: 36, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 12,
+    backgroundColor: color.borderControl,
   },
   title: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', textAlign: 'center' },
   sub: {
-    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
+    color: summary.tertiary, fontSize: font.footnote, lineHeight: 18,
     textAlign: 'center', marginTop: 4, marginBottom: 4,
   },
+  /* the one filled action: white, black words, a capsule */
   doneBtn: {
-    height: 50, borderRadius: radius.button, borderCurve: 'continuous', backgroundColor: color.textPrimary,
+    minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
+    backgroundColor: color.textPrimary, paddingHorizontal: 16,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
+  pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
   doneText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
   clearBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  clearText: { color: color.danger, fontSize: font.subheadline, fontWeight: '500' },
+  clearText: { color: summary.secondary, fontSize: font.subheadline, fontWeight: '600' },
 });

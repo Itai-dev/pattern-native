@@ -21,6 +21,14 @@
  * the ramp is worn only by the pain; a count is white; a skip is
  * shown as a skip; and every block that shows something carries the
  * sentence about what it is not, inside the block.
+ *
+ * THE OCTOBER REDESIGN'S GRAMMAR (21 Oct 2026), and nothing else moved.
+ * Each block is a SummaryCard card — #1C1C1E, 16pt corners, an
+ * icon-and-label header — every number is in the rounded face, the
+ * rows end in the system chevron, and the two buttons are the
+ * redesign's capsules: white for adding a check-in, the thing this page
+ * can do next, and #1C1C1E for the flare or treatment beside it. The
+ * moment's square is still the one hue on the page.
  */
 import React, { useCallback } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
@@ -39,9 +47,11 @@ import { doseLines } from './health/context';
 import { HealthDay } from './health/types';
 import { contextTiles } from './todayTiles';
 import ContextTiles from './ContextTiles';
+import Icon from './Icon';
+import { CardHeader, Num, ROUNDED, summary } from './SummaryCard';
 import { PAIN_MAX } from './painScale';
 import { RETRO_CHECKIN_MAX_DAYS } from './thresholds';
-import { color, font, radius, size } from './theme';
+import { color, font, size } from './theme';
 
 /** Edit, Add information and Delete are words in a row, 36pt tall and
  *  only as wide as the word — "Edit" is about 30pt, under Apple's 44
@@ -49,6 +59,9 @@ import { color, font, radius, size } from './theme';
  *  without moving a pixel: 36 + 4 + 4 tall, and 9 a side is half the
  *  row's 18pt gap, so two targets meet mid-gap and never overlap. */
 const ACT_SLOP = { top: 4, bottom: 4, left: 9, right: 9 };
+
+/** the redesign's capsule: 54 tall, fully rounded */
+const BUTTON_H = 54;
 
 export interface DayMomentsProps {
   dateIso: string;
@@ -64,6 +77,12 @@ export interface DayMomentsProps {
   onAddInfo: (h?: number) => void;
   onEditEvent: (ev: PainEvent) => void;
   onAddEvent: () => void;
+}
+
+/** the row's end: a chevron where the row opens something — a promise,
+ *  so never on a row that does not */
+function Chev() {
+  return <Icon name="chevron.right" size={14} color={summary.chevron} weight="semibold" />;
 }
 
 export default function DayMoments({
@@ -127,11 +146,11 @@ export default function DayMoments({
                 <Text style={styles.word}>  {painLabel(m.pain)}</Text>
               </Text>
               <Text style={styles.when} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {fmtClock(m.h)}
+                <Num>{fmtClock(m.h)}</Num>
                 {/* recalled, and permanently visible as such — read from
                     the capture stamps, never from a flag */}
                 {momentAddedLater(dateIso, m) ? ' · added later' : ''}
-                {before ? ' · ' + before : ''}
+                {before ? <Num>{' · ' + before}</Num> : ''}
               </Text>
               {chips.length > 0 && (
                 <View style={styles.chips}>
@@ -195,34 +214,36 @@ export default function DayMoments({
           minute. */}
       {events.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.blockTitle}>Events</Text>
-          {events.map((ev, i) => (
-            <Press
-              key={ev.id ?? i}
-              onPress={() => onEditEvent(ev)}
-              pressOpacity={0.7}
-              style={[styles.row, i > 0 && styles.rowLine]}
-              accessibilityRole="button"
-              accessibilityLabel={fmtClock(ev.h) + ', ' + EVENT_LABELS[ev.kind]
-                + (ev.intervention ? ', ' + (INTERVENTIONS[ev.intervention] || ev.intervention) : '')
-                + (ev.text ? ', ' + ev.text : '')}
-              accessibilityHint="Opens this event to edit."
-            >
-              <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.3}>{fmtClock(ev.h)}</Text>
-              <View style={styles.rowMid}>
-                <Text style={styles.rowText} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {EVENT_LABELS[ev.kind]}
-                  {ev.intervention ? ' · ' + (INTERVENTIONS[ev.intervention] || ev.intervention) : ''}
-                </Text>
-                {!!ev.text && (
-                  <Text style={styles.rowSub} allowFontScaling maxFontSizeMultiplier={1.3} numberOfLines={2}>
-                    {ev.text}
+          <CardHeader icon="flame" label="Events" />
+          <View style={styles.rows}>
+            {events.map((ev, i) => (
+              <Press
+                key={ev.id ?? i}
+                onPress={() => onEditEvent(ev)}
+                pressOpacity={0.7}
+                style={[styles.row, i > 0 && styles.rowLine]}
+                accessibilityRole="button"
+                accessibilityLabel={fmtClock(ev.h) + ', ' + EVENT_LABELS[ev.kind]
+                  + (ev.intervention ? ', ' + (INTERVENTIONS[ev.intervention] || ev.intervention) : '')
+                  + (ev.text ? ', ' + ev.text : '')}
+                accessibilityHint="Opens this event to edit."
+              >
+                <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.3}>{fmtClock(ev.h)}</Text>
+                <View style={styles.rowMid}>
+                  <Text style={styles.rowText} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {EVENT_LABELS[ev.kind]}
+                    {ev.intervention ? ' · ' + (INTERVENTIONS[ev.intervention] || ev.intervention) : ''}
                   </Text>
-                )}
-              </View>
-              <Text style={styles.chev}>›</Text>
-            </Press>
-          ))}
+                  {!!ev.text && (
+                    <Text style={styles.rowSub} allowFontScaling maxFontSizeMultiplier={1.3} numberOfLines={2}>
+                      {ev.text}
+                    </Text>
+                  )}
+                </View>
+                <Chev />
+              </Press>
+            ))}
+          </View>
           <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
             Shown alongside your check-ins without assuming they caused a change.
           </Text>
@@ -231,13 +252,13 @@ export default function DayMoments({
 
       <Press
         onPress={onAddEvent}
-        pressOpacity={0.85}
-        style={styles.outline}
+        pressScale={0.97}
+        style={styles.secondary}
         accessibilityRole="button"
         accessibilityLabel="Log a flare or treatment"
         accessibilityHint="Opens a short set of questions about a flare or a treatment"
       >
-        <Text style={styles.outlineText}>Log a flare or treatment</Text>
+        <Text style={styles.secondaryText} maxFontSizeMultiplier={1.4}>Log a flare or treatment</Text>
       </Press>
 
       {/* ── the day, in their words — one row, one tap, the sheet ── */}
@@ -250,15 +271,19 @@ export default function DayMoments({
           accessibilityLabel={live.note ? 'Your note: ' + live.note : 'Add a note about this day'}
           accessibilityHint="Opens the note"
         >
+          <Icon name="note.text" size={18} color={summary.text} />
           {live.note ? (
             <>
               <Text style={styles.note} allowFontScaling maxFontSizeMultiplier={1.4}>“{live.note}”</Text>
               <Text style={styles.link} allowFontScaling maxFontSizeMultiplier={1.3}>Edit</Text>
             </>
           ) : (
-            <Text style={styles.link} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Add a note about this day
-            </Text>
+            <>
+              <Text style={[styles.link, styles.linkFill]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                Add a note about this day
+              </Text>
+              <Chev />
+            </>
           )}
         </Press>
       )}
@@ -276,38 +301,40 @@ export default function DayMoments({
         if (!shown.length) return null;
         return (
           <View style={styles.card}>
-            <Text style={styles.blockTitle}>That day’s questions</Text>
-            {shown.map(({ id, m: met, a }, i) => {
-              const skipped = a.skipped === 1;
-              const value = skipped
-                ? 'Skipped'
-                : met!.type === 'numeric'
-                  ? a.value + '/10'
-                  : levelLabel(id, String(a.value));
-              return (
-                <View
-                  key={id}
-                  style={[styles.row, i > 0 && styles.rowLine]}
-                  accessible
-                  /* "6 out of 10" — read raw, "6/10" is "six slash ten" */
-                  accessibilityLabel={met!.name + ', ' + value.replace(/\/10$/, ' out of 10')
-                    + (a.note ? '. Note: ' + a.note : '')}
-                >
-                  <View style={styles.rowMid}>
-                    <Text style={styles.rowText} allowFontScaling maxFontSizeMultiplier={1.3}>{met!.name}</Text>
-                    {!!a.note && (
-                      <Text style={styles.rowSub} allowFontScaling maxFontSizeMultiplier={1.4}>{a.note}</Text>
-                    )}
-                  </View>
-                  <Text
-                    style={[styles.qValue, skipped && styles.qSkipped]}
-                    allowFontScaling maxFontSizeMultiplier={1.3}
+            <CardHeader icon="list" label="That day’s questions" />
+            <View style={styles.rows}>
+              {shown.map(({ id, m: met, a }, i) => {
+                const skipped = a.skipped === 1;
+                const value = skipped
+                  ? 'Skipped'
+                  : met!.type === 'numeric'
+                    ? a.value + '/10'
+                    : levelLabel(id, String(a.value));
+                return (
+                  <View
+                    key={id}
+                    style={[styles.row, i > 0 && styles.rowLine]}
+                    accessible
+                    /* "6 out of 10" — read raw, "6/10" is "six slash ten" */
+                    accessibilityLabel={met!.name + ', ' + value.replace(/\/10$/, ' out of 10')
+                      + (a.note ? '. Note: ' + a.note : '')}
                   >
-                    {value}
-                  </Text>
-                </View>
-              );
-            })}
+                    <View style={styles.rowMid}>
+                      <Text style={styles.rowText} allowFontScaling maxFontSizeMultiplier={1.3}>{met!.name}</Text>
+                      {!!a.note && (
+                        <Text style={styles.rowSub} allowFontScaling maxFontSizeMultiplier={1.4}>{a.note}</Text>
+                      )}
+                    </View>
+                    <Text
+                      style={[styles.qValue, skipped && styles.qSkipped]}
+                      allowFontScaling maxFontSizeMultiplier={1.3}
+                    >
+                      <Num>{value}</Num>
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
           </View>
         );
       })()}
@@ -315,7 +342,8 @@ export default function DayMoments({
       {/* ── from Health, LAST on purpose ──────────────
           The same tiles Today wears, by the day they belong to; doses as
           lines, since a dose is a time and a name. Missing categories are
-          missing tiles, never zeros. */}
+          missing tiles, never zeros. On the ground rather than in a card:
+          the tiles are cards already, and a card of cards is a frame. */}
       {(() => {
         const healthDay = db.getHealthDay<HealthDay>(dateIso);
         const tiles = contextTiles(healthDay, db.getHealthDays<HealthDay>());
@@ -323,7 +351,9 @@ export default function DayMoments({
         if (!tiles.length && !doses.length) return null;
         return (
           <View style={styles.block}>
-            <Text style={[styles.blockTitle, styles.blockTitleLoose]}>From Apple Health</Text>
+            <View style={styles.blockHead}>
+              <CardHeader icon="heart" label="From Apple Health" />
+            </View>
             <ContextTiles tiles={tiles} />
             {doses.map((d) => (
               <View
@@ -333,10 +363,12 @@ export default function DayMoments({
                 accessibilityLabel={fmtClock(d.h) + ', ' + d.text + ', logged in Health'}
               >
                 <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.4}>{fmtClock(d.h)}</Text>
-                <Text style={styles.rowText} allowFontScaling maxFontSizeMultiplier={1.4}>{d.text}</Text>
+                <Text style={styles.rowText} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  <Num>{d.text}</Num>
+                </Text>
               </View>
             ))}
-            <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
+            <Text style={[styles.fine, styles.fineLoose]} allowFontScaling maxFontSizeMultiplier={1.4}>
               Read from Health for context beside what you recorded. Sitting next to
               each other is not a claim that one caused the other
               {doses.length ? ', and a dose beside a number is not a claim about the dose' : ''}.
@@ -348,12 +380,12 @@ export default function DayMoments({
       {canAddCheckin && (
         <Press
           onPress={onAddLog}
-          pressScale={0.985}
+          pressScale={0.97}
           style={styles.primary}
           accessibilityRole="button"
           accessibilityLabel={isToday ? 'Add another check-in' : 'Add a check-in for this day, from memory'}
         >
-          <Text style={styles.primaryText}>
+          <Text style={styles.primaryText} maxFontSizeMultiplier={1.4}>
             {isToday ? 'Add a check-in' : 'Add a check-in for this day'}
           </Text>
         </Press>
@@ -364,86 +396,100 @@ export default function DayMoments({
 
 const styles = StyleSheet.create({
   /* the cards here sit in the pager card's own gutter, so walking down
-     the page nothing steps sideways */
-  wrap: { paddingHorizontal: size.pageX, paddingTop: 12, gap: 12 },
+     the page nothing steps sideways — and they stack at SummaryCard's
+     gap, the one every card in the redesign keeps from the next */
+  wrap: { paddingHorizontal: size.pageX, paddingTop: 12, gap: summary.gap },
+  /* SummaryCard's card: no hairline, because on black the surface is
+     its own edge */
   card: {
-    borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-    padding: size.cardPad,
+    borderRadius: summary.radius, borderCurve: 'continuous', backgroundColor: summary.surface,
+    paddingTop: 14, paddingHorizontal: 16, paddingBottom: 16,
   },
-  block: { paddingTop: 4 },
-  blockTitle: {
-    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
-    marginBottom: 6,
-  },
-  blockTitleLoose: { paddingHorizontal: 4, marginBottom: 8 },
+  block: { paddingTop: 10 },
+  /* the header on the ground, inset to where it would sit inside a card */
+  blockHead: { paddingHorizontal: 4, marginBottom: 10 },
+  rows: { marginTop: 6 },
 
   moment: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  /* the pain square: the ramp, corners in the redesign's 10–12 for a
+     pain square, and the hairline that keeps a 10 visible on #1C1C1E */
   square: {
-    width: 56, height: 56, borderRadius: 14, borderCurve: 'continuous',
+    width: 56, height: 56, borderRadius: 12, borderCurve: 'continuous',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   momentMain: { flex: 1 },
   num: {
-    color: color.textPrimary, fontSize: font.title2, fontWeight: '800',
-    letterSpacing: -0.5, fontVariant: ['tabular-nums'], lineHeight: 28,
+    fontFamily: ROUNDED, color: color.textPrimary, fontSize: 34, fontWeight: '700',
+    letterSpacing: -0.7, fontVariant: ['tabular-nums'], lineHeight: 38,
   },
-  numUnit: { fontSize: font.footnote, fontWeight: '600', color: color.textSecondary },
-  word: { fontSize: font.subheadline, fontWeight: '600', color: color.textSecondary, letterSpacing: 0 },
-  when: { color: color.textTertiary, fontSize: font.footnote, marginTop: 3 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  numUnit: { fontFamily: ROUNDED, fontSize: 17, fontWeight: '600', color: summary.secondary, letterSpacing: 0 },
+  /* the word is a word, so the text face: nested Text inherits the
+     rounded family from the figure, and 'System' is the name iOS reads
+     as the plain system font */
+  word: {
+    fontFamily: 'System', fontSize: font.subheadline, fontWeight: '600',
+    color: summary.secondary, letterSpacing: 0,
+  },
+  when: { color: summary.secondary, fontSize: font.footnote, marginTop: 3 },
+  /* what the moment was entered with, read back — not a control, so no
+     selected state: a quiet pill one step up from the card */
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   chip: {
-    borderRadius: 12, borderCurve: 'continuous', paddingHorizontal: 9, paddingVertical: 4,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+    borderRadius: 13, borderCurve: 'continuous', paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: color.bgSegmentTrack,
   },
-  chipText: { color: color.textSecondary, fontSize: font.footnote, fontWeight: '500' },
+  chipText: { color: color.textPrimary, fontSize: font.footnote, fontWeight: '500' },
   acts: {
-    flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 12, paddingTop: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 14, paddingTop: 10,
     /* room for ACT_SLOP's bottom inside the row, given back below */
     paddingBottom: 4, marginBottom: -4,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: summary.separator,
   },
   act: { minHeight: 36, justifyContent: 'center' },
   actText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   /* the destructive word in the quiet colour, not red: it asks before it
      acts, and a red word on a card about pain shouts */
-  actQuiet: { color: color.textTertiary, fontWeight: '500' },
-  actHint: { flex: 1, textAlign: 'right', color: color.textTertiary, fontSize: 11 },
+  actQuiet: { color: summary.tertiary, fontWeight: '500' },
+  actHint: { flex: 1, textAlign: 'right', color: summary.tertiary, fontSize: 12 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
-  rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
+  rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: summary.separator },
   time: {
-    color: color.textPrimary, fontSize: font.subheadline, minWidth: 52,
-    fontVariant: ['tabular-nums'],
+    fontFamily: ROUNDED, color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
+    minWidth: 52, fontVariant: ['tabular-nums'],
   },
-  rowMid: { flex: 1 },
+  rowMid: { flex: 1, paddingVertical: 6 },
   rowText: { color: color.textPrimary, fontSize: font.subheadline },
-  rowSub: { color: color.textSecondary, fontSize: font.footnote, marginTop: 1 },
-  chev: { color: color.textTertiary, fontSize: 20 },
+  rowSub: { color: summary.secondary, fontSize: font.footnote, marginTop: 1 },
   qValue: {
     color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
-  qSkipped: { color: color.textTertiary, fontWeight: '500' },
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 10 },
+  qSkipped: { color: summary.tertiary, fontWeight: '500' },
+  fine: { color: summary.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 10 },
+  fineLoose: { paddingHorizontal: 4 },
 
-  outline: {
-    minHeight: 48, borderRadius: radius.button, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+  /* the second action: the redesign's secondary capsule, #1C1C1E with
+     white words — present, and plainly not the white one */
+  secondary: {
+    minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
+    backgroundColor: summary.surface,
   },
-  outlineText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  secondaryText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
 
-  noteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  note: { flex: 1, color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, fontStyle: 'italic' },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingVertical: 14 },
+  note: { flex: 1, color: summary.secondary, fontSize: font.subheadline, lineHeight: 21, fontStyle: 'italic' },
   link: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
+  linkFill: { flex: 1 },
 
   dose: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40, paddingHorizontal: 4 },
 
+  /* the one filled action on the page: white, black words, a capsule */
   primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, borderCurve: 'continuous',
+    minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
     backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingHorizontal: 16,
   },
-  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
+  primaryText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
 });
