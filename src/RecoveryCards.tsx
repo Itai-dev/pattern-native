@@ -210,16 +210,26 @@ export function GoalRow({ goal, today, onChange }: {
  * comes to open (it opens the goal's setup today) changes in one place.
  * The chevron is the promise that it opens something.
  */
-export function GoalHeader({ hero, onPress }: { hero: RecoveryHero; onPress: () => void }) {
+export function GoalHeader({ hero, onPress, roadmapLine }: {
+  hero: RecoveryHero; onPress: () => void;
+  /** where they are on the roadmap (coach.ts) — present when the
+   *  header opens the roadmap rather than the goal's setup */
+  roadmapLine?: string | null;
+}) {
   return (
     <Press onPress={onPress} pressOpacity={0.7} style={styles.goalHead} accessibilityRole="button"
-      accessibilityLabel={hero.title + '. ' + hero.progressLine}
-      accessibilityHint="Change your goal">
+      accessibilityLabel={hero.title + '. ' + hero.progressLine + (roadmapLine ? '. ' + roadmapLine : '')}
+      accessibilityHint={roadmapLine ? 'Opens your roadmap and achievements' : 'Change your goal'}>
       <View style={styles.goalText}>
         <Text style={styles.goalTitle} allowFontScaling maxFontSizeMultiplier={1.3}>{hero.title}</Text>
         <Text style={styles.goalLine} allowFontScaling maxFontSizeMultiplier={1.3}>
           <Num>{hero.progressLine}</Num>
         </Text>
+        {roadmapLine ? (
+          <Text style={styles.goalLine} allowFontScaling maxFontSizeMultiplier={1.3}>
+            <Num>{roadmapLine}</Num>
+          </Text>
+        ) : null}
       </View>
       <Chevron />
     </Press>
@@ -251,19 +261,25 @@ function splitLoad(load: string): { prefix?: string; minutes: string; effort?: s
  * sessions have shown. `hero` is null without an answered goal; the
  * card still speaks when there are sessions to read.
  */
-export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn }: {
+export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, roadmapLine, onRoadmap }: {
   hero: RecoveryHero | null;
   guidance: DailyGuidance;
   capacity: CapacityView | null;
   onEdit: () => void;
   onCheckIn: () => void;
+  /** the roadmap (coach.ts): with it, the goal header opens the roadmap,
+   *  and the goal itself is changed from there or from Profile */
+  roadmapLine?: string | null;
+  onRoadmap?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const detail = !!capacity && (capacity.insights.length > 0 || !!capacity.collecting);
   const load = guidance.recommendedLoad ? splitLoad(guidance.recommendedLoad) : null;
   return (
     <>
-      {hero && <GoalHeader hero={hero} onPress={onEdit} />}
+      {hero && (onRoadmap
+        ? <GoalHeader hero={hero} onPress={onRoadmap} roadmapLine={roadmapLine} />
+        : <GoalHeader hero={hero} onPress={onEdit} />)}
       <View style={summaryCard.box}>
         <CardHeader icon="walk" label="Your activity" meta={load ? load.effort : undefined} />
 

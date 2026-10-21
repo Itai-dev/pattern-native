@@ -78,7 +78,7 @@ export default function CoachScreen({ view, activity, onClose, onSetGoal, start 
         </Press>
       </View>
       {page === 'roadmap' && view.roadmap
-        ? <RoadmapPage view={view} activity={activity} onAchievements={() => setPage('achievements')} />
+        ? <RoadmapPage view={view} activity={activity} onAchievements={() => setPage('achievements')} onChangeGoal={onSetGoal} />
         : <AchievementsPage view={view} activity={activity} onOpen={setOpen} onSetGoal={view.roadmap ? undefined : onSetGoal} />}
       <Detail a={open} activity={activity} onClose={() => setOpen(null)} />
     </View>
@@ -93,8 +93,8 @@ function stepLine(step: 'up' | 'hold' | 'ease'): string {
   return 'Each session grows by at most a tenth, and only after mornings that went fine.';
 }
 
-function RoadmapPage({ view, activity, onAchievements }: {
-  view: CoachView; activity: string | null; onAchievements: () => void;
+function RoadmapPage({ view, activity, onAchievements, onChangeGoal }: {
+  view: CoachView; activity: string | null; onAchievements: () => void; onChangeGoal?: () => void;
 }) {
   const r = view.roadmap!;
   const earned = view.achievements.filter((a) => a.earnedOn);
@@ -133,6 +133,11 @@ function RoadmapPage({ view, activity, onAchievements }: {
         )}
         <Text style={styles.cardFine}>Earned by what you did, never by a pain number.</Text>
       </Press>
+      {onChangeGoal && (
+        <Press onPress={onChangeGoal} style={styles.changeGoal} accessibilityRole="button">
+          <Text style={styles.navBtnText}>Change goal</Text>
+        </Press>
+      )}
     </ScrollView>
   );
 }
@@ -282,6 +287,7 @@ const styles = StyleSheet.create({
   cardLine: { color: '#98989F', fontSize: 15, lineHeight: 21 },
   cardFine: { color: '#8E8E93', fontSize: 13, lineHeight: 18, marginTop: 12 },
   note: { color: '#8E8E93', fontSize: 13, lineHeight: 18, marginTop: 10, marginHorizontal: 4 },
+  changeGoal: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', marginTop: 18 },
   recentRow: { flexDirection: 'row', gap: 14, marginTop: 12 },
   recentItem: { width: 76, alignItems: 'center', gap: 6 },
   recentLabel: { color: color.textPrimary, fontSize: 12, fontWeight: '600', textAlign: 'center' },

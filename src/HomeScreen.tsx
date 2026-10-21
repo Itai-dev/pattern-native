@@ -123,6 +123,10 @@ export interface HomeScreenProps {
   goal: RecoveryGoal | null;
   /** saved through App, which keeps the report's text in step */
   onGoalChange: (g: RecoveryGoal) => void;
+  /** where they stand on the roadmap, one line (coach.ts) */
+  roadmapLine?: string | null;
+  /** the roadmap and achievements sheet */
+  onOpenRoadmap?: () => void;
   onLog: () => void;
   /** the day detail — where editing, deleting and events live */
   onOpenDay: (dateIso: string) => void;
@@ -166,7 +170,7 @@ export interface HomeScreenProps {
 }
 
 export default function HomeScreen({
-  entries, goal, onGoalChange, onLog, onOpenDay, onAddInfo,
+  entries, goal, onGoalChange, roadmapLine, onOpenRoadmap, onLog, onOpenDay, onAddInfo,
   onOpenReminders, healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
@@ -329,6 +333,7 @@ export default function HomeScreen({
       /* the goal header (GOAL HEADER, RecoveryCards.tsx) stands above
          the card, inside ActivityCard, so the two can never come apart */
       <ActivityCard hero={hero} guidance={guidance} capacity={capacity}
+        roadmapLine={roadmapLine} onRoadmap={onOpenRoadmap}
         onEdit={() => setEditingGoal(true)} onCheckIn={onLog} />
     ) : null,
     hero: (
