@@ -253,3 +253,10 @@ non-goals and GROWTH.md.
 Build: achievements and roadmap are JS and SQLite only, so they ship over
 the air in Phase 1. Thresholds (stage lengths, "on plan" count, totals)
 go in `src/thresholds.ts`.
+
+**Medal materials (decided 21 Oct):** one material per kind, no rank —
+polished steel (roadmap, circle), frosted glass (pacing, hexagon), cut
+crystal (finding out, gem), dark titanium (over time, circle). Rejected:
+bronze → diamond tiers (a rank makes pacing look worth less, and warm
+metals put hue on screen) and pain-ramp gradients (a blue medal reads as
+a pain level). Never a square.
