@@ -336,6 +336,7 @@ export default function HomeScreen({
          the card, inside ActivityCard, so the two can never come apart */
       <ActivityCard hero={hero} guidance={guidance} capacity={capacity}
         roadmapLine={roadmapLine} onRoadmap={onOpenRoadmap}
+        activity={goal ? goal.activity : null}
         onEdit={() => setEditingGoal(true)} onCheckIn={onLog} />
     ) : null,
     hero: (
@@ -361,7 +362,7 @@ export default function HomeScreen({
           {/* the latest check-in's time, as a fact beside the name
               rather than as the name — the tap opens the day, which is
               what the chevron promises */}
-          <CardHeader icon="today" label="Today" chevron
+          <CardHeader icon="calendar" label="Today" chevron
             meta={latest ? 'Last check-in ' + fmtClock(latest.h) : undefined} />
 
           {/* THE NUMBER LEADS, THE SQUARE SITS WHERE HEALTH PUTS ITS
@@ -456,7 +457,7 @@ export default function HomeScreen({
           accessibilityLabel="No check-ins yet today. Check in."
           accessibilityHint="Records how your pain is right now"
         >
-          <CardHeader icon="time" label="Check-in" meta={guidance.checkIn ? 'Due now' : undefined} />
+          <CardHeader icon="clock.fill" label="Check-in" meta={guidance.checkIn ? 'Due now' : undefined} />
           <Text style={[summaryCard.question, styles.question]} allowFontScaling maxFontSizeMultiplier={1.3}>
             No check-ins yet today
           </Text>
@@ -488,7 +489,7 @@ export default function HomeScreen({
           and clears itself the day after. */}
       {apptSoon && (
         <View style={summaryCard.box}>
-          <CardHeader icon="document-text"
+          <CardHeader icon="doc.text.fill"
             label={appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             The PDF of the last three months is ready whenever you want it —
@@ -536,7 +537,7 @@ export default function HomeScreen({
           and goes nowhere else. */}
       {ahead && (
         <View style={summaryCard.box}>
-          <CardHeader icon="calendar" label={(ahead.when === 'today' ? 'Today at ' : 'Tomorrow at ')
+          <CardHeader icon="calendar.badge.clock" label={(ahead.when === 'today' ? 'Today at ' : 'Tomorrow at ')
             + fmtClock(ahead.event.h) + ': ' + ahead.event.title + ', ' + ahead.event.minutes + ' min'} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             <Num>{aheadBody(ahead)}</Num>
@@ -593,7 +594,7 @@ export default function HomeScreen({
       {/* ── the reminder offer ────────────────────────────── */}
       {offer === 'reminder' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="notifications" label={showActivity ? 'Want a morning reminder?' : 'Want a daily reminder?'} />
+          <CardHeader icon="bell.fill" label={showActivity ? 'Want a morning reminder?' : 'Want a daily reminder?'} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             {showActivity
               ? 'Your activity card learns from a check-in on the morning of a session and the morning after. '
@@ -642,7 +643,7 @@ export default function HomeScreen({
       {/* ── Apple Health, offered once ────────────────────── */}
       {offer === 'health' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="heart" label="Some of this can arrive on its own" />
+          <CardHeader icon="heart.fill" label="Some of this can arrive on its own" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             Connect Apple Health, and last night’s sleep and today’s activity
             sit beside your check-ins without being asked for. You choose what
@@ -682,7 +683,7 @@ export default function HomeScreen({
           No number about the pain, only a count of days at risk. */}
       {offer === 'copy' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="folder" label="A reinstall would start this record over" />
+          <CardHeader icon="folder.fill" label="A reinstall would start this record over" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             <Num>{(lastCopy
               ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' after your last saved copy.'

@@ -57,7 +57,6 @@ import Animated, {
   withRepeat, withSpring, withTiming,
 } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { fmtDay } from './DayScreen';
 import Slider from './Slider';
@@ -65,6 +64,7 @@ import SquarePicker, { PREF_SQUARE_PICKER } from './SquarePicker';
 import PainShape from './PainShape';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
+import Icon, { IconName } from './Icon';
 import { healthNowHint } from './health/context';
 import { HealthDay } from './health/types';
 import { track, trackCheckin } from './analytics';
@@ -103,8 +103,8 @@ const WHEN_PAST: Record<TimeBandKey, string> = {
   morning: 'that morning', afternoon: 'that afternoon', evening: 'that evening', night: 'that night',
 };
 /** white glyphs, never a hue: the time of day is not a pain value */
-const WHEN_ICON: Record<TimeBandKey, React.ComponentProps<typeof Ionicons>['name']> = {
-  morning: 'partly-sunny', afternoon: 'sunny', evening: 'cloudy-night', night: 'moon',
+const WHEN_ICON: Record<TimeBandKey, IconName> = {
+  morning: 'sun.haze.fill', afternoon: 'sun.max.fill', evening: 'moon.stars.fill', night: 'moon.fill',
 };
 /** the pill's ink — a hair under white, as the mockup sets it, so the
  *  context reads as a label and not as a control */
@@ -387,7 +387,7 @@ export default function CheckinScreen({
           accessible
           accessibilityLabel={context.replace(' · ', ', ')}
         >
-          <Ionicons name={WHEN_ICON[band]} size={14} color={PILL_INK} />
+          <Icon name={WHEN_ICON[band]} size={14} color={PILL_INK} />
           <Text style={styles.pillText} numberOfLines={1} maxFontSizeMultiplier={1.4}>
             {context}
           </Text>

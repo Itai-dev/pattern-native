@@ -39,6 +39,7 @@ import { capitalise } from './health/workoutNames';
 import { CAPACITY_HARDER_POINTS } from './thresholds';
 import { color, font, radius, size } from './theme';
 import { BigValue, CardHeader, Chevron, Num, ROUNDED, card as summaryCard, summary } from './SummaryCard';
+import { activityIcon } from './Icon';
 
 /** the choices for a weekly target — shared with onboarding */
 export const WEEKLY_CHOICES = [1, 2, 3, 4, 5];
@@ -75,7 +76,7 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
   const card = flush ? [styles.card, styles.flush] : summaryCard.box;
   const head = flush
     ? <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>Your goal</Text>
-    : <CardHeader icon="flag" label="Your goal" />;
+    : <CardHeader icon="flag.fill" label="Your goal" />;
   const title = flush ? styles.title : [summaryCard.question, styles.question];
 
   if (step === 'often' && picked) {
@@ -261,7 +262,7 @@ function splitLoad(load: string): { prefix?: string; minutes: string; effort?: s
  * sessions have shown. `hero` is null without an answered goal; the
  * card still speaks when there are sessions to read.
  */
-export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, roadmapLine, onRoadmap }: {
+export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, roadmapLine, onRoadmap, activity }: {
   hero: RecoveryHero | null;
   guidance: DailyGuidance;
   capacity: CapacityView | null;
@@ -271,6 +272,8 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
    *  and the goal itself is changed from there or from Profile */
   roadmapLine?: string | null;
   onRoadmap?: () => void;
+  /** the goal's activity, for the card's figure */
+  activity?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const detail = !!capacity && (capacity.insights.length > 0 || !!capacity.collecting);
@@ -281,7 +284,7 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
         ? <GoalHeader hero={hero} onPress={onRoadmap} roadmapLine={roadmapLine} />
         : <GoalHeader hero={hero} onPress={onEdit} />)}
       <View style={summaryCard.box}>
-        <CardHeader icon="walk" label="Your activity" meta={load ? load.effort : undefined} />
+        <CardHeader icon={activityIcon(activity)} label="Your activity" meta={load ? load.effort : undefined} />
 
         {load ? (
           /* WITH A NUMBER: the minutes first, as Health leads with the

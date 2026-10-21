@@ -102,6 +102,10 @@ export const FALLBACK = {
   'hand.raised.fill': 'hand-left',
   'list.bullet': 'list',
   'figure.stand': 'body',
+  'sun.haze.fill': 'partly-sunny',
+  'moon.stars.fill': 'cloudy-night',
+  'bell.badge.fill': 'notifications',
+  'ellipsis.circle.fill': 'ellipsis-horizontal',
 } as const satisfies Record<string, keyof typeof Ionicons.glyphMap>;
 
 export type IconName = keyof typeof FALLBACK;
@@ -121,4 +125,14 @@ export default function Icon({ name, size = 18, color = '#FFFFFF', weight = 'sem
     <SYMBOL name={name} size={size} tintColor={color} type="monochrome" weight={weight}
       resizeMode="scaleAspectFit" fallback={fallback} />
   );
+}
+
+/** the goal's activity as its SF figure — the same one Health shows */
+const ACTIVITY: Record<string, IconName> = {
+  running: 'figure.run', walking: 'figure.walk', cycling: 'figure.outdoor.cycle',
+  swimming: 'figure.pool.swim', 'strength training': 'figure.strengthtraining.traditional',
+  pilates: 'figure.pilates',
+};
+export function activityIcon(activity: string | null | undefined): IconName {
+  return (activity && ACTIVITY[activity]) || 'figure.mixed.cardio';
 }

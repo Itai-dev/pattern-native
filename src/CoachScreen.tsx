@@ -14,7 +14,7 @@
  */
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon, { activityIcon } from './Icon';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import Medal from './Medal';
@@ -31,11 +31,6 @@ export function shortDate(iso: string): string {
   const [, m, d] = iso.split('-').map(Number);
   return d + ' ' + MONTHS[m - 1];
 }
-
-const ACTIVITY_ICON: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
-  running: 'run', walking: 'walk', cycling: 'bike', swimming: 'swim',
-  'strength training': 'dumbbell', pilates: 'yoga',
-};
 
 const SECTIONS: { kind: MedalKind; title: string; aside?: string }[] = [
   { kind: 'roadmap', title: 'On your roadmap' },
@@ -67,7 +62,7 @@ export default function CoachScreen({ view, activity, onClose, onSetGoal, start 
         {back ? (
           <Press onPress={() => setPage('roadmap')} style={styles.navBack} hitSlop={10}
             accessibilityRole="button" accessibilityLabel="Back to roadmap">
-            <Ionicons name="chevron-back" size={22} color={color.tint} />
+            <Icon name="chevron.left" size={20} color={color.tint} weight="bold" />
             <Text style={styles.navBtnText}>Roadmap</Text>
           </Press>
         ) : <View style={styles.navSpacer} />}
@@ -114,10 +109,10 @@ function RoadmapPage({ view, activity, onAchievements, onChangeGoal }: {
       <Press onPress={onAchievements} style={[styles.card, { marginTop: 22 }]}
         accessibilityRole="button" accessibilityLabel={'Achievements, ' + earned.length + ' earned'}>
         <View style={styles.head}>
-          <Ionicons name="medal" size={18} color={color.textPrimary} />
+          <Icon name="medal.fill" size={18} color={color.textPrimary} />
           <Text style={styles.headLabel}>Achievements</Text>
           <Text style={styles.headMeta}>{earned.length} earned</Text>
-          <Ionicons name="chevron-forward" size={16} color="#636366" />
+          <Icon name="chevron.right" size={14} color="#636366" weight="bold" />
         </View>
         {recent.length > 0 ? (
           <View style={styles.recentRow}>
@@ -154,9 +149,9 @@ function StageRow({ s, last, activity, next }: {
       <View style={styles.rail}>
         <View style={[styles.node, { width: node, height: node, borderRadius: node / 2 },
           done || now ? styles.nodeOn : styles.nodeOff]}>
-          {done && <Ionicons name="checkmark-sharp" size={16} color="#000000" />}
-          {now && <MaterialCommunityIcons name={(activity && ACTIVITY_ICON[activity]) || 'run'} size={18} color="#000000" />}
-          {!done && !now && s.goal && <Ionicons name="flag" size={13} color="#8E8E93" />}
+          {done && <Icon name="checkmark" size={14} color="#000000" weight="bold" />}
+          {now && <Icon name={activityIcon(activity)} size={18} color="#000000" />}
+          {!done && !now && s.goal && <Icon name="flag.fill" size={13} color="#8E8E93" />}
         </View>
         {!last && <View style={[styles.line, { backgroundColor: done ? '#FFFFFF' : '#3A3A3C' }]} />}
       </View>

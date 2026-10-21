@@ -23,6 +23,7 @@ import React from 'react';
 import { Platform, Text, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { Achievement, MedalKind } from './coach';
+import Icon, { IconName, SF_SYMBOLS_AVAILABLE, activityIcon } from './Icon';
 
 type SkiaLib = typeof import('@shopify/react-native-skia');
 
@@ -111,6 +112,14 @@ function Glyph({ a, size, ink, activity }: { a: Achievement; size: number; ink: 
     );
   }
   const g = size * 0.42;
+  const SF: Record<string, IconName> = {
+    flag: 'flag.fill', hold: 'pause.fill', ease: 'arrow.uturn.backward', plan: 'checkmark',
+    report: 'doc.text.fill', answer: 'hourglass', weeks: 'calendar',
+  };
+  if (SF_SYMBOLS_AVAILABLE) {
+    const name = a.icon === 'activity' ? activityIcon(activity) : SF[a.icon];
+    if (name) return <Icon name={name} size={g} color={ink} weight="bold" />;
+  }
   if (a.icon === 'activity') {
     return <MaterialCommunityIcons name={(activity && ACTIVITY_ICON[activity]) || 'run'} size={g} color={ink} />;
   }

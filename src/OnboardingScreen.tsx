@@ -59,7 +59,6 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import DiagnosisStep, { emptyDraft, draftToRaw } from './DiagnosisStep';
@@ -69,7 +68,7 @@ import { GOAL_ACTIVITIES, GoalActivity, RecoveryGoal } from './recovery';
 import { WEEKLY_CHOICES, makeGoal, skippedGoal } from './RecoveryCards';
 import { capitalise } from './health/workoutNames';
 import { DEFAULT_SLOTS, ensurePermission } from './reminders';
-import Icon from './Icon';
+import Icon, { activityIcon } from './Icon';
 import type { HealthCategory } from './health/types';
 import { fmtClock } from './clock';
 import { color, font, size } from './theme';
@@ -149,19 +148,9 @@ const HAIRLINE = '#38383A';
 const SEG_ON = '#636366';
 const SWITCH_OFF = '#39393D';
 
-/* an icon per activity — Ionicons' filled set, white, because nothing
-   here is a pain value. Ionicons has no runner: its walking figure is
-   mid-stride, so it is running's, and walking takes the footsteps. */
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-const GOAL_ICON: Record<GoalActivity, IconName> = {
-  running: 'walk',
-  'strength training': 'barbell',
-  swimming: 'water',
-  cycling: 'bicycle',
-  walking: 'footsteps',
-  pilates: 'body',
-  other: 'ellipsis-horizontal',
-};
+/* an icon per activity — Health's own figure for it (Icon.tsx,
+   activityIcon), white, because nothing here is a pain value. On a
+   binary without SF Symbols each falls back to its nearest Ionicon. */
 const goalName = (a: GoalActivity) => (a === 'other' ? 'Something else' : capitalise(a));
 
 /* THE PLACES, in the record's own vocabulary (model.ts LOC_NAMES) — no
@@ -415,7 +404,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
           accessibilityLabel={goalName(a)}
           style={[styles.tile, on && styles.tileOn]}
         >
-          <Ionicons name={GOAL_ICON[a]} size={24} color={ink} />
+          <Icon name={a === 'other' ? 'ellipsis.circle.fill' : activityIcon(a)} size={24} color={ink} />
           <Text style={[styles.tileText, { color: ink }]} numberOfLines={2}
             allowFontScaling maxFontSizeMultiplier={1.3}>
             {goalName(a)}
@@ -460,7 +449,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
             accessibilityLabel="Back"
             accessibilityHint="The previous screen, with your answers as you left them"
           >
-            <Ionicons name="chevron-back" size={28} color={color.textPrimary} style={styles.backText} />
+            <Icon name="chevron.left" size={22} color={color.textPrimary} weight="bold" />
           </Press>
         )}
         {step > PROMISE && (
@@ -513,7 +502,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                 read nicer protects nobody. One grouped card, two rows. */}
             <View style={styles.group}>
               <View style={styles.groupRow}>
-                <Ionicons name="warning" size={22} color={color.textPrimary} style={styles.groupIcon} />
+                <View style={styles.groupIcon}><Icon name="exclamationmark.triangle.fill" size={22} /></View>
                 <View style={styles.groupText}>
                   <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
                     Know when not to log
@@ -532,7 +521,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                   the encrypted account ships, the shipped promise is the
                   absolute one, and it is not softened ahead of the code */}
               <View style={styles.groupRow}>
-                <Ionicons name="lock-closed" size={22} color={color.textPrimary} style={styles.groupIcon} />
+                <View style={styles.groupIcon}><Icon name="lock.fill" size={22} /></View>
                 <View style={styles.groupText}>
                   <Text style={styles.cardTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
                     Your record stays on this iPhone
@@ -687,7 +676,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
             {lede('How you feel the morning after a session is what decides the next one. A reminder can ask once each morning, and it never mentions a missed day.')}
             <View style={styles.group}>
               <View style={styles.switchRow}>
-                <Ionicons name="notifications" size={24} color={color.textPrimary} />
+                <Icon name="bell.fill" size={22} />
                 <Text style={styles.switchLabel} allowFontScaling maxFontSizeMultiplier={1.3}>
                   Morning reminder
                 </Text>
