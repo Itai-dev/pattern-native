@@ -17,7 +17,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import HomeScreen from './src/HomeScreen';
 import Icon from './src/Icon';
-import { RowChevron, RowIcon, settings } from './src/SettingsList';
+import { RowChevron, RowIcon, list, settings } from './src/SettingsList';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DayScreen, { fmtDay } from './src/DayScreen';
@@ -1234,16 +1234,21 @@ export default function App() {
                   Settings' own first screen and the Coach sheet carry it */}
               <Text style={settings.largeTitle} accessibilityRole="header"
                 allowFontScaling maxFontSizeMultiplier={1.3}>Profile</Text>
-              <GoalRow goal={currentGoal(recoveryGoal, activity)} today={todayISO()} onChange={saveGoal} />
-              {/* THE WAY IN FOR EVERYONE (21 Oct 2026). Today reaches the
-                  roadmap through the goal header, which only exists once
-                  there is a goal — so without one, achievements already
-                  earned by sessions and reports had no door at all. This
-                  is that door, under the goal it belongs to. Profile
-                  closes first and the coach opens from its onDismiss:
-                  iOS will not present a second sheet while this one is
-                  up, the same sequencing as every other sheet swap. */}
-              <View style={[settings.group, styles.afterGoal]}>
+              {/* THE GOAL AND ITS ROADMAP, ONE GROUP (the calm pass,
+                  21 Oct 2026). They were a bordered card and a separate
+                  group under it: two shapes for one subject. The goal is
+                  the group's first cell now, and the roadmap the row
+                  under it. */}
+              <View style={settings.group}>
+                <GoalRow goal={currentGoal(recoveryGoal, activity)} today={todayISO()} onChange={saveGoal} />
+                {/* THE WAY IN FOR EVERYONE (21 Oct 2026). Today reaches the
+                    roadmap through the goal header, which only exists once
+                    there is a goal — so without one, achievements already
+                    earned by sessions and reports had no door at all. This
+                    is that door, under the goal it belongs to. Profile
+                    closes first and the coach opens from its onDismiss:
+                    iOS will not present a second sheet while this one is
+                    up, the same sequencing as every other sheet swap. */}
                 <Pressable
                   onPress={() => {
                     afterDismiss.current = () => setCoachOpen(coach.roadmap ? 'roadmap' : 'achievements');
@@ -1255,7 +1260,7 @@ export default function App() {
                   accessibilityLabel={'Roadmap and achievements' + (earnedCount ? ', ' + earnedCount + ' earned' : '')}
                 >
                   <RowIcon name="medal.fill" />
-                  <View style={settings.rowMain}>
+                  <View style={[settings.rowMain, settings.rowRuleTop]}>
                     <Text style={settings.rowLabel}>Roadmap & achievements</Text>
                     {/* a count of things done, never of pain — and
                         nothing at all before the first, so an empty
@@ -1332,7 +1337,7 @@ export default function App() {
                   accessibilityState={{ checked: squarePicker }}
                   accessibilityLabel="Choose pain with squares instead of a slider">
                   <RowIcon name="slider.horizontal.3" />
-                  <View style={[settings.rowMain, settings.rowLine, settings.rowLineLast]}>
+                  <View style={[settings.rowMain, settings.rowLine]}>
                     <Text style={settings.rowLabel}>Pick pain with squares</Text>
                     <Switch
                       value={squarePicker}
@@ -1344,10 +1349,35 @@ export default function App() {
                     />
                   </View>
                 </View>
+                {/* THE THEME IS HOW CHECK-INS LOOK (the calm pass, 21 Oct
+                    2026), so it sits with the lock-screen number and the
+                    picker, not under About, where it was filed beside
+                    the version string. */}
+                <Pressable
+                  onPress={() => setAppearance(true)}
+                  style={settings.row}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Colour theme, ' + themeName}
+                >
+                  {/* white like every other glyph. It used to wear the
+                      chosen palette, but a hue on a settings row is
+                      colour as decoration; the palette itself is one tap
+                      in, drawn as its real ramp. */}
+                  <RowIcon name="paintpalette.fill" />
+                  <View style={[settings.rowMain, settings.rowLine, settings.rowLineLast]}>
+                    <Text style={settings.rowLabel}>Colour theme</Text>
+                    <Text style={settings.rowValue}>{themeName}</Text>
+                    <RowChevron />
+                  </View>
+                </Pressable>
               </View>
+              {/* one sentence, and the calendar's half only where the
+                  calendar row is drawn — a footer about a row that is not
+                  there is a promise about nothing */}
               <Text style={settings.groupFooter}>
-                Calendar titles are read on this iPhone and never stored or sent.
-                Off, the lock screen shows only that you checked in.
+                {calendarAvailable()
+                  ? 'Calendar titles stay on this iPhone, and with the number off the lock screen shows only that you checked in.'
+                  : 'With the number off, the lock screen shows only that you checked in.'}
               </Text>
 
               {/* Only offered where the binary can actually do it — a row
@@ -1409,7 +1439,9 @@ export default function App() {
                   <RowIcon name="doc.text.fill" />
                   <View style={[settings.rowMain, settings.rowLine]}>
                     <Text style={settings.rowLabel}>Background</Text>
-                    <Text style={settings.rowValue}>{db.getBackground() ? 'Written' : ''}</Text>
+                    {/* "Not set", as Diagnosis and the appointment say it —
+                        an empty value read as a row still loading */}
+                    <Text style={settings.rowValue}>{db.getBackground() ? 'Written' : 'Not set'}</Text>
                     <RowChevron />
                   </View>
                 </Pressable>
@@ -1458,10 +1490,16 @@ export default function App() {
                     and a chevron said "opens something" */}
                 <View style={settings.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: analyticsOn }}
-                  accessibilityLabel="Share anonymous usage counts">
+                  accessibilityLabel="Share anonymous usage counts"
+                  accessibilityHint="Counts that something happened, never what you recorded">
                   <RowIcon name="chart.bar.fill" />
                   <View style={[settings.rowMain, settings.rowLine]}>
-                    <Text style={settings.rowLabel}>Anonymous usage counts</Text>
+                    {/* what the counts are not, under the switch it
+                        qualifies rather than in the copy's footer */}
+                    <View style={styles.rowStack}>
+                      <Text style={settings.rowLabel}>Anonymous usage counts</Text>
+                      <Text style={styles.rowSub}>That something happened, never what you recorded</Text>
+                    </View>
                     <Switch
                       value={analyticsOn}
                       onValueChange={(on) => { setAnalyticsEnabled(on); setAnalyticsOn(on); }}
@@ -1485,35 +1523,20 @@ export default function App() {
               {/* It opens with when the record last had a home other than
                   this phone, because that is the sentence that decides
                   whether the rest matters today. The reinstall sentence
-                  stays: a tester lost a record to exactly that. */}
+                  stays: a tester lost a record to exactly that. The
+                  usage counts' sentence moved under the switch's own
+                  label (the calm pass, 21 Oct 2026), so the footer is
+                  about the copy and nothing else. */}
               <Text style={settings.groupFooter}>
                 <Num>{(lastCopy
                   ? 'Last copy saved ' + fmtDay(lastCopy.on) + ', holding '
                     + lastCopy.days + (lastCopy.days === 1 ? ' day. ' : ' days. ')
                   : 'No copy saved yet. ')
-                  + 'Reinstalling Pattern starts it empty; a copy you saved is the only way back. '
-                  + 'Usage counts say that something happened, never what you recorded.'}</Num>
+                  + 'A reinstall starts empty, and a saved copy is the way back.'}</Num>
               </Text>
 
               <Text style={settings.groupTitle}>About</Text>
               <View style={settings.group}>
-                <Pressable
-                  onPress={() => setAppearance(true)}
-                  style={settings.row}
-                  accessibilityRole="button"
-                  accessibilityLabel={'Colour theme, ' + themeName}
-                >
-                  {/* white like every other glyph. It used to wear the
-                      chosen palette, but a hue on a settings row is
-                      colour as decoration; the palette itself is one tap
-                      in, drawn as its real ramp. */}
-                  <RowIcon name="paintpalette.fill" />
-                  <View style={[settings.rowMain, settings.rowLine]}>
-                    <Text style={settings.rowLabel}>Colour theme</Text>
-                    <Text style={settings.rowValue}>{themeName}</Text>
-                    <RowChevron />
-                  </View>
-                </Pressable>
                 <Pressable
                   onPress={() => setAbout(true)}
                   style={settings.row}
@@ -1651,9 +1674,10 @@ const styles = StyleSheet.create({
   /* room at the bottom so the last content clears the floating bar, and
      a little at the top so a page never begins hard against its heading */
   page: { paddingTop: 4, paddingBottom: 140 },
-  /* the goal card has no margin of its own in Profile (it is drawn flush
-     for the sheet to place); the roadmap row is its group, a step below */
-  afterGoal: { marginTop: 10 },
+  /* a Profile row with a second grey line under its label — the one
+     place a row says what it is not, beside the switch it qualifies */
+  rowStack: { flex: 1, paddingVertical: 10, gap: 2 },
+  rowSub: { color: list.tertiary, fontSize: font.footnote, lineHeight: 18 },
   /* the one coloured word in Profile: the app's soft destructive text,
      not the pain ramp and not iOS's alarm red (theme.ts) */
   danger: { color: color.danger, fontSize: font.body },

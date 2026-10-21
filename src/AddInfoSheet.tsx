@@ -145,14 +145,33 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
       collapseSidedLocs(l.loc || []).forEach((id) => { locCount[id] = (locCount[id] || 0) + 1; });
       (l.q || []).forEach((id) => { qCount[id] = (qCount[id] || 0) + 1; });
     }));
+    /* before any history, the places named at onboarding are the usual
+       ones, so they lead — a tie at zero would otherwise fall back to
+       the list's own order and bury them */
+    const usual = prev.fromHistory ? [] : prev.ids;
+    usual.forEach((id) => { locCount[id] = (locCount[id] || 0) + 0.5; });
     const rank = (ids: string[], counts: Record<string, number>) =>
       ids.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
     return { loc: rank(LOC_CHIP_IDS, locCount), q: rank(QUALITYIDS, qCount) };
   }, []);
 
-  /* collapsed words: the six you use most, plus anything already chosen */
-  const visibleWords = allWords ? ranked.q
-    : ranked.q.slice(0, 6).concat(quality.filter((id) => ranked.q.slice(0, 6).indexOf(id) < 0));
+  /* collapsed: the six you use most, plus anything already chosen. The
+     words always worked this way; the places did not, and fourteen
+     place chips before the first question was answered made this the
+     densest block in the app (the calm pass, 21 Oct 2026). Expanded
+     keeps the collapsed chips where they were and adds the rest after
+     them, so opening the list never moves a chip under a finger. */
+  const topSix = (ids: string[], chosen: string[]) =>
+    ids.slice(0, 6).concat(chosen.filter((id) => ids.indexOf(id) >= 6));
+  /* the extras are the places the check-in already carried when the
+     sheet opened, not the live selection: a chip picked from the full
+     list must not jump up beside the six the moment it is tapped */
+  const [openedLoc] = useState(loc);
+  const shownPlaces = topSix(ranked.loc, openedLoc);
+  const visiblePlaces = locExpanded
+    ? shownPlaces.concat(ranked.loc.filter((id) => shownPlaces.indexOf(id) < 0))
+    : shownPlaces;
+  const visibleWords = allWords ? ranked.q : topSix(ranked.q, quality);
 
   const save = () => {
     if (moment) {
@@ -385,11 +404,12 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           {moment && (
             <>
               {/* ── where ─────────────────────────────────────
-                  The main places, your usual ones first. "Show every
-                  place" ADDS the sided vocabulary below in anatomical
-                  sections; the main chips stay put, because more
-                  precision must never rearrange what is already on
-                  screen. Both levels share one selection. */}
+                  Six main places, your usual ones first. "Show every
+                  place" ADDS the other main places after them and the
+                  sided vocabulary below in anatomical sections; the six
+                  stay put, because more precision must never rearrange
+                  what is already on screen. Both levels share one
+                  selection. */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
                   Where in your body?
@@ -413,7 +433,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                   </Press>
                 )}
                 <View style={styles.chipCloud}>
-                  {chipRow(ranked.loc, LOC_NAMES, loc, setLoc)}
+                  {chipRow(visiblePlaces, LOC_NAMES, loc, setLoc)}
                 </View>
                 {!locExpanded ? (
                   <Press
@@ -500,10 +520,10 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
               style={[styles.input, styles.noteInput]}
               accessibilityLabel={isToday ? 'Note about today' : 'Note about this day'}
             />
+            {/* one sentence, down from three (the calm pass, 21 Oct
+                2026); the three promises in it are the ones that matter */}
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              One note per day, in your words. Kept on this iPhone with the rest of
-              your record. Never analysed — it goes into the PDF only if you say so
-              when you share.
+              Stays on this iPhone, is never analysed, and goes into the PDF only if you choose.
             </Text>
           </View>
 
@@ -526,9 +546,12 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
             </Press>
           )}
 
+          {/* one sentence, down from two (the calm pass, 21 Oct 2026),
+              keeping both promises: a pain-only entry is never
+              incomplete, and what is marked here is an attribution, never
+              a finding (AGENTS.md) */}
           <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            All of this is optional. A check-in with the number alone is complete;
-            what you add here is shown back as what you marked, never read as a cause.
+            All optional — a check-in with the number alone is complete, and what you mark is never read as a cause.
           </Text>
         </ScrollView>
       )}
@@ -571,7 +594,7 @@ const styles = StyleSheet.create({
   /* each section opens on a question — the check-in's question weight,
      a size down, since this sheet asks several */
   sectionTitle: {
-    color: color.textPrimary, fontSize: 20, fontWeight: '700', letterSpacing: -0.3, lineHeight: 25,
+    color: color.textPrimary, fontSize: font.title3, fontWeight: '700', letterSpacing: -0.3, lineHeight: 25,
   },
   subTitle: {
     color: summary.secondary, fontSize: font.footnote, fontWeight: '600',

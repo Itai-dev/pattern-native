@@ -86,10 +86,13 @@ export const settings = StyleSheet.create({
     borderRadius: list.radius, borderCurve: 'continuous', backgroundColor: list.surface,
     overflow: 'hidden', marginBottom: 24,
   },
-  /* the mockup's LABEL: 12 / 600, +4%, grey — a heading for the group,
-     quieter than anything in it */
+  /* the mockup's LABEL: 600, +4%, grey — a heading for the group,
+     quieter than anything in it. 13, the footnote size its footers
+     take (the calm pass, 21 Oct 2026): a 12 here was the one size on
+     the sheet that appeared nowhere else, and two small sizes a point
+     apart read as a mistake rather than a hierarchy. */
   groupTitle: {
-    color: list.secondary, fontSize: 12, fontWeight: '600',
+    color: list.secondary, fontSize: font.footnote, fontWeight: '600',
     textTransform: 'uppercase', letterSpacing: 0.5,
     marginBottom: 7, marginLeft: 16,
   },

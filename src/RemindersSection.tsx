@@ -151,7 +151,10 @@ export default function RemindersSection() {
             accessibilityState={{ expanded: customising }}
             accessibilityLabel="Customise times"
           >
-            <Text style={styles.customise}>{customising ? 'Done' : 'Customise'}</Text>
+            {/* "Hide", not "Done", open (the calm pass, 21 Oct 2026):
+                this row sits right under the sheet's own Done, and two
+                Dones a few points apart meant two different things */}
+            <Text style={styles.customise}>{customising ? 'Hide' : 'Customise'}</Text>
           </Pressable>
           <Switch
             value={anyOn}
@@ -170,11 +173,13 @@ export default function RemindersSection() {
           <View style={[settings.rowMain, settings.rowRuleTop, styles.subMain]}>
             <View style={{ flex: 1 }}>
               <Text style={settings.rowLabel}>Follow Apple Health</Text>
+              {/* two sentences, down from five lines (the calm pass,
+                  21 Oct 2026): what moves and why, and how to tell a
+                  learned time. The full list of prompts is the status
+                  line's job, which names what fires today. */}
               <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Morning after you usually wake, evening before you usually sleep, a prompt
-                after the workouts and doses Health sees you log, before and after what your
-                calendar reads as exertion — and your workout budget before a usual workout,
-                once your record has one. Times marked * were learned.
+                Times follow when you usually wake and sleep, and your workouts, doses and
+                calendar. Times marked * were learned.
               </Text>
             </View>
             <Switch
@@ -215,7 +220,7 @@ export default function RemindersSection() {
           does" line in Profile sits with the thing it qualifies. Its
           times are numbers, so they are rounded. */}
       <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
-        <Num>{status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere, and a slot stays quiet on a day you have already checked in around then.'}</Num>
+        <Num>{status || 'Scheduled on this phone, and quiet on a day you have already checked in around then.'}</Num>
       </Text>
 
       {/* the iPhone's own wheel, in a bottom card — Done is the only button,

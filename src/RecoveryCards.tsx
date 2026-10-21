@@ -48,7 +48,7 @@ import {
 import { CapacityView } from './health/capacity';
 import { capitalise } from './health/workoutNames';
 import { CAPACITY_HARDER_POINTS } from './thresholds';
-import { color, font, radius, size } from './theme';
+import { color, font, size } from './theme';
 import { BigValue, CardHeader, Chevron, Num, ROUNDED, card as summaryCard, summary } from './SummaryCard';
 import { activityIcon } from './Icon';
 
@@ -407,15 +407,19 @@ export const ACTIVITY_NOTE =
   + 'plan comes first.';
 
 const styles = StyleSheet.create({
+  /* the goal's card in Profile, drawn as a cell of Profile's grouped
+     list (the calm pass, 21 Oct 2026): the list's 16pt corner, its
+     surface and greys, no hairline rim. It was a 26pt bordered card,
+     the one shape on that sheet that matched nothing beside it. */
   card: {
     marginHorizontal: size.pageX, marginTop: 14,
-    borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider, padding: 16,
+    borderRadius: summary.radius, borderCurve: 'continuous', backgroundColor: summary.surface,
+    padding: 16,
   },
   flush: { marginHorizontal: 0, marginTop: 0 },
-  eyebrow: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
-  title: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 24, marginTop: 6 },
-  body: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8 },
+  eyebrow: { color: summary.secondary, fontSize: font.subheadline, fontWeight: '600' },
+  title: { color: summary.text, fontSize: font.body, fontWeight: '600', lineHeight: 24, marginTop: 6 },
+  body: { color: summary.secondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8 },
 
   /* the goal header: the mockup's section title, 22 bold over a 15 grey
      line, on the ground at the cards' edge. 6 above lands it 24 under
