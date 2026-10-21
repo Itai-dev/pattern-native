@@ -79,6 +79,7 @@ export const FALLBACK = {
   'xmark': 'close',
   'plus': 'add',
   'info.circle': 'information-circle-outline',
+  'info.circle.fill': 'information-circle',
   'person.crop.circle.fill': 'person-circle',
   'gearshape.fill': 'settings',
   'square.and.arrow.up': 'share-outline',
