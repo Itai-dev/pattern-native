@@ -555,6 +555,9 @@ export default function App() {
      drops a typed flare (EventSheet requestCloseRef). Null while the
      sheet is not mounted — then there is nothing to lose. */
   const eventClose = useRef<null | (() => void)>(null);
+  /* the check-in's Cancel, for the same swipe — so a flick away is
+     counted as an abandoned check-in exactly as Cancel is */
+  const checkinClose = useRef<null | (() => void)>(null);
   const runAfterDismiss = useCallback(() => {
     const f = afterDismiss.current;
     afterDismiss.current = null;
@@ -1064,11 +1067,13 @@ export default function App() {
           <TabBar tab={tab} onChange={goToTab} onLog={() => setSheet('checkin')} />
         </SafeAreaView>
 
-        {/* a full-screen flow keeps its own ✕ */}
+        {/* a sheet since the October redesign: it rises over Today, and
+            Cancel, a swipe down and the escape gesture all leave */}
         <Modal
           visible={sheet === 'checkin'}
-          animationType="fade"
-          presentationStyle="fullScreen"
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => (checkinClose.current ? checkinClose.current() : closeSheet())}
           onDismiss={runAfterDismiss}
         >
           <CheckinScreen
@@ -1076,6 +1081,7 @@ export default function App() {
             edit={editMoment || undefined}
             onDone={closeSheet}
             onClose={closeSheet}
+            requestCloseRef={checkinClose}
           />
         </Modal>
 
