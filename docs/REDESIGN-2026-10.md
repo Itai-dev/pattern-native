@@ -193,3 +193,30 @@ screen is a pain value. And no rings, which are Health's other signature.
   try/catch (AGENTS.md, additive native modules): binaries without it
   fall back to the nearest `@expo/vector-icons` glyph, which is already
   in every binary. The runtime does not bump.
+
+## Onboarding · 21 Oct
+
+Six screens, then the first check-in. Every step but the first can be
+skipped, and nothing is written until the last screen (as today).
+
+1. **Welcome** — "A record of your pain.", the red-flag card ("Know when
+   not to log") and "Your record stays on this iPhone". Restore link kept.
+2. **Goal** — what you are getting back to (`GOAL_ACTIVITIES`), plus an
+   optional sessions-a-week. Feeds the activity card's goal line.
+3. **Your focus** — NEW. One body part, a side where it has one, and an
+   optional "how long". Produces the label Today and the check-in use
+   ("Right Achilles"). Other places can still be added on any check-in.
+4. **Diagnosis** — the three existing options; "Yes" opens optional chips
+   from `DIAGNOSES`. Skip stays a third state, never a "no".
+5. **Apple Health** — read-only: workouts, sleep, steps. "Not now" is a
+   full-size button of equal weight; without Health, check-ins work and
+   the activity card says it has no sessions to learn from.
+6. **Morning reminder** — one reminder a day, never mentions a missed
+   day; optional after-workout prompt. Ends on "Take your first
+   check-in" or "Later — go to Today".
+
+**Owner's call:** asking for Apple Health in onboarding reverses the
+earlier decision to ask on Today, day two (ask after the app has shown
+its worth). The case for moving it: the redesign leads with the activity
+card, and it is empty without Health. The case against: a permission on
+screen five of a pain app, before one check-in, may read as a grab.
