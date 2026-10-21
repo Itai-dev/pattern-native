@@ -219,8 +219,10 @@ reaches someone who was not already thinking about the app.
 Every item here would raise short-term retention. Each is refused, and the refusal
 is the product.
 
-- **Streaks, badges, completion rings.** They manufacture guilt on missed days,
+- **Streaks, logging badges, completion rings.** They manufacture guilt on missed days,
   and a person in a flare who feels judged deletes the app. Already in non-goals.
+  Achievements for activity and pacing are allowed (21 Oct 2026, AGENTS.md): earned
+  by sessions and choices, never by a pain number, never lost.
 - **A finding before the gate.** The fastest possible retention win is telling
   someone what causes their pain. Doing it before the rule survives its test buys
   a month of engagement and spends the only thing that makes Pattern different.
