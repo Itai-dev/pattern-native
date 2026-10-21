@@ -44,6 +44,7 @@
  * in fixed small steps, and nowhere else.
  */
 import { Entries, logsOf } from '../model';
+import { directionCounts, pairedChange } from './pairedCopy';
 import {
   HEALTH_MIN_DELTA, WORKOUT_AFTER_MAX_MIN, WORKOUT_BEFORE_WINDOW_MIN, WORKOUT_EARLY_MIN_PAIRS,
   WORKOUT_MIN_PAIRS,
@@ -72,6 +73,12 @@ export interface WorkoutAssociation {
   after?: number;
   /** after minus before, rounded to 0.1 — negative is lower after */
   delta?: number;
+  /** how many pairs went each way, present from `observation` up: the
+   *  plainest description of a before/after record there is, and the
+   *  one a person can check against their own memory of the sessions */
+  lower?: number;
+  same?: number;
+  higher?: number;
   from?: string;
   to?: string;
 }
@@ -128,6 +135,7 @@ export function evaluateWorkouts(
   const dates = pairs.map((p) => p.date).sort();
   const full: WorkoutAssociation = {
     ...base, verdict: 'observation', before, after, delta,
+    ...directionCounts(pairs),
     from: dates[0], to: dates[dates.length - 1],
   };
   if (Math.abs(delta) < HEALTH_MIN_DELTA) return fade(full);
@@ -265,10 +273,20 @@ export function workoutCopy(a: WorkoutAssociation): WorkoutCopy | null {
   };
 }
 
-/** the words for an observation whose pairs formed but did not differ */
+/** the words for an observation whose pairs formed but did not differ
+ *  enough to call.
+ *
+ *  SAY WHAT HAPPENED (21 Oct 2026). This read "No meaningful change
+ *  from before swimming to after it, across 10 workouts — that is a
+ *  finding about these sessions, not a verdict on them", beside two
+ *  rows that showed 4.8 and then 4.2. The owner read it on a phone and
+ *  could not tell whether it was ten swims or twenty, or why a visible
+ *  drop was "no change". Now it says the average difference in words,
+ *  how many sessions went each way, and — in observationWhy — why that
+ *  is short of a finding. Nothing here is a claim: the same gate
+ *  (HEALTH_MIN_DELTA) still decides what becomes one. */
 export function workoutObservationCopy(a: WorkoutAssociation): string {
-  return 'No meaningful change from before ' + a.activity + ' to after it, across '
-    + a.pairs + ' workouts — that is a finding about these sessions, not a verdict on them.';
+  return pairedChange('After ' + a.pairs + ' ' + a.activity + ' sessions', a);
 }
 
 /** the "still collecting" row for an activity short of its gate */

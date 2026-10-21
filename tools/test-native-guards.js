@@ -1,7 +1,7 @@
 /**
  * The guard behind AGENTS.md's "additive native module" rule, as a test.
  *
- * Every phone on runtime 1.3.0 takes the same OTA updates, and the
+ * Every phone on runtime 1.4.0 takes the same OTA updates, and the
  * binaries on that runtime span from the day it was cut to today. A
  * native module added AFTER the cut exists only in the newer binaries;
  * a static `import` of it runs at module load, so on an older binary the
@@ -13,7 +13,7 @@
  * Until now the rule lived in a markdown file. This test fails the build
  * on a static import of any native package that was not in the binary
  * when the runtime was cut. The baseline is the dependency list at the
- * commit that set `version` to 1.3.0 (0b097ab); when the runtime is
+ * day `version` went to 1.4.0 (21 Oct 2026, the system tab bar); when the runtime is
  * next bumped — a real native build for everyone — re-cut it to that
  * day's package.json and set BASELINE_RUNTIME to match.
  */
@@ -24,19 +24,42 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 
 /** the runtime this baseline describes — must equal app.json's version */
-const BASELINE_RUNTIME = '1.3.0';
+const BASELINE_RUNTIME = '1.4.0';
 
 /** dependencies present in the binary when the runtime was cut. Anything
  *  native and NOT in this list is younger than some installed binary. */
 const BASELINE_DEPS = [
-  '@expo/ui', '@expo/vector-icons', '@react-native-community/datetimepicker',
-  'expo', 'expo-blur', 'expo-document-picker', 'expo-file-system', 'expo-haptics',
-  'expo-notifications', 'expo-print', 'expo-sharing', 'expo-sqlite', 'expo-status-bar',
-  'expo-updates', 'expo-widgets', 'react', 'react-native', 'react-native-gesture-handler',
-  'react-native-reanimated', 'react-native-safe-area-context',
-  /* not in that package.json but in that binary: reanimated 4's runtime
-     half, installed as its peer */
+  '@bacons/apple-targets',
+  '@expo/ui',
+  '@expo/vector-icons',
+  '@kingstinct/react-native-healthkit',
+  '@react-native-community/datetimepicker',
+  '@shopify/react-native-skia',
+  'expo',
+  'expo-blur',
+  'expo-calendar',
+  'expo-document-picker',
+  'expo-file-system',
+  'expo-glass-effect',
+  'expo-haptics',
+  'expo-notifications',
+  'expo-print',
+  'expo-sharing',
+  'expo-sqlite',
+  'expo-status-bar',
+  'expo-symbols',
+  'expo-updates',
+  'expo-widgets',
+  'react',
+  'react-dom',
+  'react-native',
+  'react-native-bottom-tabs',
+  'react-native-gesture-handler',
+  'react-native-nitro-modules',
+  'react-native-reanimated',
+  'react-native-safe-area-context',
   'react-native-worklets',
+  'thinking-orbs',
 ];
 
 /** post-baseline native packages whose STATIC import is known not to

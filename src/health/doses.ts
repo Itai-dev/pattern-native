@@ -43,6 +43,7 @@ import {
   DOSE_MIN_PAIRS, HEALTH_MIN_DELTA,
 } from '../thresholds';
 import { Verdict } from './engine';
+import { directionCounts, pairedChange } from './pairedCopy';
 import { HealthDay, NormalizedDose } from './types';
 
 /** one lawful dose pair: the check-in before, the first one after */
@@ -65,6 +66,12 @@ export interface DoseAssociation {
   after?: number;
   /** after minus before, rounded to 0.1 — negative is lower after */
   delta?: number;
+  /** how many pairs went each way, present from `observation` up: the
+   *  plainest description of a before/after record there is, and the
+   *  one a person can check against their own memory of the sessions */
+  lower?: number;
+  same?: number;
+  higher?: number;
   from?: string;
   to?: string;
 }
@@ -122,6 +129,7 @@ export function evaluateDoses(
   const dates = pairs.map((p) => p.date).sort();
   const full: DoseAssociation = {
     ...base, verdict: 'observation', before, after, delta,
+    ...directionCounts(pairs),
     from: dates[0], to: dates[dates.length - 1],
   };
   if (Math.abs(delta) < HEALTH_MIN_DELTA) return fade(full);
@@ -276,8 +284,8 @@ export function doseCopy(a: DoseAssociation): DoseCopy | null {
 
 /** the words for an observation whose pairs formed but did not differ */
 export function doseObservationCopy(a: DoseAssociation): string {
-  return 'No meaningful change from before a dose of ' + a.med + ' to after it, across '
-    + a.pairs + ' doses — that is a finding about these doses, not a failure of them.';
+  /* the same plain shape as the workouts' (workouts.ts says why) */
+  return pairedChange('After ' + a.pairs + ' doses of ' + a.med, a);
 }
 
 /** the "still collecting" row for a medication short of its gate */

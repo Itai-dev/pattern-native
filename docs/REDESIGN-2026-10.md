@@ -284,3 +284,101 @@ person who will not connect it is not the person the redesign is for.
 "Not now" stays (pain is the only mandatory answer, and App Review does
 not allow demanding a permission an app can work without), and Today
 still offers it later to anyone who passed.
+
+## The calm pass · 21 Oct
+
+The owner, after Phase 1 and the October re-skin: "still very messy and
+crowded." Each screen was inventoried, and the clutter was mostly saying
+one thing several times: a suggestion in four phrasings, three check-in
+buttons on an empty morning, caveats printed in full where an "(i)" or a
+"Why?" would hold them, and on Patterns, weeks of "not yet" cards
+standing as tall as findings. Nothing was added; nothing a refusal
+protects was removed.
+
+- **Today.** The goal is a title and one line. The activity card is the
+  minutes, one sentence and its "not medical advice" line, with ONE
+  "Why?" holding the evidence, each activity's conclusions and the full
+  note (it replaces a toggle and an (i)). The card's own Check in link
+  is gone: the + and the empty check-in card already offer it. The
+  breathing glow is gone ("nothing loops on a calm screen"). Offers say
+  one or two sentences under a short label, with two answers.
+- **Patterns.** Findings stay as cards; everything still building up —
+  first days, early looks, groups with no difference yet, still
+  collecting, after workouts — is ONE "Still finding out" card that
+  opens a list. Lowest/Highest are gone (a bar opens its day); the
+  halves line moved into Your record, whose note opens with it. The
+  share card is one line. A range with nothing in it keeps the range
+  control instead of replacing the screen.
+- **Day page.** "Add a check-in" sits under the check-in, not below
+  Apple Health. Delete is the danger colour. The note row shows only
+  a note; "Log a flare or treatment" is a quiet row, not a capsule.
+  The title matches every other large title.
+- **Profile.** Goal and roadmap share a group; the goal card has the
+  lists' shape; Colour theme left About; footers are one sentence;
+  Background says "Not set"; reminders say "Hide", not a second "Done".
+- **Add information.** Six places, most-used first, and the rest behind
+  "Show every place"; one-sentence fine print that still says a
+  check-in with the number alone is complete.
+
+Hold the layout from here through Phase 2, as the risk above says.
+
+## Apple design pass · 21 Oct, later
+
+Taken from Apple's principles (simplicity, familiarity, grouping,
+feedback) over the calm pass, checked against the screens rendered with
+three weeks of seeded data:
+
+- **One door per action.** Patterns' title-bar share icon went; the
+  white "Create the PDF" button on the same screen is the door, and it
+  names what it makes. Today's copy offer is labelled "Backup", so the
+  header no longer repeats its own button.
+- **Settings' own shapes.** The goal in Profile is a row — glyph,
+  "Goal", "Running · 3 a week", chevron — not a four-line card. The
+  reminder's times open from a "Times" row instead of a "Customise"
+  word squeezed between the label and the switch: one control per row.
+- **Controls sit on what they explain.** The day chart's (i) is in the
+  chart card's header, not on a row of its own between two cards.
+- **State changes are shown, briefly.** "Why?", "Show details" and every
+  (i) fade their content in over 200ms on the house curve
+  (`motion.tsx`, `Reveal`) — opacity only, no slide, no spring, no exit,
+  and nothing under Reduce Motion. A disclosure is a few-times-a-day
+  action, so it gets a standard animation and no more.
+
+## The system tab bar · 21 Oct · runtime 1.4.0
+
+The owner: "there is an issue with the menu", and a new build is fine —
+no testers on any binary. The floating bar's two items sat crowded at
+one end of the pill: `flex: 1` was on the view inside `Press`, not on
+the touchable the pill lays out (fixed for good: `Press` takes a
+`hostStyle`).
+
+Rather than keep refining a drawing of iOS 26's bar, the app now uses
+the bar: `react-native-bottom-tabs` (UITabBarController), in
+`src/AppTabs.tsx`. Today and Patterns are the tabs; the check-in is a
+tab with the search role, which iOS 26 draws as the separate round
+button, and it `preventsDefault`, so it opens the sheet and is never
+selected. White selection, no hue. Each tab is now a page of its own
+(title row, scroll, day layer), sized to clear the bar's measured
+height. The sideways swipe between tabs is gone — system tab bars do
+not page. The RN bar remains only as the fallback where the native view
+cannot draw (the web preview, a client without the module).
+
+**Runtime 1.4.0.** A tab bar cannot be guarded into a binary without
+it, so `version` moved with `tools/test-runtime.js`, and the
+native-guard baseline was re-cut to today's dependencies. Nothing
+published from here reaches a 1.3.0 binary: `eas build` + `eas submit`
+come first.
+
+## Before and after, in plain words · 21 Oct
+
+On build 57 the owner opened "Swimming, before and after": 4.8 before,
+4.2 after, "10 workouts" on both rows, and "No meaningful change". They
+could not tell ten swims from twenty, or why a visible drop was "no
+change". The engine was right — 0.6 points is short of HEALTH_MIN_DELTA
+(1.5) — and the screen explained none of it. Now
+(`src/health/pairedCopy.ts`): the change in words ("After 10 swimming
+sessions, your pain averaged 0.6 points lower than before"), each
+session counted by direction ("Lower after 6 and the same after 4"),
+the count said once under the rows, and a sentence with the threshold
+saying why it is shown as what happened rather than as what caused it.
+Doses read the same way. The gate did not move.

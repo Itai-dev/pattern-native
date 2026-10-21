@@ -31,6 +31,7 @@ import {
   syncReminders,
 } from './reminderSchedule';
 import { fmtClock } from './clock';
+import Icon from './Icon';
 import { Num, ROUNDED } from './SummaryCard';
 import { ROW_TEXT_X, RowIcon, list, settings } from './SettingsList';
 import { color, font, radius } from './theme';
@@ -144,15 +145,6 @@ export default function RemindersSection() {
         <RowIcon name="bell.fill" />
         <View style={settings.rowMain}>
           <Text style={settings.rowLabel}>Daily reminder</Text>
-          <Pressable
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: customising }}
-            accessibilityLabel="Customise times"
-          >
-            <Text style={styles.customise}>{customising ? 'Done' : 'Customise'}</Text>
-          </Pressable>
           <Switch
             value={anyOn}
             onValueChange={toggleAll}
@@ -170,11 +162,13 @@ export default function RemindersSection() {
           <View style={[settings.rowMain, settings.rowRuleTop, styles.subMain]}>
             <View style={{ flex: 1 }}>
               <Text style={settings.rowLabel}>Follow Apple Health</Text>
+              {/* two sentences, down from five lines (the calm pass,
+                  21 Oct 2026): what moves and why, and how to tell a
+                  learned time. The full list of prompts is the status
+                  line's job, which names what fires today. */}
               <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Morning after you usually wake, evening before you usually sleep, a prompt
-                after the workouts and doses Health sees you log, before and after what your
-                calendar reads as exertion — and your workout budget before a usual workout,
-                once your record has one. Times marked * were learned.
+                Times follow when you usually wake and sleep, and your workouts, doses and
+                calendar. Times marked * were learned.
               </Text>
             </View>
             <Switch
@@ -186,6 +180,26 @@ export default function RemindersSection() {
           </View>
         </View>
       )}
+
+      {/* THE TIMES, A ROW OF THEIR OWN (21 Oct 2026, the Apple design
+          pass). They opened from a "Customise" text button squeezed
+          between the label and the switch — two controls in one row, and
+          the switch a thumb's width from a word that did something else.
+          Settings' answer is a row that opens what it names: one control
+          per row, the chevron turning down to say it is open. */}
+      <Pressable
+        onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
+        style={styles.subRow}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: customising }}
+        accessibilityLabel="Reminder times"
+      >
+        <View style={[settings.rowMain, settings.rowRuleTop]}>
+          <Text style={settings.rowLabel}>Times</Text>
+          <Icon name={customising ? 'chevron.down' : 'chevron.right'} size={14}
+            color={list.chevron} weight="semibold" />
+        </View>
+      </Pressable>
 
       {customising && slots.map((s) => (
         <View key={s.key} style={styles.subRow}>
@@ -215,7 +229,7 @@ export default function RemindersSection() {
           does" line in Profile sits with the thing it qualifies. Its
           times are numbers, so they are rounded. */}
       <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
-        <Num>{status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere, and a slot stays quiet on a day you have already checked in around then.'}</Num>
+        <Num>{status || 'Scheduled on this phone, and quiet on a day you have already checked in around then.'}</Num>
       </Text>
 
       {/* the iPhone's own wheel, in a bottom card — Done is the only button,
@@ -267,7 +281,6 @@ const styles = StyleSheet.create({
     color: list.tertiary, fontSize: font.footnote, lineHeight: 18,
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 14,
   },
-  customise: { color: list.text, fontSize: font.subheadline, fontWeight: '600' },
   hint: { color: list.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 3 },
   /* a time is a number, so it is rounded; its chip is the grey a
      control takes on the card, never a hue */

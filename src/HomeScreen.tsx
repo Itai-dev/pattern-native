@@ -56,14 +56,21 @@
  * and when it shows are as they were. The mockup also draws a week of
  * squares and a Sleep card; they are not added here, because a re-skin
  * that brings new content brings it unreviewed.
+ *
+ * THE CALM PASS (21 Oct 2026). Testers still called Today crowded, and
+ * it was not the number of cards — it was everything on them talking at
+ * once: a breathing, glowing square beside the number, a paragraph under
+ * every offer, three buttons on one of them, sentences standing in the
+ * slot a card's label goes in. The order and the rules above did not
+ * move. What changed: nothing on this screen loops any more (the square
+ * is still); every card's label is a label and its body one or two short
+ * sentences; every offer is one yes and one "Not now"; and the activity
+ * card's working sits under a single "Why?" (RecoveryCards.tsx).
  */
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
-} from 'react-native-reanimated';
 import DaySquare from './DaySquare';
-import { Press, useReduceMotion } from './motion';
+import { Press } from './motion';
 import { track } from './analytics';
 import {
   Entries, LastCopy, addDays, checkinCount,
@@ -97,7 +104,7 @@ import {
    has. The copy comes next, ahead of everything optional: a record
    worth adding to is a record worth not losing. */
 import {
-  formatScore, painColor, painLabel, speakScore,
+  formatScore, painLabel, speakScore,
 } from './painScale';
 import { color, font } from './theme';
 import { BigValue, CardHeader, Num, card as summaryCard, summary } from './SummaryCard';
@@ -146,7 +153,10 @@ export interface HomeScreenProps {
   /** the person logged a flare for today — the card then offers the
    *  same length rather than longer (recovery.ts, FLARE_NOTE) */
   flareToday?: boolean;
-  /** Profile, where the reminder times live — for "choose another time" */
+  /** Profile, where the reminder times live. Today no longer opens it:
+   *  the reminder offer is one yes and one "Not now" since the calm pass
+   *  (21 Oct 2026), and the times are changed in Profile. Kept so App's
+   *  call stays as it is. */
   onOpenReminders: () => void;
   /** the binary can read Health and it has not been set up — the only
    *  state in which offering it is not a broken promise */
@@ -171,7 +181,7 @@ export interface HomeScreenProps {
 
 export default function HomeScreen({
   entries, goal, onGoalChange, roadmapLine, onOpenRoadmap, onLog, onOpenDay, onAddInfo,
-  onOpenReminders, healthOfferable, onOpenHealth,
+  healthOfferable, onOpenHealth,
   onOpenAppointment, onShare, appointment, healthDays,
   ahead, aheadEditable, onOpenAhead, onDismissAhead,
   onSaveCopy, lastCopy, flareToday = false,
@@ -189,18 +199,6 @@ export default function HomeScreen({
   const dayOnly = !latest ? legacyDayValue(entry) : null;
   const value = latest ? latest.pain : dayOnly;
 
-  /* the same slow, shallow breath the pain shape and the Logged square
-     carry — presence, not decoration. ±2.5% over 2.6s; still under
-     Reduce Motion. */
-  const breath = useSharedValue(0);
-  const rm = useReduceMotion();
-  useEffect(() => {
-    if (rm) { cancelAnimation(breath); breath.value = 0; return; }
-    breath.value = withRepeat(withTiming(1, { duration: 2600 }), -1, true);
-  }, [rm]);
-  const breathStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + breath.value * 0.025 }],
-  }));
 
   const loggedDays = Object.values(entries).filter(e => checkinCount(e) > 0).length;
 
@@ -337,7 +335,7 @@ export default function HomeScreen({
       <ActivityCard hero={hero} guidance={guidance} capacity={capacity}
         roadmapLine={roadmapLine} onRoadmap={onOpenRoadmap}
         activity={goal ? goal.activity : null}
-        onEdit={() => setEditingGoal(true)} onCheckIn={onLog} />
+        onEdit={() => setEditingGoal(true)} />
     ) : null,
     hero: (
       <>
@@ -376,33 +374,20 @@ export default function HomeScreen({
             <View style={styles.heroText}>
               <BigValue value={formatScore(value)} unit={painLabel(value)} />
             </View>
-            {/* the glow is the value's own colour, so it says nothing the
-                square does not already say. A 0 glows black, which is to
-                say not at all — correct, and the reason this is safe.
-
-                The wrapper is painted the same colour and cut to the same
-                shape as the square it holds: an iOS shadow is cast by a
-                layer's own fill, and a transparent box casts nothing
-                however loudly its shadowColor is set. */}
-            <Animated.View
-              style={[
-                breathStyle,
-                styles.glow,
-                {
-                  backgroundColor: painColor(value),
-                  borderRadius: SQ_RADIUS,
-                  shadowColor: painColor(value),
-                },
-              ]}
-            >
-              <DaySquare entry={null} value={value} size={SQUARE} radius={SQ_RADIUS} />
-            </Animated.View>
+            {/* STILL (21 Oct 2026, the calm pass). The square used to
+                breathe and glow in its own colour; on a screen about pain
+                the one moving thing drew the eye to the number every time
+                the app opened, and the redesign's rule is that nothing
+                loops on a calm screen. It is the same value in the ramp,
+                at rest. */}
+            <DaySquare entry={null} value={value} size={SQUARE} radius={SQ_RADIUS} />
           </View>
           {/* what the number is and is not, inside the card it qualifies —
-              the mockup's line. "Lighter is less" holds in every theme:
-              each ramp falls in brightness from 0 to 10 (theme.ts). */}
+              the mockup's line, shortened in the calm pass. "Lighter is
+              less" holds in every theme: each ramp falls in brightness from
+              0 to 10 (theme.ts). */}
           <Text style={[summaryCard.fine, styles.fineGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-            The number you entered. Lighter squares are less.
+            The number you entered. Lighter is less.
           </Text>
 
           {/* the door to everything the check-in no longer asks — where,
@@ -461,9 +446,10 @@ export default function HomeScreen({
           <Text style={[summaryCard.question, styles.question]} allowFontScaling maxFontSizeMultiplier={1.3}>
             No check-ins yet today
           </Text>
+          {/* one short sentence, and the one that lowers the bar: pain is
+              the only mandatory answer, so the number alone is a check-in */}
           <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-            A check-in takes a few seconds, and the record is only ever
-            what you put in it.
+            Only the number is needed.
           </Text>
           <View style={[summaryCard.primary, styles.primaryGap]}>
             <Text style={summaryCard.primaryText} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -489,11 +475,12 @@ export default function HomeScreen({
           and clears itself the day after. */}
       {apptSoon && (
         <View style={summaryCard.box}>
-          <CardHeader icon="doc.text.fill"
-            label={appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)} />
+          {/* a label and its date as the fact beside it, as every card
+              header is set — not a sentence in the label's slot */}
+          <CardHeader icon="doc.text.fill" label="Appointment"
+            meta={appointment === t ? 'Today' : fmtDay(appointment)} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            The PDF of the last three months is ready whenever you want it —
-            the numbers, your background, and what they do and don’t mean.
+            The PDF of your last three months is ready when you want it.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -537,8 +524,15 @@ export default function HomeScreen({
           and goes nowhere else. */}
       {ahead && (
         <View style={summaryCard.box}>
-          <CardHeader icon="calendar.badge.clock" label={(ahead.when === 'today' ? 'Today at ' : 'Tomorrow at ')
-            + fmtClock(ahead.event.h) + ': ' + ahead.event.title + ', ' + ahead.event.minutes + ' min'} />
+          {/* the label is a label, the when its fact; the event itself is
+              the card's first line, in white, because it is the thing the
+              card is about. The sentence under it is health/ahead.ts's,
+              with its "not a limit" as its last words. */}
+          <CardHeader icon="calendar.badge.clock" label="Coming up"
+            meta={(ahead.when === 'today' ? 'Today ' : 'Tomorrow ') + fmtClock(ahead.event.h)} />
+          <Text style={styles.offerLead} allowFontScaling maxFontSizeMultiplier={1.3}>
+            <Num>{ahead.event.title + ', ' + ahead.event.minutes + ' min'}</Num>
+          </Text>
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             <Num>{aheadBody(ahead)}</Num>
           </Text>
@@ -594,13 +588,12 @@ export default function HomeScreen({
       {/* ── the reminder offer ────────────────────────────── */}
       {offer === 'reminder' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="bell.fill" label={showActivity ? 'Want a morning reminder?' : 'Want a daily reminder?'} />
+          <CardHeader icon="bell.fill" label="Reminder" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             {showActivity
-              ? 'Your activity card learns from a check-in on the morning of a session and the morning after. '
-              : 'Checking in around the same time makes your record more useful. '}
-            It stays quiet on a day you have already checked in around then,
-            and it never mentions a missed day.
+              ? 'Your activity card learns from morning check-ins. '
+              : 'A check-in around the same time each day keeps the record even. '}
+            It stays quiet once you have checked in.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -612,17 +605,6 @@ export default function HomeScreen({
             >
               <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
                 {remindLabel}
-              </Text>
-            </Press>
-            <Press
-              onPress={() => { dismissReminder(); onOpenReminders(); }}
-              pressOpacity={0.8}
-              hitSlop={OFFER_SLOP}
-              accessibilityRole="button"
-              accessibilityLabel="Choose another time"
-            >
-              <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Another time
               </Text>
             </Press>
             <Press
@@ -643,12 +625,10 @@ export default function HomeScreen({
       {/* ── Apple Health, offered once ────────────────────── */}
       {offer === 'health' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="heart.fill" label="Some of this can arrive on its own" />
+          <CardHeader icon="heart.fill" label="Apple Health" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Connect Apple Health, and last night’s sleep and today’s activity
-            sit beside your check-ins without being asked for. You choose what
-            Pattern can read, nothing is written back, and it stays on this
-            iPhone.
+            Sleep and workouts can sit beside your check-ins without being
+            asked for. Read-only, and it stays on this iPhone.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -680,17 +660,18 @@ export default function HomeScreen({
       {/* ── the copy: this phone is the only place it lives ──
           Plain about the failure it prevents, because the failure is
           silent: nothing warns you, and you find out on the reinstall.
-          No number about the pain, only a count of days at risk. */}
+          No number about the pain, only a count of days at risk. The
+          label names the subject and the button the act (21 Oct 2026):
+          both said "Save a copy", and a header that repeats its own
+          button tells you nothing the button does not. */}
       {offer === 'copy' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="folder.fill" label="A reinstall would start this record over" />
+          <CardHeader icon="folder.fill" label="Backup" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             <Num>{(lastCopy
-              ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' after your last saved copy.'
-              : unsaved + (unsaved === 1 ? ' day has' : ' days have') + ' never been saved anywhere else.')
-              + ' Your iPhone’s backup brings your record to a new phone, but not back into a'
-              + ' reinstall on this one — delete Pattern and these go with it. A copy you keep'
-              + ' in Files does not.'}</Num>
+              ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' since your last copy.'
+              : unsaved + (unsaved === 1 ? ' day is' : ' days are') + ' only on this iPhone.')
+              + ' Delete Pattern and a reinstall starts empty; a copy you keep in Files does not.'}</Num>
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -736,6 +717,11 @@ const styles = StyleSheet.create({
   bgOfferBody: {
     color: summary.secondary, fontSize: font.subheadline, lineHeight: 20, marginTop: 8,
   },
+  /* the thing a dated card is about — the booked session — in white,
+     under the header, before the sentence about it */
+  offerLead: {
+    color: summary.text, fontSize: font.body, fontWeight: '600', lineHeight: 22, marginTop: 8,
+  },
   bgOfferActions: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     /* the slop must sit inside this row's own bounds to be hit-testable,
@@ -754,12 +740,6 @@ const styles = StyleSheet.create({
      card's mini-chart; bottom-aligned, so the square stands on the
      number's baseline side rather than floating at its middle */
   hero: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 8 },
-  /* iOS shadow: no offset, so the colour sits evenly around the shape
-     rather than pooling under it. Android is not a target yet. */
-  glow: {
-    borderCurve: 'continuous',
-    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 12,
-  },
   heroText: { flex: 1 },
   fineGap: { marginTop: 8 },
 

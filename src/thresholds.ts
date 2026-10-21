@@ -534,10 +534,9 @@ export const APPOINTMENT_LEAD_DAYS = 2;
    pain with a verdict word, able to flip between two opens of one day.
    It prints both averages, as the PDF always has, and nothing between. */
 
-/** how many first-days lists on Patterns stay open before the fold —
- *  two: enough to see what the section is, few enough that it is a
- *  section and not the card. Ten can be licensed at once. */
-export const FIRST_DAYS_OPEN = 2;
+/* FIRST_DAYS_OPEN retired 21 Oct 2026 (the calm pass): first-days lists
+   no longer stand open on Patterns. Everything still building up is one
+   "Still finding out" card, so there is no fold left to count. */
 
 /** how many workouts the After your workouts list holds — fourteen:
  *  about a month of training at three or four sessions a week, which is
