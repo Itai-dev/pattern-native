@@ -135,6 +135,19 @@ export async function enableMorningReminder(): Promise<ApplyResult> {
   return applySlots(savedSlots().map((s) => ({ ...s, on: s.key === 'm' })));
 }
 
+/** onboarding's last screen: the morning slot at the time chosen there,
+ *  nothing else. Its own function rather than a parameter on the one
+ *  above, so Today's offer keeps the saved hour it has always used.
+ *  Called only from onDone — onboarding writes nothing before that — and
+ *  permission was already asked when the switch was turned on, so this
+ *  normally finds it granted and does not prompt a second time. */
+export async function enableMorningReminderAt(minuteOfDay: number): Promise<ApplyResult> {
+  const hour = Math.floor(minuteOfDay / 60), minute = minuteOfDay % 60;
+  return applySlots(savedSlots().map((s) => (s.key === 'm'
+    ? { ...s, hour, minute, on: true }
+    : { ...s, on: false })));
+}
+
 /** the one-tap offer: the evening slot at its saved time, nothing else */
 export async function enableEveningReminder(): Promise<ApplyResult> {
   return applySlots(savedSlots().map((s) => ({ ...s, on: s.key === 'e' })));

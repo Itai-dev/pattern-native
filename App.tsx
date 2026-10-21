@@ -55,7 +55,7 @@ import {
   requestCalendar, setCalendarOn,
 } from './src/calendar';
 import { aheadKey, bookedPastLine } from './src/health/ahead';
-import { syncReminders } from './src/reminderSchedule';
+import { enableMorningReminderAt, syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
 import {
   Moment, PainEvent, ValidBackup, addDays, cleanDiagnosis, diagnosisShort, iso, minutesNow, todayISO,
@@ -872,7 +872,17 @@ export default function App() {
                   db.setBackground(bg);
                 }
               }
-              setSheet('checkin');
+              /* the morning reminder, if it was turned on there. Leaving
+                 it off was an answer to a question that was put, so
+                 Today's one-time reminder offer does not put it again. */
+              if (r.reminder != null) {
+                enableMorningReminderAt(r.reminder).then((res) => {
+                  if (res === 'on') track('reminder_enabled', { slot: 'm' });
+                }).catch(() => {});
+              }
+              db.setPref('reminders.offer.dismissed', true);
+              /* the last screen's two doors: the first check-in, or Today */
+              if (r.then === 'checkin') setSheet('checkin');
             }}
           />
           <StatusBar style="light" />
