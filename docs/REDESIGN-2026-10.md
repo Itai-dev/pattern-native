@@ -284,3 +284,40 @@ person who will not connect it is not the person the redesign is for.
 "Not now" stays (pain is the only mandatory answer, and App Review does
 not allow demanding a permission an app can work without), and Today
 still offers it later to anyone who passed.
+
+## The calm pass · 21 Oct
+
+The owner, after Phase 1 and the October re-skin: "still very messy and
+crowded." Each screen was inventoried, and the clutter was mostly saying
+one thing several times: a suggestion in four phrasings, three check-in
+buttons on an empty morning, caveats printed in full where an "(i)" or a
+"Why?" would hold them, and on Patterns, weeks of "not yet" cards
+standing as tall as findings. Nothing was added; nothing a refusal
+protects was removed.
+
+- **Today.** The goal is a title and one line. The activity card is the
+  minutes, one sentence and its "not medical advice" line, with ONE
+  "Why?" holding the evidence, each activity's conclusions and the full
+  note (it replaces a toggle and an (i)). The card's own Check in link
+  is gone: the + and the empty check-in card already offer it. The
+  breathing glow is gone ("nothing loops on a calm screen"). Offers say
+  one or two sentences under a short label, with two answers.
+- **Patterns.** Findings stay as cards; everything still building up —
+  first days, early looks, groups with no difference yet, still
+  collecting, after workouts — is ONE "Still finding out" card that
+  opens a list. Lowest/Highest are gone (a bar opens its day); the
+  halves line moved into Your record, whose note opens with it. The
+  share card is one line. A range with nothing in it keeps the range
+  control instead of replacing the screen.
+- **Day page.** "Add a check-in" sits under the check-in, not below
+  Apple Health. Delete is the danger colour. The note row shows only
+  a note; "Log a flare or treatment" is a quiet row, not a capsule.
+  The title matches every other large title.
+- **Profile.** Goal and roadmap share a group; the goal card has the
+  lists' shape; Colour theme left About; footers are one sentence;
+  Background says "Not set"; reminders say "Hide", not a second "Done".
+- **Add information.** Six places, most-used first, and the rest behind
+  "Show every place"; one-sentence fine print that still says a
+  check-in with the number alone is complete.
+
+Hold the layout from here through Phase 2, as the risk above says.
