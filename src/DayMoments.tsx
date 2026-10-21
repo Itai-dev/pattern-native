@@ -11,11 +11,12 @@
  * asks first, because a word on a card is reachable by accident in a
  * way a swiped-open row was not.
  *
- * Under it, in the order a person would ask: what else happened
- * (events), what they wrote (the note, as a row that opens the sheet),
- * what they were asked (the day's answers, compact), and only then what
- * a watch measured (Health, as the same tiles Today wears). Imported
- * context is the appendix to a record, not its opening.
+ * Under it, the one thing this page can do next — add a check-in —
+ * and then, in the order a person would ask: what else happened
+ * (events), what they wrote (the note, when there is one), what they
+ * were asked (the day's answers, compact), and only then what a watch
+ * measured (Health, as the same tiles Today wears). Imported context is
+ * the appendix to a record, not its opening.
  *
  * Same rules as everywhere: the number is what the user entered and
  * the ramp is worn only by the pain; a count is white; a skip is
@@ -25,10 +26,19 @@
  * THE OCTOBER REDESIGN'S GRAMMAR (21 Oct 2026), and nothing else moved.
  * Each block is a SummaryCard card — #1C1C1E, 16pt corners, an
  * icon-and-label header — every number is in the rounded face, the
- * rows end in the system chevron, and the two buttons are the
- * redesign's capsules: white for adding a check-in, the thing this page
- * can do next, and #1C1C1E for the flare or treatment beside it. The
- * moment's square is still the one hue on the page.
+ * rows end in the system chevron, and the moment's square is still the
+ * one hue on the page.
+ *
+ * THE CALM PASS (21 Oct 2026). The page read as crowded: the white
+ * capsule sat at the very bottom, under Apple Health, so the action came
+ * after the appendix; a #1C1C1E capsule for a flare stood mid-page with
+ * the weight of a card; an empty "Add a note about this day" row was a
+ * second door to the sheet Add information already opens; and the
+ * action row carried a gesture hint the chart's (i) already gives. Now:
+ * one capsule, directly under the moment it adds to; the flare is a
+ * quiet row at the foot of Events (or alone where there are none); the
+ * note row shows only a note that exists. Nothing a person can do was
+ * removed — every door is still here, one of each.
  */
 import React, { useCallback } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
@@ -62,6 +72,9 @@ const ACT_SLOP = { top: 4, bottom: 4, left: 9, right: 9 };
 
 /** the redesign's capsule: 54 tall, fully rounded */
 const BUTTON_H = 54;
+
+/** both flare doors say the same thing to VoiceOver */
+const FLARE_HINT = 'Opens a short set of questions about a flare or a treatment';
 
 export interface DayMomentsProps {
   dateIso: string;
@@ -192,20 +205,28 @@ export default function DayMoments({
               accessibilityRole="button"
               accessibilityLabel={'Delete the ' + fmtClock(m.h) + ' check-in'}
             >
-              <Text style={[styles.actText, styles.actQuiet]}>Delete</Text>
+              <Text style={[styles.actText, styles.actDanger]}>Delete</Text>
             </Press>
-            {logs.length > 1 && (
-              <Text
-                style={styles.actHint} allowFontScaling maxFontSizeMultiplier={1.3}
-                /* a screen reader does not tap dots — the chart is one
-                   adjustable element, so this names its gesture instead */
-                accessibilityLabel="Swipe up or down on the chart for another check-in"
-              >
-                Tap another dot for another check-in
-              </Text>
-            )}
           </View>
         </View>
+      )}
+
+      {/* ── the next thing this page can do ─────────────
+          Directly under the moment it adds to (or under the chart on a
+          day with none), never below the appendix. VoiceOver says
+          "another" only when there is one to be another of. */}
+      {canAddCheckin && (
+        <Press
+          onPress={onAddLog}
+          pressScale={0.97}
+          style={styles.primary}
+          accessibilityRole="button"
+          accessibilityLabel={isToday ? (logs.length ? 'Add another check-in' : 'Add a check-in') : 'Add a check-in for this day, from memory'}
+        >
+          <Text style={styles.primaryText} maxFontSizeMultiplier={1.4}>
+            {isToday ? 'Add a check-in' : 'Add a check-in for this day'}
+          </Text>
+        </Press>
       )}
 
       {/* ── events: what happened, beside when ────────
@@ -244,47 +265,62 @@ export default function DayMoments({
               </Press>
             ))}
           </View>
+          {/* adding another sits with the ones already logged, as the
+              list's last row rather than a capsule of its own */}
+          <Press
+            onPress={onAddEvent}
+            pressOpacity={0.7}
+            style={[styles.row, styles.rowLine]}
+            accessibilityRole="button"
+            accessibilityLabel="Log a flare or treatment"
+            accessibilityHint={FLARE_HINT}
+          >
+            <Text style={[styles.link, styles.linkFill]} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Log a flare or treatment
+            </Text>
+            <Chev />
+          </Press>
           <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
             Shown alongside your check-ins without assuming they caused a change.
           </Text>
         </View>
       )}
 
-      <Press
-        onPress={onAddEvent}
-        pressScale={0.97}
-        style={styles.secondary}
-        accessibilityRole="button"
-        accessibilityLabel="Log a flare or treatment"
-        accessibilityHint="Opens a short set of questions about a flare or a treatment"
-      >
-        <Text style={styles.secondaryText} maxFontSizeMultiplier={1.4}>Log a flare or treatment</Text>
-      </Press>
+      {/* no events yet: the same door, alone, as a quiet row — a card's
+          weight, not a button's */}
+      {events.length === 0 && (
+        <Press
+          onPress={onAddEvent}
+          pressOpacity={0.7}
+          style={[styles.card, styles.flareAlone]}
+          accessibilityRole="button"
+          accessibilityLabel="Log a flare or treatment"
+          accessibilityHint={FLARE_HINT}
+        >
+          <Icon name="flame.fill" size={18} color={summary.text} />
+          <Text style={[styles.link, styles.linkFill]} allowFontScaling maxFontSizeMultiplier={1.3}>
+            Log a flare or treatment
+          </Text>
+          <Chev />
+        </Press>
+      )}
 
-      {/* ── the day, in their words — one row, one tap, the sheet ── */}
-      {!!live && (
+      {/* ── the day, in their words — shown when there are some ──
+          An empty "add a note" row was a second door to the sheet that
+          Add information on the moment already opens; a note that exists
+          is read back here, and Edit opens it. */}
+      {!!live && !!live.note && (
         <Press
           onPress={() => onAddInfo(m ? m.h : undefined)}
           pressOpacity={0.7}
           style={[styles.card, styles.noteRow]}
           accessibilityRole="button"
-          accessibilityLabel={live.note ? 'Your note: ' + live.note : 'Add a note about this day'}
+          accessibilityLabel={'Your note: ' + live.note}
           accessibilityHint="Opens the note"
         >
           <Icon name="note.text" size={18} color={summary.text} />
-          {live.note ? (
-            <>
-              <Text style={styles.note} allowFontScaling maxFontSizeMultiplier={1.4}>“{live.note}”</Text>
-              <Text style={styles.link} allowFontScaling maxFontSizeMultiplier={1.3}>Edit</Text>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.link, styles.linkFill]} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Add a note about this day
-              </Text>
-              <Chev />
-            </>
-          )}
+          <Text style={styles.note} allowFontScaling maxFontSizeMultiplier={1.4}>“{live.note}”</Text>
+          <Text style={styles.link} allowFontScaling maxFontSizeMultiplier={1.3}>Edit</Text>
         </Press>
       )}
 
@@ -377,19 +413,6 @@ export default function DayMoments({
         );
       })()}
 
-      {canAddCheckin && (
-        <Press
-          onPress={onAddLog}
-          pressScale={0.97}
-          style={styles.primary}
-          accessibilityRole="button"
-          accessibilityLabel={isToday ? 'Add another check-in' : 'Add a check-in for this day, from memory'}
-        >
-          <Text style={styles.primaryText} maxFontSizeMultiplier={1.4}>
-            {isToday ? 'Add a check-in' : 'Add a check-in for this day'}
-          </Text>
-        </Press>
-      )}
     </View>
   );
 }
@@ -447,10 +470,11 @@ const styles = StyleSheet.create({
   },
   act: { minHeight: 36, justifyContent: 'center' },
   actText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
-  /* the destructive word in the quiet colour, not red: it asks before it
-     acts, and a red word on a card about pain shouts */
-  actQuiet: { color: summary.tertiary, fontWeight: '500' },
-  actHint: { flex: 1, textAlign: 'right', color: summary.tertiary, fontSize: 12 },
+  /* the destructive word in the app's soft terracotta (theme.ts danger),
+     not grey: told apart from Edit by colour as well as weight, so it is
+     read before a shaking hand lands on it — and still not iOS red,
+     which on a card about pain shouts. It asks before it acts. */
+  actDanger: { color: color.danger, fontWeight: '500' },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: summary.separator },
@@ -469,14 +493,9 @@ const styles = StyleSheet.create({
   fine: { color: summary.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 10 },
   fineLoose: { paddingHorizontal: 4 },
 
-  /* the second action: the redesign's secondary capsule, #1C1C1E with
-     white words — present, and plainly not the white one */
-  secondary: {
-    minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
-    backgroundColor: summary.surface,
-  },
-  secondaryText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  /* the flare door on a day with no events: a row the height of the
+     note row, so the two read as one family */
+  flareAlone: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingVertical: 14 },
 
   noteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingVertical: 14 },
   note: { flex: 1, color: summary.secondary, fontSize: font.subheadline, lineHeight: 21, fontStyle: 'italic' },
@@ -489,7 +508,7 @@ const styles = StyleSheet.create({
   primary: {
     minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
     backgroundColor: color.textPrimary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingHorizontal: 16,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
   },
   primaryText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
 });

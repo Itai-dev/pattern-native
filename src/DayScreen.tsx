@@ -674,6 +674,9 @@ export default function DayScreen({
       <InfoTip
         label="About this chart"
         style={styles.fineTip}
+        /* the one place the dot gesture is explained — the hint that
+           repeated it in the check-in card's action row went in the
+           calm pass (21 Oct 2026) */
         text={'Tap a dot to see that check-in. '
           + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain. Average and range are of those check-ins alone.'}
       />
@@ -717,11 +720,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: summary.surface,
   },
-  /* the redesign's title weight and tracking (System.dc.html: 34 / 800,
-     −2.2%), a step smaller because a date is longer than a word */
+  /* the app's one large title, set exactly as Today's (App.tsx wordmark:
+     34 / 700). It was 30 / 800 here, so walking from Today into a day
+     swapped one heading for a slightly different one — the calm pass,
+     21 Oct 2026. A long date shrinks to fit rather than wrapping. */
   title: {
-    flex: 1, color: color.textPrimary, fontSize: 30, fontWeight: '800',
-    letterSpacing: -0.6,
+    flex: 1, color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    letterSpacing: -0.75,
   },
   todayBtn: { minHeight: 38, justifyContent: 'center', paddingLeft: 6 },
   /* the Day / Calendar switch — the Sessions segment (Sessions.dc.html):
