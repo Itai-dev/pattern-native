@@ -11,6 +11,16 @@
  *
  * `runOnJS` is the one bridge crossing left, and it happens at most eleven
  * times in a drag rather than sixty times a second.
+ *
+ * THE FILL IS WHITE, AND SO IS EVERYTHING ELSE HERE (21 Oct 2026, the
+ * October redesign). A grey track, white up to the thumb, a white thumb.
+ * The pain ramp lives in the square above the control on the check-in
+ * and nowhere on the control itself: a track tinted with the ramp would
+ * paint ten scores at once on a screen asking for one, and the same
+ * slider asks non-pain questions on the Add information sheet, where a
+ * hue would borrow a meaning the answer does not have. The fill is drawn
+ * only when there is a value — an unset scale shows an empty track, so
+ * nothing looks answered that was not.
  */
 import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -20,13 +30,25 @@ import Animated, {
   withSpring, withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { color, size } from './theme';
+import { useReduceMotion } from './motion';
+import { color } from './theme';
 
-const THUMB = size.sliderThumb;
+/* the redesign's control (Morning.dc.html): a 32pt thumb on an 8pt
+   track. Local rather than theme tokens because this file is the only
+   reader, and a token another screen could pick up would make a second
+   control look like this one without behaving like it. */
+const THUMB = 32;
+const TRACK_H = 8;
+/** how much the thumb grows under a finger — enough to feel picked up,
+ *  not enough to hide where the fill ends */
+const LIFT = 1.12;
+/** critically damped: the thumb lands on the stop and does not wobble
+ *  past it, because a wobble past 6 reads, for a frame, as a 7 */
+const SNAP = { damping: 40, stiffness: 400, mass: 1 };
 
 export interface SliderProps {
   /** null = nothing chosen yet. The thumb still needs a position, so the
-   *  internal one starts at the low end while the VALUE stays unset — no
+   *  internal one parks in the middle while the VALUE stays unset — no
    *  score is ever recorded before the user touches the control. */
   value: number | null;
   onChange: (v: number) => void;
@@ -51,9 +73,15 @@ export default function Slider({
   value, onChange, max = 10, progress, chosen = value != null,
   accessibilityLabel, accessibilityValue,
 }: SliderProps) {
+  /* REDUCE MOTION: the thumb still follows the finger 1:1 — that is
+     direct manipulation, not animation — but the settle onto a stop and
+     the lift under the finger are cut, and a value set from elsewhere
+     (VoiceOver, an edit) moves the thumb at once instead of springing */
+  const reduce = useReduceMotion();
   const width = useSharedValue(0);
   const x = useSharedValue(0);
   const dragging = useSharedValue(false);
+  const lift = useSharedValue(0);
   // -1 means "no step chosen yet", so the very first touch always emits
   const lastStep = useSharedValue(value == null || !chosen ? -1 : value);
 
@@ -77,15 +105,17 @@ export default function Slider({
          position that is not an answer. The VALUE is still null until a
          finger lands: nothing is recorded from where the thumb sits. */
       const at = value == null ? max / 2 : value;
-      x.value = withSpring((usable * at) / max, { damping: 40, stiffness: 400, mass: 1 });
+      const to = (usable * at) / max;
+      x.value = reduce ? to : withSpring(to, SNAP);
     }
-  }, [value, max]);
+  }, [value, max, reduce]);
 
   const pan = Gesture.Pan()
     .minDistance(0)
     .onBegin((e) => {
       'worklet';
       dragging.value = true;
+      lift.value = reduce ? 0 : withTiming(1, { duration: 120 });
       const usable = Math.max(1, width.value - THUMB);
       x.value = Math.max(0, Math.min(usable, e.x - THUMB / 2));
       if (progress) progress.value = (x.value / usable) * max;
@@ -115,13 +145,20 @@ export default function Slider({
          second, and x is in points, so the gesture's px/s goes straight
          in. Both are zero on a tap, which is the correct handoff too. */
       const usable = Math.max(1, width.value - THUMB);
-      x.value = withSpring((usable * lastStep.value) / max, {
-        damping: 40, stiffness: 400, mass: 1, velocity: e.velocityX,
-      });
-      if (progress) progress.value = withTiming(lastStep.value, { duration: 160 });
+      const to = (usable * lastStep.value) / max;
+      x.value = reduce ? to : withSpring(to, { ...SNAP, velocity: e.velocityX });
+      lift.value = reduce ? 0 : withTiming(0, { duration: 180 });
+      if (progress) {
+        progress.value = reduce ? lastStep.value : withTiming(lastStep.value, { duration: 160 });
+      }
     });
 
-  const thumbStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }, { scale: 1 + (LIFT - 1) * lift.value }],
+  }));
+  /* the fill ends under the thumb's centre, so the white reads as one
+     piece with the thumb rather than as a bar beside it */
+  const fillStyle = useAnimatedStyle(() => ({ width: x.value + THUMB / 2 }));
 
   return (
     <GestureDetector gesture={pan}>
@@ -148,10 +185,16 @@ export default function Slider({
           const next = e.nativeEvent.actionName === 'increment'
             ? Math.min(max, at + 1)
             : Math.max(0, at < 0 ? 0 : at - 1);
-          if (next !== value || !chosen) onChange(next);
+          if (next !== value || !chosen) {
+            /* a swipe moves no finger, so the shape above is told here —
+               otherwise the square kept the colour of the last drag */
+            if (progress) progress.value = reduce ? next : withTiming(next, { duration: 160 });
+            onChange(next);
+          }
         }}
       >
         <View style={styles.track} />
+        {value != null && <Animated.View style={[styles.fill, fillStyle]} />}
         <Animated.View
           style={[styles.thumb, thumbStyle, value == null && styles.thumbUnset]}
         />
@@ -162,24 +205,30 @@ export default function Slider({
 
 const styles = StyleSheet.create({
   // a tall invisible hit area around a thin track — the finger deserves room
-  hit: { height: 44, justifyContent: 'center' },
+  hit: { height: 48, justifyContent: 'center' },
+  /* #2C2C2E — a neutral, so the white fill is the only part of the
+     control that changes */
   track: {
-    height: size.sliderTrackH,
-    borderRadius: size.sliderTrackH / 2,
-    backgroundColor: color.borderControl,
+    height: TRACK_H,
+    borderRadius: TRACK_H / 2,
+    backgroundColor: color.bgSegmentTrack,
+  },
+  fill: {
+    position: 'absolute', left: 0,
+    height: TRACK_H, borderRadius: TRACK_H / 2,
+    backgroundColor: color.textPrimary,
   },
   thumb: {
     position: 'absolute',
     width: THUMB, height: THUMB, borderRadius: THUMB / 2,
     backgroundColor: color.textPrimary,
-    shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 10,
+    shadowColor: '#000', shadowOpacity: 0.55, shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   /* An untouched thumb is a solid white dot, like every other iOS slider.
-     "Not yet chosen" is said by the words under the shape and by the
-     shape's own dimming — it does not also need the control to look
-     broken. */
+     "Not yet chosen" is said by the button that waits — it does not
+     also need the control to look broken. */
   thumbUnset: {
     backgroundColor: color.textPrimary,
   },

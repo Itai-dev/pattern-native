@@ -1,9 +1,10 @@
 /**
  * The check-in: one question, and out.
  *
- *   How intense is your pain right now?  — the slider; the shape moves with the
- *                               finger, the word snaps. Done writes the
- *                               moment and shows the tick.
+ *   How intense is your pain right now?  — the slider; the square's
+ *                               colour moves with the finger, the number
+ *                               in it and the word under it snap. Save
+ *                               writes the moment and shows the tick.
  *
  * ONE SCREEN, SINCE 17 SEP 2026. The flow used to run three: the number,
  * then where it hurt, then "About today" with the words for the pain,
@@ -21,27 +22,30 @@
  * PAIN IS THE ONLY MANDATORY ANSWER, and now it is the only answer here.
  * A pain-only entry is complete, and nothing anywhere calls it otherwise.
  *
- * DONE WAITS FOR A TOUCH. The slider parks at five and the square is
+ * SAVE WAITS FOR A TOUCH. The slider parks at five and the square is
  * live from the first frame — a dimmed screen read as broken when it
- * was tried — but Done stays disabled until the slider has actually
+ * was tried — but Save stays disabled until the slider has actually
  * been touched. A five nobody chose is not a number the record should
  * hold, and with a single button on the screen the disabled state is
  * legible: the question has not been answered yet. Tapping the slider
  * at five is choosing five. An edit opens on a number already chosen,
- * so Done is live at once.
+ * so Save is live at once.
  *
- * The back arrow, top left, leaves without writing. It replaces the ✕ on
- * the right: this screen is reached by a tap from Today, and a tap from
- * Today goes back to Today — the platform's own grammar for a screen you
- * walked into.
+ * A SHEET, SINCE THE OCTOBER REDESIGN (21 Oct 2026, Morning.dc.html).
+ * It was a full-screen page with a back arrow; it is now a sheet over
+ * Today with a grabber, Cancel top left and the time top right — the
+ * add-data bar Apple Health puts on its own entry sheets. Cancel, the
+ * swipe down and the VoiceOver escape all mean the same thing and all
+ * go through `leave`, so an abandoned check-in is counted however it
+ * was abandoned. The swipe is only an attempt (see requestCloseRef);
+ * nothing is lost to it, because nothing is written before Save.
  *
- * Apple's insight, kept: the shape is analogue while the label is
- * discrete. The confirmation is the one place in this app that gets a
- * real animation, and it earns it: it is the end of the interaction, it
+ * The confirmation is the one place in this app that gets a real
+ * animation, and it earns it: it is the end of the interaction, it
  * happens once, and the thing it is confirming — that today is recorded
  * — is the only thing the app promises. The tick springs in, then
- * settles into the same slow breath the pain shape uses. Reduce Motion
- * turns all of it off and the mark is simply there.
+ * settles into a slow breath. Reduce Motion turns all of it off and the
+ * mark is simply there.
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -53,12 +57,12 @@ import Animated, {
   withRepeat, withSpring, withTiming,
 } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { fmtDay } from './DayScreen';
 import Slider from './Slider';
 import SquarePicker, { PREF_SQUARE_PICKER } from './SquarePicker';
 import PainShape from './PainShape';
-import PainOrb, { PAIN_ORB_AVAILABLE } from './PainOrb';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
 import { healthNowHint } from './health/context';
@@ -66,17 +70,45 @@ import { HealthDay } from './health/types';
 import { track, trackCheckin } from './analytics';
 import { color, font, size } from './theme';
 import {
-  PAIN_END_HIGH, PAIN_END_LOW, formatScore, painLabel, speakScore, SCALE_VERSION,
+  PAIN_END_HIGH, PAIN_END_LOW, PAIN_MAX, PAIN_MIN, formatScore, painLabel, speakScore,
+  SCALE_VERSION,
 } from './painScale';
-import { Moment, MomentMeta, logsOf, minutesNow, nowMeta, todayISO } from './model';
+import { Moment, MomentMeta, logsOf, minutesNow, nowMeta, readLocParts, todayISO } from './model';
+import { TimeBandKey, bandOf } from './metrics';
 import { fmtClock } from './clock';
 
-const SQUARE = 150;
+/** the hero at full size — the mockup's 172 */
+const SQUARE = 172;
 /** the square's floor when the screen is short of room — under this the
  *  hue stops reading as a field and becomes a swatch */
 const SQUARE_MIN = 88;
 /** air kept between the square's block and what sits above and below it */
-const SQUARE_GAP = 12;
+const SQUARE_GAP = 14;
+/** the redesign's primary button: 54 tall, fully rounded */
+const BUTTON_H = 54;
+/** the sheet's own ground — a step up from Today's black, so the sheet
+ *  reads as lifted over it (Morning.dc.html) while staying far darker
+ *  than the #1C1C1E of the pill and of a card */
+const SHEET_BG = '#0E0E10';
+
+/* the part of the day, said the way a person says it. "This" for today,
+   "that" for a remembered day — the line under the question already
+   names which day. The bands are metrics.ts's, the same ones the
+   reminders and the engine use, so "this morning" here is the morning
+   the activity card reads. */
+const WHEN_TODAY: Record<TimeBandKey, string> = {
+  morning: 'this morning', afternoon: 'this afternoon', evening: 'this evening', night: 'tonight',
+};
+const WHEN_PAST: Record<TimeBandKey, string> = {
+  morning: 'that morning', afternoon: 'that afternoon', evening: 'that evening', night: 'that night',
+};
+/** white glyphs, never a hue: the time of day is not a pain value */
+const WHEN_ICON: Record<TimeBandKey, React.ComponentProps<typeof Ionicons>['name']> = {
+  morning: 'partly-sunny', afternoon: 'sunny', evening: 'cloudy-night', night: 'moon',
+};
+/** the pill's ink — a hair under white, as the mockup sets it, so the
+ *  context reads as a label and not as a control */
+const PILL_INK = '#EBEBF0';
 
 export interface CheckinScreenProps {
   /** the day being written. Absent = today, the normal case. A PAST day
@@ -93,10 +125,17 @@ export interface CheckinScreenProps {
   now?: number;
   onDone: () => void;
   onClose: () => void;
+  /** the host's swipe-down lands here. A pageSheet in this React Native
+   *  is modalInPresentation unless allowSwipeDismissal is set, so a
+   *  swipe is an ATTEMPT: UIKit holds the sheet and fires
+   *  onRequestClose, and the host hands it to `leave`, the same path as
+   *  Cancel — which is what keeps "opened, chose nothing, left" counted
+   *  when the leaving was a flick. */
+  requestCloseRef?: { current: (() => void) | null };
 }
 
 export default function CheckinScreen({
-  now, dateIso, edit, onDone, onClose,
+  now, dateIso, edit, onDone, onClose, requestCloseRef,
 }: CheckinScreenProps) {
   const insets = useSafeAreaInsets();
   const editing = !!edit;
@@ -118,17 +157,18 @@ export default function CheckinScreen({
   const [squares] = useState(() => db.getPref<boolean>(PREF_SQUARE_PICKER, false));
   const choose = (v: number) => { setPain(v); setMoved(true); };
   const [writtenAt, setWrittenAt] = useState<number | null>(edit ? edit.h : null);
-  /* the shape starts at the middle of the ramp, where the thumb parks,
-     so an untouched control and an untouched square agree with each other */
+  /* the square's colour starts at the middle of the ramp, where the
+     thumb parks, so an untouched control and an untouched square agree */
   const progress = useSharedValue(edit ? edit.pain : 5);
-  /* THE SQUARE GIVES WAY FIRST. The screen is a column: title, then the
-     middle (square, number, word), then the slider and the button. The
-     middle is flex: 1 and centres its content, so when the content is
-     taller than the room — a large text size, a short phone — it spills
-     equally over the title above and the slider below, and the square
-     ends up covering the question. Measured, the square is the one
-     thing here with no information in its size, so it is what shrinks:
-     the room minus everything else in the middle, floored at SQUARE_MIN. */
+  /* THE SQUARE GIVES WAY FIRST. The screen is a column: the question,
+     then the middle (square and word), then the slider and the button.
+     The middle is flex: 1 and centres its content, so when the content
+     is taller than the room — a large text size, a short phone — it
+     spills equally over the question above and the slider below, and
+     the square ends up covering the question. Measured, the square is
+     the one thing here with no information in its size, so it is what
+     shrinks: the room minus everything else in the middle, floored at
+     SQUARE_MIN. */
   const [middleH, setMiddleH] = useState(0);
   const [aboveH, setAboveH] = useState(0);
   const [belowH, setBelowH] = useState(0);
@@ -178,9 +218,9 @@ export default function CheckinScreen({
         ...(edit!.tz !== undefined ? { tz: edit!.tz } : {}) }
     : nowMeta(SCALE_VERSION);
 
-  /* the last few hours as Health saw them, under the number: the dose
-     an hour ago, the workout that just ended. Today's flow only — a
-     past day's "now" is not now. */
+  /* the last few hours as Health saw them, under the word: the dose an
+     hour ago, the workout that just ended. Today's flow only — a past
+     day's "now" is not now. */
   const [nowHint] = useState<string[]>(() =>
     retro || editing ? [] : healthNowHint(db.getHealthDay<HealthDay>(today), minutesNow()));
 
@@ -253,6 +293,13 @@ export default function CheckinScreen({
     if (writtenAt == null) track('checkin_abandoned');
     onClose();
   };
+  /* re-pointed after every render, so a swipe reads `writtenAt` as it is
+     now — not as it was in the render that first set it */
+  useEffect(() => {
+    if (!requestCloseRef) return;
+    requestCloseRef.current = leave;
+    return () => { requestCloseRef.current = null; };
+  });
 
   if (done) {
     /* A check mark, and nothing else.
@@ -272,7 +319,7 @@ export default function CheckinScreen({
     return (
       <Pressable
         onPress={onDone}
-        style={[styles.root, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}
+        style={[styles.root, { paddingTop: 20, paddingBottom: insets.bottom + 30 }]}
         accessibilityRole="button"
         accessibilityLabel="Logged"
         accessibilityHint="Returns to Today"
@@ -292,44 +339,76 @@ export default function CheckinScreen({
     ? 'Editing the ' + fmtClock(edit!.h) + ' check-in' + (retro ? ' on ' + fmtDay(today) : '')
     : retro ? 'For ' + fmtDay(today) + ', from memory' : null;
 
+  /* THE CONTEXT PILL SAYS ONLY WHAT THE APP ALREADY KNOWS. The part of
+     the day always — it is the clock, not a guess. A body place only
+     when this moment carries one, which today means an edit of a
+     moment that had places added to it: a new check-in records no
+     place (that is Add information's job, after the number), so naming
+     one here — the onboarding's usual places, say — would put a place
+     on a number the record will not hold it against. */
+  const band = bandOf(minutes);
+  const places = editing ? readLocParts(edit!.loc || []).map((p) => p.label) : [];
+  const when = (retro ? WHEN_PAST : WHEN_TODAY)[band];
+  const context = places.length ? places.join(', ') + ' · ' + when
+    : when.charAt(0).toUpperCase() + when.slice(1);
+
+  /* the slider's value, as VoiceOver reads it: "3, Mild". The label
+     already says "0 to 10", so the range is not said twice. */
+  const spoken = { min: PAIN_MIN, max: PAIN_MAX, now: pain, text: formatScore(pain) + ', ' + painLabel(pain) };
+  const sliderLabel = timed ? 'Pain at that time, 0 to 10' : 'Pain right now, 0 to 10';
+
   return (
-    <View style={styles.root}>
-      <View
-        style={[
-          styles.inner,
-          { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 30 },
-        ]}
-      >
+    <View style={styles.root} onAccessibilityEscape={leave}>
+      <View style={[styles.inner, { paddingBottom: insets.bottom + 20 }]}>
+      {/* the grabber says what the sheet is: something that came up over
+          Today and goes back down. Drawn here, because a React Native
+          pageSheet does not ask UIKit for one. */}
+      <View style={styles.grabber} accessibilityElementsHidden importantForAccessibility="no" />
       <View style={styles.topBar}>
-        <Press onPress={leave} style={styles.back} hitSlop={12}
-          accessibilityRole="button" accessibilityLabel="Back"
+        <Press onPress={leave} style={[styles.navBtn, styles.navLeft]} hitSlop={10}
+          accessibilityRole="button" accessibilityLabel="Cancel"
           accessibilityHint={writtenAt == null ? 'Leaves without recording anything' : 'Leaves'}>
-          <Text style={styles.backChev} allowFontScaling={false}>‹</Text>
+          <Text style={styles.navBtnText} maxFontSizeMultiplier={1.4}>Cancel</Text>
         </Press>
-        {/* the flow's name sits between the control and its spacer, so
-            it is centred on the screen rather than on what is left */}
-        <Text style={styles.navTitle} allowFontScaling={false}>
+        {/* the flow's name sits between two equal-width ends, so it is
+            centred on the sheet rather than on what is left */}
+        <Text style={styles.navTitle} numberOfLines={1} maxFontSizeMultiplier={1.4}
+          accessibilityRole="header">
           {editing ? 'Edit check-in' : 'Check-in'}
         </Text>
-        <View style={styles.backSpacer} />
+        <View style={[styles.navBtn, styles.navRight]}>
+          <Text style={styles.navTime} maxFontSizeMultiplier={1.4}>{fmtClock(minutes)}</Text>
+        </View>
       </View>
 
-      <Text style={styles.title}>
-        {timed ? 'How intense was\nyour pain?' : 'How intense is your\npain right now?'}
-      </Text>
-      {!!retroLine && (
-        <Text style={styles.retroLine} allowFontScaling maxFontSizeMultiplier={1.3}>
-          {retroLine}
+      <View style={styles.head}>
+        <View
+          style={styles.pill}
+          accessible
+          accessibilityLabel={context.replace(' · ', ', ')}
+        >
+          <Ionicons name={WHEN_ICON[band]} size={14} color={PILL_INK} />
+          <Text style={styles.pillText} numberOfLines={1} maxFontSizeMultiplier={1.4}>
+            {context}
+          </Text>
+        </View>
+        <Text style={styles.title} accessibilityRole="header">
+          {timed ? 'How intense was\nyour pain?' : 'How intense is your\npain right now?'}
         </Text>
-      )}
+        {!!retroLine && (
+          <Text style={styles.retroLine} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {retroLine}
+          </Text>
+        )}
+      </View>
 
       {/* AND WHEN EVEN THE FLOOR IS NOT ENOUGH, IT SCROLLS. At the largest
-          text sizes the number alone is seventy points; the square at its
-          floor can still leave the middle taller than the room, and a
-          centred View spills equally over the title above and the slider
-          below. A ScrollView clips instead: what fits is centred exactly
-          as before, what does not is one short scroll away, and the
-          slider and the button never move. */}
+          text sizes the square at its floor can still leave the middle
+          taller than the room, and a centred View spills equally over
+          the question above and the slider below. A ScrollView clips
+          instead: what fits is centred exactly as before, what does not
+          is one short scroll away, and the slider and the button never
+          move. */}
       <ScrollView
         style={styles.middleScroll}
         contentContainerStyle={styles.middleContent}
@@ -373,11 +452,7 @@ export default function CheckinScreen({
           accessibilityRole="image"
           accessibilityLabel={'Pain ' + speakScore(pain)}
         >
-          {/* the orb where the binary carries Skia, the square where it
-              does not — same value, same words, see PainOrb.tsx */}
-          {PAIN_ORB_AVAILABLE
-            ? <PainOrb progress={progress} size={square} />
-            : <PainShape progress={progress} size={square} />}
+          <PainShape progress={progress} value={pain} size={square} />
         </View>
         <View
           style={styles.below}
@@ -397,11 +472,9 @@ export default function CheckinScreen({
             setBelowH((prev) => Math.max(prev, h));
           }}
         >
-          {/* the number and the word carry the value; colour never carries
-              it alone */}
-          <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.6}>
-            {formatScore(pain)}
-          </Text>
+          {/* the number is in the square; the word says it again in the
+              scale's own five categories, so colour never carries the
+              value alone */}
           <Text style={styles.word} allowFontScaling maxFontSizeMultiplier={1.6}>
             {painLabel(pain)}
           </Text>
@@ -420,8 +493,8 @@ export default function CheckinScreen({
             chosen={moved}
             onChange={choose}
             progress={progress}
-            accessibilityLabel={timed ? 'Pain at that time, 0 to 10' : 'Pain right now, 0 to 10'}
-            accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
+            accessibilityLabel={sliderLabel}
+            accessibilityValue={spoken}
           />
         ) : (
           <Slider
@@ -429,13 +502,20 @@ export default function CheckinScreen({
             chosen={moved}
             onChange={choose}
             progress={progress}
-            accessibilityLabel={timed ? 'Pain at that time, 0 to 10' : 'Pain right now, 0 to 10'}
-            accessibilityValue={{ min: 0, max: 10, now: pain, text: speakScore(pain) }}
+            accessibilityLabel={sliderLabel}
+            accessibilityValue={spoken}
           />
         )}
+        {/* the anchors, number and word together: both ends always say
+            what they mean, so nobody places themselves on a scale whose
+            ends they have to remember */}
         <View style={styles.ends}>
-          <Text style={styles.endText}>{PAIN_END_LOW.toUpperCase()}</Text>
-          <Text style={styles.endText}>{PAIN_END_HIGH.toUpperCase()}</Text>
+          <Text style={styles.endText} maxFontSizeMultiplier={1.3}>
+            {PAIN_MIN + ' · ' + PAIN_END_LOW}
+          </Text>
+          <Text style={styles.endText} maxFontSizeMultiplier={1.3}>
+            {PAIN_END_HIGH + ' · ' + PAIN_MAX}
+          </Text>
         </View>
 
         {/* ONE BUTTON. It is the whole of what this screen asks, so it
@@ -446,15 +526,16 @@ export default function CheckinScreen({
         <Press
           onPress={finish}
           disabled={!moved}
-          pressScale={0.985}
+          pressScale={0.97}
           accessibilityRole="button"
           accessibilityState={{ disabled: !moved }}
           accessibilityLabel={editing ? 'Save the check-in' : 'Record the pain and finish'}
           accessibilityHint={moved ? undefined : 'Choose a value on the slider first'}
           style={[styles.primary, moved ? styles.primaryOn : styles.primaryOff]}
         >
-          <Text style={[styles.primaryText, moved ? styles.primaryTextOn : styles.primaryTextOff]}>
-            Done
+          <Text style={[styles.primaryText, moved ? styles.primaryTextOn : styles.primaryTextOff]}
+            maxFontSizeMultiplier={1.4}>
+            Save
           </Text>
         </Press>
       </View>
@@ -464,48 +545,59 @@ export default function CheckinScreen({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgRoot },
-  inner: { flex: 1, paddingHorizontal: 28 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  /* the back control the day screen wears, so leaving a check-in looks
-     like leaving any other place in the app */
-  back: {
-    width: 40, height: 40, borderRadius: 20, borderCurve: 'continuous',
-    borderWidth: 1, borderColor: color.borderDivider,
-    alignItems: 'center', justifyContent: 'center',
+  root: { flex: 1, backgroundColor: SHEET_BG },
+  inner: { flex: 1, paddingHorizontal: size.pageX, paddingTop: 8 },
+  grabber: {
+    width: 36, height: 5, borderRadius: 3, alignSelf: 'center',
+    backgroundColor: color.borderControl,
   },
-  backChev: { color: color.textPrimary, fontSize: 26, lineHeight: 30, marginTop: -3 },
-  backSpacer: { width: 40, height: 40 },
+  topBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4,
+  },
+  navBtn: { minWidth: 72, minHeight: 44, justifyContent: 'center' },
+  navLeft: { alignItems: 'flex-start' },
+  navRight: { alignItems: 'flex-end' },
+  navBtnText: { color: color.tint, fontSize: font.body },
+  navTitle: {
+    flexShrink: 1, color: color.textPrimary, fontSize: font.body, fontWeight: '600',
+    textAlign: 'center',
+  },
+  /* a number, so the rounded face; grey, because it is information and
+     not a control */
+  navTime: {
+    color: color.textTertiary, fontSize: font.subheadline, fontWeight: '600',
+    fontFamily: 'ui-rounded', fontVariant: ['tabular-nums'],
+  },
+  head: { alignItems: 'center', marginTop: 24 },
+  pill: {
+    minHeight: 28, paddingHorizontal: 12, borderRadius: 14, borderCurve: 'continuous',
+    backgroundColor: color.bgSurface, flexDirection: 'row', alignItems: 'center', gap: 6,
+    maxWidth: '100%',
+  },
+  pillText: { flexShrink: 1, color: PILL_INK, fontSize: font.footnote, fontWeight: '600' },
   title: {
-    color: color.textPrimary, fontSize: font.title2, fontWeight: '700', letterSpacing: -0.3,
-    lineHeight: 29, textAlign: 'center', marginTop: 14,
+    color: color.textPrimary, fontSize: 26, fontWeight: '700', letterSpacing: -0.5,
+    lineHeight: 31, textAlign: 'center', marginTop: 10,
   },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   /* the middle as a scroller: the frame takes the room, the content
      centres in it while it fits and scrolls once it does not */
   middleScroll: { flex: 1, alignSelf: 'stretch' },
-  middleContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+  middleContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
   /* the two measured halves around the square — stretched so a picker
      can centre inside, centred so the column reads as one */
   above: { alignSelf: 'stretch', alignItems: 'center' },
   below: { alignSelf: 'stretch', alignItems: 'center' },
   retroLine: {
     color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
-    textAlign: 'center', marginTop: 4,
+    textAlign: 'center', marginTop: 6,
   },
   retroWhen: { minHeight: 36, justifyContent: 'center', marginBottom: 10 },
   retroWhenText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
-  /* the main pain value: a large display size that still scales with
-     Dynamic Type — the number is the precise information */
-  score: {
-    color: color.textPrimary, fontSize: 44, fontWeight: '700',
-    letterSpacing: -0.8, marginTop: 26, fontVariant: ['tabular-nums'],
-  },
-  /* the category beneath the score — the same five words everywhere */
+  /* the category under the square — the same five words everywhere */
   word: {
-    color: color.textSecondary, fontSize: font.title3, fontWeight: '600',
-    letterSpacing: -0.3, marginTop: 2, textAlign: 'center',
+    color: color.textPrimary, fontSize: font.title3, fontWeight: '600',
+    letterSpacing: -0.2, marginTop: SQUARE_GAP, textAlign: 'center',
   },
   /* the Health facts under the word: quiet, centred, and clearly not
      part of the value */
@@ -526,21 +618,25 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-45deg' }, { translateY: -10 }],
   },
   bottom: { flexShrink: 0 },
-  ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 2 },
-  /* CAPS at the ends of the slider, exactly as the reference sets them */
-  endText: {
-    color: color.textTertiary, fontSize: 11, fontWeight: '600', letterSpacing: 0.6,
+  ends: {
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: 2, paddingHorizontal: 6,
   },
-  /* a full pill, the reference's button shape */
+  /* numbers in the rounded face, the words with them — one label per
+     end, in the grey that says "about the control", not "a value" */
+  endText: {
+    color: color.textTertiary, fontSize: font.footnote, fontWeight: '600',
+    fontFamily: 'ui-rounded', fontVariant: ['tabular-nums'],
+  },
+  /* a full pill, the redesign's primary button */
   primary: {
-    minHeight: size.buttonH, borderRadius: size.buttonH / 2, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', marginTop: 26, paddingHorizontal: 16,
+    minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', marginTop: 18, paddingHorizontal: 16,
   },
   primaryOn: { backgroundColor: color.textPrimary },
   /* waiting: the surface colour, so the pill is visibly there and
      visibly not yet a button — a neutral, never a tint of the ramp */
   primaryOff: { backgroundColor: color.bgSegmentTrack },
-  primaryText: { fontSize: font.title3, fontWeight: '600' },
+  primaryText: { fontSize: font.body, fontWeight: '600' },
   primaryTextOn: { color: '#000000' },
   primaryTextOff: { color: color.textTertiary },
 });
