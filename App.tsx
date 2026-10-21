@@ -62,6 +62,7 @@ import {
 } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { GoalRow } from './src/RecoveryCards';
+import { Num } from './src/SummaryCard';
 import { RecoveryGoal, currentGoal } from './src/recovery';
 import { coachView, earnedIds, unseenAchievement } from './src/coach';
 import { experimentState } from './src/experiment';
@@ -947,7 +948,7 @@ export default function App() {
                   now fixed on today, and a heading that names the day is
                   the one thing on it that a person reads back weeks later
                   in a screenshot and can still place */}
-              {tab === 'today' ? fmtDay(todayISO()) : 'Patterns'}
+              {tab === 'today' ? <Num>{fmtDay(todayISO())}</Num> : 'Patterns'}
             </Text>
             <View style={styles.topActions}>
               {/* the Log pill that lived here is gone: the floating bar
@@ -1590,9 +1591,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.9, borderBottomWidth: 0, borderColor: color.textSecondary,
   },
   /* the main screen's title — iOS large-title weight and size */
+  /* iOS's large title, at the mockup's 34 and −2.2% tracking; the
+     date shrinks to fit on a narrow phone rather than wrapping */
   wordmark: {
-    color: color.textPrimary, fontSize: font.title1, fontWeight: '700',
-    letterSpacing: -0.5, flex: 1,
+    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    letterSpacing: -0.75, flex: 1,
   },
   /* room at the bottom so the last content clears the floating bar, and
      a little at the top so a page never begins hard against its heading */
