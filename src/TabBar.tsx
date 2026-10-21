@@ -1,4 +1,9 @@
 /**
+ * THE FALLBACK BAR (21 Oct 2026). Navigation is the system's own tab
+ * bar now (AppTabs.tsx); this draws only where that cannot — the web
+ * preview, a development client without the native module — so there
+ * is always a way between the two places. What follows is its history.
+ *
  * The floating bar — Pattern's navigation as iOS 26 draws its own: a
  * Liquid Glass pill hovering over the content, and beside it a round
  * glass + for the check-in (the October mockup, Main). Nothing is docked
@@ -143,6 +148,9 @@ export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
           onChange(t.key);
         }}
         pressOpacity={0.7}
+        /* each item takes half the pill — on the press itself, which is
+           what the pill lays out (motion.tsx, hostStyle) */
+        hostStyle={styles.itemHost}
         style={[styles.item, active && styles.itemActive]}
         accessibilityRole="tab"
         accessibilityState={{ selected: active }}
@@ -226,6 +234,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.16)',
   },
+  itemHost: { flex: 1, alignSelf: 'stretch' },
   item: {
     flex: 1, minHeight: ITEM_H, borderRadius: ITEM_H / 2, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', gap: 2,

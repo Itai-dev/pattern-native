@@ -39,7 +39,11 @@ const app = require(path.join(process.cwd(), 'app.json'));
  * normal case, and the whole point of the file is to notice when they
  * stop being.
  */
-const SHIPPED_RUNTIME = '1.3.0';
+/* 1.4.0 (21 Oct 2026): the system tab bar (react-native-bottom-tabs) is
+   native and cannot be guarded into an older binary. Bumped with no
+   testers on any build, by the owner's go-ahead; nothing reaches a
+   phone on 1.4.0 until `eas build` + `eas submit` put one there. */
+const SHIPPED_RUNTIME = '1.4.0';
 
 let fail = 0;
 const ok = (name, cond) => {

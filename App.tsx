@@ -3,8 +3,8 @@ import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, AppState, Linking, Modal, NativeScrollEvent, NativeSyntheticEvent,
-  Pressable, ScrollView, Share, StyleSheet, Switch, Text, View, useWindowDimensions,
+  Alert, AppState, Linking, Modal,
+  Pressable, ScrollView, Share, StyleSheet, Switch, Text, View,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { BlurView } from 'expo-blur';
@@ -18,7 +18,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import HomeScreen from './src/HomeScreen';
 import Icon from './src/Icon';
 import { RowChevron, RowIcon, list, settings } from './src/SettingsList';
-import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
+import { Tab } from './src/TabBar';
+import AppTabs from './src/AppTabs';
 import CheckinScreen from './src/CheckinScreen';
 import DayScreen, { fmtDay } from './src/DayScreen';
 import AddInfoSheet from './src/AddInfoSheet';
@@ -186,12 +187,9 @@ export default function App() {
     () => db.getPref<boolean>('onboarded', db.countDays() > 0)
   );
   const [events, setEvents] = useState(() => db.getEvents());
-  /* act on Today, read the record on Record — the two sit side by side,
-     so a swipe moves between them and the tab bar is a shortcut rather
-     than the only way */
+  /* act on Today, read the record on Patterns — two places in the
+     system tab bar (AppTabs.tsx), each keeping its own scroll */
   const [tab, setTab] = useState<Tab>('today');
-  const { width } = useWindowDimensions();
-  const pager = useRef<ScrollView>(null);
 
   /* One day, open on this date — THE day surface, and the only one.
      A layer inside the tab rather than a sheet, so the tab bar stays
@@ -211,7 +209,7 @@ export default function App() {
     setDayScreen(d);
   }, []);
 
-  /** tapping a tab drives the pager, and always leaves the day screen —
+  /** tapping a tab always leaves the day screen —
    *  including when it is the tab you are already on, which is how
    *  "Today" gets you back to Today from a day you had walked into. A
    *  tab change is the one navigation in this app that is instant, and
@@ -221,18 +219,7 @@ export default function App() {
     if (t !== tab && t === 'trends') track('trends_opened');
     setDayScreen(null);
     setTab(t);
-    pager.current?.scrollTo({ x: TAB_ORDER.indexOf(t) * width, animated: true });
-  }, [tab, width]);
-
-  const onPageSettled = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!width) return;
-    const i = Math.round(e.nativeEvent.contentOffset.x / width);
-    const next = TAB_ORDER[Math.max(0, Math.min(TAB_ORDER.length - 1, i))];
-    if (next && next !== tab) {
-      if (next === 'trends') track('trends_opened');
-      setTab(next);
-    }
-  }, [tab, width]);
+  }, [tab]);
 
   const [sheet, setSheet] = useState<Sheet>(null);
   /* the Add information sheet, over wherever you are — Today's card
@@ -427,7 +414,7 @@ export default function App() {
      commit, and React may run or throw away a render without committing
      it, which had a finding marked as seen before any screen had drawn
      it, and later "fading out loud" about something nobody was shown.
-     The mark itself is honest: both tabs stay mounted in the pager, so
+     The mark itself is honest: both tabs stay mounted (AppTabs), so
      the moment a finding is the best one, Patterns is rendering it. */
   useEffect(() => {
     const best = healthNoticed.best;
@@ -945,177 +932,154 @@ export default function App() {
     );
   }
 
+  /* ONE PLACE, WHOLE (21 Oct 2026, the system tab bar). Each tab is a
+     page of its own — its large title and buttons, its scroll, and the
+     day layer when a day is open from it — because the system bar hosts
+     each tab in its own view, and a title row shared above them would
+     sit outside the bar's control. The day layer is drawn only on the
+     tab it was opened from, over that tab's title, as before. `bottom`
+     is the room the page's last card needs to clear the bar. */
+  const renderPage = (t: Tab, bottom: number) => (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.topBar}>
+        <Text
+          style={styles.wordmark}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          allowFontScaling
+          maxFontSizeMultiplier={1.2}
+        >
+          {/* the date, not the word "Today": the screen below it is
+              now fixed on today, and a heading that names the day is
+              the one thing on it that a person reads back weeks later
+              in a screenshot and can still place */}
+          {t === 'today' ? <Num>{fmtDay(todayISO())}</Num> : 'Patterns'}
+        </Text>
+        <View style={styles.topActions}>
+          {/* the Log pill that lived here is gone: the + in the tab
+              bar carries the same door in thumb reach, and two buttons
+              for one action on one screen was one too many */}
+          {/* THE WAY BACK UP, IN THE ROW. It used to float at a fixed
+              78pt from the top, which is where the header's own
+              buttons sit once the large title wraps or Dynamic Type
+              grows — the pill landed on the share and profile
+              buttons. In the row it takes its place beside them and
+              the row does the laying out, at every text size. */}
+          {t === 'trends' && recordAway && (
+            <GlassPill
+              onPress={() => recordScroll.current?.scrollTo({ y: 0, animated: true })}
+              label="Top ↑"
+              accessibilityLabel="Back to the top of the record"
+            />
+          )}
+          {/* ONE DOOR TO THE PDF (21 Oct 2026, the Apple design pass). A
+              share icon sat here on Patterns beside the white Create the
+              PDF button on the same screen — two doors to one action,
+              and the icon the less clear of them. The button names what
+              it makes and stays; the icon went. */}
+          {/* the mockup puts an initial here; Pattern holds no name,
+              and asking for one to fill a circle would be the first
+              thing it collected about a person for no reason */}
+          <Pressable
+            onPress={() => setProfile(true)}
+            style={styles.profileBtn}
+            hitSlop={BTN_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="Profile and settings"
+          >
+            <Icon name="person.fill" size={17} color={color.textPrimary} />
+          </Pressable>
+        </View>
+      </View>
+
+      {t === 'today' ? (
+        <ScrollView contentContainerStyle={[styles.page, { paddingBottom: bottom }]}
+          showsVerticalScrollIndicator={false}>
+          <HomeScreen
+            goal={currentGoal(recoveryGoal, activity)}
+            onGoalChange={saveGoal}
+            roadmapLine={coach.roadmap ? coach.roadmap.nowLine : null}
+            onOpenRoadmap={() => setCoachOpen(coach.roadmap ? 'roadmap' : 'achievements')}
+            entries={entries}
+            onLog={() => setSheet('checkin')}
+            onOpenDay={openDay}
+            onAddInfo={() => openInfo(todayISO())}
+            onOpenReminders={() => setProfile(true)}
+            onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
+            onShare={shareForAppointment}
+            appointment={appointment}
+            healthDays={healthDays}
+            /* the event's own date, so a flare logged late for this
+               morning still counts; past days never do */
+            flareToday={events.some((e) => e.kind === 'flare' && e.date === todayISO())}
+            ahead={ahead}
+            aheadEditable={calendarEditable()}
+            onOpenAhead={openAhead}
+            onDismissAhead={dismissAhead}
+            onSaveCopy={exportBackup}
+            lastCopy={lastCopy}
+            healthOfferable={health.available() && !healthRequestedOn()}
+            /* the Health sheet is nested in the Profile sheet, so the
+               two open together — the same route the Background
+               offer takes */
+            onOpenHealth={() => {
+              track('health_setup_opened');
+              setProfile(true);
+              setHealthPanel('setup'); setHealthSheet(true);
+            }}
+          />
+        </ScrollView>
+      ) : (
+        <ScrollView
+          ref={recordScroll}
+          contentContainerStyle={[styles.page, { paddingBottom: bottom }]}
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={64}
+          onScroll={(e) => setRecordAway(e.nativeEvent.contentOffset.y > 600)}
+        >
+          <TrendsScreen
+            entries={entries}
+            events={events}
+            func={[]}
+            goalText={null}
+            todayIso={todayISO()}
+            onOpenDay={openDay}
+            onSpanChange={setTrendsSpan}
+            healthNoticed={healthNoticed}
+            onShare={shareTrends}
+            sharing={sharing}
+          />
+        </ScrollView>
+      )}
+
+      {dayScreen && t === tab && (
+        <DayScreen
+          entries={entries}
+          dateIso={dayScreen}
+          onChanged={refresh}
+          onAddLog={(d) => {
+            setCheckinDate(d === todayISO() ? null : d);
+            setSheet('checkin');
+          }}
+          onEditLog={(d, m) => {
+            setCheckinDate(d === todayISO() ? null : d);
+            setEditMoment(m);
+            setSheet('checkin');
+          }}
+          onEditEvent={startEditEvent}
+          onAddEvent={(d) => { setEditEvent(null); setEventDate(d); setSheet('event'); }}
+          onClose={() => setDayScreen(null)}
+          onAddInfo={openInfo}
+        />
+      )}
+    </SafeAreaView>
+  );
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <SafeAreaView style={styles.safe} edges={['top']}>
-          {/* one large title per screen, always in the same place — the
-              date on Today, the month on the Map */}
-          {/* one large title per screen, and the person in the corner iOS
-              keeps them in — off the tab bar, out of thumb reach, and out
-              of the way of the three things the app is actually for */}
-          <View style={styles.topBar}>
-            <Text
-              style={styles.wordmark}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
-              allowFontScaling
-              maxFontSizeMultiplier={1.2}
-            >
-              {/* the date, not the word "Today": the screen below it is
-                  now fixed on today, and a heading that names the day is
-                  the one thing on it that a person reads back weeks later
-                  in a screenshot and can still place */}
-              {tab === 'today' ? <Num>{fmtDay(todayISO())}</Num> : 'Patterns'}
-            </Text>
-            <View style={styles.topActions}>
-              {/* the Log pill that lived here is gone: the floating bar
-                  carries the same door in thumb reach, and two buttons
-                  for one action on one screen was one too many */}
-              {/* THE WAY BACK UP, IN THE ROW. It used to float at a fixed
-                  78pt from the top, which is where the header's own
-                  buttons sit once the large title wraps or Dynamic Type
-                  grows — the pill landed on the share and profile
-                  buttons. In the row it takes its place beside them and
-                  the row does the laying out, at every text size. */}
-              {tab === 'trends' && recordAway && (
-                <GlassPill
-                  onPress={() => recordScroll.current?.scrollTo({ y: 0, animated: true })}
-                  label="Top ↑"
-                  accessibilityLabel="Back to the top of the record"
-                />
-              )}
-              {/* ONE DOOR TO THE PDF (21 Oct 2026, the Apple design pass). A
-                  share icon sat here on Patterns beside the white Create the
-                  PDF button on the same screen — two doors to one action,
-                  and the icon the less clear of them. The button names what
-                  it makes and stays; the icon went. */}
-              {/* the mockup puts an initial here; Pattern holds no name,
-                  and asking for one to fill a circle would be the first
-                  thing it collected about a person for no reason */}
-              <Pressable
-                onPress={() => setProfile(true)}
-                style={styles.profileBtn}
-                hitSlop={BTN_SLOP}
-                accessibilityRole="button"
-                accessibilityLabel="Profile and settings"
-              >
-                <Icon name="person.fill" size={17} color={color.textPrimary} />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* three pages side by side. Each keeps its own scroll position,
-              which the old key-per-tab remount threw away every time you
-              looked at something else. Everything scrolls on under the
-              floating glass. */}
-          {/* Sideways moves between tabs everywhere — including Today,
-              where the day card keeps the gesture that starts ON it.
-
-              iOS gives an inner scroll view the gesture that begins
-              inside its bounds and does not hand it back at the ends, so
-              the two never chain, but they also never fight: the card is
-              a bounded object with a visible edge, and everything outside
-              it is page. On the card, days. Off it, tabs. */}
-          <ScrollView
-            ref={pager}
-            horizontal
-            pagingEnabled
-            bounces={false}
-            scrollEventThrottle={16}
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={onPageSettled}
-          >
-            <ScrollView style={{ width }} contentContainerStyle={styles.page}
-              showsVerticalScrollIndicator={false}>
-              <HomeScreen
-                goal={currentGoal(recoveryGoal, activity)}
-                onGoalChange={saveGoal}
-                roadmapLine={coach.roadmap ? coach.roadmap.nowLine : null}
-                onOpenRoadmap={() => setCoachOpen(coach.roadmap ? 'roadmap' : 'achievements')}
-                entries={entries}
-                onLog={() => setSheet('checkin')}
-                onOpenDay={openDay}
-                onAddInfo={() => openInfo(todayISO())}
-                onOpenReminders={() => setProfile(true)}
-                onOpenAppointment={() => { setApptPickerOnOpen(true); setProfile(true); }}
-                onShare={shareForAppointment}
-                appointment={appointment}
-                healthDays={healthDays}
-                /* the event's own date, so a flare logged late for this
-                   morning still counts; past days never do */
-                flareToday={events.some((e) => e.kind === 'flare' && e.date === todayISO())}
-                ahead={ahead}
-                aheadEditable={calendarEditable()}
-                onOpenAhead={openAhead}
-                onDismissAhead={dismissAhead}
-                onSaveCopy={exportBackup}
-                lastCopy={lastCopy}
-                healthOfferable={health.available() && !healthRequestedOn()}
-                /* the Health sheet is nested in the Profile sheet, so the
-                   two open together — the same route the Background
-                   offer takes */
-                onOpenHealth={() => {
-                  track('health_setup_opened');
-                  setProfile(true);
-                  setHealthPanel('setup'); setHealthSheet(true);
-                }}
-              />
-            </ScrollView>
-
-            {/* The intention is context in Today and the shared summary.
-                Weekly ability ratings remain off; existing ratings still
-                survive backup and restore. */}
-            <ScrollView
-              ref={recordScroll}
-              style={{ width }} contentContainerStyle={styles.page}
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={64}
-              onScroll={(e) => setRecordAway(e.nativeEvent.contentOffset.y > 600)}
-            >
-              <TrendsScreen
-                entries={entries}
-                events={events}
-                func={[]}
-                goalText={null}
-                todayIso={todayISO()}
-                onOpenDay={openDay}
-                onSpanChange={setTrendsSpan}
-                healthNoticed={healthNoticed}
-                onShare={shareTrends}
-                sharing={sharing}
-              />
-            </ScrollView>
-          </ScrollView>
-
-          {/* Pain through the day — over the pages, under the tab bar.
-              Absolutely filling the safe area, so it covers the large
-              title too and brings its own; the tab bar is a sibling
-              rendered after it and stays reachable. */}
-          {dayScreen && (
-            <DayScreen
-              entries={entries}
-              dateIso={dayScreen}
-              onChanged={refresh}
-              onAddLog={(d) => {
-                setCheckinDate(d === todayISO() ? null : d);
-                setSheet('checkin');
-              }}
-              onEditLog={(d, m) => {
-                setCheckinDate(d === todayISO() ? null : d);
-                setEditMoment(m);
-                setSheet('checkin');
-              }}
-              onEditEvent={startEditEvent}
-              onAddEvent={(d) => { setEditEvent(null); setEventDate(d); setSheet('event'); }}
-              onClose={() => setDayScreen(null)}
-              onAddInfo={openInfo}
-            />
-          )}
-
-          <TabBar tab={tab} onChange={goToTab} onLog={() => setSheet('checkin')} />
-        </SafeAreaView>
+        <AppTabs tab={tab} onTab={goToTab} onLog={() => setSheet('checkin')} renderPage={renderPage} />
 
         {/* a sheet since the October redesign: it rises over Today, and
             Cancel, a swipe down and the escape gesture all leave */}
@@ -1657,7 +1621,8 @@ const styles = StyleSheet.create({
   },
   /* room at the bottom so the last content clears the floating bar, and
      a little at the top so a page never begins hard against its heading */
-  page: { paddingTop: 4, paddingBottom: 140 },
+  /* the bottom is set per page, by the bar it has to clear (AppTabs) */
+  page: { paddingTop: 4 },
   /* a Profile row with a second grey line under its label — the one
      place a row says what it is not, beside the switch it qualifies */
   rowStack: { flex: 1, paddingVertical: 10, gap: 2 },

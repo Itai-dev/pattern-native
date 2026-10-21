@@ -343,3 +343,28 @@ three weeks of seeded data:
   (`motion.tsx`, `Reveal`) — opacity only, no slide, no spring, no exit,
   and nothing under Reduce Motion. A disclosure is a few-times-a-day
   action, so it gets a standard animation and no more.
+
+## The system tab bar · 21 Oct · runtime 1.4.0
+
+The owner: "there is an issue with the menu", and a new build is fine —
+no testers on any binary. The floating bar's two items sat crowded at
+one end of the pill: `flex: 1` was on the view inside `Press`, not on
+the touchable the pill lays out (fixed for good: `Press` takes a
+`hostStyle`).
+
+Rather than keep refining a drawing of iOS 26's bar, the app now uses
+the bar: `react-native-bottom-tabs` (UITabBarController), in
+`src/AppTabs.tsx`. Today and Patterns are the tabs; the check-in is a
+tab with the search role, which iOS 26 draws as the separate round
+button, and it `preventsDefault`, so it opens the sheet and is never
+selected. White selection, no hue. Each tab is now a page of its own
+(title row, scroll, day layer), sized to clear the bar's measured
+height. The sideways swipe between tabs is gone — system tab bars do
+not page. The RN bar remains only as the fallback where the native view
+cannot draw (the web preview, a client without the module).
+
+**Runtime 1.4.0.** A tab bar cannot be guarded into a binary without
+it, so `version` moved with `tools/test-runtime.js`, and the
+native-guard baseline was re-cut to today's dependencies. Nothing
+published from here reaches a 1.3.0 binary: `eas build` + `eas submit`
+come first.

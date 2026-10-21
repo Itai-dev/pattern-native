@@ -57,15 +57,22 @@ export interface PressProps extends PressableProps {
   pressScale?: number;
   pressOpacity?: number;
   style?: StyleProp<ViewStyle>;
+  /** layout for the touchable itself — the element the PARENT lays out.
+   *  `style` lands on the animated view inside it, so a `flex: 1` there
+   *  fills a press that has already shrunk to its content: the floating
+   *  tab bar's two items sat crowded at one end of the pill for exactly
+   *  this reason (fixed 21 Oct 2026). */
+  hostStyle?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 }
 
 /** a Pressable whose press is instant and whose release eases back */
-export function Press({ pressScale = 1, pressOpacity = 0.85, style, children, ...rest }: PressProps) {
+export function Press({ pressScale = 1, pressOpacity = 0.85, style, hostStyle, children, ...rest }: PressProps) {
   const v = useRef(new Animated.Value(0)).current;
   return (
     <Pressable
       {...rest}
+      style={hostStyle}
       onPressIn={(e) => { v.stopAnimation(); v.setValue(1); rest.onPressIn?.(e); }}
       onPressOut={(e) => {
         Animated.timing(v, {
