@@ -641,3 +641,42 @@ export const COPY_NUDGE_DAYS = 7;
  *  an input over this line is a bug upstream, and propose.ts refuses
  *  it rather than trimming a sentence into a different one. */
 export const AI_INPUT_MAX_CHARS = 1000;
+
+/* ── the coach: roadmap and achievements (coach.ts) ─────────── */
+
+/** how many minutes past the suggested length a session may run and
+ *  still be "on plan". Two: Apple Watch rounds and auto-pauses, and a
+ *  run of 33 against a suggestion of 32 is the suggestion. Any more and
+ *  a person who routinely adds five minutes would be told they kept to
+ *  a plan they did not — the one thing an achievement must never say. */
+export const COACH_PLAN_GRACE_MIN = 2;
+
+/** the lengths, in minutes, the roadmap's easy stages build to. Twenty,
+ *  thirty, forty-five: the usual rungs of graded return-to-activity
+ *  programmes (a Couch-to-5K week is 20–30 minutes; 45 is a full
+ *  session for most recreational sport). At the 10% step with its five
+ *  minute cap, 20 → 30 is about six sessions that go fine and 30 → 45
+ *  about nine, so each stage is weeks, not days — long enough to mean
+ *  something, short enough to arrive. */
+export const COACH_STAGE_MINUTES = [20, 30, 45];
+
+/** the longest first session at a steady (moderate) effort that earns
+ *  "first steady session". The step only ever changes one thing at a
+ *  time, so effort goes up by starting SHORTER: twenty is the first
+ *  rung again, at the new effort — plus the same grace as any plan. */
+export const COACH_STEADY_START_MIN = 20;
+
+/** sessions a week the goal stage asks for when the person set no
+ *  weekly aim. Three: the common recreational week, and the mockup the
+ *  founder approved. A set aim always wins. */
+export const COACH_DEFAULT_WEEKLY = 3;
+
+/** sessions with a suggestion that kept to it before "On plan".
+ *  Five: about two weeks at the usual three a week — a habit, not a
+ *  coincidence. They need not be in a row: nothing in Pattern resets. */
+export const COACH_ON_PLAN_COUNT = 5;
+
+/** the cumulative totals that earn a medal. Totals, never runs in a
+ *  row: a rest day takes nothing away. */
+export const COACH_SESSION_TOTALS = [10, 25, 50, 100];
+export const COACH_WEEK_TOTALS = [4, 10, 26, 52];

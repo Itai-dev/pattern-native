@@ -63,6 +63,10 @@ import {
 import { buildReportData, reportHtml } from './src/report';
 import { GoalRow } from './src/RecoveryCards';
 import { RecoveryGoal, currentGoal } from './src/recovery';
+import { coachView, earnedIds, unseenAchievement } from './src/coach';
+import { experimentState } from './src/experiment';
+import CoachScreen from './src/CoachScreen';
+import UnlockSheet from './src/UnlockSheet';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import { PREF_SQUARE_PICKER } from './src/SquarePicker';
@@ -167,6 +171,11 @@ export default function App() {
      what a backup carries (recovery.ts, currentGoal). A removal is a
      stored skip and clears the text, so the report stops naming it. */
   const [recoveryGoal, setRecoveryGoal] = useState(() => db.getRecoveryGoal());
+  /* the coach: the roadmap sheet, and which medal (if any) is having
+     its moment. coachTick re-reads the prefs coach.ts depends on. */
+  const [coachOpen, setCoachOpen] = useState<null | 'roadmap' | 'achievements'>(null);
+  const [coachTick, setCoachTick] = useState(0);
+  const [unlockDismissed, setUnlockDismissed] = useState(0);
   const saveGoal = useCallback((g: RecoveryGoal) => {
     db.setRecoveryGoal(g);
     db.setGoal(g.activity ? g.label : '');
@@ -608,6 +617,39 @@ export default function App() {
   const [trendsSpan, setTrendsSpan] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
 
+  const coach = useMemo(() => {
+    const today = todayISO();
+    /* "first answer": the earliest experiment that ended with something
+       to say, whichever way it went — not one that ran out of days */
+    const answered = db.getExperiments()
+      .filter((x) => x.status === 'done' && x.endedOn)
+      .filter((x) => {
+        const v = experimentState(x, entries, today).verdict;
+        return v === 'possible' || v === 'observation';
+      })
+      .map((x) => x.endedOn as string).sort()[0] || null;
+    return coachView(entries, healthDays, currentGoal(recoveryGoal, activity), today, {
+      reportOn: db.getCoachReportOn(), answerOn: answered,
+    });
+  }, [entries, healthDays, recoveryGoal, activity, coachTick]);
+
+  /* the first run after the coach shipped remembers everything already
+     earned, silently — those medals are in the list, dated, and only
+     what is earned from here on arrives as a moment */
+  useEffect(() => {
+    if (onboarded && db.getCoachSeen() === null) db.setCoachSeen(earnedIds(coach));
+  }, [coach, onboarded]);
+
+  const unlock = useMemo(
+    () => unseenAchievement(coach, db.getCoachSeen()),
+    [coach, unlockDismissed]
+  );
+  const closeUnlock = useCallback((then?: () => void) => {
+    db.setCoachSeen(earnedIds(coach));
+    setUnlockDismissed((n) => n + 1);
+    if (then) setTimeout(then, 350);
+  }, [coach]);
+
   const makePdf = useCallback(async (includeNotes: boolean, windowDays: number) => {
     setSharing(true);
     try {
@@ -644,6 +686,8 @@ export default function App() {
            Whether notes rode along is a fact about the share, not about
            what any note said. */
         track('pdf_shared', { notes: includeNotes });
+        db.markCoachReport(todayISO());
+        setCoachTick((n) => n + 1);
       } else {
         Alert.alert('Sharing isn’t available on this device.');
       }
@@ -981,6 +1025,8 @@ export default function App() {
               <HomeScreen
                 goal={currentGoal(recoveryGoal, activity)}
                 onGoalChange={saveGoal}
+                roadmapLine={coach.roadmap ? coach.roadmap.nowLine : null}
+                onOpenRoadmap={() => setCoachOpen(coach.roadmap ? 'roadmap' : 'achievements')}
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
@@ -1078,6 +1124,26 @@ export default function App() {
             onClose={closeSheet}
           />
         </Modal>
+
+        <Modal visible={coachOpen != null} animationType="slide" presentationStyle="pageSheet"
+          onRequestClose={() => setCoachOpen(null)} onDismiss={runAfterDismiss}>
+          <CoachScreen
+            view={coach}
+            start={coachOpen || undefined}
+            activity={(currentGoal(recoveryGoal, activity) || { activity: null }).activity}
+            onClose={() => setCoachOpen(null)}
+            onSetGoal={() => { afterDismiss.current = () => setProfile(true); setCoachOpen(null); }}
+          />
+        </Modal>
+
+        {/* a medal's moment — only over Today, never over another sheet */}
+        <UnlockSheet
+          a={onboarded && sheet == null && !profile && coachOpen == null ? unlock : null}
+          activity={(currentGoal(recoveryGoal, activity) || { activity: null }).activity}
+          roadmap={coach.roadmap}
+          onClose={() => closeUnlock()}
+          onOpenRoadmap={() => closeUnlock(() => setCoachOpen('roadmap'))}
+        />
 
         <Modal
           visible={sheet === 'event'}

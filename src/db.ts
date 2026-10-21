@@ -1061,3 +1061,28 @@ export function putClean(date: string, raw: unknown): void {
   const e = cleanEntry(raw);
   if (e) put(date, e);
 }
+
+/* ── the coach (coach.ts) ─────────────────────────────────────
+   Two facts and one memory, all local prefs. The facts are firsts the
+   record cannot rebuild — the day a report was first made — and the
+   memory is which medals have already had their moment, so a medal is
+   announced once. Null seen is "never run": coach.ts shows nothing that
+   first time, rather than a pile of medals for things done weeks ago. */
+const PREF_COACH_SEEN = 'coach.seen';
+const PREF_COACH_REPORT = 'coach.reportOn';
+
+export function getCoachSeen(): string[] | null {
+  const v = getPref<string[] | null>(PREF_COACH_SEEN, null);
+  return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : null;
+}
+export function setCoachSeen(ids: string[]): void {
+  setPref(PREF_COACH_SEEN, ids);
+}
+export function getCoachReportOn(): string | null {
+  const v = getPref<string | null>(PREF_COACH_REPORT, null);
+  return typeof v === 'string' ? v : null;
+}
+/** the FIRST report only — later ones never move the date */
+export function markCoachReport(dateIso: string): void {
+  if (!getCoachReportOn()) setPref(PREF_COACH_REPORT, dateIso);
+}
