@@ -48,6 +48,14 @@
  * comparison to yesterday and no count of anything completed. Both cards
  * are the same on the fifth open of an afternoon as on the first; the
  * only thing that changes either of them is a check-in the user added.
+ *
+ * HEALTH'S SUMMARY, AS A SKIN (21 Oct 2026). The approved Main mockup
+ * gives every card Apple Health's anatomy — white icon and label, a grey
+ * fact and a chevron, a big rounded value, the "not" line last — and
+ * that is all that changed here: the order above, what each card says,
+ * and when it shows are as they were. The mockup also draws a week of
+ * squares and a Sleep card; they are not added here, because a re-skin
+ * that brings new content brings it unreviewed.
  */
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
@@ -91,12 +99,14 @@ import {
 import {
   formatScore, painColor, painLabel, speakScore,
 } from './painScale';
-import { color, font, radius, size } from './theme';
+import { color, font } from './theme';
+import { BigValue, CardHeader, Num, card as summaryCard, summary } from './SummaryCard';
 
-/** the square on the last-check-in card. Big enough to be the first thing
- *  the eye lands on, small enough that the number beside it still wins —
- *  and sized against the type around it, which is Trends' type. */
-const SQUARE = 58, SQ_RADIUS = 15;
+/** the square on the Today card. It sits where Health puts a card's
+ *  mini-chart, at the height of the 40pt value beside it, so the number
+ *  is read first and the square says the same thing in the ramp. The
+ *  corner keeps the mockup's 5-in-18 proportion. */
+const SQUARE = 40, SQ_RADIUS = 11;
 
 /* The offer buttons are bare 15pt text, about 18pt tall, so the touch
    area has to come from hitSlop: drawing a 44pt box would make every
@@ -316,6 +326,8 @@ export default function HomeScreen({
         onRemove={goalSet ? () => saveGoal(skippedGoal(t)) : undefined}
       />
     ) : showActivity ? (
+      /* the goal header (GOAL HEADER, RecoveryCards.tsx) stands above
+         the card, inside ActivityCard, so the two can never come apart */
       <ActivityCard hero={hero} guidance={guidance} capacity={capacity}
         onEdit={() => setEditingGoal(true)} onCheckIn={onLog} />
     ) : null,
@@ -327,7 +339,7 @@ export default function HomeScreen({
           onPress={() => onOpenDay(t)}
           pressScale={0.985}
           pressOpacity={0.92}
-          style={styles.card}
+          style={summaryCard.box}
           accessibilityRole="button"
           accessibilityLabel={'Today, ' + speakScore(value)
             + (latest ? ', last check-in ' + fmtClock(latest.h) : '')}
@@ -339,23 +351,23 @@ export default function HomeScreen({
           accessibilityActions={[{ name: 'addInfo', label: 'Add information' }]}
           onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'addInfo') onAddInfo(); }}
         >
-          <View style={styles.head}>
-            <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Today
-            </Text>
-            <View style={styles.headRight}>
-              {/* the latest check-in's time, as a fact beside the name
-                  rather than as the name — the tap opens the day */}
-              {!!latest && (
-                <Text style={styles.headTime} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  Last check-in {fmtClock(latest.h)}
-                </Text>
-              )}
-              <Text style={styles.chev} allowFontScaling={false}>›</Text>
-            </View>
-          </View>
+          {/* the latest check-in's time, as a fact beside the name
+              rather than as the name — the tap opens the day, which is
+              what the chevron promises */}
+          <CardHeader icon="today" label="Today" chevron
+            meta={latest ? 'Last check-in ' + fmtClock(latest.h) : undefined} />
 
+          {/* THE NUMBER LEADS, THE SQUARE SITS WHERE HEALTH PUTS ITS
+              MINI-CHART. The value and its word are what was entered, set
+              like every other value on Today; the square beside it is the
+              same value in the ramp, so the one hue on the card is a pain
+              value and nothing else. The coloured dot that sat between
+              the number and the word is gone: with the square on the same
+              row it said the colour a second time. */}
           <View style={styles.hero}>
+            <View style={styles.heroText}>
+              <BigValue value={formatScore(value)} unit={painLabel(value)} />
+            </View>
             {/* the glow is the value's own colour, so it says nothing the
                 square does not already say. A 0 glows black, which is to
                 say not at all — correct, and the reason this is safe.
@@ -377,23 +389,13 @@ export default function HomeScreen({
             >
               <DaySquare entry={null} value={value} size={SQUARE} radius={SQ_RADIUS} />
             </Animated.View>
-
-            <View style={styles.heroText}>
-              <View style={styles.scoreRow}>
-                <Text style={styles.score} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {formatScore(value)}
-                </Text>
-                <View style={[styles.scoreDot, { backgroundColor: painColor(value) }]} />
-                <Text
-                  style={styles.scoreWord}
-                  numberOfLines={2}
-                  allowFontScaling maxFontSizeMultiplier={1.3}
-                >
-                  {painLabel(value)}
-                </Text>
-              </View>
-            </View>
           </View>
+          {/* what the number is and is not, inside the card it qualifies —
+              the mockup's line. "Lighter is less" holds in every theme:
+              each ramp falls in brightness from 0 to 10 (theme.ts). */}
+          <Text style={[summaryCard.fine, styles.fineGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+            The number you entered. Lighter squares are less.
+          </Text>
 
           {/* the door to everything the check-in no longer asks — where,
               how it feels, what else, the evening's questions, the note.
@@ -421,34 +423,44 @@ export default function HomeScreen({
       ) : (
         /* Nothing yet today. One card, one thing to do — and it says what
            it is waiting for rather than reporting a zero, because a zero
-           on this scale is a real answer and today has not given one. */
+           on this scale is a real answer and today has not given one.
+
+           THE CHECK-IN CARD (the mockup's form): a header, the line in
+           the 20pt the mockup gives its question, and the one white
+           button on Today. The whole card stays the press it always was
+           — the button is the affordance, not a second target — so
+           VoiceOver still lands on one element that says what it does.
+           The empty square that breathed here is gone: on this card the
+           button is the thing to touch, and an outline square next to it
+           read as a pain value not yet given.
+
+           "DUE NOW" ONLY WHEN IT IS TRUE. The mockup puts it on every
+           check-in card; here it shows only when recovery.ts says a
+           check-in this morning would answer a waiting session
+           (guidance.checkIn). On any other empty afternoon nothing is
+           due — a check-in is offered, never owed — and a label saying
+           otherwise would be the app scolding a day for being quiet. */
         <Press
           onPress={onLog}
           pressScale={0.985}
           pressOpacity={0.92}
-          style={styles.card}
+          style={summaryCard.box}
           accessibilityRole="button"
           accessibilityLabel="No check-ins yet today. Check in."
           accessibilityHint="Records how your pain is right now"
         >
-          <View style={styles.head}>
-            <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Today
+          <CardHeader icon="time" label="Check-in" meta={guidance.checkIn ? 'Due now' : undefined} />
+          <Text style={[summaryCard.question, styles.question]} allowFontScaling maxFontSizeMultiplier={1.3}>
+            No check-ins yet today
+          </Text>
+          <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+            A check-in takes a few seconds, and the record is only ever
+            what you put in it.
+          </Text>
+          <View style={[summaryCard.primary, styles.primaryGap]}>
+            <Text style={summaryCard.primaryText} allowFontScaling maxFontSizeMultiplier={1.3}>
+              Check in
             </Text>
-          </View>
-          <View style={styles.hero}>
-            <Animated.View style={breathStyle}>
-              <DaySquare entry={null} value={null} size={SQUARE} radius={SQ_RADIUS} plus today />
-            </Animated.View>
-            <View style={styles.heroText}>
-              <Text style={styles.emptyTitle} allowFontScaling maxFontSizeMultiplier={1.3}>
-                No check-ins yet today
-              </Text>
-              <Text style={styles.emptySub} allowFontScaling maxFontSizeMultiplier={1.4}>
-                A check-in takes a few seconds, and the record is only ever
-                what you put in it.
-              </Text>
-            </View>
           </View>
         </Press>
       )}
@@ -468,10 +480,9 @@ export default function HomeScreen({
           card, not an offer: it shows regardless of the offers below,
           and clears itself the day after. */}
       {apptSoon && (
-        <View style={[styles.card, styles.cardGap]}>
-          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            {appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)}
-          </Text>
+        <View style={summaryCard.box}>
+          <CardHeader icon="document-text"
+            label={appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             The PDF of the last three months is ready whenever you want it —
             the numbers, your background, and what they do and don’t mean.
@@ -517,13 +528,11 @@ export default function HomeScreen({
           is the person's own calendar read back to them, in the app,
           and goes nowhere else. */}
       {ahead && (
-        <View style={[styles.card, styles.cardGap]}>
-          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            {(ahead.when === 'today' ? 'Today at ' : 'Tomorrow at ') + fmtClock(ahead.event.h)
-              + ': ' + ahead.event.title + ', ' + ahead.event.minutes + ' min'}
-          </Text>
+        <View style={summaryCard.box}>
+          <CardHeader icon="calendar" label={(ahead.when === 'today' ? 'Today at ' : 'Tomorrow at ')
+            + fmtClock(ahead.event.h) + ': ' + ahead.event.title + ', ' + ahead.event.minutes + ' min'} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {aheadBody(ahead)}
+            <Num>{aheadBody(ahead)}</Num>
           </Text>
           <View style={styles.bgOfferActions}>
             {aheadEditable && !!ahead.event.id && (
@@ -576,10 +585,8 @@ export default function HomeScreen({
 
       {/* ── the reminder offer ────────────────────────────── */}
       {offer === 'reminder' && (
-        <View style={[styles.card, styles.cardGap]}>
-          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            {showActivity ? 'Want a morning reminder?' : 'Want a daily reminder?'}
-          </Text>
+        <View style={summaryCard.box}>
+          <CardHeader icon="notifications" label={showActivity ? 'Want a morning reminder?' : 'Want a daily reminder?'} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             {showActivity
               ? 'Your activity card learns from a check-in on the morning of a session and the morning after. '
@@ -627,10 +634,8 @@ export default function HomeScreen({
 
       {/* ── Apple Health, offered once ────────────────────── */}
       {offer === 'health' && (
-        <View style={[styles.card, styles.cardGap]}>
-          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            Some of this can arrive on its own
-          </Text>
+        <View style={summaryCard.box}>
+          <CardHeader icon="heart" label="Some of this can arrive on its own" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             Connect Apple Health, and last night’s sleep and today’s activity
             sit beside your check-ins without being asked for. You choose what
@@ -669,17 +674,15 @@ export default function HomeScreen({
           silent: nothing warns you, and you find out on the reinstall.
           No number about the pain, only a count of days at risk. */}
       {offer === 'copy' && (
-        <View style={[styles.card, styles.cardGap]}>
-          <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>
-            A reinstall would start this record over
-          </Text>
+        <View style={summaryCard.box}>
+          <CardHeader icon="folder" label="A reinstall would start this record over" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {(lastCopy
+            <Num>{(lastCopy
               ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' after your last saved copy.'
               : unsaved + (unsaved === 1 ? ' day has' : ' days have') + ' never been saved anywhere else.')
               + ' Your iPhone’s backup brings your record to a new phone, but not back into a'
               + ' reinstall on this one — delete Pattern and these go with it. A copy you keep'
-              + ' in Files does not.'}
+              + ' in Files does not.'}</Num>
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -714,29 +717,16 @@ export default function HomeScreen({
 }
 
 /**
- * The card grammar is Trends', to the pixel: the same surface, the same
- * 16pt padding, the same type sizes doing the same jobs. A figure is
- * title3, a label is footnote, a sentence is subheadline, fine print is
- * footnote — and nothing on this screen is allowed a size that no other
- * card in the app uses. The first draft of this screen was drawn from a
- * mockup rather than from the app, and it arrived a step and a half
- * larger than everything it sits next to; a design system that only one
- * screen obeys is not one.
- *
- * The single exception is the hero number, at title2. It is one step
- * above a Trends figure and one step below the screen's own title, which
- * is exactly the room a focal value needs and no more.
+ * The card grammar is the Summary's (SummaryCard.tsx), from the approved
+ * Main mockup of 20 Oct 2026, which lifted the earlier rule that Today
+ * borrow Trends' sizes. What survives of that rule is its reason: a
+ * design system one screen obeys is not one, so the sizes live in one
+ * file for every redesigned screen to take, and nothing here sets a
+ * card's surface, header or value on its own.
  */
 const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: size.pageX, marginTop: 14,
-    borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderDivider,
-    padding: 16,
-  },
-  cardGap: { marginTop: 14 },
   bgOfferBody: {
-    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8,
+    color: summary.secondary, fontSize: font.subheadline, lineHeight: 20, marginTop: 8,
   },
   bgOfferActions: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -750,46 +740,33 @@ const styles = StyleSheet.create({
     marginTop: 2, paddingTop: 12, paddingBottom: 16, marginBottom: -16,
   },
   bgOfferGo: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
-  bgOfferLater: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  headTime: {
-    color: color.textSecondary, fontSize: font.subheadline,
-    fontVariant: ['tabular-nums'],
-  },
-  chev: { color: color.textTertiary, fontSize: 18, marginTop: -2 },
-  eyebrow: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
+  bgOfferLater: { color: summary.tertiary, fontSize: font.subheadline, fontWeight: '500' },
 
-  hero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
+  /* the value on the left, the square at the right where Health draws a
+     card's mini-chart; bottom-aligned, so the square stands on the
+     number's baseline side rather than floating at its middle */
+  hero: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 8 },
   /* iOS shadow: no offset, so the colour sits evenly around the shape
      rather than pooling under it. Android is not a target yet. */
   glow: {
     borderCurve: 'continuous',
-    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 12,
   },
   heroText: { flex: 1 },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  score: {
-    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
-    letterSpacing: -0.4, fontVariant: ['tabular-nums'],
-  },
-  scoreDot: { width: 7, height: 7, borderRadius: 3.5 },
-  scoreWord: {
-    flex: 1, color: color.textPrimary, fontSize: font.title3, fontWeight: '700',
-    letterSpacing: -0.2,
-  },
+  fineGap: { marginTop: 8 },
 
-  emptyTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  emptySub: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21 },
+  /* the check-in card: the mockup's 12 between header, question and
+     button, with the grey line held close under the question it explains */
+  question: { marginTop: 12 },
+  subGap: { marginTop: 6 },
+  primaryGap: { marginTop: 14 },
 
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 16 },
   rule: {
-    height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider, marginTop: 14,
+    height: StyleSheet.hairlineWidth, backgroundColor: summary.separator, marginTop: 14,
   },
   foot: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     minHeight: 38,
   },
-  footCount: { color: color.textSecondary, fontSize: font.subheadline },
   footLink: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
 });

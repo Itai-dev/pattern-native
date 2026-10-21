@@ -5,8 +5,8 @@
  * number of check-ins behind the average travels as text and dots, never
  * as extra rings — a single clean surface, no bands, no stripes.
  *
- * The map draws these at cell size, Today draws one at 116 — same
- * component, so the big square is literally the small one magnified.
+ * The map draws these at cell size, Today draws one beside its value —
+ * same component, so the big square is literally the small one magnified.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
