@@ -26,11 +26,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
-import Icon from './Icon';
+import { RowChevron, RowIcon, settings } from './SettingsList';
+import { Num, summary } from './SummaryCard';
 import { EASE_OUT, reduceMotion } from './motion';
 import { dateFromISO, iso, todayISO } from './model';
 import { fmtDay } from './DayScreen';
-import { Num, summary } from './SummaryCard';
 import { color, font } from './theme';
 
 /** the check-in sheet's ground — see CheckinScreen's SHEET_BG */
@@ -83,18 +83,18 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
     <>
       <Pressable
         onPress={() => setOpen(true)}
-        style={styles.row}
+        style={settings.row}
         accessibilityRole="button"
         accessibilityLabel={'Next appointment, ' + (value ? fmtDay(value) : 'not set')}
         accessibilityHint="Opens a date picker. Two days before, Today offers the PDF."
       >
-        <View style={styles.icon}>
-          <Icon name="calendar" size={20} color={summary.text} />
-        </View>
-        <View style={styles.main}>
-          <Text style={styles.label}>Next appointment</Text>
-          <Text style={styles.value} numberOfLines={1}>{value ? <Num>{fmtDay(value)}</Num> : 'Not set'}</Text>
-          <Icon name="chevron.right" size={14} color={summary.chevron} weight="semibold" />
+        <RowIcon name="calendar.badge.clock" />
+        <View style={settings.rowMain}>
+          <Text style={settings.rowLabel}>Next appointment</Text>
+          <Text style={settings.rowValue} numberOfLines={1}>
+            {value ? <Num>{fmtDay(value)}</Num> : 'Not set'}
+          </Text>
+          <RowChevron />
         </View>
       </Pressable>
 
@@ -144,16 +144,10 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
   );
 }
 
-/* the Profile row grammar, to the pixel — see App.tsx's styles */
+/* the row is Profile's (SettingsList); the picker card is the
+   reminders' wheel card, so the two date and time pickers in one sheet
+   are the same object */
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingLeft: 16 },
-  icon: { width: 29, height: 29, borderRadius: 6.5, alignItems: 'center', justifyContent: 'center' },
-  main: {
-    flex: 1, paddingRight: 14, minHeight: 48,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
-  label: { color: color.textPrimary, fontSize: font.body, flex: 1 },
-  value: { color: summary.secondary, fontSize: font.body, maxWidth: 160 },
   scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   /* a sheet: the redesign's 28pt corners and the check-in's ground */
   card: {

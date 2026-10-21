@@ -107,6 +107,14 @@ export const FALLBACK = {
   'moon.stars.fill': 'cloudy-night',
   'bell.badge.fill': 'notifications',
   'ellipsis.circle.fill': 'ellipsis-horizontal',
+  /* Profile, its sheets and the tab bar */
+  'person.fill': 'person',
+  'envelope.fill': 'mail',
+  'paintpalette.fill': 'color-palette',
+  'square.and.arrow.down': 'download-outline',
+  'slider.horizontal.3': 'options',
+  'stethoscope': 'medkit',
+  'arrow.clockwise': 'refresh',
 } as const satisfies Record<string, keyof typeof Ionicons.glyphMap>;
 
 export type IconName = keyof typeof FALLBACK;

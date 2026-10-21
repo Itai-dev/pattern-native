@@ -27,7 +27,9 @@ import {
 import {
   disconnectHealth, healthCategories, healthRequestedOn, markHealthRequested,
 } from './health/sync';
-import { color, font, radius, size } from './theme';
+import Icon from './Icon';
+import { RowChevron, list, settings } from './SettingsList';
+import { color, font } from './theme';
 
 export interface HealthSheetProps {
   service: HealthService;
@@ -77,13 +79,13 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
   };
 
   return (
-    <View style={styles.sheet}>
-      <View style={styles.navBar}>
-        <View style={styles.navSpacer} />
-        <Text style={styles.navTitle}>Apple Health</Text>
-        <Press onPress={onDone} style={styles.navBtn} hitSlop={10}
+    <View style={settings.sheet}>
+      <View style={settings.navBar}>
+        <View style={settings.navSpacer} />
+        <Text style={settings.navTitle}>Apple Health</Text>
+        <Press onPress={onDone} style={settings.navBtn} hitSlop={10}
           accessibilityRole="button" accessibilityLabel="Done">
-          <Text style={styles.navBtnText}>Done</Text>
+          <Text style={settings.navBtnText}>Done</Text>
         </Press>
       </View>
 
@@ -106,9 +108,13 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
               and the data stays on this iPhone.
             </Text>
 
-            {!!onOpenData && !!requestedOn && <Press onPress={onOpenData} style={styles.statusLink}
+            {/* a row that opens a page, drawn as one: its own group, the
+                chevron where Settings puts it */}
+            {!!onOpenData && !!requestedOn && <Press onPress={onOpenData}
+              style={[settings.group, styles.statusLink]}
               accessibilityRole="button" accessibilityLabel="View connected data">
-              <Text style={styles.statusText}>View connected data ›</Text>
+              <Text style={settings.rowLabel}>View connected data</Text>
+              <RowChevron />
             </Press>}
             <View style={styles.group}>
               {/* a row the phone cannot honour is not a row: iOS 26's
@@ -141,8 +147,11 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
                         </Text>
                       )}
                     </View>
-                    <Text style={[styles.check, !on && styles.checkOff]}
-                      allowFontScaling={false}>✓</Text>
+                    {/* drawn either way and hidden when off, so a tick
+                        never moves the row's words */}
+                    <View style={[styles.check, !on && styles.checkOff]}>
+                      <Icon name="checkmark" size={17} color={list.text} weight="bold" />
+                    </View>
                   </Press>
                 );
               })}
@@ -151,12 +160,12 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
             <Press
               onPress={connect}
               pressScale={0.985}
-              style={[styles.primary, (busy || !picked.length) && styles.primaryOff]}
+              style={[settings.primary, (busy || !picked.length) && settings.primaryOff]}
               accessibilityRole="button"
               accessibilityState={{ disabled: busy || !picked.length }}
               accessibilityLabel={requestedOn ? 'Update what Pattern reads' : 'Continue in Health'}
             >
-              <Text style={styles.primaryText}>
+              <Text style={settings.primaryText}>
                 {requestedOn ? 'Update what Pattern reads' : 'Continue in Health'}
               </Text>
             </Press>
@@ -175,7 +184,7 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
                 <Press
                   onPress={disconnect}
                   pressOpacity={0.8}
-                  style={styles.ghost}
+                  style={settings.secondary}
                   accessibilityRole="button"
                   accessibilityLabel="Stop using Apple Health"
                 >
@@ -194,52 +203,37 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
   );
 }
 
+/* the frame, the buttons and the greys are Profile's (SettingsList);
+   what is here is only what this sheet has that no other does */
 const styles = StyleSheet.create({
-  statusLink: { minHeight: 44, justifyContent: 'center', marginBottom: 14 },
-  statusText: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  sheet: { flex: 1, backgroundColor: color.bgSheet },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
+  statusLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    minHeight: 48, paddingHorizontal: 16, marginBottom: 20,
   },
-  navSpacer: { width: 64 },
-  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
-  body: { padding: 20, paddingBottom: 40 },
+  body: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 48 },
   headline: {
-    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
-    letterSpacing: -0.3, marginBottom: 8,
+    color: list.text, fontSize: font.title2, fontWeight: '700',
+    letterSpacing: -0.33, marginBottom: 8, marginHorizontal: 4,
   },
-  lede: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginBottom: 18 },
+  lede: {
+    color: list.secondary, fontSize: font.subheadline, lineHeight: 21,
+    marginBottom: 20, marginHorizontal: 4,
+  },
   group: {
-    borderRadius: radius.card, borderCurve: 'continuous',
-    backgroundColor: color.bgSegmentTrack, overflow: 'hidden',
+    borderRadius: list.radius, borderCurve: 'continuous',
+    backgroundColor: list.surface, overflow: 'hidden',
   },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     minHeight: 56, paddingHorizontal: 16, paddingVertical: 12,
   },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: list.separator },
   rowMain: { flex: 1, gap: 3 },
-  rowLabel: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  rowBlurb: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18 },
-  rowState: { color: color.textTertiary, fontSize: font.footnote, marginTop: 2 },
-  check: { color: color.tint, fontSize: 17, fontWeight: '700', width: 22, textAlign: 'center' },
+  rowLabel: { color: list.text, fontSize: font.body, fontWeight: '600' },
+  rowBlurb: { color: list.secondary, fontSize: font.footnote, lineHeight: 18 },
+  rowState: { color: list.tertiary, fontSize: font.footnote, marginTop: 2 },
+  check: { width: 22, alignItems: 'center' },
   checkOff: { opacity: 0 },
-  primary: {
-    minHeight: size.buttonH, borderRadius: radius.button, borderCurve: 'continuous',
-    backgroundColor: color.textPrimary, alignItems: 'center', justifyContent: 'center',
-    marginTop: 20, paddingHorizontal: 16,
-  },
-  primaryOff: { opacity: 0.5 },
-  primaryText: { color: '#000000', fontSize: font.title3, fontWeight: '600' },
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 14 },
-  ghost: {
-    minHeight: 46, borderRadius: radius.button, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', marginTop: 22,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
-  },
-  ghostText: { color: color.danger, fontSize: font.subheadline, fontWeight: '600' },
+  fine: { color: list.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 14, marginHorizontal: 4 },
+  ghostText: { color: color.danger, fontSize: font.body, fontWeight: '600' },
 });

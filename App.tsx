@@ -15,8 +15,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './src/HomeScreen';
+import Icon from './src/Icon';
+import { RowChevron, RowIcon, settings } from './src/SettingsList';
 import TabBar, { TAB_ORDER, Tab } from './src/TabBar';
 import CheckinScreen from './src/CheckinScreen';
 import DayScreen, { fmtDay } from './src/DayScreen';
@@ -74,7 +75,7 @@ import { PREF_SQUARE_PICKER } from './src/SquarePicker';
 import {
   analyticsEnabled, setAnalyticsEnabled, track, trackLaunch,
 } from './src/analytics';
-import { getPainTheme, setPainTheme, themeBrand } from './src/painScale';
+import { getPainTheme, setPainTheme } from './src/painScale';
 import {
   DEFAULT_PAIN_THEME, PAIN_THEMES, PainThemeId, color, font, size,
 } from './src/theme';
@@ -108,6 +109,11 @@ function todayTitle(): string {
   return WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
 }
 
+/* The header's round buttons are the mockup's 36; the slop brings each
+   to the 44 a finger needs, and the row's gap keeps two slops apart. */
+const HEAD_BTN = 36;
+const BTN_SLOP = (44 - HEAD_BTN) / 2;
+
 /** The floating return pill — the tab bar's glass, one word of it.
  *  In the header row beside the share button, where the eye goes for "take me back";
  *  the availability check is guarded for the same reason the tab bar's
@@ -120,7 +126,7 @@ function GlassPill({ onPress, label, accessibilityLabel }: {
   onPress: () => void; label: string; accessibilityLabel: string;
 }) {
   const inner = (
-    <Pressable onPress={onPress} style={styles.pillHit}
+    <Pressable onPress={onPress} style={styles.pillHit} hitSlop={4}
       accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
       <Text style={styles.backToTodayText}>{label}</Text>
     </Pressable>
@@ -133,17 +139,6 @@ function GlassPill({ onPress, label, accessibilityLabel }: {
     <BlurView intensity={80} tint="systemChromeMaterialDark" style={styles.backToToday}>
       {inner}
     </BlurView>
-  );
-}
-
-/** a settings row's glyph: the outline form, in line weight, the way
- *  this app draws everything else. The coloured chips were the one place
- *  the interface used colour as decoration rather than meaning. */
-function RowIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
-  return (
-    <View style={styles.rowIcon}>
-      <Ionicons name={name} size={21} color={color.textSecondary} />
-    </View>
   );
 }
 
@@ -636,6 +631,8 @@ export default function App() {
       reportOn: db.getCoachReportOn(), answerOn: answered,
     });
   }, [entries, healthDays, recoveryGoal, activity, coachTick]);
+  /* Profile's roadmap row says how many — what was done, never a pain */
+  const earnedCount = coach.achievements.filter((a) => a.earnedOn).length;
 
   /* the first run after the coach shipped remembers everything already
      earned, silently — those medals are in the list, dated, and only
@@ -994,7 +991,7 @@ export default function App() {
                   onPress={shareTrends}
                   disabled={sharing}
                   style={[styles.profileBtn, sharing && styles.profileBtnBusy]}
-                  hitSlop={10}
+                  hitSlop={BTN_SLOP}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: sharing }}
                   accessibilityLabel={sharing
@@ -1002,22 +999,24 @@ export default function App() {
                     : 'Share this record as a PDF'}
                   accessibilityHint="Creates the PDF and opens the share sheet"
                 >
-                  <Ionicons
-                    name={sharing ? 'ellipsis-horizontal' : 'share-outline'}
-                    size={21}
-                    color={sharing ? color.textTertiary : color.textSecondary}
+                  <Icon
+                    name={sharing ? 'ellipsis' : 'square.and.arrow.up'}
+                    size={17}
+                    color={sharing ? color.textTertiary : color.textPrimary}
                   />
                 </Pressable>
               )}
+              {/* the mockup puts an initial here; Pattern holds no name,
+                  and asking for one to fill a circle would be the first
+                  thing it collected about a person for no reason */}
               <Pressable
                 onPress={() => setProfile(true)}
                 style={styles.profileBtn}
-                hitSlop={10}
+                hitSlop={BTN_SLOP}
                 accessibilityRole="button"
                 accessibilityLabel="Profile and settings"
               >
-                <View style={styles.personHead} />
-                <View style={styles.personBody} />
+                <Icon name="person.fill" size={17} color={color.textPrimary} />
               </Pressable>
             </View>
           </View>
@@ -1210,49 +1209,85 @@ export default function App() {
           />
         </Modal>
 
-        {/* the profile — grouped like the iOS Settings app: inset cards,
-            uniform rows, a coloured icon leading each one */}
+        {/* the profile — iOS Settings on the redesign's black: a large
+            title, inset grouped cards, a white glyph on no tile leading
+            each row. The grammar lives in src/SettingsList.tsx. */}
         <Modal visible={profile} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setProfile(false); setApptPickerOnOpen(false); }} onDismiss={runAfterDismiss}>
-          <View style={styles.sheet}>
-            <View style={styles.navBar}>
-              <View style={styles.navSpacer} />
-              <Text style={styles.navTitle}>Profile</Text>
+          <View style={settings.sheet}>
+            <View style={settings.navBar}>
+              <View style={settings.navSpacer} />
               <Pressable
                 /* leaving Profile also forgets that Today asked for the
                    date picker, so the next visit opens on the rows */
                 onPress={() => { setProfile(false); setApptPickerOnOpen(false); }}
-                style={styles.navBtn}
+                style={settings.navBtn}
                 hitSlop={10}
                 accessibilityRole="button"
                 accessibilityLabel="Done"
               >
-                <Text style={styles.navBtnText}>Done</Text>
+                <Text style={settings.navBtnText}>Done</Text>
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={settings.body} showsVerticalScrollIndicator={false}>
+              {/* the large title in the page, not in the bar — the way
+                  Settings' own first screen and the Coach sheet carry it */}
+              <Text style={settings.largeTitle} accessibilityRole="header"
+                allowFontScaling maxFontSizeMultiplier={1.3}>Profile</Text>
               <GoalRow goal={currentGoal(recoveryGoal, activity)} today={todayISO()} onChange={saveGoal} />
+              {/* THE WAY IN FOR EVERYONE (21 Oct 2026). Today reaches the
+                  roadmap through the goal header, which only exists once
+                  there is a goal — so without one, achievements already
+                  earned by sessions and reports had no door at all. This
+                  is that door, under the goal it belongs to. Profile
+                  closes first and the coach opens from its onDismiss:
+                  iOS will not present a second sheet while this one is
+                  up, the same sequencing as every other sheet swap. */}
+              <View style={[settings.group, styles.afterGoal]}>
+                <Pressable
+                  onPress={() => {
+                    afterDismiss.current = () => setCoachOpen(coach.roadmap ? 'roadmap' : 'achievements');
+                    setProfile(false);
+                    setApptPickerOnOpen(false);
+                  }}
+                  style={settings.row}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Roadmap and achievements' + (earnedCount ? ', ' + earnedCount + ' earned' : '')}
+                >
+                  <RowIcon name="medal.fill" />
+                  <View style={settings.rowMain}>
+                    <Text style={settings.rowLabel}>Roadmap & achievements</Text>
+                    {/* a count of things done, never of pain — and
+                        nothing at all before the first, so an empty
+                        shelf is not a zero to look at */}
+                    {earnedCount > 0 && (
+                      <Text style={settings.rowValue}><Num>{earnedCount + ' earned'}</Num></Text>
+                    )}
+                    <RowChevron />
+                  </View>
+                </Pressable>
+              </View>
               {/* FIVE GROUPS, NOT ELEVEN (30 Sep 2026). Profile had a group
                   per setting and a paragraph under most of them, and read
                   as a terms page. The settings are all still here; they
                   are grouped by what they are for, and each group carries
                   one sentence — the one that says what it does not do. */}
 
-              <Text style={styles.groupTitle}>Check-ins</Text>
-              <View style={[styles.group, styles.groupPad]}>
+              <Text style={settings.groupTitle}>Check-ins</Text>
+              <View style={settings.group}>
                 <RemindersSection />
               </View>
-              <View style={styles.group}>
+              <View style={settings.group}>
                 {/* the calendar: only on a binary that carries the module.
                     The permission is asked when it goes on, where the
                     question explains itself. */}
                 {calendarAvailable() && (
-                  <View style={styles.row} accessible accessibilityRole="switch"
+                  <View style={settings.row} accessible accessibilityRole="switch"
                     accessibilityState={{ checked: calendarUse }}
                     accessibilityLabel="Use my calendar for reminder times">
-                    <RowIcon name="calendar-outline" />
-                    <View style={[styles.rowMain, styles.rowLine]}>
-                      <Text style={styles.rowLabel}>Use my calendar</Text>
+                    <RowIcon name="calendar" />
+                    <View style={[settings.rowMain, settings.rowLine]}>
+                      <Text style={settings.rowLabel}>Use my calendar</Text>
                       <Switch
                         value={calendarUse}
                         onValueChange={async (on) => {
@@ -1270,12 +1305,12 @@ export default function App() {
                     </View>
                   </View>
                 )}
-                <View style={styles.row} accessible accessibilityRole="switch"
+                <View style={settings.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: lockNumber }}
                   accessibilityLabel="Show the number on the lock screen">
-                  <RowIcon name="phone-portrait-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Number on lock screen</Text>
+                  <RowIcon name="iphone" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>Number on lock screen</Text>
                     <Switch
                       value={lockNumber}
                       onValueChange={(on) => {
@@ -1290,13 +1325,15 @@ export default function App() {
                 </View>
                 {/* the picker under comparison: eleven day squares in place
                     of the slider. A switch and not a rollout, so it can be
-                    flipped mid-week and flipped back. */}
-                <View style={styles.row} accessible accessibilityRole="switch"
+                    flipped mid-week and flipped back. Its glyph is the
+                    slider's, not a grid: a white square is a pain value
+                    with the colour taken out. */}
+                <View style={settings.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: squarePicker }}
                   accessibilityLabel="Choose pain with squares instead of a slider">
-                  <RowIcon name="apps-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Pick pain with squares</Text>
+                  <RowIcon name="slider.horizontal.3" />
+                  <View style={[settings.rowMain, settings.rowLine, settings.rowLineLast]}>
+                    <Text style={settings.rowLabel}>Pick pain with squares</Text>
                     <Switch
                       value={squarePicker}
                       onValueChange={(on) => {
@@ -1308,7 +1345,7 @@ export default function App() {
                   </View>
                 </View>
               </View>
-              <Text style={styles.groupFooter}>
+              <Text style={settings.groupFooter}>
                 Calendar titles are read on this iPhone and never stored or sent.
                 Off, the lock screen shows only that you checked in.
               </Text>
@@ -1319,61 +1356,61 @@ export default function App() {
                   one tap further, inside the Health sheet. */}
               {health.available() && (
                 <>
-                  <Text style={styles.groupTitle}>Apple Health</Text>
-                  <View style={styles.group}>
+                  <Text style={settings.groupTitle}>Apple Health</Text>
+                  <View style={settings.group}>
                     <Pressable
                       onPress={() => { track('health_setup_opened'); setHealthPanel('setup'); setHealthSheet(true); }}
-                      style={styles.row}
+                      style={settings.row}
                       accessibilityRole="button"
                       accessibilityLabel="Apple Health. Use sleep and activity to add context automatically."
                     >
-                      <RowIcon name="heart-outline" />
-                      <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                        <Text style={styles.rowLabel}>Apple Health</Text>
-                        <Text style={styles.rowValue}>
+                      <RowIcon name="heart.fill" />
+                      <View style={[settings.rowMain, settings.rowLine, settings.rowLineLast]}>
+                        <Text style={settings.rowLabel}>Apple Health</Text>
+                        <Text style={settings.rowValue}>
                           {healthRequestedOn() ? 'Set up' : 'Not set up'}
                         </Text>
-                        <Text style={styles.rowChevron}>›</Text>
+                        <RowChevron />
                       </View>
                     </Pressable>
                   </View>
-                  <Text style={styles.groupFooter}>
+                  <Text style={settings.groupFooter}>
                     Read-only, and everything imported stays on this iPhone.
                   </Text>
                 </>
               )}
 
-              <Text style={styles.groupTitle}>The PDF</Text>
-              <View style={styles.group}>
+              <Text style={settings.groupTitle}>The PDF</Text>
+              <View style={settings.group}>
                 {/* the diagnosis, above the background it leads: a
                     diagnosis arrives, and "still looking" is the answer
                     most likely to be out of date in three months */}
                 <Pressable
                   onPress={() => setDiagnosisOpen(true)}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Diagnosis"
                   accessibilityHint="Whether you have one, and what it is — the first line of the PDF"
                 >
-                  <RowIcon name="medkit-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Diagnosis</Text>
-                    <Text style={styles.rowValue}>{diagnosisShort(db.getDiagnosis())}</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  <RowIcon name="stethoscope" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>Diagnosis</Text>
+                    <Text style={settings.rowValue}>{diagnosisShort(db.getDiagnosis())}</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
                 <Pressable
                   onPress={() => setBackgroundOpen(true)}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Background for the PDF"
                   accessibilityHint="Diagnoses, medications, history — printed on the first page of the PDF, in your words"
                 >
-                  <RowIcon name="document-text-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Background</Text>
-                    <Text style={styles.rowValue}>{db.getBackground() ? 'Written' : ''}</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  <RowIcon name="doc.text.fill" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>Background</Text>
+                    <Text style={settings.rowValue}>{db.getBackground() ? 'Written' : ''}</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
                 <AppointmentRow
@@ -1387,44 +1424,44 @@ export default function App() {
                   }}
                 />
               </View>
-              <Text style={styles.groupFooter}>
+              <Text style={settings.groupFooter}>
                 Two days before the appointment, Today offers the PDF.
               </Text>
 
-              <Text style={styles.groupTitle}>Your data</Text>
-              <View style={styles.group}>
+              <Text style={settings.groupTitle}>Your data</Text>
+              <View style={settings.group}>
                 <Pressable
                   onPress={exportBackup}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Save a copy"
                 >
-                  <RowIcon name="share-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Save a copy</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  <RowIcon name="square.and.arrow.up" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>Save a copy</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
                 <Pressable
                   onPress={restoreBackup}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Restore a saved copy"
                 >
-                  <RowIcon name="download-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Restore a saved copy</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  <RowIcon name="square.and.arrow.down" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>Restore a saved copy</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
                 {/* a switch, because it is one — the row with On/Off text
                     and a chevron said "opens something" */}
-                <View style={styles.row} accessible accessibilityRole="switch"
+                <View style={settings.row} accessible accessibilityRole="switch"
                   accessibilityState={{ checked: analyticsOn }}
                   accessibilityLabel="Share anonymous usage counts">
-                  <RowIcon name="stats-chart-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Anonymous usage counts</Text>
+                  <RowIcon name="chart.bar.fill" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>Anonymous usage counts</Text>
                     <Switch
                       value={analyticsOn}
                       onValueChange={(on) => { setAnalyticsEnabled(on); setAnalyticsOn(on); }}
@@ -1434,14 +1471,14 @@ export default function App() {
                 </View>
                 <Pressable
                   onPress={() => setPrivacy(true)}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Privacy policy"
                 >
-                  <RowIcon name="lock-closed-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Privacy policy</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  <RowIcon name="hand.raised.fill" />
+                  <View style={[settings.rowMain, settings.rowLine, settings.rowLineLast]}>
+                    <Text style={settings.rowLabel}>Privacy policy</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
               </View>
@@ -1449,78 +1486,80 @@ export default function App() {
                   this phone, because that is the sentence that decides
                   whether the rest matters today. The reinstall sentence
                   stays: a tester lost a record to exactly that. */}
-              <Text style={styles.groupFooter}>
-                {(lastCopy
+              <Text style={settings.groupFooter}>
+                <Num>{(lastCopy
                   ? 'Last copy saved ' + fmtDay(lastCopy.on) + ', holding '
                     + lastCopy.days + (lastCopy.days === 1 ? ' day. ' : ' days. ')
                   : 'No copy saved yet. ')
                   + 'Reinstalling Pattern starts it empty; a copy you saved is the only way back. '
-                  + 'Usage counts say that something happened, never what you recorded.'}
+                  + 'Usage counts say that something happened, never what you recorded.'}</Num>
               </Text>
 
-              <Text style={styles.groupTitle}>About</Text>
-              <View style={styles.group}>
+              <Text style={settings.groupTitle}>About</Text>
+              <View style={settings.group}>
                 <Pressable
                   onPress={() => setAppearance(true)}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel={'Colour theme, ' + themeName}
                 >
-                  {/* the one row whose subject IS a colour shows it: the
-                      glyph and its frame in the palette you chose */}
-                  <View style={[styles.rowIcon, styles.themeIcon, { borderColor: themeBrand() }]}>
-                    <Ionicons name="color-palette-outline" size={19} color={themeBrand()} />
-                  </View>
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>Colour theme</Text>
-                    <Text style={styles.rowValue}>{themeName}</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  {/* white like every other glyph. It used to wear the
+                      chosen palette, but a hue on a settings row is
+                      colour as decoration; the palette itself is one tap
+                      in, drawn as its real ramp. */}
+                  <RowIcon name="paintpalette.fill" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>Colour theme</Text>
+                    <Text style={settings.rowValue}>{themeName}</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
                 <Pressable
                   onPress={() => setAbout(true)}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="What Pattern is, and when not to log"
                 >
-                  <RowIcon name="information-circle-outline" />
-                  <View style={[styles.rowMain, styles.rowLine]}>
-                    <Text style={styles.rowLabel}>What Pattern is — and isn’t</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  <RowIcon name="info.circle.fill" />
+                  <View style={[settings.rowMain, settings.rowLine]}>
+                    <Text style={settings.rowLabel}>What Pattern is — and isn’t</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
                 <Pressable
                   onPress={openFeedback}
-                  style={styles.row}
+                  style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Send feedback by email"
                 >
-                  <RowIcon name="chatbubble-outline" />
-                  <View style={[styles.rowMain, styles.rowLine, styles.rowLineLast]}>
-                    <Text style={styles.rowLabel}>Send feedback</Text>
-                    <Text style={styles.rowChevron}>›</Text>
+                  <RowIcon name="envelope.fill" />
+                  <View style={[settings.rowMain, settings.rowLine, settings.rowLineLast]}>
+                    <Text style={settings.rowLabel}>Send feedback</Text>
+                    <RowChevron />
                   </View>
                 </Pressable>
               </View>
               {/* which code is actually running — the end of guessing
                   whether an update has landed. updateId is null when the
-                  app runs its embedded bundle. */}
-              <Text style={styles.groupFooter} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {'Pattern v' + (Constants.expoConfig?.version || '?')
-                  + ' · ' + (Updates.updateId ? 'update ' + Updates.updateId.slice(0, 8) : 'embedded bundle')}
+                  app runs its embedded bundle. The version is a number
+                  and takes the rounded face; the update id is a hash,
+                  and a hash set half rounded reads as two fonts. */}
+              <Text style={settings.groupFooter} allowFontScaling maxFontSizeMultiplier={1.4}>
+                {'Pattern v'}<Num>{Constants.expoConfig?.version || '?'}</Num>
+                {' · ' + (Updates.updateId ? 'update ' + Updates.updateId.slice(0, 8) : 'embedded bundle')}
               </Text>
 
-              <View style={styles.group}>
+              <View style={settings.group}>
                 <Pressable
                   onPress={wipe}
-                  style={[styles.row, styles.rowCentre]}
+                  style={[settings.row, settings.rowCentre]}
                   accessibilityRole="button"
                   accessibilityLabel="Delete all my data"
                 >
                   <Text style={styles.danger}>Delete all my data</Text>
                 </Pressable>
               </View>
-              <Text style={styles.groupFooter}>
+              <Text style={settings.groupFooter}>
                 Removes everything from this iPhone. There is no copy anywhere else.
               </Text>
             </ScrollView>
@@ -1581,41 +1620,28 @@ const styles = StyleSheet.create({
      makes it read as a heading rather than as the first row of content. */
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: size.pageX, paddingTop: 6, paddingBottom: 14,
+    paddingHorizontal: size.pageX, paddingTop: 10, paddingBottom: 12,
   },
-  /* The person is drawn at the tab bar's glyph size and stroke weight —
-     21pt across, 1.9pt lines — because it sits in the same family of
-     controls and was previously a lighter, smaller drawing that read as a
-     different set of marks. */
   /* in the header row, only on Patterns and only once you have scrolled
-     away — glass like the tab bar, one word of it */
+     away — glass like the tab bar, one word of it, as tall as the round
+     buttons beside it so the row has one height */
   backToToday: {
-    borderRadius: 19, borderCurve: 'continuous', overflow: 'hidden',
+    borderRadius: 18, borderCurve: 'continuous', overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
   },
-  pillHit: { minHeight: 38, paddingHorizontal: 16, justifyContent: 'center' },
-  backToTodayText: { color: color.textPrimary, fontSize: font.footnote, fontWeight: '600' },
-  themeIcon: {
-    borderWidth: 1.5, borderRadius: 9,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pillHit: { minHeight: HEAD_BTN, paddingHorizontal: 14, justifyContent: 'center' },
+  backToTodayText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
+  /* the gap is wider than two slops, so the 44pt targets never overlap */
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   profileBtnBusy: { opacity: 0.5 },
+  /* the mockup's round button: 36 across, #3A3A3C, no rim — the grey a
+     filled control takes on black, a step lighter than the cards so it
+     reads as something to press rather than something to read */
   profileBtn: {
-    width: 44, height: 44, borderRadius: 22, borderCurve: 'continuous',
+    width: HEAD_BTN, height: HEAD_BTN, borderRadius: HEAD_BTN / 2,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: color.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: color.borderControl,
+    backgroundColor: '#3A3A3C',
   },
-  personHead: {
-    width: 9, height: 9, borderRadius: 4.5, borderWidth: 1.9,
-    borderColor: color.textSecondary, marginBottom: 1.5,
-  },
-  personBody: {
-    width: 19, height: 9, borderTopLeftRadius: 9.5, borderTopRightRadius: 9.5,
-    borderWidth: 1.9, borderBottomWidth: 0, borderColor: color.textSecondary,
-  },
-  /* the main screen's title — iOS large-title weight and size */
   /* iOS's large title, at the mockup's 34 and −2.2% tracking; the
      date shrinks to fit on a narrow phone rather than wrapping */
   wordmark: {
@@ -1625,53 +1651,10 @@ const styles = StyleSheet.create({
   /* room at the bottom so the last content clears the floating bar, and
      a little at the top so a page never begins hard against its heading */
   page: { paddingTop: 4, paddingBottom: 140 },
-  sheet: { flex: 1, backgroundColor: color.bgSheet },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
-  },
-  navSpacer: { width: 64 },
-  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
-  sheetBody: { padding: 20, paddingTop: 18, paddingBottom: 40 },
-
-  /* ── iOS Settings grammar: inset groups, uniform rows, coloured icons ── */
-  group: {
-    borderRadius: 12, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack,
-    overflow: 'hidden', marginBottom: 22,
-  },
-  groupPad: { paddingHorizontal: 16, paddingVertical: 12 },
-  groupTitle: {
-    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
-    textTransform: 'uppercase', letterSpacing: 0.3,
-    marginBottom: 7, marginLeft: 16,
-  },
-  groupFooter: {
-    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
-    marginTop: -14, marginBottom: 22, marginHorizontal: 16,
-  },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    minHeight: 48, paddingLeft: 16,
-  },
-  rowCentre: { justifyContent: 'center', paddingLeft: 0 },
-  rowIcon: {
-    width: 29, height: 29, borderRadius: 6.5,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  /* the divider is inset past the icon, exactly as Settings draws it */
-  rowMain: {
-    flex: 1, paddingRight: 14, minHeight: 48,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
-  rowLine: {
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
-  },
-  rowLineLast: { borderBottomWidth: 0 },
-  rowLabel: { color: color.textPrimary, fontSize: font.body, flex: 1 },
-  rowValue: { color: color.textSecondary, fontSize: font.body, maxWidth: 140 },
-  rowChevron: { color: color.textTertiary, fontSize: 20, marginTop: -2 },
+  /* the goal card has no margin of its own in Profile (it is drawn flush
+     for the sheet to place); the roadmap row is its group, a step below */
+  afterGoal: { marginTop: 10 },
+  /* the one coloured word in Profile: the app's soft destructive text,
+     not the pain ramp and not iOS's alarm red (theme.ts) */
   danger: { color: color.danger, fontSize: font.body },
 });

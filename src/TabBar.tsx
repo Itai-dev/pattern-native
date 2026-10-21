@@ -1,19 +1,36 @@
 /**
  * The floating bar — Pattern's navigation as iOS 26 draws its own: a
- * Liquid Glass pill hovering over the content. Nothing is docked to the
- * screen edge; the content scrolls underneath and reads through the
- * material.
+ * Liquid Glass pill hovering over the content, and beside it a round
+ * glass + for the check-in (the October mockup, Main). Nothing is docked
+ * to the screen edge; the content scrolls underneath and reads through
+ * the material.
  *
  * REAL GLASS WHERE IT EXISTS. expo-glass-effect exposes the system's
  * Liquid Glass — the same material the platform's own bars refract
- * through. On anything older than iOS 26 the pill falls back to the
- * chrome blur it had before: one layout, two materials, no other branch.
+ * through. On anything older than iOS 26 the pill and the + fall back to
+ * the chrome blur they had before: one layout, two materials, no other
+ * branch.
  *
- * GLYPHS ARE DRAWN, NOT FILLED, UNTIL CHOSEN. The iOS grammar: an
- * outline is a place you could go, a filled shape is where you are. The
- * three glyphs stay in the app's square language — one day, a month of
- * them, a few stacked into a record — and each has an outline form and a
- * filled form rather than a colour swap.
+ * TWO GLYPHS, AND NEITHER IS A SQUARE (21 Oct 2026). Today used to be a
+ * rounded square and Patterns three square-ended bars, "the app's square
+ * language". Since the redesign a square means a pain value and nothing
+ * else — Today's week strip, the check-in's hero, the day page — so a
+ * white square in the bar read as a score with no number on it. Today is
+ * SF Symbols' `calendar` (a day, the thing the screen is about) and
+ * Patterns is `chart.line.uptrend.xyaxis`, the same symbol Insights
+ * takes in the mockup. Rejected: `square.fill` for Today (the square
+ * again), `chart.bar.fill` for Patterns (white bars are the Sessions
+ * minutes on Today, so the tab would point at the wrong thing).
+ *
+ * SELECTION IS THE WASH AND WHITE, NOT A FILL SWAP. The old outline-to-
+ * filled grammar needs a symbol with both forms, and neither of these
+ * has one: there is no `calendar.fill` or `chart.line…fill` in SF
+ * Symbols, and drawing an outline Ionicon on older binaries beside a
+ * filled SF Symbol on newer ones would make the same tab two shapes on
+ * two phones. So both glyphs are always the filled form the symbol
+ * comes in; where you are is said three ways that need no colour — the
+ * light wash behind the item, white over grey, and VoiceOver's selected
+ * state — which is how iOS 26's own bar says it.
  *
  * Tapping is INSTANT, on purpose: a tab change happens dozens of times a
  * day, and that frequency earns no animation — a selection haptic is the
@@ -27,6 +44,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
+import Icon, { IconName } from './Icon';
 import { color } from './theme';
 
 export type Tab = 'today' | 'trends';
@@ -39,8 +57,8 @@ export const TAB_ORDER: Tab[] = ['today', 'trends'];
 export interface TabBarProps {
   tab: Tab;
   onChange: (tab: Tab) => void;
-  /** the check-in, from the one place a thumb always reaches. The Log
-   *  pill top-right stays for now; this is the same door, lower. */
+  /** the check-in, from the one place a thumb always reaches — drawn
+   *  as the round + beside the bar */
   onLog?: () => void;
 }
 
@@ -54,18 +72,27 @@ const LIQUID = (() => {
   try { return isLiquidGlassAvailable(); } catch { return false; }
 })();
 
-/* LABELS SCALE, UP TO WHAT THE PILL HOLDS (18 Oct 2026). They were fixed
-   at 11pt, so someone reading at a larger text size got the one row of
-   words in the app that ignored it. The pill is a fixed 60 and an item 50
-   with 5 above and below, which leaves 40 for the glyph (21), the gap (3)
-   and one line of label: 16pt of line. SF at 11pt sets a line of about
-   13.1, so 16 / 13.1 ≈ 1.22. Capped at 1.2: 13.2pt type on a ~15.8 line,
-   39.8 of the 40. Past it the item grows toward the pill's edge, the
-   selected wash touches it and then clips under overflow: hidden — and a
-   taller pill is the slab this file keeps refusing. Width is not the
-   limit: "Patterns" at 13.2pt semibold is ~53pt inside the 58 an item's
-   minimum leaves, and one line is enforced, so a label can only widen,
-   never wrap into a line the height cannot hold.
+/* The mockup's geometry: the pill and the + are both 62 tall, so the
+   two read as one row of glass; the pill holds its items 4pt in. */
+const BAR_H = 62;
+const BAR_PAD = 4;
+const ITEM_H = BAR_H - BAR_PAD * 2;
+const GLYPH = 22;
+
+/* LABELS SCALE, UP TO WHAT THE ITEM HOLDS (18 Oct 2026, re-measured
+   21 Oct). They were fixed at 11pt, so someone reading at a larger text
+   size got the one row of words in the app that ignored it. An item is
+   54 (62 less 4 above and below) with 7 of padding top and bottom, which
+   leaves 40 for the glyph (22), the gap (2) and one line of label: 16pt
+   of line — the same 40 the 60pt pill left for a 21 glyph and a 3 gap,
+   so the cap did not move. SF at 11pt sets a line of about 13.1, so
+   16 / 13.1 ≈ 1.22. Capped at 1.2: 13.2pt type on a ~15.8 line, 39.7 of
+   the 40. Past it the item grows toward the pill's edge, the selected
+   wash touches it and then clips under overflow: hidden — and a taller
+   pill would stand taller than the + beside it. Width is not the limit:
+   each item is half of the bar, well over 100pt on the narrowest phone,
+   and one line is enforced, so a label can only widen, never wrap into
+   a line the height cannot hold.
    iOS's own tab bar meets the largest sizes differently: it does not
    grow, it shows the item in the large-content viewer on a long press.
    RN's core View carries that (accessibilityShowsLargeContentViewer, no
@@ -74,90 +101,33 @@ const LIQUID = (() => {
    only at the accessibility sizes. */
 const TAB_LABEL_MAX_SCALE = 1.2;
 
-/** one rounded square — the day. Filled when you are here. */
-function TodayGlyph({ active }: { active: boolean }) {
-  return (
-    <View
-      style={[
-        styles.dayGlyph,
-        active
-          ? { backgroundColor: color.textPrimary, borderColor: color.textPrimary }
-          : { borderColor: color.textTertiary },
-      ]}
-    />
-  );
-}
-
-/** the same square, three of them, at the heights of a record */
-function TrendsGlyph({ active }: { active: boolean }) {
-  return (
-    <View style={styles.barsGlyph}>
-      {[9, 18, 13].map((h, i) => (
-        <View
-          key={i}
-          style={[
-            styles.bar,
-            { height: h },
-            active
-              ? { backgroundColor: color.textPrimary, borderColor: color.textPrimary }
-              : { borderColor: color.textTertiary },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'today', label: 'Today' },
+const TABS: { key: Tab; label: string; icon: IconName }[] = [
+  { key: 'today', label: 'Today', icon: 'calendar' },
   /* Patterns, not Record: "here is everything you entered" is a
      spreadsheet's promise, and "here is what you're beginning to
      learn" is this app's */
-  { key: 'trends', label: 'Patterns' },
+  { key: 'trends', label: 'Patterns', icon: 'chart.line.uptrend.xyaxis' },
 ];
 
-function glyphFor(key: Tab, active: boolean) {
-  return key === 'today' ? <TodayGlyph active={active} /> : <TrendsGlyph active={active} />;
-}
+/* the mockup's quiet grey for a place you are not — SummaryCard's
+   secondary, so the bar and the cards above it share one grey */
+const IDLE = '#98989F';
 
-/** the day square with a plus in it — Today's empty card, at glyph
- *  size. An ACTION in the bar, not a place: it never fills, because
- *  you are never "on" it. */
-function LogGlyph() {
-  return (
-    <View style={[styles.dayGlyph, styles.logGlyph]}>
-      <View style={styles.plusH} />
-      <View style={styles.plusV} />
-    </View>
+/** one surface of glass, whichever material this binary has */
+function Glass({ style, children }: { style: object[]; children: React.ReactNode }) {
+  return LIQUID ? (
+    <GlassView glassEffectStyle="regular" colorScheme="dark" style={[...style, styles.liquid]}>
+      {children}
+    </GlassView>
+  ) : (
+    <BlurView intensity={80} tint="systemChromeMaterialDark" style={[...style, styles.blurFallback]}>
+      {children}
+    </BlurView>
   );
 }
 
 export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
   const insets = useSafeAreaInsets();
-
-  /* the action sits apart from the tabs behind a hairline, iOS 26's
-     accessory grammar: the same pill, a different kind of thing in it */
-  const logItem = onLog ? (
-    <React.Fragment key="log">
-      <View style={styles.divider} />
-      <Press
-        onPress={() => {
-          Haptics.selectionAsync().catch(() => {});
-          onLog();
-        }}
-        pressOpacity={0.7}
-        style={styles.item}
-        accessibilityRole="button"
-        accessibilityLabel="Check in"
-        accessibilityHint="Records how your pain is right now"
-        accessibilityShowsLargeContentViewer
-        accessibilityLargeContentTitle="Log"
-      >
-        <LogGlyph />
-        <Text allowFontScaling maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE} numberOfLines={1} style={[styles.label, styles.labelActive]}>Log</Text>
-      </Press>
-    </React.Fragment>
-  ) : null;
 
   const items = TABS.map((t) => {
     const active = tab === t.key;
@@ -180,7 +150,7 @@ export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
         accessibilityShowsLargeContentViewer
         accessibilityLargeContentTitle={t.label}
       >
-        {glyphFor(t.key, active)}
+        <Icon name={t.icon} size={GLYPH} color={active ? color.textPrimary : IDLE} />
         <Text
           allowFontScaling
           maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
@@ -198,24 +168,33 @@ export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
       pointerEvents="box-none"
       style={[styles.wrap, { bottom: Math.max(insets.bottom, 12) + 6 }]}
     >
-      {LIQUID ? (
-        <GlassView
-          glassEffectStyle="regular"
-          colorScheme="dark"
-          style={[styles.pill, styles.liquid]}
+      {/* the bar takes the row and the + its own 62: the mockup's
+          layout. A pill that only hugged two tabs left a gap beside the
+          + that read as a missing third tab. */}
+      <Glass style={[styles.pill]}>{items}</Glass>
+
+      {/* An ACTION, not a place, so it sits outside the pill — iOS 26's
+          accessory grammar — and never takes the selected wash: you are
+          never "on" it. No label: the + is the most familiar glyph on
+          the phone, and VoiceOver hears the words. */}
+      {onLog && (
+        <Press
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            onLog();
+          }}
+          pressOpacity={0.7}
+          pressScale={0.97}
+          accessibilityRole="button"
+          accessibilityLabel="Check in"
+          accessibilityHint="Records how your pain is right now"
+          accessibilityShowsLargeContentViewer
+          accessibilityLargeContentTitle="Log"
         >
-          {items}
-          {logItem}
-        </GlassView>
-      ) : (
-        <BlurView
-          intensity={80}
-          tint="systemChromeMaterialDark"
-          style={[styles.pill, styles.blurFallback]}
-        >
-          {items}
-          {logItem}
-        </BlurView>
+          <Glass style={[styles.log]}>
+            <Icon name="plus" size={24} color={color.textPrimary} weight="bold" />
+          </Glass>
+        </Press>
       )}
     </View>
   );
@@ -223,23 +202,17 @@ export default function TabBar({ tab, onChange, onLog }: TabBarProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'absolute', left: 0, right: 0,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    position: 'absolute', left: 16, right: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
   },
-  /* A real iOS tab bar is 49pt of content sitting on the safe area, so it
-     reads as roughly 83pt tall. A pill that floats has to carry that
-     presence in its own height instead of borrowing it from the screen
-     edge.
-
-     Losing a destination did NOT earn the pill more room. Widened to
-     fill what three tabs had used, it read as a slab across the bottom
-     of the screen and took attention the content should have; a
-     floating bar is supposed to be smaller than the thing it floats
-     over. Same size as it always was — two items simply sit in it with
-     more air. */
   pill: {
-    flexDirection: 'row', alignItems: 'center', overflow: 'hidden',
-    borderRadius: 30, borderCurve: 'continuous', height: 60, paddingHorizontal: 5, gap: 2,
+    flex: 1, flexDirection: 'row', alignItems: 'center', overflow: 'hidden',
+    height: BAR_H, borderRadius: BAR_H / 2, borderCurve: 'continuous', padding: BAR_PAD,
+  },
+  /* the + — the same glass, the same height, a circle */
+  log: {
+    width: BAR_H, height: BAR_H, borderRadius: BAR_H / 2, overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
   },
   /* the system material carries itself — the only paint on top is the
      hairline that catches light along the edge */
@@ -253,33 +226,13 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.16)',
   },
-  /* narrower than they were: three things share the pill now, and a
-     bar that grew to hold a third would read as a slab. The 96 the two
-     tabs had was air, not need. */
   item: {
-    minHeight: 50, minWidth: 82, borderRadius: 25, borderCurve: 'continuous',
-    alignItems: 'center', justifyContent: 'center', gap: 3,
-    paddingHorizontal: 12, paddingVertical: 5,
+    flex: 1, minHeight: ITEM_H, borderRadius: ITEM_H / 2, borderCurve: 'continuous',
+    alignItems: 'center', justifyContent: 'center', gap: 2,
+    paddingHorizontal: 12, paddingVertical: 7,
   },
+  /* the light wash is where you are */
   itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  divider: {
-    width: StyleSheet.hairlineWidth, height: 30, marginHorizontal: 3,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
-  dayGlyph: { width: 21, height: 21, borderRadius: 6, borderWidth: 1.9 },
-  /* the plus, drawn: two bars in the square's own stroke weight */
-  logGlyph: {
-    borderColor: color.textPrimary, alignItems: 'center', justifyContent: 'center',
-  },
-  plusH: { position: 'absolute', width: 9, height: 1.9, backgroundColor: color.textPrimary },
-  plusV: { position: 'absolute', width: 1.9, height: 9, backgroundColor: color.textPrimary },
-  /* outline until chosen: the border draws the shape either way, and the
-     fill arrives only with selection — a colour swap alone never says it */
-  barsGlyph: {
-    width: 21, height: 21,
-    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
-  },
-  bar: { width: 5.5, borderRadius: 2, borderWidth: 1.6 },
-  label: { fontSize: 11, fontWeight: '600', color: color.textTertiary, letterSpacing: 0.1 },
+  label: { fontSize: 11, fontWeight: '600', color: IDLE, letterSpacing: 0.1 },
   labelActive: { color: color.textPrimary },
 });

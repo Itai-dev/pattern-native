@@ -7,7 +7,9 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { PAIN_THEMES, PainThemeId, color, font, radius } from './theme';
+import { PAIN_THEMES, PainThemeId, font } from './theme';
+import Icon from './Icon';
+import { list, settings } from './SettingsList';
 import { getPainTheme, painColor } from './painScale';
 import { Press } from './motion';
 
@@ -21,18 +23,18 @@ export interface AppearanceSheetProps {
 export default function AppearanceSheet({ onPick, onDone }: AppearanceSheetProps) {
   const current = getPainTheme();
   return (
-    <View style={styles.sheet}>
-      <View style={styles.navBar}>
-        <View style={styles.navSpacer} />
-        <Text style={styles.navTitle}>Colour theme</Text>
+    <View style={settings.sheet}>
+      <View style={settings.navBar}>
+        <View style={settings.navSpacer} />
+        <Text style={settings.navTitle}>Colour theme</Text>
         <Pressable
           onPress={onDone}
-          style={styles.navBtn}
+          style={settings.navBtn}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Done"
         >
-          <Text style={styles.navBtnText}>Done</Text>
+          <Text style={settings.navBtnText}>Done</Text>
         </Pressable>
       </View>
 
@@ -69,7 +71,9 @@ export default function AppearanceSheet({ onPick, onDone }: AppearanceSheetProps
                     ))}
                   </View>
                 </View>
-                <Text style={[styles.check, !on && styles.checkOff]}>✓</Text>
+                <View style={[styles.check, !on && styles.checkOff]}>
+                  <Icon name="checkmark" size={17} color={list.text} weight="bold" />
+                </View>
               </Press>
             );
           })}
@@ -79,32 +83,25 @@ export default function AppearanceSheet({ onPick, onDone }: AppearanceSheetProps
   );
 }
 
+/* the frame is Profile's (SettingsList). The swatches are the one place
+   on these sheets a hue is allowed: they ARE the pain scale, squares in
+   the ramp the way every pain value is drawn. */
 const styles = StyleSheet.create({
-  sheet: { flex: 1, backgroundColor: color.bgSheet },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
-  },
-  navSpacer: { width: 64 },
-  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
-  body: { padding: 20, paddingBottom: 40 },
-  lede: { color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 14 },
-  group: { borderRadius: radius.card, borderCurve: 'continuous', backgroundColor: color.bgSegmentTrack, overflow: 'hidden' },
+  body: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 48 },
+  lede: { color: list.secondary, fontSize: font.footnote, lineHeight: 18, marginBottom: 14, marginHorizontal: 16 },
+  group: { borderRadius: list.radius, borderCurve: 'continuous', backgroundColor: list.surface, overflow: 'hidden' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     minHeight: 64, paddingHorizontal: 16, paddingVertical: 10,
   },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderDivider },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: list.separator },
   rowMain: { flex: 1, gap: 7 },
-  rowLabel: { color: color.textPrimary, fontSize: font.body },
+  rowLabel: { color: list.text, fontSize: font.body },
   swatches: { flexDirection: 'row', gap: 5 },
   swatch: {
-    width: 26, height: 26, borderRadius: 7,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    width: 26, height: 26, borderRadius: 7, borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
   },
-  check: { color: color.tint, fontSize: 17, fontWeight: '700', width: 22, textAlign: 'center' },
+  check: { width: 22, alignItems: 'center' },
   checkOff: { opacity: 0 },
 });

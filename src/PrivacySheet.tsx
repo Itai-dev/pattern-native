@@ -10,7 +10,9 @@
 import React from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Press } from './motion';
-import { color, font } from './theme';
+import { list, settings } from './SettingsList';
+import { Num } from './SummaryCard';
+import { font } from './theme';
 
 export const PRIVACY_UPDATED = '16 September 2026';
 
@@ -97,18 +99,20 @@ export interface PrivacySheetProps {
 
 export default function PrivacySheet({ onDone, contactEmail }: PrivacySheetProps) {
   return (
-    <View style={styles.sheet}>
-      <View style={styles.navBar}>
-        <View style={styles.navSpacer} />
-        <Text style={styles.navTitle}>Privacy</Text>
-        <Press onPress={onDone} style={styles.navBtn} hitSlop={10}
+    <View style={settings.sheet}>
+      <View style={settings.navBar}>
+        <View style={settings.navSpacer} />
+        <Text style={settings.navTitle}>Privacy</Text>
+        <Press onPress={onDone} style={settings.navBtn} hitSlop={10}
           accessibilityRole="button" accessibilityLabel="Done">
-          <Text style={styles.navBtnText}>Done</Text>
+          <Text style={settings.navBtnText}>Done</Text>
         </Press>
       </View>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {/* the date is the check that this text and docs/privacy.html
+            agree, and a number, so it is rounded like every other */}
         <Text style={styles.updated} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Last updated {PRIVACY_UPDATED}
+          <Num>{'Last updated ' + PRIVACY_UPDATED}</Num>
         </Text>
         <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
           Nothing you record about your body is ever sent to Pattern. Your pain
@@ -124,7 +128,7 @@ export default function PrivacySheet({ onDone, contactEmail }: PrivacySheetProps
           <View key={s.title} style={styles.section}>
             <Text style={styles.h} allowFontScaling maxFontSizeMultiplier={1.3}>{s.title}</Text>
             {s.body.map((b, i) => (
-              <Text key={i} style={styles.p} allowFontScaling maxFontSizeMultiplier={1.4}>{b}</Text>
+              <Text key={i} style={styles.p} allowFontScaling maxFontSizeMultiplier={1.4}><Num>{b}</Num></Text>
             ))}
           </View>
         ))}
@@ -146,25 +150,19 @@ export default function PrivacySheet({ onDone, contactEmail }: PrivacySheetProps
   );
 }
 
+/* the frame is Profile's (SettingsList). The policy stays running text
+   on the ground, not a stack of cards: it is read top to bottom, once,
+   and a box per section would make a legal page look like a dashboard. */
 const styles = StyleSheet.create({
-  sheet: { flex: 1, backgroundColor: color.bgSheet },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
-  },
-  navSpacer: { width: 64 },
-  navTitle: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
-  navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
-  body: { padding: 20, paddingBottom: 48 },
-  updated: { color: color.textTertiary, fontSize: font.footnote, marginBottom: 12 },
+  body: { padding: 20, paddingTop: 12, paddingBottom: 48 },
+  updated: { color: list.tertiary, fontSize: font.footnote, marginBottom: 12 },
   lede: {
-    color: color.textPrimary, fontSize: font.body, lineHeight: 24, fontWeight: '500',
+    color: list.text, fontSize: font.body, lineHeight: 24, fontWeight: '500',
     marginBottom: 14,
   },
-  p: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 22, marginBottom: 10 },
+  p: { color: list.secondary, fontSize: font.subheadline, lineHeight: 22, marginBottom: 10 },
   section: { marginTop: 14 },
-  h: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', marginBottom: 6 },
-  link: { color: color.tint },
+  h: { color: list.text, fontSize: font.body, fontWeight: '600', marginBottom: 6 },
+  /* white and heavier: a link differs by weight, never by hue */
+  link: { color: list.text, fontWeight: '600' },
 });

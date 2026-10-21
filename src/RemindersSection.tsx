@@ -31,6 +31,8 @@ import {
   syncReminders,
 } from './reminderSchedule';
 import { fmtClock } from './clock';
+import { Num, ROUNDED } from './SummaryCard';
+import { ROW_TEXT_X, RowIcon, list, settings } from './SettingsList';
 import { color, font, radius } from './theme';
 
 const LABELS: Record<Slot['key'], string> = { m: 'Morning', d: 'Midday', e: 'Evening' };
@@ -135,74 +137,86 @@ export default function RemindersSection() {
 
   return (
     <View style={styles.root}>
-      {/* the group's header names the section — in here only the status */}
-      <Text style={styles.sub}>
-        {status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere, and a slot stays quiet on a day you have already checked in around then.'}
-      </Text>
-
-      {/* the one decision most people came for */}
-      <View style={styles.row}>
-        <Text style={styles.label}>Daily reminder</Text>
-        <Pressable
-          onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: customising }}
-          accessibilityLabel="Customise times"
-        >
-          <Text style={styles.customise}>{customising ? 'Done' : 'Customise'}</Text>
-        </Pressable>
-        <Switch
-          value={anyOn}
-          onValueChange={toggleAll}
-          accessibilityLabel="Daily reminder"
-          trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
-        />
+      {/* the one decision most people came for — the bell leads it, and
+          the rows that only exist because of it sit indented under the
+          same label edge, their hairlines inset past the bell */}
+      <View style={settings.row}>
+        <RowIcon name="bell.fill" />
+        <View style={settings.rowMain}>
+          <Text style={settings.rowLabel}>Daily reminder</Text>
+          <Pressable
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: customising }}
+            accessibilityLabel="Customise times"
+          >
+            <Text style={styles.customise}>{customising ? 'Done' : 'Customise'}</Text>
+          </Pressable>
+          <Switch
+            value={anyOn}
+            onValueChange={toggleAll}
+            accessibilityLabel="Daily reminder"
+            trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
+          />
+        </View>
       </View>
 
       {/* the learned schedule. Under the daily switch because it only
           means anything with one on; visible always, because a moved
           hour needs its explanation within reach */}
       {anyOn && (
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Follow Apple Health</Text>
-            <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Morning after you usually wake, evening before you usually sleep, a prompt
-              after the workouts and doses Health sees you log, before and after what your
-              calendar reads as exertion — and your workout budget before a usual workout,
-              once your record has one. Times marked * were learned.
-            </Text>
+        <View style={styles.subRow}>
+          <View style={[settings.rowMain, settings.rowRuleTop, styles.subMain]}>
+            <View style={{ flex: 1 }}>
+              <Text style={settings.rowLabel}>Follow Apple Health</Text>
+              <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
+                Morning after you usually wake, evening before you usually sleep, a prompt
+                after the workouts and doses Health sees you log, before and after what your
+                calendar reads as exertion — and your workout budget before a usual workout,
+                once your record has one. Times marked * were learned.
+              </Text>
+            </View>
+            <Switch
+              value={adaptive}
+              onValueChange={toggleAdaptive}
+              accessibilityLabel="Follow Apple Health for reminder times"
+              trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
+            />
           </View>
-          <Switch
-            value={adaptive}
-            onValueChange={toggleAdaptive}
-            accessibilityLabel="Follow Apple Health for reminder times"
-            trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
-          />
         </View>
       )}
 
       {customising && slots.map((s) => (
-        <View key={s.key} style={styles.row}>
-          <Text style={styles.label}>{LABELS[s.key]}</Text>
-          <Pressable
-            onPress={() => setPicking(s.key)}
-            style={styles.time}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={LABELS[s.key] + ' reminder at ' + fmt(s) + '. Changes the time'}
-          >
-            <Text style={styles.timeText}>{fmt(s)}</Text>
-          </Pressable>
-          <Switch
-            value={s.on}
-            onValueChange={(on) => toggle(s.key, on)}
-            accessibilityLabel={LABELS[s.key] + ' reminder'}
-            trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
-          />
+        <View key={s.key} style={styles.subRow}>
+          <View style={[settings.rowMain, settings.rowRuleTop]}>
+            <Text style={settings.rowLabel}>{LABELS[s.key]}</Text>
+            <Pressable
+              onPress={() => setPicking(s.key)}
+              style={styles.time}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={LABELS[s.key] + ' reminder at ' + fmt(s) + '. Changes the time'}
+            >
+              <Text style={styles.timeText}>{fmt(s)}</Text>
+            </Pressable>
+            <Switch
+              value={s.on}
+              onValueChange={(on) => toggle(s.key, on)}
+              accessibilityLabel={LABELS[s.key] + ' reminder'}
+              trackColor={{ true: color.textSecondary, false: color.bgSegmentActive }}
+            />
+          </View>
         </View>
       ))}
+
+      {/* what will fire, or what reminders are — under the rows it
+          describes and inside their card, the way every "what this
+          does" line in Profile sits with the thing it qualifies. Its
+          times are numbers, so they are rounded. */}
+      <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
+        <Num>{status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere, and a slot stays quiet on a day you have already checked in around then.'}</Num>
+      </Text>
 
       {/* the iPhone's own wheel, in a bottom card — Done is the only button,
           because every spin already applied */}
@@ -241,30 +255,43 @@ export default function RemindersSection() {
   );
 }
 
+/* Profile's row grammar (SettingsList), with the two things only this
+   group has: rows that hang off the daily switch, and the status line */
 const styles = StyleSheet.create({
   root: {},
-  sub: { color: color.textTertiary, fontSize: 13, lineHeight: 18, marginBottom: 4 },
-  customise: { color: color.tint, fontSize: font.subheadline, fontWeight: '500' },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 14 },
-  label: { flex: 1, color: color.textPrimary, fontSize: 15 },
-  hint: { color: color.textTertiary, fontSize: 12, lineHeight: 16, marginTop: 2, paddingBottom: 6 },
+  /* the rows under the switch start at its label, not at the card's
+     edge — Settings' own sub-option indent */
+  subRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: ROW_TEXT_X },
+  subMain: { paddingVertical: 10, gap: 12 },
+  sub: {
+    color: list.tertiary, fontSize: font.footnote, lineHeight: 18,
+    paddingHorizontal: 16, paddingTop: 4, paddingBottom: 14,
+  },
+  customise: { color: list.text, fontSize: font.subheadline, fontWeight: '600' },
+  hint: { color: list.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 3 },
+  /* a time is a number, so it is rounded; its chip is the grey a
+     control takes on the card, never a hue */
   time: {
-    backgroundColor: color.bgSegmentActive, borderRadius: radius.segment, borderCurve: 'continuous',
+    backgroundColor: '#2C2C2E', borderRadius: radius.segment, borderCurve: 'continuous',
     paddingVertical: 7, paddingHorizontal: 12,
   },
-  timeText: { color: color.textPrimary, fontSize: 15, fontVariant: ['tabular-nums'] },
+  timeText: {
+    color: list.text, fontSize: font.subheadline, fontFamily: ROUNDED, fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
   scrim: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',
   },
   pickerCard: {
-    backgroundColor: color.bgSheet,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: list.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28, borderCurve: 'continuous',
     padding: 20, paddingBottom: 34,
   },
-  pickerTitle: { color: color.textSecondary, fontSize: font.footnote, textAlign: 'center', marginBottom: 4 },
+  pickerTitle: { color: list.secondary, fontSize: font.footnote, fontWeight: '600', textAlign: 'center', marginBottom: 4 },
+  /* the redesign's primary: a white capsule, black words */
   doneBtn: {
-    height: 50, borderRadius: radius.button, borderCurve: 'continuous', backgroundColor: color.textPrimary,
+    height: 54, borderRadius: 27, borderCurve: 'continuous', backgroundColor: list.text,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
   doneText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
