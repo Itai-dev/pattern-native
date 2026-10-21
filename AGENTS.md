@@ -166,7 +166,7 @@ changes except data the user added.
 
 **A coach rewards the doing, never the pain (21 Oct 2026).** The app
 has a roadmap and achievements, because getting back to activity is long
-and a person needs to see the ground they have covered. The roadmap is
+and a person needs to see the ground they have covered (`src/coach.ts`, `src/Medal.tsx`). The roadmap is
 stages of effort and length toward the goal set in onboarding, moved by
 `capacity.ts` alone; holding or easing back is shown as part of the plan,
 never as falling behind, and it carries no dates and no percentage.
