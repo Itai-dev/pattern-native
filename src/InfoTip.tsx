@@ -28,7 +28,7 @@
 import React, { ReactNode, useState } from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import Icon from './Icon';
-import { Press } from './motion';
+import { Press, Reveal } from './motion';
 import { Num, summary } from './SummaryCard';
 import { font } from './theme';
 
@@ -55,11 +55,15 @@ export function InfoGlyph({ open, onPress, label }: {
 }
 
 /** the explanation itself, in the quiet type every card's note used */
+/* the folded text fades in rather than cutting in (motion.tsx, Reveal):
+   it was in the card all along, and the fade is what says so */
 function Body({ children }: { children: ReactNode }) {
   return (
-    <Text style={styles.text} allowFontScaling maxFontSizeMultiplier={1.4}>
-      {typeof children === 'string' ? <Num>{children}</Num> : children}
-    </Text>
+    <Reveal>
+      <Text style={styles.text} allowFontScaling maxFontSizeMultiplier={1.4}>
+        {typeof children === 'string' ? <Num>{children}</Num> : children}
+      </Text>
+    </Reveal>
   );
 }
 

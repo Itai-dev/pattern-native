@@ -321,3 +321,25 @@ protects was removed.
   check-in with the number alone is complete.
 
 Hold the layout from here through Phase 2, as the risk above says.
+
+## Apple design pass · 21 Oct, later
+
+Taken from Apple's principles (simplicity, familiarity, grouping,
+feedback) over the calm pass, checked against the screens rendered with
+three weeks of seeded data:
+
+- **One door per action.** Patterns' title-bar share icon went; the
+  white "Create the PDF" button on the same screen is the door, and it
+  names what it makes. Today's copy offer is labelled "Backup", so the
+  header no longer repeats its own button.
+- **Settings' own shapes.** The goal in Profile is a row — glyph,
+  "Goal", "Running · 3 a week", chevron — not a four-line card. The
+  reminder's times open from a "Times" row instead of a "Customise"
+  word squeezed between the label and the switch: one control per row.
+- **Controls sit on what they explain.** The day chart's (i) is in the
+  chart card's header, not on a row of its own between two cards.
+- **State changes are shown, briefly.** "Why?", "Show details" and every
+  (i) fade their content in over 200ms on the house curve
+  (`motion.tsx`, `Reveal`) — opacity only, no slide, no spring, no exit,
+  and nothing under Reduce Motion. A disclosure is a few-times-a-day
+  action, so it gets a standard animation and no more.

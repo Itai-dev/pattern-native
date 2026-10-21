@@ -986,26 +986,11 @@ export default function App() {
                   accessibilityLabel="Back to the top of the record"
                 />
               )}
-              {tab === 'trends' && (
-                <Pressable
-                  onPress={shareTrends}
-                  disabled={sharing}
-                  style={[styles.profileBtn, sharing && styles.profileBtnBusy]}
-                  hitSlop={BTN_SLOP}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: sharing }}
-                  accessibilityLabel={sharing
-                    ? 'Preparing the PDF'
-                    : 'Share this record as a PDF'}
-                  accessibilityHint="Creates the PDF and opens the share sheet"
-                >
-                  <Icon
-                    name={sharing ? 'ellipsis' : 'square.and.arrow.up'}
-                    size={17}
-                    color={sharing ? color.textTertiary : color.textPrimary}
-                  />
-                </Pressable>
-              )}
+              {/* ONE DOOR TO THE PDF (21 Oct 2026, the Apple design pass). A
+                  share icon sat here on Patterns beside the white Create the
+                  PDF button on the same screen — two doors to one action,
+                  and the icon the less clear of them. The button names what
+                  it makes and stays; the icon went. */}
               {/* the mockup puts an initial here; Pattern holds no name,
                   and asking for one to fill a circle would be the first
                   thing it collected about a person for no reason */}
@@ -1656,7 +1641,6 @@ const styles = StyleSheet.create({
   backToTodayText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
   /* the gap is wider than two slops, so the 44pt targets never overlap */
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  profileBtnBusy: { opacity: 0.5 },
   /* the mockup's round button: 36 across, #3A3A3C, no rim — the grey a
      filled control takes on black, a step lighter than the cards so it
      reads as something to press rather than something to read */

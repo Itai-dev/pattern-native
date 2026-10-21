@@ -31,6 +31,7 @@ import {
   syncReminders,
 } from './reminderSchedule';
 import { fmtClock } from './clock';
+import Icon from './Icon';
 import { Num, ROUNDED } from './SummaryCard';
 import { ROW_TEXT_X, RowIcon, list, settings } from './SettingsList';
 import { color, font, radius } from './theme';
@@ -144,18 +145,6 @@ export default function RemindersSection() {
         <RowIcon name="bell.fill" />
         <View style={settings.rowMain}>
           <Text style={settings.rowLabel}>Daily reminder</Text>
-          <Pressable
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: customising }}
-            accessibilityLabel="Customise times"
-          >
-            {/* "Hide", not "Done", open (the calm pass, 21 Oct 2026):
-                this row sits right under the sheet's own Done, and two
-                Dones a few points apart meant two different things */}
-            <Text style={styles.customise}>{customising ? 'Hide' : 'Customise'}</Text>
-          </Pressable>
           <Switch
             value={anyOn}
             onValueChange={toggleAll}
@@ -191,6 +180,26 @@ export default function RemindersSection() {
           </View>
         </View>
       )}
+
+      {/* THE TIMES, A ROW OF THEIR OWN (21 Oct 2026, the Apple design
+          pass). They opened from a "Customise" text button squeezed
+          between the label and the switch — two controls in one row, and
+          the switch a thumb's width from a word that did something else.
+          Settings' answer is a row that opens what it names: one control
+          per row, the chevron turning down to say it is open. */}
+      <Pressable
+        onPress={() => { Haptics.selectionAsync().catch(() => {}); setCustomising(!customising); }}
+        style={styles.subRow}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: customising }}
+        accessibilityLabel="Reminder times"
+      >
+        <View style={[settings.rowMain, settings.rowRuleTop]}>
+          <Text style={settings.rowLabel}>Times</Text>
+          <Icon name={customising ? 'chevron.down' : 'chevron.right'} size={14}
+            color={list.chevron} weight="semibold" />
+        </View>
+      </Pressable>
 
       {customising && slots.map((s) => (
         <View key={s.key} style={styles.subRow}>
@@ -272,7 +281,6 @@ const styles = StyleSheet.create({
     color: list.tertiary, fontSize: font.footnote, lineHeight: 18,
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 14,
   },
-  customise: { color: list.text, fontSize: font.subheadline, fontWeight: '600' },
   hint: { color: list.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 3 },
   /* a time is a number, so it is rounded; its chip is the grey a
      control takes on the card, never a hue */

@@ -41,7 +41,7 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { Press } from './motion';
+import { Press, Reveal } from './motion';
 import {
   DailyGuidance, GOAL_ACTIVITIES, GoalActivity, RecoveryGoal, RecoveryHero, goalLabel,
 } from './recovery';
@@ -51,6 +51,7 @@ import { CAPACITY_HARDER_POINTS } from './thresholds';
 import { color, font, size } from './theme';
 import { BigValue, CardHeader, Chevron, Num, ROUNDED, card as summaryCard, summary } from './SummaryCard';
 import { activityIcon } from './Icon';
+import { RowChevron, RowIcon, settings } from './SettingsList';
 
 /** the choices for a weekly target — shared with onboarding */
 export const WEEKLY_CHOICES = [1, 2, 3, 4, 5];
@@ -171,7 +172,14 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
 
 /** The goal's one home outside Today. `goal` is what the app reads
  *  (recovery.ts currentGoal). Removing it stores a skip, not a
- *  deletion: the person was asked, and the offer must not come back. */
+ *  deletion: the person was asked, and the offer must not come back.
+ *
+ *  A ROW, LIKE EVERY ROW BESIDE IT (21 Oct 2026, the Apple design pass).
+ *  Closed, it was four lines — an eyebrow, the goal, the target and a
+ *  "Change" link — the one cell in a Settings list that was a card.
+ *  It is Settings' own shape now: a glyph, "Goal", the answer as the
+ *  value and a chevron, and the setup opens in place under it. Familiar
+ *  beats clever where people come to change one thing and leave. */
 export function GoalRow({ goal, today, onChange }: {
   goal: RecoveryGoal | null;
   today: string;
@@ -190,22 +198,25 @@ export function GoalRow({ goal, today, onChange }: {
       />
     );
   }
+  /* the answer in a value's few words: "Running · 3 a week" */
+  const value = answered
+    ? capitalise(goal!.label) + (goal!.weeklySessions ? ' · ' + goal!.weeklySessions + ' a week' : '')
+    : 'Not set';
   return (
-    <Press onPress={() => setEditing(true)} style={[styles.card, styles.flush]}
+    <Press onPress={() => setEditing(true)} style={settings.row} pressOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={answered ? 'Your goal: back to ' + goal!.label + '. Change it' : 'Set a goal'}>
-      <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>Your goal</Text>
-      <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
-        {answered ? 'Back to ' + goal!.label : 'What are you trying to get back to?'}
-      </Text>
-      {answered && !!goal!.weeklySessions && (
-        <Text style={styles.body} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Aiming for {goal!.weeklySessions} a week
+      accessibilityLabel={answered
+        ? 'Goal: back to ' + goal!.label + (goal!.weeklySessions ? ', aiming for ' + goal!.weeklySessions + ' a week' : '')
+        : 'Goal, not set'}
+      accessibilityHint={answered ? 'Change your goal' : 'Set a goal, if you want'}>
+      <RowIcon name="flag.fill" />
+      <View style={settings.rowMain}>
+        <Text style={settings.rowLabel} allowFontScaling maxFontSizeMultiplier={1.3}>Goal</Text>
+        <Text style={settings.rowValue} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>
+          <Num>{value}</Num>
         </Text>
-      )}
-      <Text style={[styles.linkGo, styles.rowLink]} allowFontScaling maxFontSizeMultiplier={1.3}>
-        {answered ? 'Change' : 'Set a goal, if you want'}
-      </Text>
+        <RowChevron />
+      </View>
     </Press>
   );
 }
@@ -361,7 +372,7 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, roadmapLine, on
           </Text>
         </Press>
         {open && (
-          <View style={styles.detail}>
+          <Reveal style={styles.detail}>
             {load && (
               <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
                 <Num>{guidance.headline}</Num>
@@ -390,7 +401,7 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, roadmapLine, on
             <Text style={[summaryCard.fine, styles.noteGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
               {ACTIVITY_NOTE}
             </Text>
-          </View>
+          </Reveal>
         )}
       </View>
     </>
@@ -464,7 +475,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
   link: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', marginTop: 4 },
   linkGo: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
-  rowLink: { marginTop: 10 },
   linkLater: { color: color.textTertiary, fontSize: font.subheadline, fontWeight: '500' },
   disabled: { opacity: 0.4 },
 });

@@ -660,10 +660,13 @@ export default function HomeScreen({
       {/* ── the copy: this phone is the only place it lives ──
           Plain about the failure it prevents, because the failure is
           silent: nothing warns you, and you find out on the reinstall.
-          No number about the pain, only a count of days at risk. */}
+          No number about the pain, only a count of days at risk. The
+          label names the subject and the button the act (21 Oct 2026):
+          both said "Save a copy", and a header that repeats its own
+          button tells you nothing the button does not. */}
       {offer === 'copy' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="folder.fill" label="Save a copy" />
+          <CardHeader icon="folder.fill" label="Backup" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             <Num>{(lastCopy
               ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' since your last copy.'

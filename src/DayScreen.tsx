@@ -77,11 +77,11 @@ import DayLine from './DayLine';
 import MapScreen from './MapScreen';
 import DayMoments from './DayMoments';
 import { shownH } from './dayGlance';
-import InfoTip from './InfoTip';
+import { InfoGlyph } from './InfoTip';
 import Icon from './Icon';
 import { CardHeader, Num, ROUNDED, summary } from './SummaryCard';
 import * as db from './db';
-import { Press, useReduceMotion } from './motion';
+import { Press, Reveal, useReduceMotion } from './motion';
 import {
   EVENT_LABELS, Entries, Entry, Moment, PainEvent, checkinCount, dailyAverage,
   dateFromISO, iso, logsOf, todayISO,
@@ -212,7 +212,7 @@ function Stat({ value, unit, label }: { value: string; unit?: string; label: str
 
 /* ── one day's chart ────────────────────────────────────────── */
 function DayPage({
-  dateIso, entry, index, itemW, cardH, scrollX, selectedH, onSelect, events,
+  dateIso, entry, index, itemW, cardH, scrollX, selectedH, onSelect, events, infoOpen, onInfo,
 }: {
   dateIso: string;
   entry: Entry | null;
@@ -226,6 +226,10 @@ function DayPage({
   selectedH?: number;
   onSelect?: (h: number) => void;
   events?: { h: number; label: string }[];
+  /** the chart's (i), which lives in this card's header; its text opens
+   *  under the pager, so the state is the screen's, shared by every page */
+  infoOpen: boolean;
+  onInfo: () => void;
 }) {
   const pageStyle = useAnimatedStyle(() => {
     const d = scrollX.value / itemW - index;
@@ -258,7 +262,15 @@ function DayPage({
     <Animated.View style={[{ width: itemW, height: cardH }, pageStyle]}>
         <Animated.View style={[contentStyle, { flex: 1 }]}>
           <View style={[styles.card, { flex: 1 }]}>
+            {/* THE (i) IN THE HEADER (21 Oct 2026, the Apple design pass).
+                It stood on a row of its own between the pager and the
+                check-in card, belonging to neither — grouping says a
+                control sits on the thing it explains. The glyph is
+                outside the accessible header so VoiceOver reaches it as
+                its own button. */}
+            <View style={styles.headRow}>
             <View
+              style={styles.headLabel}
               accessible
               accessibilityLabel="Pain through the day"
               /* the nudge teaches the gesture by doing it, which VoiceOver
@@ -270,6 +282,13 @@ function DayPage({
             >
               {/* the clock, because the chart is the day against it */}
               <CardHeader icon="clock.fill" label="Pain through the day" />
+            </View>
+            {/* the ring is a 32pt box (44 with its slop) in a 20pt header;
+                the negative margin keeps the row at the header's height, so
+                the fixed-height card does not lose 12pt of chart to it */}
+            <View style={styles.headGlyph}>
+              <InfoGlyph open={infoOpen} onPress={onInfo} label="About this chart" />
+            </View>
             </View>
 
             {avg == null ? (
@@ -331,6 +350,7 @@ export default function DayScreen({
   /* the tapped dot, by day — see the header. shownH falls back to the
      newest when nothing on this day was tapped or the tapped one is gone. */
   const [sel, setSel] = useState<{ date: string; h: number } | null>(null);
+  const [chartInfo, setChartInfo] = useState(false);
   const selectedFor = (d: string) =>
     shownH(logsOf(entries[d] || null), sel && sel.date === d ? sel.h : undefined);
   const { width } = useWindowDimensions();
@@ -664,22 +684,26 @@ export default function DayScreen({
             selectedH={selectedFor(item)}
             onSelect={(h: number) => setSel({ date: item, h })}
             events={eventsOf[item]}
+            infoOpen={chartInfo}
+            onInfo={() => setChartInfo((v) => !v)}
           />
         )}
       />
 
-      {/* what the drawing is NOT — under the pager rather than inside a
-          card, so it can wrap to whatever length the type size needs
-          instead of being clipped by a fixed page height */}
-      <InfoTip
-        label="About this chart"
-        style={styles.fineTip}
-        /* the one place the dot gesture is explained — the hint that
-           repeated it in the check-in card's action row went in the
-           calm pass (21 Oct 2026) */
-        text={'Tap a dot to see that check-in. '
-          + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain. Average and range are of those check-ins alone.'}
-      />
+      {/* what the drawing is NOT — opened from the (i) in the chart's
+          header, read under the pager rather than inside the card, so it
+          can wrap to whatever length the type size needs instead of being
+          clipped by a fixed page height. The one place the dot gesture is
+          explained — the hint that repeated it in the check-in card's
+          action row went in the calm pass (21 Oct 2026). */}
+      {chartInfo && (
+        <Reveal style={styles.fineTip}>
+          <Text style={styles.fineText} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {'Tap a dot to see that check-in. '
+              + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain. Average and range are of those check-ins alone.'}
+          </Text>
+        </Reveal>
+      )}
 
       {/* the rest of the day, keyed by date so walking to another day
           rebuilds it rather than editing the last one's draft note */}
@@ -783,5 +807,9 @@ const styles = StyleSheet.create({
   statL: { color: summary.secondary, fontSize: font.footnote },
 
   /* the (i) sits where the sentence sat, in the same gutter */
-  fineTip: { marginTop: 6, paddingHorizontal: size.contentX },
+  fineTip: { marginTop: 10, paddingHorizontal: size.contentX },
+  fineText: { color: summary.tertiary, fontSize: font.footnote, lineHeight: 18 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headLabel: { flex: 1 },
+  headGlyph: { marginVertical: -6, marginRight: -6 },
 });

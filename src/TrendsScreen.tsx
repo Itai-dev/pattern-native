@@ -53,7 +53,7 @@ import {
   Modal, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextStyle, View,
 } from 'react-native';
 import * as db from './db';
-import { Press } from './motion';
+import { Press, Reveal } from './motion';
 import InfoTip, { InfoGlyph, InfoTitle } from './InfoTip';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent,
@@ -1844,7 +1844,9 @@ export default function TrendsScreen({
             <Door down />
           </Press>
         ) : (
-          <>
+          /* the details fade in (motion.tsx, Reveal): opening the record
+             is a state change asked for, not a new screen arriving */
+          <Reveal>
             {feltBands.length > 0 && (
               <>
                 <Text style={styles.subhead}>Days like this</Text>
@@ -2041,7 +2043,7 @@ export default function TrendsScreen({
             >
               <Text style={styles.moreText}>Show less</Text>
             </Press>
-          </>
+          </Reveal>
         )}
       </Card>
 
