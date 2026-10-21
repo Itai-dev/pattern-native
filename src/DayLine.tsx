@@ -43,8 +43,8 @@ import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Moment } from './model';
 import { fmtClock } from './clock';
 import { formatScore, painColor, speakScore } from './painScale';
-import { ROUNDED } from './SummaryCard';
-import { color, font } from './theme';
+import { ROUNDED, summary } from './SummaryCard';
+import { font } from './theme';
 
 /** minutes in a day — the x axis, in full, always */
 const DAY_MINUTES = 1440;
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   gutterText: {
     position: 'absolute', left: 0, right: 6,
     textAlign: 'right', lineHeight: 16,
-    color: color.textTertiary, fontSize: 12, fontWeight: '600',
+    color: summary.tertiary, fontSize: 12, fontWeight: '600',
     fontFamily: ROUNDED, fontVariant: ['tabular-nums'],
   },
   plot: { flex: 1 },
@@ -336,9 +336,11 @@ const styles = StyleSheet.create({
   },
   evMark: {
     position: 'absolute', bottom: 0, width: EV_W, height: EV_H, borderRadius: EV_W / 2,
-    backgroundColor: color.textSecondary,
+    backgroundColor: summary.secondary,
   },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   axisInset: { marginLeft: GUTTER_W },
-  axisText: { color: color.textTertiary, fontSize: font.footnote },
+  /* the card's own greys (SummaryCard.summary), not theme's near-twins:
+     one grey per role on the day page — the calm pass, 21 Oct 2026 */
+  axisText: { color: summary.tertiary, fontSize: font.footnote },
 });
