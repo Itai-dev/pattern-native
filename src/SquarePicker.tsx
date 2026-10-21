@@ -147,7 +147,12 @@ export default function SquarePicker({
           const next = e.nativeEvent.actionName === 'increment'
             ? Math.min(PAIN_MAX, cur + 1)
             : Math.max(PAIN_MIN, cur < 0 ? 0 : cur - 1);
-          if (next !== value || !chosen) onChange(next);
+          if (next !== value || !chosen) {
+            /* a swipe moves no finger, so the square above the control
+               is told here — otherwise it kept the last drag's colour */
+            if (progress) progress.value = reduce ? next : withTiming(next, { duration: 160 });
+            onChange(next);
+          }
         }}
       >
         {ramp.map((c, i) => (

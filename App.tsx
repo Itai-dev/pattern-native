@@ -55,14 +55,19 @@ import {
   requestCalendar, setCalendarOn,
 } from './src/calendar';
 import { aheadKey, bookedPastLine } from './src/health/ahead';
-import { syncReminders } from './src/reminderSchedule';
+import { enableMorningReminderAt, syncReminders } from './src/reminderSchedule';
 import { drainWatchCheckins, onWatchCheckin, pushWatchContext } from './src/watch';
 import {
   Moment, PainEvent, ValidBackup, addDays, cleanDiagnosis, diagnosisShort, iso, minutesNow, todayISO,
 } from './src/model';
 import { buildReportData, reportHtml } from './src/report';
 import { GoalRow } from './src/RecoveryCards';
+import { Num } from './src/SummaryCard';
 import { RecoveryGoal, currentGoal } from './src/recovery';
+import { coachView, earnedIds, unseenAchievement } from './src/coach';
+import { experimentState } from './src/experiment';
+import CoachScreen from './src/CoachScreen';
+import UnlockSheet from './src/UnlockSheet';
 import { REPORT_DEFAULT_WINDOW_DAYS } from './src/thresholds';
 import { PREF_LOCK_NUMBER, refreshWidget } from './src/widgetPush';
 import { PREF_SQUARE_PICKER } from './src/SquarePicker';
@@ -167,6 +172,11 @@ export default function App() {
      what a backup carries (recovery.ts, currentGoal). A removal is a
      stored skip and clears the text, so the report stops naming it. */
   const [recoveryGoal, setRecoveryGoal] = useState(() => db.getRecoveryGoal());
+  /* the coach: the roadmap sheet, and which medal (if any) is having
+     its moment. coachTick re-reads the prefs coach.ts depends on. */
+  const [coachOpen, setCoachOpen] = useState<null | 'roadmap' | 'achievements'>(null);
+  const [coachTick, setCoachTick] = useState(0);
+  const [unlockDismissed, setUnlockDismissed] = useState(0);
   const saveGoal = useCallback((g: RecoveryGoal) => {
     db.setRecoveryGoal(g);
     db.setGoal(g.activity ? g.label : '');
@@ -555,6 +565,9 @@ export default function App() {
      drops a typed flare (EventSheet requestCloseRef). Null while the
      sheet is not mounted — then there is nothing to lose. */
   const eventClose = useRef<null | (() => void)>(null);
+  /* the check-in's Cancel, for the same swipe — so a flick away is
+     counted as an abandoned check-in exactly as Cancel is */
+  const checkinClose = useRef<null | (() => void)>(null);
   const runAfterDismiss = useCallback(() => {
     const f = afterDismiss.current;
     afterDismiss.current = null;
@@ -608,6 +621,39 @@ export default function App() {
   const [trendsSpan, setTrendsSpan] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
 
+  const coach = useMemo(() => {
+    const today = todayISO();
+    /* "first answer": the earliest experiment that ended with something
+       to say, whichever way it went — not one that ran out of days */
+    const answered = db.getExperiments()
+      .filter((x) => x.status === 'done' && x.endedOn)
+      .filter((x) => {
+        const v = experimentState(x, entries, today).verdict;
+        return v === 'possible' || v === 'observation';
+      })
+      .map((x) => x.endedOn as string).sort()[0] || null;
+    return coachView(entries, healthDays, currentGoal(recoveryGoal, activity), today, {
+      reportOn: db.getCoachReportOn(), answerOn: answered,
+    });
+  }, [entries, healthDays, recoveryGoal, activity, coachTick]);
+
+  /* the first run after the coach shipped remembers everything already
+     earned, silently — those medals are in the list, dated, and only
+     what is earned from here on arrives as a moment */
+  useEffect(() => {
+    if (onboarded && db.getCoachSeen() === null) db.setCoachSeen(earnedIds(coach));
+  }, [coach, onboarded]);
+
+  const unlock = useMemo(
+    () => unseenAchievement(coach, db.getCoachSeen()),
+    [coach, unlockDismissed]
+  );
+  const closeUnlock = useCallback((then?: () => void) => {
+    db.setCoachSeen(earnedIds(coach));
+    setUnlockDismissed((n) => n + 1);
+    if (then) setTimeout(then, 350);
+  }, [coach]);
+
   const makePdf = useCallback(async (includeNotes: boolean, windowDays: number) => {
     setSharing(true);
     try {
@@ -644,6 +690,8 @@ export default function App() {
            Whether notes rode along is a fact about the share, not about
            what any note said. */
         track('pdf_shared', { notes: includeNotes });
+        db.markCoachReport(todayISO());
+        setCoachTick((n) => n + 1);
       } else {
         Alert.alert('Sharing isn’t available on this device.');
       }
@@ -872,7 +920,17 @@ export default function App() {
                   db.setBackground(bg);
                 }
               }
-              setSheet('checkin');
+              /* the morning reminder, if it was turned on there. Leaving
+                 it off was an answer to a question that was put, so
+                 Today's one-time reminder offer does not put it again. */
+              if (r.reminder != null) {
+                enableMorningReminderAt(r.reminder).then((res) => {
+                  if (res === 'on') track('reminder_enabled', { slot: 'm' });
+                }).catch(() => {});
+              }
+              db.setPref('reminders.offer.dismissed', true);
+              /* the last screen's two doors: the first check-in, or Today */
+              if (r.then === 'checkin') setSheet('checkin');
             }}
           />
           <StatusBar style="light" />
@@ -903,7 +961,7 @@ export default function App() {
                   now fixed on today, and a heading that names the day is
                   the one thing on it that a person reads back weeks later
                   in a screenshot and can still place */}
-              {tab === 'today' ? fmtDay(todayISO()) : 'Patterns'}
+              {tab === 'today' ? <Num>{fmtDay(todayISO())}</Num> : 'Patterns'}
             </Text>
             <View style={styles.topActions}>
               {/* the Log pill that lived here is gone: the floating bar
@@ -981,6 +1039,8 @@ export default function App() {
               <HomeScreen
                 goal={currentGoal(recoveryGoal, activity)}
                 onGoalChange={saveGoal}
+                roadmapLine={coach.roadmap ? coach.roadmap.nowLine : null}
+                onOpenRoadmap={() => setCoachOpen(coach.roadmap ? 'roadmap' : 'achievements')}
                 entries={entries}
                 onLog={() => setSheet('checkin')}
                 onOpenDay={openDay}
@@ -1064,11 +1124,13 @@ export default function App() {
           <TabBar tab={tab} onChange={goToTab} onLog={() => setSheet('checkin')} />
         </SafeAreaView>
 
-        {/* a full-screen flow keeps its own ✕ */}
+        {/* a sheet since the October redesign: it rises over Today, and
+            Cancel, a swipe down and the escape gesture all leave */}
         <Modal
           visible={sheet === 'checkin'}
-          animationType="fade"
-          presentationStyle="fullScreen"
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => (checkinClose.current ? checkinClose.current() : closeSheet())}
           onDismiss={runAfterDismiss}
         >
           <CheckinScreen
@@ -1076,8 +1138,29 @@ export default function App() {
             edit={editMoment || undefined}
             onDone={closeSheet}
             onClose={closeSheet}
+            requestCloseRef={checkinClose}
           />
         </Modal>
+
+        <Modal visible={coachOpen != null} animationType="slide" presentationStyle="pageSheet"
+          onRequestClose={() => setCoachOpen(null)} onDismiss={runAfterDismiss}>
+          <CoachScreen
+            view={coach}
+            start={coachOpen || undefined}
+            activity={(currentGoal(recoveryGoal, activity) || { activity: null }).activity}
+            onClose={() => setCoachOpen(null)}
+            onSetGoal={() => { afterDismiss.current = () => setProfile(true); setCoachOpen(null); }}
+          />
+        </Modal>
+
+        {/* a medal's moment — only over Today, never over another sheet */}
+        <UnlockSheet
+          a={onboarded && tab === 'today' && !dayScreen && sheet == null && !profile && coachOpen == null ? unlock : null}
+          activity={(currentGoal(recoveryGoal, activity) || { activity: null }).activity}
+          roadmap={coach.roadmap}
+          onClose={() => closeUnlock()}
+          onOpenRoadmap={() => closeUnlock(() => setCoachOpen('roadmap'))}
+        />
 
         <Modal
           visible={sheet === 'event'}
@@ -1524,9 +1607,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.9, borderBottomWidth: 0, borderColor: color.textSecondary,
   },
   /* the main screen's title — iOS large-title weight and size */
+  /* iOS's large title, at the mockup's 34 and −2.2% tracking; the
+     date shrinks to fit on a narrow phone rather than wrapping */
   wordmark: {
-    color: color.textPrimary, fontSize: font.title1, fontWeight: '700',
-    letterSpacing: -0.5, flex: 1,
+    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    letterSpacing: -0.75, flex: 1,
   },
   /* room at the bottom so the last content clears the floating bar, and
      a little at the top so a page never begins hard against its heading */

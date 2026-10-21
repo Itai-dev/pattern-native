@@ -28,13 +28,21 @@
  * osteoarthritis beside migraine is a Tuesday, and a radio list would
  * make someone choose which of their diagnoses counts. "Something
  * else" is free text, capped and printed as written.
+ *
+ * ONE GROUPED LIST (Oct 2026 redesign). The three rows were three
+ * bordered cards, each with a radio dot at the left; they are now one
+ * card in the iOS inset-grouped grammar, hairlines between, and a check
+ * circle at the right where Settings puts a chosen row's mark. The
+ * words did not change, and neither did the rule that a chosen row is
+ * marked in white and only the mark.
  */
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Press } from './motion';
 import { DIAGNOSES, DIAGNOSIS_OTHER_MAX, Diagnosis, DiagnosisStatus } from './model';
-import { color, font, radius } from './theme';
+import { color, font } from './theme';
 
 /** the answer as it sits on screen, before cleanDiagnosis stores it */
 export interface DiagnosisDraft {
@@ -124,33 +132,37 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
 
   return (
     <View>
-      <View style={styles.rows} accessibilityRole="radiogroup">
-        {OPTIONS.map((o) => {
+      <View style={styles.group} accessibilityRole="radiogroup">
+        {OPTIONS.map((o, i) => {
           const on = draft.status === o.id;
           return (
             <Press
               key={o.id}
               onPress={() => pick(o.id)}
-              pressOpacity={0.85}
+              pressOpacity={0.7}
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
               accessibilityLabel={o.label}
               accessibilityHint={o.body}
-              style={[styles.row, on && { borderColor: sel }]}
+              style={styles.row}
             >
-              <View style={styles.rowHead}>
-                {/* the mark is white, and only the mark: a row
-                    flooded in colour would read as a pain value */}
-                <View style={[styles.radio, on && { borderColor: sel }]}>
-                  {on && <View style={[styles.radioDot, { backgroundColor: sel }]} />}
-                </View>
+              <View style={styles.rowText}>
                 <Text style={styles.rowLabel} allowFontScaling maxFontSizeMultiplier={1.3}>
                   {o.label}
                 </Text>
+                <Text style={styles.rowBody} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  {o.body}
+                </Text>
               </View>
-              <Text style={styles.rowBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                {o.body}
-              </Text>
+              {/* the mark is white, and only the mark: a row
+                  flooded in colour would read as a pain value. A
+                  circle, never a square — squares are pain values. */}
+              <View style={[styles.check, on && { backgroundColor: sel, borderColor: sel }]}>
+                {on && <Ionicons name="checkmark" size={16} color="#000000" />}
+              </View>
+              {/* the hairline is inset from the leading edge and absent
+                  under the last row, as a grouped list draws it */}
+              {i < OPTIONS.length - 1 && <View style={styles.sep} />}
             </Press>
           );
         })}
@@ -227,33 +239,45 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
   );
 }
 
+/* the redesign's greys, named here until theme.ts carries them: the
+   secondary text, the grouped list's hairline, and an unchosen circle */
+const GREY_TEXT = '#98989F';
+const HAIRLINE = '#38383A';
+const CIRCLE_OFF = '#48484A';
+
 const styles = StyleSheet.create({
-  rows: { gap: 10 },
-  row: {
-    padding: 14, borderRadius: radius.card, borderCurve: 'continuous',
+  group: {
+    borderRadius: 16, borderCurve: 'continuous', overflow: 'hidden',
     backgroundColor: color.bgSurface,
-    borderWidth: 1, borderColor: color.borderControl, gap: 6,
   },
-  rowHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  radio: {
-    width: 20, height: 20, borderRadius: 10, borderWidth: 1.5,
-    borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center',
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 14, paddingHorizontal: 16, minHeight: 44,
   },
-  radioDot: { width: 10, height: 10, borderRadius: 5 },
-  rowLabel: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', flex: 1 },
-  rowBody: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20, paddingLeft: 30 },
-  named: { marginTop: 22 },
-  namedQ: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  rowText: { flex: 1, gap: 3 },
+  rowLabel: { color: color.textPrimary, fontSize: font.body, fontWeight: '600' },
+  rowBody: { color: GREY_TEXT, fontSize: 14, lineHeight: 19 },
+  check: {
+    width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: CIRCLE_OFF,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  sep: {
+    position: 'absolute', left: 16, right: 0, bottom: 0,
+    height: StyleSheet.hairlineWidth, backgroundColor: HAIRLINE,
+  },
+  named: { marginTop: 18 },
+  namedQ: { color: GREY_TEXT, fontSize: font.subheadline, fontWeight: '600' },
   namedHint: {
-    color: color.textSecondary, fontSize: font.subheadline, lineHeight: 20, marginTop: 4, marginBottom: 10,
+    color: GREY_TEXT, fontSize: 14, lineHeight: 19, marginTop: 4, marginBottom: 10,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    paddingVertical: 9, paddingHorizontal: 14, borderRadius: 19, borderCurve: 'continuous',
-    borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
+    minHeight: 40, justifyContent: 'center',
+    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderCurve: 'continuous',
+    borderWidth: 1, borderColor: 'transparent', backgroundColor: color.bgSurface,
   },
-  chipText: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '500' },
-  chipTextOn: { color: color.bgSurface, fontWeight: '600' },
+  chipText: { color: color.textPrimary, fontSize: 14, fontWeight: '500' },
+  chipTextOn: { color: '#000000', fontWeight: '600' },
   input: {
     marginTop: 10, minHeight: 48, borderRadius: 14, borderCurve: 'continuous',
     paddingHorizontal: 14, paddingVertical: 12,

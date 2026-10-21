@@ -19,6 +19,13 @@
  * NEUTRAL THROUGHOUT. Nothing here is a pain value, so nothing takes
  * the ramp. The one qualifying sentence sits behind the (i), inside the
  * card, per the house rule.
+ *
+ * HEALTH'S ANATOMY (21 Oct 2026, the approved Main mockup). The goal
+ * stands on the ground above the card as Today's section title, the way
+ * Health puts "Activity" over its cards; the card under it leads with
+ * the suggested minutes as a big rounded value and keeps every sentence
+ * it had. Only the look moved — the order of Today, what the card says
+ * and when it says it are recovery.ts's, untouched.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -31,6 +38,7 @@ import { CapacityView } from './health/capacity';
 import { capitalise } from './health/workoutNames';
 import { CAPACITY_HARDER_POINTS } from './thresholds';
 import { color, font, radius, size } from './theme';
+import { BigValue, CardHeader, Chevron, Num, ROUNDED, card as summaryCard, summary } from './SummaryCard';
 
 /** the choices for a weekly target — shared with onboarding */
 export const WEEKLY_CHOICES = [1, 2, 3, 4, 5];
@@ -62,13 +70,19 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
   const [picked, setPicked] = useState<GoalActivity | null>(initial && initial.activity ? initial.activity : null);
   const [other, setOther] = useState(initial && initial.activity === 'other' ? initial.label : '');
   const [step, setStep] = useState<'what' | 'often'>('what');
-  const card = [styles.card, flush && styles.flush];
+  /* On Today it wears the Summary card; in Profile (flush) it keeps the
+     sheet's grammar, which is that screen's to change, not this one's. */
+  const card = flush ? [styles.card, styles.flush] : summaryCard.box;
+  const head = flush
+    ? <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>Your goal</Text>
+    : <CardHeader icon="flag" label="Your goal" />;
+  const title = flush ? styles.title : [summaryCard.question, styles.question];
 
   if (step === 'often' && picked) {
     return (
       <View style={card}>
-        <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>Your goal</Text>
-        <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+        {head}
+        <Text style={title} allowFontScaling maxFontSizeMultiplier={1.3}>
           How many sessions a week are you aiming for?
         </Text>
         <View style={styles.chips}>
@@ -76,7 +90,7 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
             <Press key={n} onPress={() => onSave(picked, other, n)} style={styles.chip}
               hitSlop={{ top: 8, bottom: 4, left: 4, right: 4 }}
               accessibilityRole="button" accessibilityLabel={n + ' a week'}>
-              <Text style={styles.chipText} allowFontScaling maxFontSizeMultiplier={1.3}>{n}</Text>
+              <Text style={[styles.chipText, styles.chipNum]} allowFontScaling maxFontSizeMultiplier={1.3}>{n}</Text>
             </Press>
           ))}
         </View>
@@ -90,8 +104,8 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
 
   return (
     <View style={card}>
-      <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>Your goal</Text>
-      <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
+      {head}
+      <Text style={title} allowFontScaling maxFontSizeMultiplier={1.3}>
         What are you trying to get back to?
       </Text>
       <View style={styles.chips}>
@@ -184,6 +198,62 @@ export function GoalRow({ goal, today, onChange }: {
   );
 }
 
+/* ── the goal, as Today's section title ─────────────────── */
+
+// GOAL HEADER
+/**
+ * "Back to running" and the week's sessions as a sentence, standing on
+ * the ground above the activity card — Health's section header, not a
+ * card of its own, because it is the heading the card is read under and
+ * a box around it made two things of one. ONE block on purpose: the
+ * goal and its line are found here and only here, so whatever this
+ * comes to open (it opens the goal's setup today) changes in one place.
+ * The chevron is the promise that it opens something.
+ */
+export function GoalHeader({ hero, onPress, roadmapLine }: {
+  hero: RecoveryHero; onPress: () => void;
+  /** where they are on the roadmap (coach.ts) — present when the
+   *  header opens the roadmap rather than the goal's setup */
+  roadmapLine?: string | null;
+}) {
+  return (
+    <Press onPress={onPress} pressOpacity={0.7} style={styles.goalHead} accessibilityRole="button"
+      accessibilityLabel={hero.title + '. ' + hero.progressLine + (roadmapLine ? '. ' + roadmapLine : '')}
+      accessibilityHint={roadmapLine ? 'Opens your roadmap and achievements' : 'Change your goal'}>
+      <View style={styles.goalText}>
+        <Text style={styles.goalTitle} allowFontScaling maxFontSizeMultiplier={1.3}>{hero.title}</Text>
+        <Text style={styles.goalLine} allowFontScaling maxFontSizeMultiplier={1.3}>
+          <Num>{hero.progressLine}</Num>
+        </Text>
+        {roadmapLine ? (
+          <Text style={styles.goalLine} allowFontScaling maxFontSizeMultiplier={1.3}>
+            <Num>{roadmapLine}</Num>
+          </Text>
+        ) : null}
+      </View>
+      <Chevron />
+    </Press>
+  );
+}
+
+/* The load arrives as one sentence from recovery.ts — "28–33 min at an
+   easy effort", "Up to 33 min at a moderate effort", "Around 30 min, at
+   an easy effort". The card takes it apart only to SET it: the minutes
+   become the big value, the effort the fact at the top right. Anything
+   the pattern does not recognise is shown whole, as before, so a new
+   wording in recovery.ts can never lose its words on this card. */
+const LOAD = /^(Up to |Around )?(\d+(?:–\d+)?) min(?:,? at (?:an?) (easy|moderate|hard) effort)?$/;
+
+function splitLoad(load: string): { prefix?: string; minutes: string; effort?: string } | null {
+  const m = LOAD.exec(load);
+  if (!m) return null;
+  return {
+    prefix: m[1] ? m[1].trim() : undefined,
+    minutes: m[2],
+    effort: m[3] ? capitalise(m[3]) + ' effort' : undefined,
+  };
+}
+
 /* ── the activity card ──────────────────────────────────── */
 
 /**
@@ -191,77 +261,120 @@ export function GoalRow({ goal, today, onChange }: {
  * sessions have shown. `hero` is null without an answered goal; the
  * card still speaks when there are sessions to read.
  */
-export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn }: {
+export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, roadmapLine, onRoadmap }: {
   hero: RecoveryHero | null;
   guidance: DailyGuidance;
   capacity: CapacityView | null;
   onEdit: () => void;
   onCheckIn: () => void;
+  /** the roadmap (coach.ts): with it, the goal header opens the roadmap,
+   *  and the goal itself is changed from there or from Profile */
+  roadmapLine?: string | null;
+  onRoadmap?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const detail = !!capacity && (capacity.insights.length > 0 || !!capacity.collecting);
+  const load = guidance.recommendedLoad ? splitLoad(guidance.recommendedLoad) : null;
   return (
-    <View style={styles.card}>
-      {hero ? (
-        <Press onPress={onEdit} pressOpacity={0.7} accessibilityRole="button"
-          accessibilityLabel={hero.title + '. ' + hero.progressLine}
-          accessibilityHint="Change your goal">
-          <View style={styles.headRow}>
-            <Text style={styles.heroTitle} allowFontScaling maxFontSizeMultiplier={1.3}>{hero.title}</Text>
-            <Text style={styles.chev} allowFontScaling={false}>›</Text>
-          </View>
-          <Text style={styles.heroProgress} allowFontScaling maxFontSizeMultiplier={1.3}>{hero.progressLine}</Text>
-        </Press>
-      ) : (
-        <Text style={styles.eyebrow} allowFontScaling maxFontSizeMultiplier={1.3}>Your activity</Text>
-      )}
+    <>
+      {hero && (onRoadmap
+        ? <GoalHeader hero={hero} onPress={onRoadmap} roadmapLine={roadmapLine} />
+        : <GoalHeader hero={hero} onPress={onEdit} />)}
+      <View style={summaryCard.box}>
+        <CardHeader icon="walk" label="Your activity" meta={load ? load.effort : undefined} />
 
-      {hero && <View style={styles.rule} />}
-      <Text style={[styles.body, hero && styles.first]} allowFontScaling maxFontSizeMultiplier={1.4}>
-        {guidance.headline}
-      </Text>
-      <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>{guidance.recommendation}</Text>
-      {!!guidance.recommendedLoad && (
-        <Text style={styles.load} allowFontScaling maxFontSizeMultiplier={1.3}>{guidance.recommendedLoad}</Text>
-      )}
-      {!!guidance.note && (
-        <Text style={styles.body} allowFontScaling maxFontSizeMultiplier={1.4}>{guidance.note}</Text>
-      )}
-      {guidance.checkIn && (
-        <Press onPress={onCheckIn} style={styles.link} accessibilityRole="button" accessibilityLabel="Check in">
-          <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>Check in</Text>
-        </Press>
-      )}
-
-      {/* the per-activity conclusions: the evidence under the one
-          suggestion above, for whoever wants it — folded, because the
-          suggestion is the answer and this is the working */}
-      {detail && (
-        <>
-          <Press onPress={() => setOpen(!open)} style={styles.link} accessibilityRole="button"
-            accessibilityState={{ expanded: open }} accessibilityLabel="What your sessions show">
-            <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {open ? 'Hide' : 'What your sessions show'}
-            </Text>
-          </Press>
-          {open && (
-            <View style={styles.detail}>
-              <Text style={styles.body} allowFontScaling maxFontSizeMultiplier={1.4}>{capacity!.headline}</Text>
-              {capacity!.insights.slice(0, 3).map((c) => (
-                <View key={c.key} style={styles.insight}>
-                  <Text style={styles.insightText} allowFontScaling maxFontSizeMultiplier={1.4}>{c.text}</Text>
-                  <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>{c.why}</Text>
-                </View>
-              ))}
-              {!!capacity!.collecting && (
-                <Text style={styles.body} allowFontScaling maxFontSizeMultiplier={1.4}>{capacity!.collecting}</Text>
-              )}
+        {load ? (
+          /* WITH A NUMBER: the minutes first, as Health leads with the
+             value; then what to consider doing; then what it rests on.
+             VoiceOver hears the load exactly as recovery.ts wrote it. */
+          <>
+            <View style={styles.value} accessible accessibilityLabel={guidance.recommendedLoad!}>
+              <BigValue prefix={load.prefix} value={load.minutes} unit="min" />
             </View>
-          )}
-        </>
-      )}
-      <InfoTip label="What this is based on" text={ACTIVITY_NOTE} />
-    </View>
+            <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.3}>
+              <Num>{guidance.recommendation}</Num>
+            </Text>
+            <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+              <Num>{guidance.headline}</Num>
+            </Text>
+          </>
+        ) : (
+          /* WITHOUT ONE: the sentences in the order they always had —
+             what the record shows, then what would move it. No value is
+             drawn, because a big number the card does not have would be
+             the one thing on it that is made up. */
+          <>
+            <Text style={[summaryCard.sub, styles.first]} allowFontScaling maxFontSizeMultiplier={1.4}>
+              <Num>{guidance.headline}</Num>
+            </Text>
+            <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.3}>
+              <Num>{guidance.recommendation}</Num>
+            </Text>
+            {!!guidance.recommendedLoad && (
+              <Text style={styles.load} allowFontScaling maxFontSizeMultiplier={1.3}>
+                <Num>{guidance.recommendedLoad}</Num>
+              </Text>
+            )}
+          </>
+        )}
+        {!!guidance.note && (
+          <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+            {guidance.note}
+          </Text>
+        )}
+        {/* the "not" line the mockup carries under the minutes: a number
+            this card suggests is the one most likely to be read as an
+            instruction, so the sentence that says it is not one sits in
+            plain view beside it. The full note stays behind the (i). */}
+        {!!guidance.recommendedLoad && (
+          <Text style={[summaryCard.fine, styles.fineGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+            From your own sessions — not medical advice.
+          </Text>
+        )}
+        {guidance.checkIn && (
+          <Press onPress={onCheckIn} style={styles.link} accessibilityRole="button" accessibilityLabel="Check in">
+            <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>Check in</Text>
+          </Press>
+        )}
+
+        {/* the per-activity conclusions: the evidence under the one
+            suggestion above, for whoever wants it — folded, because the
+            suggestion is the answer and this is the working */}
+        {detail && (
+          <>
+            <Press onPress={() => setOpen(!open)} style={styles.link} accessibilityRole="button"
+              accessibilityState={{ expanded: open }} accessibilityLabel="What your sessions show">
+              <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+                {open ? 'Hide' : 'What your sessions show'}
+              </Text>
+            </Press>
+            {open && (
+              <View style={styles.detail}>
+                <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  <Num>{capacity!.headline}</Num>
+                </Text>
+                {capacity!.insights.slice(0, 3).map((c) => (
+                  <View key={c.key} style={styles.insight}>
+                    <Text style={styles.insightText} allowFontScaling maxFontSizeMultiplier={1.4}>
+                      <Num>{c.text}</Num>
+                    </Text>
+                    <Text style={[summaryCard.fine, styles.whyGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                      <Num>{c.why}</Num>
+                    </Text>
+                  </View>
+                ))}
+                {!!capacity!.collecting && (
+                  <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                    <Num>{capacity!.collecting}</Num>
+                  </Text>
+                )}
+              </View>
+            )}
+          </>
+        )}
+        <InfoTip label="What this is based on" text={ACTIVITY_NOTE} />
+      </View>
+    </>
   );
 }
 
@@ -284,17 +397,33 @@ const styles = StyleSheet.create({
   eyebrow: { color: color.textSecondary, fontSize: font.subheadline, fontWeight: '600' },
   title: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 24, marginTop: 6 },
   body: { color: color.textSecondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8 },
-  first: { marginTop: 0 },
-  load: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
-  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroTitle: { flex: 1, color: color.textPrimary, fontSize: font.title2, fontWeight: '700', letterSpacing: -0.2 },
-  chev: { color: color.textTertiary, fontSize: 18, marginTop: -2 },
-  heroProgress: { color: color.textSecondary, fontSize: font.subheadline, marginTop: 4 },
-  rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.borderDivider, marginVertical: 14 },
+
+  /* the goal header: the mockup's section title, 22 bold over a 15 grey
+     line, on the ground at the cards' edge. 6 above lands it 24 under
+     the large title (the bar's 14 and the page's 4 come first); 4 below
+     plus the card's own 10 is the mockup's 14 to the card. */
+  goalHead: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: size.pageX, marginTop: 6, paddingBottom: 4,
+  },
+  goalText: { flex: 1, gap: 2 },
+  goalTitle: { color: summary.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.33 },
+  goalLine: { color: summary.secondary, fontSize: 15, lineHeight: 20 },
+
+  /* the activity card, in the Summary grammar (SummaryCard.tsx) */
+  value: { marginTop: 10 },
+  lead: { color: summary.text, fontSize: font.body, fontWeight: '600', lineHeight: 22, marginTop: 8 },
+  first: { marginTop: 10 },
+  subGap: { marginTop: 6 },
+  fineGap: { marginTop: 10 },
+  whyGap: { marginTop: 4 },
+  load: { color: summary.text, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
   detail: { marginTop: 2 },
   insight: { marginTop: 12 },
-  insightText: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21 },
-  fine: { color: color.textTertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 4 },
+  insightText: { color: summary.text, fontSize: font.subheadline, lineHeight: 21 },
+  /* the goal setup's question on Today, set as the check-in's is */
+  question: { marginTop: 10 },
+  chipNum: { fontFamily: ROUNDED, fontWeight: '600' },
   /* 4 + 8 = the old 12, with the first row's top slop inside the box */
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4, paddingTop: 8 },
   chip: {
