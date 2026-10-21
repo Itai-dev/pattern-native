@@ -220,3 +220,36 @@ earlier decision to ask on Today, day two (ask after the app has shown
 its worth). The case for moving it: the redesign leads with the activity
 card, and it is empty without Health. The case against: a permission on
 screen five of a pain app, before one check-in, may read as a grab.
+
+## Coach · roadmap and achievements · 21 Oct
+
+The owner's direction: a coach that helps you back to activity,
+responsibly. What other apps teach:
+
+- **Couch to 5K** is the roadmap model: stages, and repeating a week is
+  normal. Pattern's stages are effort band × length from `capacity.ts`.
+- **Apple Fitness awards / Nike Run Club** are the achievement model:
+  earned for real things, kept forever.
+- **Ring and app streaks** are the warning: people exercise sick or
+  injured to keep one. A rest day breaks a streak, so it fights pacing.
+  Replaced by a cumulative "active weeks" that never resets.
+
+Screens (canvas row 4):
+
+1. **Roadmap**, reached from the goal header on Today. Five stages
+   (done ✓ / you're here / next / goal), the next suggested session, the
+   hold-and-ease rule in words, and the not-medical-advice line.
+2. **Achievements** — four groups: On your roadmap, Pacing (held the
+   line, eased back, on plan), Finding out (report, first answer), Over
+   time (totals, active weeks). White and silver only — colour means pain.
+3. **New achievement** sheet after a session, shown whether the pain
+   question was answered or skipped: "Earned by the run, not by how it
+   felt."
+
+The rule that holds it together: no badge depends on a pain number, so
+there is never a reason to answer lower. Amended in AGENTS.md, SPEC.md
+non-goals and GROWTH.md.
+
+Build: achievements and roadmap are JS and SQLite only, so they ship over
+the air in Phase 1. Thresholds (stage lengths, "on plan" count, totals)
+go in `src/thresholds.ts`.

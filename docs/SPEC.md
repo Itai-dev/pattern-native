@@ -843,7 +843,9 @@ rate. Correctness moves to the noise harness; usefulness to a later, longer coho
 - A user-facing question builder
 - Mandatory morning, afternoon and evening logs — three opt-in, default-off reminder slots are
   not the same thing
-- Streaks, badges, logging rewards, completion rings, social comparison, community features
+- Streaks, logging rewards, completion rings, social comparison, community features. Achievements
+  for activity and pacing are in scope since 21 Oct 2026 (AGENTS.md, "A coach rewards the doing");
+  a badge for logging or for a pain value is still out
 - Week-over-week deltas or any surface that rewards frequent checking (§13.4)
 - Large educational library; full ACT, CBT, CBT-I, flare-plan or exercise programmes
 - Unnecessary redesigns of working screens

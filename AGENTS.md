@@ -164,6 +164,24 @@ Those move only when a day is added, never penalise a missed one, and
 never put a number on today. Between two opens of the same day nothing
 changes except data the user added.
 
+**A coach rewards the doing, never the pain (21 Oct 2026).** The app
+has a roadmap and achievements, because getting back to activity is long
+and a person needs to see the ground they have covered. The roadmap is
+stages of effort and length toward the goal set in onboarding, moved by
+`capacity.ts` alone; holding or easing back is shown as part of the plan,
+never as falling behind, and it carries no dates and no percentage.
+Achievements are earned by what a person DID — a session at the length
+the plan suggested, a hold after a harder morning, a report made, an
+experiment finished, a cumulative total — and never by a pain number, a
+pain trend, or a count of check-ins. That is the load-bearing rule: a
+badge that a low morning unlocks is a reason to answer lower, and the
+record stops being true. Going past the suggestion earns nothing extra.
+Nothing resets, nothing expires, totals never need to be consecutive, and
+no notification says a badge is close. Still no streaks: a planned rest
+day would break one, so a streak argues against the pacing this app
+exists for. The aim is doing more with mornings that stay calm; the
+copy never promises healing or less pain.
+
 **The app helps you do more, in small steps (28 Sep 2026).** A mirror
 that only shows pain back was not helping anyone stay active. Today
 leads with one activity card (`src/RecoveryCards.tsx`), read from
