@@ -22,7 +22,8 @@ import * as db from './db';
 import { Press } from './motion';
 import DiagnosisStep, { draftOf, draftToRaw } from './DiagnosisStep';
 import { cleanDiagnosis, todayISO } from './model';
-import { color, font, size } from './theme';
+import { list, settings } from './SettingsList';
+import { font } from './theme';
 
 export interface DiagnosisSheetProps {
   onClose: () => void;
@@ -41,17 +42,17 @@ export default function DiagnosisSheet({ onClose }: DiagnosisSheetProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.root}
     >
-      <View style={styles.navBar}>
-        <View style={styles.navSpacer} />
-        <Text style={styles.navTitle}>Diagnosis</Text>
+      <View style={settings.navBar}>
+        <View style={settings.navSpacer} />
+        <Text style={settings.navTitle}>Diagnosis</Text>
         <Press
           onPress={save}
-          style={styles.navBtn}
+          style={settings.navBtn}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Save and close"
         >
-          <Text style={styles.navBtnText}>Done</Text>
+          <Text style={settings.navBtnText}>Done</Text>
         </Press>
       </View>
       <ScrollView
@@ -81,25 +82,18 @@ export default function DiagnosisSheet({ onClose }: DiagnosisSheetProps) {
   );
 }
 
+/* the frame is Profile's (SettingsList); the question itself is
+   DiagnosisStep, onboarding's own, so the two places ask it alike */
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bgSheet },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderDivider,
-  },
-  navSpacer: { width: 64, minHeight: 44 },
-  navTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600' },
-  navBtn: { minWidth: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
-  body: { padding: size.sheetX, paddingTop: 22, paddingBottom: 40 },
+  root: { flex: 1, backgroundColor: list.ground },
+  body: { padding: 20, paddingTop: 14, paddingBottom: 48 },
   title: {
-    color: color.textPrimary, fontSize: font.title2, fontWeight: '700',
-    letterSpacing: -0.4, lineHeight: 30, marginBottom: 10,
+    color: list.text, fontSize: font.title2, fontWeight: '700',
+    letterSpacing: -0.33, lineHeight: 28, marginBottom: 10,
   },
-  lead: { color: color.textPrimary, fontSize: font.subheadline, lineHeight: 21 },
+  lead: { color: list.text, fontSize: font.subheadline, lineHeight: 21 },
   leadFine: {
-    color: color.textSecondary, fontSize: font.footnote, lineHeight: 18, marginTop: 8,
+    color: list.secondary, fontSize: font.footnote, lineHeight: 18, marginTop: 8,
   },
   step: { marginTop: 20 },
 });

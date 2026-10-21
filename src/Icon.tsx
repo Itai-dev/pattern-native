@@ -102,6 +102,15 @@ export const FALLBACK = {
   'hand.raised.fill': 'hand-left',
   'list.bullet': 'list',
   'figure.stand': 'body',
+  /* Profile, its sheets and the tab bar */
+  'person.fill': 'person',
+  'info.circle.fill': 'information-circle',
+  'envelope.fill': 'mail',
+  'paintpalette.fill': 'color-palette',
+  'square.and.arrow.down': 'download-outline',
+  'slider.horizontal.3': 'options',
+  'stethoscope': 'medkit',
+  'arrow.clockwise': 'refresh',
 } as const satisfies Record<string, keyof typeof Ionicons.glyphMap>;
 
 export type IconName = keyof typeof FALLBACK;

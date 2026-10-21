@@ -17,12 +17,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { RowChevron, RowIcon, list, settings } from './SettingsList';
+import { Num } from './SummaryCard';
 import { EASE_OUT, reduceMotion } from './motion';
 import { dateFromISO, iso, todayISO } from './model';
 import { fmtDay } from './DayScreen';
-import { color, font, radius } from './theme';
+import { color, font } from './theme';
 
 export const PREF_APPOINTMENT = 'appointment.date';
 
@@ -69,18 +70,18 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
     <>
       <Pressable
         onPress={() => setOpen(true)}
-        style={styles.row}
+        style={settings.row}
         accessibilityRole="button"
         accessibilityLabel={'Next appointment, ' + (value ? fmtDay(value) : 'not set')}
         accessibilityHint="Opens a date picker. Two days before, Today offers the PDF."
       >
-        <View style={styles.icon}>
-          <Ionicons name="calendar-outline" size={21} color={color.textSecondary} />
-        </View>
-        <View style={styles.main}>
-          <Text style={styles.label}>Next appointment</Text>
-          <Text style={styles.value} numberOfLines={1}>{value ? fmtDay(value) : 'Not set'}</Text>
-          <Text style={styles.chevron}>›</Text>
+        <RowIcon name="calendar.badge.clock" />
+        <View style={settings.rowMain}>
+          <Text style={settings.rowLabel}>Next appointment</Text>
+          <Text style={settings.rowValue} numberOfLines={1}>
+            {value ? <Num>{fmtDay(value)}</Num> : 'Not set'}
+          </Text>
+          <RowChevron />
         </View>
       </Pressable>
 
@@ -112,7 +113,7 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
             />
             <Pressable onPress={done} style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.85 }]}
               accessibilityRole="button" accessibilityLabel={'Save ' + fmtDay(draft)}>
-              <Text style={styles.doneText}>Save {fmtDay(draft)}</Text>
+              <Text style={styles.doneText}><Num>{'Save ' + fmtDay(draft)}</Num></Text>
             </Pressable>
             {!!value && (
               <Pressable onPress={clear} style={styles.clearBtn}
@@ -127,30 +128,24 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
   );
 }
 
-/* the Profile row grammar, to the pixel — see App.tsx's styles */
+/* the row is Profile's (SettingsList); the picker card is the
+   reminders' wheel card, so the two date and time pickers in one sheet
+   are the same object */
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingLeft: 16 },
-  icon: { width: 29, height: 29, borderRadius: 6.5, alignItems: 'center', justifyContent: 'center' },
-  main: {
-    flex: 1, paddingRight: 14, minHeight: 48,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
-  label: { color: color.textPrimary, fontSize: font.body, flex: 1 },
-  value: { color: color.textSecondary, fontSize: font.body, maxWidth: 160 },
-  chevron: { color: color.textTertiary, fontSize: 20, marginTop: -2 },
   scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   card: {
-    backgroundColor: color.bgSheet,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: list.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28, borderCurve: 'continuous',
     padding: 20, paddingBottom: 34,
   },
   title: { color: color.textPrimary, fontSize: font.body, fontWeight: '600', textAlign: 'center' },
   sub: {
-    color: color.textTertiary, fontSize: font.footnote, lineHeight: 18,
+    color: list.tertiary, fontSize: font.footnote, lineHeight: 18,
     textAlign: 'center', marginTop: 4, marginBottom: 4,
   },
+  /* the redesign's primary: a white capsule, black words */
   doneBtn: {
-    height: 50, borderRadius: radius.button, borderCurve: 'continuous', backgroundColor: color.textPrimary,
+    height: 54, borderRadius: 27, borderCurve: 'continuous', backgroundColor: color.textPrimary,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
   doneText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
