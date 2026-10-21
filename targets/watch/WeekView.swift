@@ -32,20 +32,31 @@ struct WeekView: View {
       let side = min(24, (geo.size.width - gap * 6) / 7)
 
       VStack(spacing: 10) {
-        Text("The last seven days")
-          .font(.footnote)
-          .foregroundStyle(.secondary)
+        /* the redesign's card header (SummaryCard on the phone): a small
+           white glyph and a semibold white label — white, because a hue
+           here would borrow the meaning the squares below carry */
+        HStack(spacing: 5) {
+          Image(systemName: "calendar")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Color.white)
+          Text("The last seven days")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Color.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+        }
 
         if week.count == 7 {
           HStack(spacing: gap) {
             ForEach(0..<7, id: \.self) { i in
               VStack(spacing: 4) {
                 ZStack {
+                  /* 0.27 of the side: the phone's day square (11 on 40) */
                   if let fill = week[i] {
-                    RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
+                    RoundedRectangle(cornerRadius: side * 0.27, style: .continuous)
                       .fill(fill)
                   } else {
-                    RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
+                    RoundedRectangle(cornerRadius: side * 0.27, style: .continuous)
                       .strokeBorder(Color.white.opacity(0.28), lineWidth: 1.5)
                   }
                 }

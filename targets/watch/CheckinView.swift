@@ -1,6 +1,6 @@
 /**
  * Turn the crown — or tap the square — watch it take its colour, tap
- * the check, and it is sent.
+ * Done, and it is sent.
  *
  * THE SQUARE IS THE APP'S OWN. On the phone, PainShape is "one solid
  * rounded square" whose fill rides the brightness ramp under the
@@ -22,20 +22,28 @@
  * step up, with the same settle-then-check as the crown. Two ways to
  * choose, one rule about confirming.
  *
- * THE CHECK APPEARS, IT DOES NOT ACT. When the value has been still for
- * a beat, a check button fades into a slot below; committing on
+ * DONE IS EARNED, IT DOES NOT ACT ON ITS OWN. When the value has been
+ * still for a beat, the Done button below wakes; committing on
  * crown-stop alone was considered and rejected — a sleeve brushing the
  * crown, or a user pausing to think, would write a number nobody
  * confirmed, and the record's whole claim is that the number is what
- * the user entered. The pause earns the check; the tap is the entry.
+ * the user entered. The pause earns Done; the tap is the entry.
+ *
+ * THE REDESIGN'S LAYOUT (Watch mockup, 21 Oct 2026, build 49): the
+ * square large, the number inside it in SF Rounded, the word under it,
+ * and one full-width white Done — the phone's primary button, worn. Done
+ * is ALWAYS in its slot, so the square never moves; until there is a
+ * still, chosen value it is dimmed and does nothing. It was a check mark
+ * that faded in and out of an empty slot; a button that is always there
+ * says what the screen is for before the crown has moved.
  *
  * THE TAP SENDS, AT ONCE. There was a three-second Undo behind the
  * check (5–16 Sep 2026), against a brushed sleeve; the founder's call
  * was that an arm held up for a countdown after every check-in cost
- * more than the rare brush, and the settle before the check already
- * asks for a deliberate pause. So the check appears sooner, the tap
- * sends, the mark shows, and the wrist is done. A wrong number is
- * corrected on the phone, where every check-in can be edited.
+ * more than the rare brush, and the settle before Done already asks
+ * for a deliberate pause. So the tap sends, the mark shows, and the
+ * wrist is done. A wrong number is corrected on the phone, where every
+ * check-in can be edited.
  *
  * WHAT HAPPENS NEXT IS SAID. The phone's app writes the record, and it
  * does that when it next opens — a check-in made on a walk does not
@@ -46,10 +54,12 @@
  * COLOUR AND WORDS ARE RECEIVED, NOT HELD. The ramp and the five words
  * live in painScale.ts, once; the phone pushes them here as strings
  * (see PatternWatchApp.swift). A pain value is the one thing allowed
- * to wear the ramp, so the square may; the check button stays white,
- * as every control does. With no palette yet — first launch before
- * the phone has spoken — the number is white in an outline, and the
- * caption says "pain right now" instead of a word it does not have.
+ * to wear the ramp, so the square may; Done stays white, as every
+ * control does. The number inside the square is black or white by the
+ * fill's luminance, as on the phone's check-in. With no palette yet —
+ * first launch before the phone has spoken — the number is white in an
+ * outline, and the line under it says "Pain right now" instead of a
+ * word it does not have.
  */
 import SwiftUI
 import WatchKit
@@ -83,8 +93,31 @@ struct CheckinView: View {
   private var value: Int { min(10, max(0, Int(crown.rounded()))) }
 
   private var caption: String {
-    if !touched { return "turn or tap to choose" }
-    return sync.palette?.wordFor(value) ?? "pain right now"
+    if !touched { return "Turn or tap to choose" }
+    return sync.palette?.wordFor(value) ?? "Pain right now"
+  }
+
+  /* the word is the answer's own, so it is set like the mockup's "Mild":
+     white and semibold. The two stand-ins — before a choice, and before
+     the phone has said the words — are grey, because they are about the
+     screen and not about the pain */
+  private var captionIsWord: Bool { touched && sync.palette != nil }
+
+  /* black or white by the fill, once there is a fill; white on an
+     outline (no palette yet); grey for the dash before a choice */
+  private var numberInk: Color {
+    if !touched { return Color.secondary }
+    return sync.palette?.markFor(value) ?? Color.white
+  }
+
+  /* Done answers only a still, chosen value */
+  private var ready: Bool { touched && settled }
+
+  /* a String, not a literal at the call site: a ternary of two literals
+     against accessibilityHint's LocalizedStringKey and StringProtocol
+     overloads is a type-check gamble this file cannot test here */
+  private var doneHint: String {
+    ready ? "Sends this number to Pattern on your iPhone" : "Choose a number first"
   }
 
   /* a change of value from either hand: mark it, and start the settle
@@ -140,30 +173,41 @@ struct CheckinView: View {
       }
     } else {
       GeometryReader { geo in
-        /* the square takes what height the caption and the check slot
-           leave; capped so a 45mm does not draw a billboard, floored so
-           a 40mm still reads as a square and not a chip */
-        let side = max(84, min(112, geo.size.height - 82))
+        /* the square takes what height the word and Done leave (6 + 20
+           + at least 6 + 40, plus a little air); capped at the mockup's
+           side so a 49mm does not draw a billboard, floored so a 40mm
+           still reads as a square and not a chip */
+        let side = max(72, min(100, geo.size.height - 78))
         let fill = touched ? sync.palette?.fillFor(value) : nil
+        /* the mockup's 28 on 96: a touch rounder than the phone's day
+           squares, because at this size the corner is what reads */
+        let corner = side * 0.29
 
-        VStack(spacing: 6) {
+        VStack(spacing: 0) {
+          Spacer(minLength: 0)
+
           ZStack {
             if let fill {
-              RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
+              RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .fill(fill)
-                /* PainShape's one glow: the surface's own colour, soft —
-                   a brighter value casts more light on the black ground */
-                .shadow(color: fill.opacity(0.45), radius: 14)
+              /* the mockup's inset hairline: on black, the darkest
+                 stops of the ramp would otherwise lose their edge */
+              RoundedRectangle(cornerRadius: corner, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
             } else {
               /* DaySquare's unlogged day: the same square, as an outline */
-              RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
+              RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.28), lineWidth: 1.5)
             }
             Text(touched ? "\(value)" : "–")
-              .font(.system(size: side * 0.45, weight: .bold, design: .rounded))
-              .foregroundStyle(
-                touched ? (sync.palette?.inkFor(value) ?? .white) : Color.secondary
-              )
+              /* SF Rounded, as every number in the redesign; 60 on 96
+                 in the mockup. Monospaced digits so 9 → 10 does not
+                 shift the glyphs sideways under the crown. */
+              .font(.system(size: side * 0.6, weight: .bold, design: .rounded))
+              .monospacedDigit()
+              .minimumScaleFactor(0.6)
+              .lineLimit(1)
+              .foregroundStyle(numberInk)
               .contentTransition(.numericText())
 
             /* the two halves: down on the left, up on the right. Clear
@@ -182,27 +226,35 @@ struct CheckinView: View {
           .frame(width: side, height: side)
           .animation(.easeOut(duration: 0.15), value: value)
 
+          /* the word under the square — "Mild", never the number again */
           Text(caption)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .frame(height: 18)
+            .font(captionIsWord ? Font.system(size: 15, weight: .semibold) : Font.footnote)
+            .foregroundStyle(captionIsWord ? Color.white : Color.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(height: 20)
+            .padding(.top, 6)
 
-          /* a fixed slot for the check, so the square never moves when
-             it arrives or leaves */
-          ZStack {
-            if settled && touched {
-              Button(action: confirm) {
-                Image(systemName: "checkmark")
-                  .font(.system(size: 20, weight: .semibold))
-              }
-              .buttonStyle(.borderedProminent)
-              .tint(.white)
-              .foregroundStyle(.black)
-              .transition(.opacity)
-            }
+          Spacer(minLength: 6)
+
+          /* the one control: white, black words, fully rounded — the
+             phone's primary button. A plain style so watchOS does not
+             draw its own platter behind ours; dimmed, never hidden,
+             until a still, chosen value earns it */
+          Button(action: confirm) {
+            Text("Done")
+              .font(.system(size: 16, weight: .semibold))
+              .foregroundStyle(Color.black)
+              .frame(maxWidth: .infinity)
+              .frame(height: 40)
+              .background(Capsule().fill(Color.white))
+              .contentShape(Capsule())
           }
-          .frame(height: 44)
-          .animation(.easeInOut(duration: 0.15), value: settled)
+          .buttonStyle(.plain)
+          .disabled(!ready)
+          .opacity(ready ? 1 : 0.35)
+          .animation(.easeInOut(duration: 0.15), value: ready)
+          .accessibilityHint(doneHint)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
