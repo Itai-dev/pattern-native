@@ -17,8 +17,20 @@
  * smaller number.
  *
  * NEUTRAL THROUGHOUT. Nothing here is a pain value, so nothing takes
- * the ramp. The one qualifying sentence sits behind the (i), inside the
- * card, per the house rule.
+ * the ramp. The short "not medical advice" line stays in plain view
+ * beside the minutes, inside the card, per the house rule; the full
+ * note is under "Why?".
+ *
+ * ONE WAY IN TO THE WORKING (21 Oct 2026, the calm pass). The card had
+ * two doors to the same question — "What your sessions show" and an (i)
+ * on its own row — and four visible readings of one suggestion: the
+ * effort, the minutes, the recommendation and a grey headline. Testers
+ * read it as crowded. The visible card is now the suggestion and its
+ * one not-line; the headline, the per-activity conclusions, what is
+ * still collecting and the full note sit together under a single
+ * "Why?". The card's "Check in" link went too: the + and the check-in
+ * card below already ask, and the empty card still says "Due now"
+ * when a check-in this morning would answer a waiting session.
  *
  * HEALTH'S ANATOMY (21 Oct 2026, the approved Main mockup). The goal
  * stands on the ground above the card as Today's section title, the way
@@ -29,7 +41,6 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import InfoTip from './InfoTip';
 import { Press } from './motion';
 import {
   DailyGuidance, GOAL_ACTIVITIES, GoalActivity, RecoveryGoal, RecoveryHero, goalLabel,
@@ -210,11 +221,18 @@ export function GoalRow({ goal, today, onChange }: {
  * goal and its line are found here and only here, so whatever this
  * comes to open (it opens the goal's setup today) changes in one place.
  * The chevron is the promise that it opens something.
+ *
+ * A TITLE AND ONE LINE (21 Oct 2026, the calm pass). The roadmap's
+ * place used to be a third line here, stacked over the card; it is the
+ * first thing the roadmap the chevron opens says, so on Today it is
+ * spoken to VoiceOver and not drawn. Two lines read as a heading; three
+ * read as another card without a box.
  */
 export function GoalHeader({ hero, onPress, roadmapLine }: {
   hero: RecoveryHero; onPress: () => void;
   /** where they are on the roadmap (coach.ts) — present when the
-   *  header opens the roadmap rather than the goal's setup */
+   *  header opens the roadmap rather than the goal's setup; heard, not
+   *  shown */
   roadmapLine?: string | null;
 }) {
   return (
@@ -226,11 +244,6 @@ export function GoalHeader({ hero, onPress, roadmapLine }: {
         <Text style={styles.goalLine} allowFontScaling maxFontSizeMultiplier={1.3}>
           <Num>{hero.progressLine}</Num>
         </Text>
-        {roadmapLine ? (
-          <Text style={styles.goalLine} allowFontScaling maxFontSizeMultiplier={1.3}>
-            <Num>{roadmapLine}</Num>
-          </Text>
-        ) : null}
       </View>
       <Chevron />
     </Press>
@@ -258,16 +271,15 @@ function splitLoad(load: string): { prefix?: string; minutes: string; effort?: s
 /* ── the activity card ──────────────────────────────────── */
 
 /**
- * The goal, today's suggestion, and — folded — what each activity's
- * sessions have shown. `hero` is null without an answered goal; the
- * card still speaks when there are sessions to read.
+ * The goal, today's suggestion, and — folded under one "Why?" — what
+ * it rests on. `hero` is null without an answered goal; the card still
+ * speaks when there are sessions to read.
  */
-export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, roadmapLine, onRoadmap, activity }: {
+export function ActivityCard({ hero, guidance, capacity, onEdit, roadmapLine, onRoadmap, activity }: {
   hero: RecoveryHero | null;
   guidance: DailyGuidance;
   capacity: CapacityView | null;
   onEdit: () => void;
-  onCheckIn: () => void;
   /** the roadmap (coach.ts): with it, the goal header opens the roadmap,
    *  and the goal itself is changed from there or from Profile */
   roadmapLine?: string | null;
@@ -276,7 +288,6 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
   activity?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const detail = !!capacity && (capacity.insights.length > 0 || !!capacity.collecting);
   const load = guidance.recommendedLoad ? splitLoad(guidance.recommendedLoad) : null;
   return (
     <>
@@ -288,8 +299,9 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
 
         {load ? (
           /* WITH A NUMBER: the minutes first, as Health leads with the
-             value; then what to consider doing; then what it rests on.
-             VoiceOver hears the load exactly as recovery.ts wrote it. */
+             value, then what to consider doing. What it rests on is the
+             first thing under "Why?". VoiceOver hears the load exactly
+             as recovery.ts wrote it. */
           <>
             <View style={styles.value} accessible accessibilityLabel={guidance.recommendedLoad!}>
               <BigValue prefix={load.prefix} value={load.minutes} unit="min" />
@@ -297,13 +309,11 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
             <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.3}>
               <Num>{guidance.recommendation}</Num>
             </Text>
-            <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-              <Num>{guidance.headline}</Num>
-            </Text>
           </>
         ) : (
           /* WITHOUT ONE: the sentences in the order they always had —
-             what the record shows, then what would move it. No value is
+             what the record shows, then what would move it. They are the
+             card's content here, so they stay in view. No value is
              drawn, because a big number the card does not have would be
              the one thing on it that is made up. */
           <>
@@ -320,6 +330,9 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
             )}
           </>
         )}
+        {/* the flare note stays in view: it is the reason the card is not
+            suggesting longer today, and a reason folded away reads as the
+            card going quiet for nothing */}
         {!!guidance.note && (
           <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
             {guidance.note}
@@ -328,60 +341,63 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
         {/* the "not" line the mockup carries under the minutes: a number
             this card suggests is the one most likely to be read as an
             instruction, so the sentence that says it is not one sits in
-            plain view beside it. The full note stays behind the (i). */}
+            plain view beside it. The full note is under "Why?". */}
         {!!guidance.recommendedLoad && (
           <Text style={[summaryCard.fine, styles.fineGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
             From your own sessions — not medical advice.
           </Text>
         )}
-        {guidance.checkIn && (
-          <Press onPress={onCheckIn} style={styles.link} accessibilityRole="button" accessibilityLabel="Check in">
-            <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>Check in</Text>
-          </Press>
-        )}
 
-        {/* the per-activity conclusions: the evidence under the one
-            suggestion above, for whoever wants it — folded, because the
-            suggestion is the answer and this is the working */}
-        {detail && (
-          <>
-            <Press onPress={() => setOpen(!open)} style={styles.link} accessibilityRole="button"
-              accessibilityState={{ expanded: open }} accessibilityLabel="What your sessions show">
-              <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {open ? 'Hide' : 'What your sessions show'}
+        {/* ONE DOOR TO THE WORKING: what the suggestion rests on, each
+            activity's conclusions, what is still collecting, and the full
+            note — folded, because the suggestion is the answer and this
+            is the working. It replaces a toggle and a separate (i) that
+            opened two halves of the same explanation. */}
+        <Press onPress={() => setOpen(!open)} style={styles.link} accessibilityRole="button"
+          accessibilityState={{ expanded: open }} accessibilityLabel="Why this suggestion"
+          hitSlop={{ top: 6, bottom: 6 }}>
+          <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>
+            {open ? 'Hide' : 'Why?'}
+          </Text>
+        </Press>
+        {open && (
+          <View style={styles.detail}>
+            {load && (
+              <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Num>{guidance.headline}</Num>
               </Text>
-            </Press>
-            {open && (
-              <View style={styles.detail}>
-                <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  <Num>{capacity!.headline}</Num>
-                </Text>
-                {capacity!.insights.slice(0, 3).map((c) => (
-                  <View key={c.key} style={styles.insight}>
-                    <Text style={styles.insightText} allowFontScaling maxFontSizeMultiplier={1.4}>
-                      <Num>{c.text}</Num>
-                    </Text>
-                    <Text style={[summaryCard.fine, styles.whyGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-                      <Num>{c.why}</Num>
-                    </Text>
-                  </View>
-                ))}
-                {!!capacity!.collecting && (
-                  <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-                    <Num>{capacity!.collecting}</Num>
-                  </Text>
-                )}
-              </View>
             )}
-          </>
+            {!!capacity && capacity.insights.length > 0 && (
+              <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Num>{capacity.headline}</Num>
+              </Text>
+            )}
+            {!!capacity && capacity.insights.slice(0, 3).map((c) => (
+              <View key={c.key} style={styles.insight}>
+                <Text style={styles.insightText} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  <Num>{c.text}</Num>
+                </Text>
+                <Text style={[summaryCard.fine, styles.whyGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  <Num>{c.why}</Num>
+                </Text>
+              </View>
+            ))}
+            {!!capacity && !!capacity.collecting && (
+              <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Num>{capacity.collecting}</Num>
+              </Text>
+            )}
+            <Text style={[summaryCard.fine, styles.noteGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {ACTIVITY_NOTE}
+            </Text>
+          </View>
         )}
-        <InfoTip label="What this is based on" text={ACTIVITY_NOTE} />
       </View>
     </>
   );
 }
 
-/** what the card is and is not — inside the card, behind its (i). The
+/** what the card is and is not — inside the card, under "Why?". The
  *  two notes the old cards carried, said once. */
 export const ACTIVITY_NOTE =
   'Read from your own sessions: a session went fine when your next morning’s check-in was less than '
@@ -420,6 +436,7 @@ const styles = StyleSheet.create({
   subGap: { marginTop: 6 },
   fineGap: { marginTop: 10 },
   whyGap: { marginTop: 4 },
+  noteGap: { marginTop: 12 },
   load: { color: summary.text, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
   detail: { marginTop: 2 },
   insight: { marginTop: 12 },
