@@ -368,3 +368,17 @@ it, so `version` moved with `tools/test-runtime.js`, and the
 native-guard baseline was re-cut to today's dependencies. Nothing
 published from here reaches a 1.3.0 binary: `eas build` + `eas submit`
 come first.
+
+## Before and after, in plain words · 21 Oct
+
+On build 57 the owner opened "Swimming, before and after": 4.8 before,
+4.2 after, "10 workouts" on both rows, and "No meaningful change". They
+could not tell ten swims from twenty, or why a visible drop was "no
+change". The engine was right — 0.6 points is short of HEALTH_MIN_DELTA
+(1.5) — and the screen explained none of it. Now
+(`src/health/pairedCopy.ts`): the change in words ("After 10 swimming
+sessions, your pain averaged 0.6 points lower than before"), each
+session counted by direction ("Lower after 6 and the same after 4"),
+the count said once under the rows, and a sentence with the threshold
+saying why it is shown as what happened rather than as what caused it.
+Doses read the same way. The gate did not move.

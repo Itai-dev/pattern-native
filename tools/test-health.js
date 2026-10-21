@@ -982,7 +982,8 @@ ok('under DOSE_MIN_PAIRS the verdict is insufficient and no numbers exist', (() 
 ok('pairs that formed but did not change are an observation, never a claim', (() => {
   const a = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(10, () => 6, (i) => (i % 2 ? 6 : 7)));
   return a.verdict === 'observation' && Math.abs(a.delta) < th.HEALTH_MIN_DELTA
-    && doses.doseCopy(a) === null && /No meaningful change/.test(doses.doseObservationCopy(a));
+    && doses.doseCopy(a) === null && /^After 10 doses of Ibuprofen, your pain averaged /.test(doses.doseObservationCopy(a))
+    && a.lower + a.same + a.higher === 10;
 })());
 ok('a change past HEALTH_MIN_DELTA across enough pairs is possible, and its copy carries n, direction and the regression line', (() => {
   const a = doses.evaluateDoses('ibu', 'Ibuprofen', mkPairs(12, () => 7, () => 4.5));
@@ -1096,8 +1097,18 @@ ok('under WORKOUT_MIN_PAIRS the verdict is insufficient and no numbers exist', (
 ok('pairs that formed but did not change are an observation, never a claim', (() => {
   const a = wk.evaluateWorkouts('swimming', mkW(10, () => 6, (i) => (i % 2 ? 6 : 7)));
   return a.verdict === 'observation' && Math.abs(a.delta) < th.HEALTH_MIN_DELTA
-    && wk.workoutCopy(a) === null && /No meaningful change from before swimming/.test(wk.workoutObservationCopy(a))
-    && !/failure/.test(wk.workoutObservationCopy(a));
+    && wk.workoutCopy(a) === null && /^After 10 swimming sessions, your pain averaged /.test(wk.workoutObservationCopy(a))
+    && !/failure|help|hurt/.test(wk.workoutObservationCopy(a));
+})());
+ok('an observation says what happened in plain words and counts each session (21 Oct 2026)', (() => {
+  /* the owner's swims: 4.8 before, 4.2 after, ten sessions */
+  const b = [5, 5, 4, 6, 5, 4, 5, 5, 4, 5], af = [4, 4, 4, 5, 5, 3, 4, 5, 3, 5];
+  const a = wk.evaluateWorkouts('swimming', mkW(10, (i) => b[i - 1], (i) => af[i - 1]));
+  const t = wk.workoutObservationCopy(a);
+  return a.verdict === 'observation' && a.lower === 6 && a.same === 4 && a.higher === 0
+    && t === 'After 10 swimming sessions, your pain averaged 0.6 points lower than before. Lower after 6 and the same after 4.'
+    && /never|not as what caused it/.test(require('../.testbuild/health/pairedCopy').OBSERVATION_WHY)
+    && new RegExp(String(th.HEALTH_MIN_DELTA) + ' points').test(require('../.testbuild/health/pairedCopy').OBSERVATION_WHY);
 })());
 ok('a change past HEALTH_MIN_DELTA across enough pairs is possible, and its copy carries n, direction and the selection line', (() => {
   const a = wk.evaluateWorkouts('swimming', mkW(12, () => 7, () => 4.5));

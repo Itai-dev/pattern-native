@@ -82,6 +82,7 @@ import {
   fadedWorkoutCopy, workoutCopy, workoutObservationCopy,
 } from './health/workouts';
 import { capitalise } from './health/workoutNames';
+import { OBSERVATION_WHY } from './health/pairedCopy';
 import { DigestCard, recordSays } from './digest';
 import { color, font, size } from './theme';
 import Icon, { IconName } from './Icon';
@@ -791,6 +792,11 @@ function PairBars({ before, after, pairs, words, unit, of }: {
     { word: words[0], v: before },
     { word: words[1], v: after },
   ];
+  /* THE COUNT ONCE (21 Oct 2026). Each row carried "10 workouts" at
+     its end, and two rows of ten read as twenty — the owner could not
+     tell. It is the same sessions on both rows, each giving a check-in
+     before and one after, and the line under them now says exactly
+     that. */
   return (
     <View style={cmpStyles.wrap}>
       {rows.map((r) => (
@@ -798,16 +804,18 @@ function PairBars({ before, after, pairs, words, unit, of }: {
           key={r.word}
           style={cmpStyles.row}
           accessible
-          accessibilityLabel={r.word + ' of ' + of + ', pain averaged '
-            + formatScore(r.v) + ' across ' + pairs + ' ' + unit}
+          accessibilityLabel={r.word + ', pain averaged ' + formatScore(r.v)}
         >
           <PainChip v={r.v} />
           <Text style={cmpStyles.label} allowFontScaling maxFontSizeMultiplier={1.3}>
             {r.word}
           </Text>
-          <Say style={cmpStyles.n}>{pairs + ' ' + unit}</Say>
         </View>
       ))}
+      <Say style={cmpStyles.n}>
+        {'Averages of the check-in before and the first one after, across the same '
+          + pairs + ' ' + unit + ' of ' + of + '.'}
+      </Say>
     </View>
   );
 }
@@ -817,14 +825,15 @@ function DoseBars({ a }: { a: Pick<DoseAssociation, 'med' | 'pairs' | 'before' |
 }
 function WorkoutBars({ a }: { a: Pick<WorkoutAssociation, 'activity' | 'pairs' | 'before' | 'after'> }) {
   return <PairBars before={a.before} after={a.after} pairs={a.pairs} of={a.activity}
-    words={['Before ' + a.activity, 'After ' + a.activity]} unit="workouts" />;
+    words={['Before ' + a.activity, 'After ' + a.activity]} unit="sessions" />;
 }
 
 const cmpStyles = StyleSheet.create({
   wrap: { marginTop: 12, gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 32 },
   label: { flex: 1, color: summary.text, fontSize: font.subheadline, lineHeight: 20 },
-  n: { color: summary.secondary, fontSize: font.subheadline, fontVariant: ['tabular-nums'] },
+  /* the one line under the rows that says what they average */
+  n: { color: summary.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 2 },
 });
 
 /** one digest sentence: the claim, the numbers, the caveat. Sentence
@@ -1615,6 +1624,7 @@ export default function TrendsScreen({
           </Say>
         )}
         <DoseBars a={a} />
+        {a.verdict === 'observation' && <Say style={styles.noticeMeta}>{OBSERVATION_WHY}</Say>}
         <Say style={styles.noticeMeta}>{DOSE_TIMING}</Say>
       </>
     ),
@@ -1630,14 +1640,17 @@ export default function TrendsScreen({
           </Say>
         )}
         <WorkoutBars a={a} />
+        {a.verdict === 'observation' && <Say style={styles.noticeMeta}>{OBSERVATION_WHY}</Say>}
         <Say style={styles.noticeMeta}>{WORKOUT_TIMING}</Say>
       </>
     ),
   }));
   otherGroups.forEach((a) => {
     const w = groupLabels(a.kind);
-    const line = 'No meaningful difference in ' + w.outcome + ' between these groups so far — '
-      + 'that is a finding about these ' + a.pairedDays + ' days, not a failure of them.';
+    /* plain words, the before/after cards' register (21 Oct 2026):
+       "not a failure of them" answered a question nobody had asked */
+    const line = 'Across ' + a.pairedDays + ' paired days, no difference in ' + w.outcome
+      + ' between these groups big enough to call yet.';
     standouts.push({
       key: 'g.' + a.kind, title: w.factor + ', against your record', line, building: true,
       detail: (
