@@ -1548,7 +1548,7 @@ export default function TrendsScreen({
           which moves only when the range or the record does: never a
           change against last week, never a score. */}
       <Card
-        icon="stats-chart"
+        icon="chart.bar.fill"
         title={data.limited ? 'Pain recorded so far' : 'Your pain'}
         note="Blank days were not logged. Colour is the day’s average pain, 0–10. Every number here is an average of what you entered — not a score of how you are doing."
       >
@@ -1562,7 +1562,7 @@ export default function TrendsScreen({
                 + data.limitation.days + (data.limitation.days === 1 ? ' evening' : ' evenings')
               : '')}
         >
-          <BigValue prefix="Average" value={formatScore(data.avg)} unit={painLabel(data.avg)} />
+          <BigValue compact prefix="Average" value={formatScore(data.avg)} unit={painLabel(data.avg)} />
           <Say style={summaryCard.sub}>
             {data.loggedDays + ' ' + (data.loggedDays === 1 ? 'day' : 'days') + ' recorded'
               /* the second number, beside the first and never blended
@@ -1704,7 +1704,7 @@ export default function TrendsScreen({
           same shape as Today's Check in — because it is the one thing
           this screen exists to let a person do. */}
       {!!onShare && (
-        <Card icon="document-text" title="Share with your clinician">
+        <Card icon="doc.text.fill" title="Share with your clinician">
           <Text style={summaryCard.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
             A PDF of this record — your background, the numbers above, and what
             they do and don’t mean. Made on this iPhone, sent only where you
@@ -1733,7 +1733,7 @@ export default function TrendsScreen({
           is not. Counts, never findings, and the card says so inside
           itself. */}
       <Card
-        icon="list"
+        icon="list.bullet"
         title="Your record"
         note="Counts of what you recorded, never findings. What you noticed is your own read of a day, so it can’t be weighed against the days you didn’t notice it."
       >

@@ -104,17 +104,21 @@ export function Chevron() {
 
 /** the big value: "33 min", "2 Mild". `prefix` is Health's "Avg" slot —
  *  "Up to", "Around" — set small, so the number stays the thing read */
-export function BigValue({ value, unit, prefix }: {
+export function BigValue({ value, unit, prefix, compact }: {
   value: string;
   unit?: string;
   prefix?: string;
+  /** a figure the app worked out (an average), not one the person
+   *  entered or did: set smaller, because the redesign's hero is what
+   *  was done, and a derived pain number at hero size invites checking */
+  compact?: boolean;
 }) {
   return (
     <View style={styles.valueRow}>
       {!!prefix && (
         <Text style={styles.unit} allowFontScaling maxFontSizeMultiplier={1.3}>{prefix}</Text>
       )}
-      <Text style={styles.value} allowFontScaling maxFontSizeMultiplier={1.3}>{value}</Text>
+      <Text style={[styles.value, compact && styles.valueCompact]} allowFontScaling maxFontSizeMultiplier={1.3}>{value}</Text>
       {!!unit && (
         <Text style={[styles.unit, styles.unitShrink]} allowFontScaling maxFontSizeMultiplier={1.3}>
           {unit}
@@ -160,6 +164,7 @@ const styles = StyleSheet.create({
     fontFamily: ROUNDED, color: summary.text, fontSize: 40, fontWeight: '700',
     letterSpacing: -0.8, fontVariant: ['tabular-nums'],
   },
+  valueCompact: { fontSize: 28, lineHeight: 32 },
   unit: { fontFamily: ROUNDED, color: summary.secondary, fontSize: 20, fontWeight: '600' },
   unitShrink: { flexShrink: 1 },
 });
