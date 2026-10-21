@@ -59,11 +59,26 @@
  * strings through the snapshot. One definition of the pain ramp, still.
  * Accessory families render monochrome, so those layouts carry the
  * meaning in words and never in a fill.
+ *
+ * THE REDESIGN'S CARD (21 Oct 2026, build 49). A home-screen widget is a
+ * card on someone's home screen, so it takes Today's card: the #1C1C1E
+ * surface, a small white SF Symbol and a semibold label on top with the
+ * time in grey at the right, every number in SF Rounded, and the reading
+ * as the check-in draws it — the number INSIDE its pain square, black or
+ * white by the square's luminance (PainShape's inkForBg, recomputed here
+ * from `tint` because this function can call nothing but globals). The
+ * medium and large cards end on the phone's "not" line. What it shows is
+ * unchanged: the snapshot's keys, today only, nothing derived.
+ *
+ * Only the extension's globals are used — the sandbox in
+ * tools/test-widget.js holds exactly those, and a modifier outside it
+ * (lineLimit, shapes, …) would be a ReferenceError there and a black
+ * rectangle on a phone.
  */
 import { createWidget, type WidgetEnvironment } from 'expo-widgets';
-import { HStack, RoundedRectangle, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import { HStack, Image, RoundedRectangle, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
-  containerBackground, font, foregroundStyle, frame, padding, widgetURL,
+  background, containerBackground, font, foregroundStyle, frame, padding, widgetURL,
 } from '@expo/ui/swift-ui/modifiers';
 import type { WidgetSnapshot } from './widget';
 
@@ -107,7 +122,7 @@ const WeekWidget = (props: WeekWidgetProps, environment: WidgetEnvironment) => {
         modifiers={[containerBackground('#000000', 'widget'), widgetURL('pattern://checkin')]}
       >
         {number ? (
-          <Text modifiers={[font({ textStyle: 'title2', weight: 'semibold' })]}>
+          <Text modifiers={[font({ textStyle: 'title2', weight: 'bold', design: 'rounded' })]}>
             {value || '–'}
           </Text>
         ) : (
@@ -127,10 +142,13 @@ const WeekWidget = (props: WeekWidgetProps, environment: WidgetEnvironment) => {
         spacing={1}
         modifiers={[containerBackground('#000000', 'widget'), widgetURL('pattern://checkin')]}
       >
-        <Text modifiers={[font({ textStyle: 'headline', weight: 'semibold' })]}>
+        {/* rounded like every figure in the redesign; the whole line takes
+            it, because a word and a number in two faces on one lock-screen
+            line read as two things */}
+        <Text modifiers={[font({ textStyle: 'headline', weight: 'semibold', design: 'rounded' })]}>
           {number ? (value ? value + ' · ' + word : 'No check-in yet') : 'Pattern'}
         </Text>
-        <Text modifiers={[font({ textStyle: 'caption2' })]}>
+        <Text modifiers={[font({ textStyle: 'caption2', design: 'rounded' })]}>
           {number
             ? (at ? 'Last at ' + at : 'Tap to check in')
             : (value ? 'Checked in today' : 'Tap to check in')}
@@ -153,49 +171,103 @@ const WeekWidget = (props: WeekWidgetProps, environment: WidgetEnvironment) => {
   }
 
   /* ── the home screen ─────────────────────────────────────
-     The reading first, because "what did I last say" is the question
-     this surface is opened for; the days under or beside it as context,
-     not as a verdict. */
+     Today's card, on the home screen: the header, the reading first —
+     "what did I last say" is the question this surface is opened for —
+     and the days under or beside it as context, not as a verdict. */
   const medium = family === 'systemMedium';
   const large = family === 'systemLarge';
-  const size = large ? 30 : medium ? 20 : 15;
+  const size = large ? 30 : medium ? 18 : 15;
   const rows = large ? 5 : medium ? 2 : 1;
   const first = 35 - rows * 7;
+  /* the reading's square: the check-in's shape at widget scale. 0.27 of
+     the side is the phone's day square (11 on 40); the number takes a
+     little over half the side, as on the watch */
+  const side = large ? 56 : medium ? 40 : 44;
 
-  const reading = (
-    <HStack spacing={6}>
+  /* the ink for a number inside its square: black on a light fill,
+     white on a dark one, by WCAG luminance with the 0.179 crossover —
+     painScale's inkForBg, written out, because this function can call
+     nothing it did not define itself. A tint that does not parse gets
+     white, which is what a dark unknown would get. */
+  const tint = props.tint || '#2E2E30';
+  const hex = parseInt(tint.slice(1), 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const lum = isNaN(hex) ? 0
+    : 0.2126 * lin((hex >> 16) & 255) + 0.7152 * lin((hex >> 8) & 255) + 0.0722 * lin(hex & 255);
+  const ink = lum > 0.179 ? '#000000' : '#FFFFFF';
+
+  /* SummaryCard's CardHeader: a small white glyph, the label, and the
+     fact at the right in grey. The glyph is the SF Symbol Today's card
+     stands for; white, because a hue here would be a pain value that
+     is not one. The time is the latest check-in's, today's only. */
+  const header = (
+    <HStack spacing={5}>
+      <Image systemName="calendar" size={13} color="#FFFFFF" />
+      <Text modifiers={[font({ size: 13, weight: 'semibold' }), foregroundStyle('#FFFFFF')]}>
+        Today
+      </Text>
+      <Spacer />
+      {at ? (
+        <Text modifiers={[font({ size: 13, weight: 'semibold', design: 'rounded' }), foregroundStyle('#98989F')]}>
+          {large || medium ? 'Last check-in ' + at : at}
+        </Text>
+      ) : null}
+    </HStack>
+  );
+
+  /* THE SQUARE IS THE TEXT'S OWN BACKGROUND, not a shape beside it: the
+     number sits inside it as it does on the check-in and the watch, and
+     the RoundedRectangles in the tree stay exactly the days — which is
+     what tools/test-widget.js counts and what the gallery preview's
+     outlines are held to. Before anything is logged there is no square
+     at all: an empty square here read, on Today, as a pain value not
+     yet given, and Today dropped it for that reason. */
+  const reading = value ? (
+    <HStack spacing={8}>
       <Text
         modifiers={[
-          font({ textStyle: large || medium ? 'largeTitle' : 'title2', weight: 'bold' }),
-          foregroundStyle(value ? (props.tint || '#FFFFFF') : '#8E8E93'),
+          font({ size: Math.round(side * 0.58), weight: 'bold', design: 'rounded' }),
+          foregroundStyle(ink),
+          frame({ width: side, height: side }),
+          background(tint, {
+            shape: 'roundedRectangle', cornerRadius: Math.round(side * 0.27),
+            roundedCornerStyle: 'continuous', cornerSize: undefined,
+          }),
         ]}
       >
-        {value || '–'}
+        {value}
       </Text>
-      <VStack spacing={0}>
-        <Text
-          modifiers={[
-            font({ textStyle: 'subheadline', weight: 'semibold' }),
-            foregroundStyle('#FFFFFF'),
-          ]}
-        >
-          {value ? word : caption}
-        </Text>
-        <Text
-          modifiers={[font({ textStyle: 'caption2' }), foregroundStyle('#8E8E93')]}
-        >
-          {at ? 'Last at ' + at : 'Nothing yet today'}
-        </Text>
-      </VStack>
+      {/* the word, white, where Health puts a value's unit; it wraps to
+          two lines in the small card rather than truncating "Most intense" */}
+      <Text modifiers={[font({ size: medium ? 15 : 17, weight: 'semibold' }), foregroundStyle('#FFFFFF')]}>
+        {word}
+      </Text>
       <Spacer />
     </HStack>
+  ) : (
+    /* nothing yet today: a statement and the tap's label, never a zero,
+       never a nudge — the caption's own two words, as before */
+    <VStack spacing={2} alignment="leading">
+      <Text modifiers={[font({ size: 17, weight: 'semibold' }), foregroundStyle('#FFFFFF')]}>
+        Nothing yet today
+      </Text>
+      <Text modifiers={[font({ size: 13 }), foregroundStyle('#98989F')]}>
+        {caption}
+      </Text>
+    </VStack>
   );
 
   /* the days, oldest first, rows of seven ending today. The small widget
      reads its seven from the d props the first build shipped, so an
      older extension given a new snapshot still draws; the bigger ones
      read the grid. The letters sit under the LAST row only, and name
-     every column. */
+     every column. In the medium card the grid sits beside the reading
+     and takes no trailing spacer, so the two do not split the width
+     between two flexible gaps. */
+  const tail = !medium;
   const grid = (
     <VStack spacing={4}>
       {Array.from({ length: rows }, (_, r) => (
@@ -206,11 +278,11 @@ const WeekWidget = (props: WeekWidgetProps, environment: WidgetEnvironment) => {
               ? (P['d' + c] || '#2E2E30')
               : cell(i);
             return (
-              <RoundedRectangle cornerRadius={4} key={'c' + i}
+              <RoundedRectangle cornerRadius={Math.round(size * 0.27)} key={'c' + i}
                 modifiers={[frame({ width: size, height: size }), foregroundStyle(fill)]} />
             );
           })}
-          <Spacer />
+          {tail ? <Spacer /> : null}
         </HStack>
       ))}
       <HStack spacing={4}>
@@ -218,46 +290,61 @@ const WeekWidget = (props: WeekWidgetProps, environment: WidgetEnvironment) => {
           <Text key={'w' + c}
             modifiers={[
               frame({ width: size }),
-              font({ textStyle: 'caption2', weight: c === 6 ? 'bold' : 'regular' }),
+              font({ size: 11, weight: c === 6 ? 'bold' : 'regular', design: 'rounded' }),
               foregroundStyle(c === 6 ? '#FFFFFF' : '#8E8E93'),
             ]}>
             {l}
           </Text>
         ))}
-        <Spacer />
+        {tail ? <Spacer /> : null}
       </HStack>
     </VStack>
   );
 
+  /* what the numbers are not, inside the card — Today's own line. The
+     small card has no room for it, and is the same reading as Today,
+     whose card carries it. */
+  const fine = (
+    <Text modifiers={[font({ size: 11 }), foregroundStyle('#8E8E93')]}>
+      The number you entered. Lighter squares are less.
+    </Text>
+  );
+
+  /* the redesign's card surface, not the black page behind it */
+  const surface = containerBackground('#1C1C1E', 'widget');
+
   if (medium) {
-    /* side by side: the reading has the left, the fortnight the right */
+    /* the header across, the reading left and the fortnight right, the
+       line under both */
     return (
-      <HStack
-        spacing={16}
-        modifiers={[
-          padding({ all: 14 }),
-          containerBackground('#000000', 'widget'),
-          widgetURL('pattern://checkin'),
-        ]}
+      <VStack
+        spacing={8}
+        alignment="leading"
+        modifiers={[padding({ all: 14 }), surface, widgetURL('pattern://checkin')]}
       >
-        {reading}
-        {grid}
-      </HStack>
+        {header}
+        <HStack spacing={12}>
+          {reading}
+          {grid}
+        </HStack>
+        <Spacer />
+        {fine}
+      </VStack>
     );
   }
 
   return (
     <VStack
-      spacing={large ? 14 : 8}
-      modifiers={[
-        padding({ all: 14 }),
-        containerBackground('#000000', 'widget'),
-        widgetURL('pattern://checkin'),
-      ]}
+      spacing={large ? 12 : 8}
+      alignment="leading"
+      modifiers={[padding({ all: 14 }), surface, widgetURL('pattern://checkin')]}
     >
+      {header}
       {reading}
+      {large ? null : <Spacer />}
       {grid}
       {large ? <Spacer /> : null}
+      {large ? fine : null}
     </VStack>
   );
 };

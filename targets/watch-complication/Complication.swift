@@ -14,6 +14,16 @@
  * The square is drawn the way the watch app and the phone draw it: a
  * continuous-corner rounded rectangle, stroked, never filled — a fill
  * is a value and there is none to show.
+ *
+ * THE REDESIGN (21 Oct 2026, build 49) is type and glyphs only: the
+ * system font's rounded design, as every figure and label on the
+ * redesigned watch, white glyphs, and the rectangular slot set like the
+ * mockup's Smart Stack card — a small grey capitalised label over one
+ * large rounded line. The mockup's card says "NEXT RUN · 33 min easy";
+ * that needs the phone's next step sent to the watch, which is a change
+ * to the WatchConnectivity contract and to what leaves the phone's
+ * record, so it is not here. Until it is argued and built, the slot is
+ * still the door, and it still shows no data.
  */
 import SwiftUI
 import WidgetKit
@@ -37,8 +47,11 @@ struct DoorProvider: TimelineProvider {
 struct DoorSquare: View {
   let side: CGFloat
   var body: some View {
-    RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
-      .strokeBorder(lineWidth: max(1.5, side * 0.09))
+    /* 0.27 of the side: the phone's day square (11 on 40). White, the
+       glyph colour of the redesign; a tinted face re-tints it, which is
+       the face's business and carries no value either way. */
+    RoundedRectangle(cornerRadius: side * 0.27, style: .continuous)
+      .strokeBorder(Color.white, lineWidth: max(1.5, side * 0.09))
       .frame(width: side, height: side)
   }
 }
@@ -47,6 +60,17 @@ struct DoorView: View {
   @Environment(\.widgetFamily) private var family
 
   var body: some View {
+    slot
+      /* SF Rounded across every family — at the root, so a family added
+         later inherits it. A Text with an explicit .system(size:) font
+         names .rounded itself too, because an explicit font is not
+         guaranteed to take the environment's design. fontDesign is
+         watchOS 9.1; the target is 10. */
+      .fontDesign(.rounded)
+  }
+
+  @ViewBuilder
+  private var slot: some View {
     switch family {
     case .accessoryCircular:
       /* the square alone: a circular slot is too small for a word to
@@ -63,12 +87,21 @@ struct DoorView: View {
       DoorSquare(side: 18)
         .widgetLabel { Text("Check in") }
     default:
-      /* rectangular: the square and the two words that say what a tap does */
+      /* rectangular: the mockup's Smart Stack card, as a door — the
+         square where its glyph sits, a small grey label, and one large
+         white line that says what a tap does */
       HStack(spacing: 10) {
-        DoorSquare(side: 26)
-        VStack(alignment: .leading, spacing: 2) {
-          Text("Pattern").font(.headline)
-          Text("Check in").font(.caption2).foregroundStyle(.secondary)
+        DoorSquare(side: 24)
+        VStack(alignment: .leading, spacing: 1) {
+          Text("Pattern")
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+          Text("Check in")
+            .font(.system(size: 20, weight: .bold, design: .rounded))
+            .foregroundStyle(Color.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
         }
         Spacer(minLength: 0)
       }

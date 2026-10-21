@@ -20,6 +20,12 @@
  * and Swift never carries a copy that could drift. Until the first
  * push arrives the watch shows a white number in an outlined square,
  * which is honest: it knows the value and not yet the colour.
+ *
+ * THE REDESIGN (21 Oct 2026, build 49) changed how it looks and nothing
+ * it says. The message keys and shapes are untouched — the phone still
+ * sends v/theme/ramp/ink/words/week/weekLetters and the watch still
+ * sends v/pain/ts/tz — so a phone on any runtime-1.3.0 update talks to
+ * this build exactly as it talked to the last one.
  */
 import SwiftUI
 import WatchConnectivity
@@ -46,6 +52,15 @@ struct PatternWatchApp: App {
 struct WatchPalette {
   let ramp: [Color]
   let ink: [Color]
+  /* black or white for a number drawn INSIDE a square of that fill,
+     chosen by the fill's own luminance — PainShape's inkForBg, which is
+     what the phone's check-in square uses. `ink` above is the tinted
+     ink the calendar sets beside a square; it is still required (eleven
+     or nothing, as before), but the watch's square follows the check-in
+     it mirrors, and the approved mockup draws a black 3 on Pattern
+     Blue's #5CBAFE. Derived here from the ramp's own hex strings rather
+     than sent, so the context contract does not change. */
+  let mark: [Color]
   let words: [String]
   /* the last seven days as fills, nil for a day with nothing recorded;
      empty when the phone that pushed this predates the week (16 Sep
@@ -70,6 +85,12 @@ struct WatchPalette {
     guard colors.count == 11, inks.count == 11 else { return nil }
     self.ramp = colors
     self.ink = inks
+    /* every hex already parsed above, so luminance is never nil here;
+       the fallback is white because white is what the watch drew on a
+       fill it did not know */
+    self.mark = ramp.map { hex in
+      (WatchPalette.luminance(hex) ?? 0) > WatchPalette.inkCrossover ? Color.black : Color.white
+    }
     self.words = words
     if let w = ctx["week"] as? [String], w.count == 7,
        let l = ctx["weekLetters"] as? [String], l.count == 7 {
@@ -89,6 +110,28 @@ struct WatchPalette {
      compiled on the machine that writes it */
   func fillFor(_ score: Int) -> Color { ramp[min(10, max(0, score))] }
   func inkFor(_ score: Int) -> Color { ink[min(10, max(0, score))] }
+  func markFor(_ score: Int) -> Color { mark[min(10, max(0, score))] }
+
+  /* WCAG's crossover: above it black reads better than white, below it
+     white does, and either way the contrast is at least 4.5:1 — the
+     same 0.179 inkForBg uses in painScale.ts */
+  static let inkCrossover: Double = 0.179
+
+  /** relative luminance of "#RRGGBB", 0–1 — painScale's luminanceOf,
+   *  line for line, so a square and its number agree on both devices */
+  static func luminance(_ hex: String) -> Double? {
+    var s = hex
+    if s.hasPrefix("#") { s.removeFirst() }
+    guard s.count == 6, let n = UInt32(s, radix: 16) else { return nil }
+    func lin(_ c: UInt32) -> Double {
+      let v = Double(c) / 255.0
+      return v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+    }
+    let r = lin((n >> 16) & 255)
+    let g = lin((n >> 8) & 255)
+    let b = lin(n & 255)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
   func wordFor(_ score: Int) -> String { words[min(10, max(0, score))] }
 }
 
