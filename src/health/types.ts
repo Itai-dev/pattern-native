@@ -92,17 +92,6 @@ export function offeredCategories(already: HealthCategory[]): typeof HEALTH_CATE
   return HEALTH_CATEGORIES.filter((c) => c.offered || already.indexOf(c.id) >= 0);
 }
 
-/* ── setup state ─────────────────────────────────────────────
-   HealthKit deliberately hides read denials: an app cannot tell "denied"
-   from "no data". So the only states Pattern is allowed to claim are
-   the ones it can actually know. `dataSeen` is a fact about query
-   results, never a statement about permission. */
-
-export type HealthSetupState =
-  | 'unavailable'    // no HealthKit on this device or build
-  | 'notRequested'   // never asked
-  | 'requested';     // the system sheet has been completed, whatever was chosen
-
 /* ── raw samples, provenance intact ──────────────────────────── */
 
 export interface QuantitySample {

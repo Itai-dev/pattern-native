@@ -1419,6 +1419,3 @@ export function reportHtml(data: ReportData): string {
   return s.join('');
 }
 
-export const REPORT_INTRO = INTRO;
-export const REPORT_LIMITED_NOTE = LIMITED_NOTE;
-export const REPORT_FOOTER = FOOTER;

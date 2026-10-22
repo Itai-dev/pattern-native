@@ -82,12 +82,6 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import type { WidgetSnapshot } from './widget';
 
-/** the deep link the whole widget opens — handled in App.tsx. The literal
- *  is repeated inside the widget function because the function cannot see
- *  this constant; this export exists so the app side and any test compare
- *  against one name. */
-export const WIDGET_URL = 'pattern://checkin';
-
 /** oldest to newest: seven fills, seven letters, thirty-five grid fills,
  *  today's reading and one line of words. The shape is defined in
  *  widget.ts, which is where it is built and tested. */

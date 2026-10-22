@@ -38,7 +38,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextStyle, View,
 } from 'react-native';
-import * as db from './db';
 import { Press } from './motion';
 import InfoTip, { InfoGlyph, InfoTitle } from './InfoTip';
 import {

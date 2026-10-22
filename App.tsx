@@ -98,17 +98,6 @@ type Sheet = null | 'checkin' | 'event' | 'info';
    the moment a dedicated address exists. */
 const FEEDBACK_EMAIL = 'itaiagami@gmail.com';
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
-  'August', 'September', 'October', 'November', 'December'];
-const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-/** "Wednesday 20 August" — the day is the screen's subject, so the day is
- *  the title */
-function todayTitle(): string {
-  const d = new Date();
-  return WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
-}
-
 /* The header's round buttons are the mockup's 36; the slop brings each
    to the 44 a finger needs, and the row's gap keeps two slops apart. */
 const HEAD_BTN = 36;

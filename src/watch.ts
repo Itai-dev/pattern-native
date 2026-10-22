@@ -29,10 +29,6 @@ const bridge = (() => {
   try { return require('../modules/watch-bridge').default; } catch { return null; }
 })();
 
-export function watchAvailable(): boolean {
-  return bridge != null;
-}
-
 /** pull everything the watch has sent and write it. Returns how many
  *  check-ins were added, so the caller knows whether to refresh. */
 export function drainWatchCheckins(): number {

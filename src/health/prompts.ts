@@ -116,12 +116,6 @@ export function typicalBedtime(
   return median(starts) % 1440;
 }
 
-/** the weekday of a local date, 0 = Sunday, from the date alone */
-export function weekdayOf(date: string): number {
-  const d = new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10));
-  return d.getDay();
-}
-
 /** when a workout usually ENDS on this weekday — the median end of the
  *  day's last workout over the same weekday in the last
  *  PROMPT_WORKOUT_WEEKS weeks, once PROMPT_MIN_RECURRENCE of those

@@ -331,5 +331,3 @@ const styles = StyleSheet.create({
   primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
 });
 
-/* exported for the unlock sheet, so both draw the same type */
-export const coachStyles = styles;

@@ -161,10 +161,6 @@ export const PAIN_THEMES: readonly PainTheme[] = [
 
 export const DEFAULT_PAIN_THEME: PainThemeId = 'blue';
 
-/** the default (blue) anchors — kept as a named export because the scale's
- *  documented contract is defined against them */
-export const RAMP_ANCHORS = PAIN_THEMES[0].anchors;
-
 /** semantic type scale — iOS text styles by name, in points. The system
  *  font (SF Pro on iOS) is the default family; Dynamic Type comes from
  *  allowFontScaling, which RN leaves on unless a style opts out. */
@@ -177,8 +173,6 @@ export const font = {
   subheadline: 15,
   footnote: 13,
 } as const;
-
-export type SlotKey = 'm' | 'd' | 'e';
 
 /**
  * Corner radii, on Health's scale.
