@@ -335,18 +335,6 @@ export function promotionCandidate(
    "How able have you felt to running?" — factor NAMES are ours and are
    safe, but the hypothesis text never appears inside a sentence. */
 
-export const PROTOCOL_CONFIRM_TITLE = 'Your focus for the next 14 days';
-export const PROTOCOL_CONFIRM_BODY =
-  'We’ll keep your questions consistent so you can see whether a pattern develops.';
-export const PROTOCOL_CHOSEN_NOTE = 'the one you chose';
-export const PROTOCOL_SECOND_NOTE = 'one more, so there’s something to compare against';
-
-/* "your focus", everywhere a person reads it — the sheet, the card, the
-   Profile row. "Observation period" is what it is called in the spec
-   and the PDF, and one thing with two names in the same app is a
-   thing the user has to translate. */
-export const REVIEW_TITLE = 'Day 14 of your focus';
-
 /** "You've flagged sleep on 9 days." — a count of what you thought, said
  *  as a count of what you thought. */
 export function promotionSentence(pr: Promotion): string {
@@ -354,8 +342,6 @@ export function promotionSentence(pr: Promotion): string {
     + ' days. Pattern can start asking about it properly, so there’s something'
     + ' to compare those days against.';
 }
-export const REVIEW_KEEP = 'Keep observing';
-export const REVIEW_CHANGE = 'Change my focus';
 
 /** "You have 5 and 4 so far." — group sizes only. */
 export function progressSentence(f: FactorProgress): string {

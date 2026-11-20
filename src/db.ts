@@ -9,17 +9,15 @@
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { Directory, Paths } from 'expo-file-system';
 import { getMetric } from './metrics';
-import { addDays } from './model';
-import { EXPERIMENT_WHAT_MAX, Experiment } from './model';
+import { Experiment } from './model';
 import {
   Answer, BACKUP_VERSION, Background, CONTEXT_VERSION, ContextAnswers, Diagnosis, Entries, Entry,
-  Duration, EventKind, FuncEntry, Hypothesis, LastCopy, Onset, PainEvent, Protocol, ProtocolStatus,
+  Duration, EventKind, FuncEntry, Hypothesis, LastCopy, Onset, PainEvent, Protocol,
   MomentMeta, Response, ValidBackup,
-  applyMoment, cleanCtx, cleanEntry, cleanModifiers, dedupeEvents,
-  migrateEntries, nowMeta, protocolKey, removeMoment, syncDayPain, validateBackup,
+  applyMoment, cleanCtx, cleanModifiers, dedupeEvents,
+  migrateEntries, nowMeta, protocolKey, removeMoment, validateBackup,
 } from './model';
 import { SCALE_VERSION } from './painScale';
-import { PROTOCOL_REVIEW_DAYS } from './thresholds';
 import type { HealthSyncStatus } from './health/status';
 import type { RecoveryGoal } from './recovery';
 
@@ -334,78 +332,6 @@ export function setAnswer(
   });
 }
 
-/** record a set answer — the chips. An EMPTY list is written, not
- *  skipped: "I looked and nothing applied" is an answer, and a day where
- *  nothing made it harder is exactly the kind of ordinary day the record
- *  is worst at keeping. */
-export function setAnswerList(
-  date: string, metricId: string, ids: string[], h: number, pid: number | null
-): Entry | null {
-  const m = getMetric(metricId);
-  if (!m) return null;
-  const d = new Date();
-  return writeAnswer(date, metricId, {
-    value: '', values: ids.slice(), h, ts: d.getTime(), tz: -d.getTimezoneOffset(),
-    qv: m.wordingVersion, pid,
-  });
-}
-
-/** record that the question was PUT and declined. Stored, because "I was
- *  asked and chose not to say" is information — and is not the same thing
- *  as never having been asked, which is what an absent key means. */
-export function skipAnswer(
-  date: string, metricId: string, h: number, pid: number | null, note?: string
-): Entry | null {
-  const m = getMetric(metricId);
-  if (!m) return null;
-  const d = new Date();
-  const t = (note || '').trim();
-  return writeAnswer(date, metricId, {
-    value: '', h, ts: d.getTime(), tz: -d.getTimezoneOffset(),
-    qv: m.wordingVersion, pid, skipped: 1,
-    ...(t ? { note: t.slice(0, 280) } : null),
-  });
-}
-
-/** remove one answer entirely — an edit, not a skip. The day returns to
- *  never having been asked that question. */
-export function clearAnswer(date: string, metricId: string): Entry | null {
-  const e = getDay(date);
-  if (!e || !e.ctx) return e;
-  const a = { ...e.ctx.a };
-  delete a[metricId];
-  const next: Entry = { ...e };
-  if (Object.keys(a).length) next.ctx = { v: e.ctx.v, a };
-  else delete next.ctx;
-  put(date, next);
-  return next;
-}
-
-/** backfill a whole past day: one number, no time claimed. Existing
- *  moments keep the peak rule in charge, exactly like the PWA. */
-export function writeDayValue(date: string, pain: number): Entry {
-  const prev = getDay(date);
-  const e: Entry = { pain, cap: prev ? prev.cap : null, note: prev ? prev.note : '' };
-  if (prev && prev.factors) e.factors = prev.factors;
-  if (prev && prev.logs) { e.logs = prev.logs; syncDayPain(e); }
-  put(date, e);
-  return e;
-}
-
-export function setCap(date: string, cap: number): void {
-  const e = getDay(date);
-  if (!e) return;
-  e.cap = cap;
-  put(date, e);
-}
-
-export function setFactors(date: string, factors: string[]): void {
-  const e = getDay(date);
-  if (!e) return;
-  e.factors = factors.slice(); // [] is an answer — it stops the evening re-ask
-  put(date, e);
-}
-
 export function setNote(date: string, note: string): void {
   const e = getDay(date);
   if (!e) return;
@@ -581,76 +507,12 @@ export function addHypothesis(h: Omit<Hypothesis, 'id'>): number {
   return r ? r.id : 0;
 }
 
-export function updateHypothesis(id: number, h: Omit<Hypothesis, 'id'>): void {
-  conn().runSync(
-    'UPDATE hypotheses SET createdOn = ?, understand = ?, harder = ?, helps = ? WHERE id = ?',
-    h.createdOn, h.understand, h.harder, h.helps, id
-  );
-}
-
 export function getHypotheses(): Hypothesis[] {
   return conn().getAllSync<Hypothesis>('SELECT * FROM hypotheses ORDER BY id');
 }
 
-export function latestHypothesis(): Hypothesis | null {
-  return conn().getFirstSync<Hypothesis>('SELECT * FROM hypotheses ORDER BY id DESC LIMIT 1') || null;
-}
-
 export function getProtocols(): Protocol[] {
   return conn().getAllSync<Protocol>('SELECT * FROM protocols ORDER BY startDate, id');
-}
-
-export function activeProtocol(): Protocol | null {
-  return conn().getFirstSync<Protocol>(
-    "SELECT * FROM protocols WHERE status = 'active' ORDER BY id DESC LIMIT 1"
-  ) || null;
-}
-
-/** Open a period. Exactly one is active at a time, so any period still
- *  open is closed first — a factor set that was replaced is completed,
- *  not deleted, and its answers keep pointing at it. */
-export function startProtocol(p: Omit<Protocol, 'id'>): number {
-  const c = conn();
-  let id = 0;
-  c.withTransactionSync(() => {
-    c.runSync(
-      "UPDATE protocols SET status = 'completed', endDate = ? WHERE status = 'active'",
-      p.startDate
-    );
-    c.runSync(
-      'INSERT INTO protocols (version, startDate, endDate, reviewOn, chosenFactor, ' +
-      'secondFactor, hypothesisId, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      p.version, p.startDate, p.endDate, p.reviewOn,
-      p.chosenFactor, p.secondFactor, p.hypothesisId, p.status
-    );
-    const r = c.getFirstSync<{ id: number }>('SELECT last_insert_rowid() AS id');
-    id = r ? r.id : 0;
-  });
-  return id;
-}
-
-/** Push the review point out by another period. Keep observing does NOT
- *  restart the run — restarting would orphan every answer already given
- *  from the period it belongs to, and the whole point of pooling by
- *  (metric, wording) is that a slow question can keep accumulating. */
-export function extendProtocol(id: number, fromIso: string): void {
-  conn().runSync(
-    'UPDATE protocols SET reviewOn = ? WHERE id = ?',
-    addDays(fromIso, PROTOCOL_REVIEW_DAYS - 1), id
-  );
-}
-
-export function endProtocol(id: number, endDate: string, status: ProtocolStatus = 'completed'): void {
-  conn().runSync('UPDATE protocols SET status = ?, endDate = ? WHERE id = ?', status, endDate, id);
-}
-
-/** the rotation counter that keeps consecutive periods from landing on
- *  the same second factor */
-export function getRotation(): number {
-  return getPref<number>('protocol.rotation', 0);
-}
-export function setRotation(n: number): void {
-  setPref('protocol.rotation', n);
 }
 
 /** what tends to make it better or worse — asked once, revisable */
@@ -685,32 +547,8 @@ export interface ShadowEval {
   wouldFireV3Rule: number;
 }
 
-export function addShadowEval(s: Omit<ShadowEval, 'id'>): void {
-  conn().runSync(
-    'INSERT INTO shadow_eval (computedOn, protocolId, factorId, wordingVersion, relation, ' +
-    'levelA, levelB, nA, nB, meanA, meanB, delta, deltaFirstHalf, deltaSecondHalf, ' +
-    'directionStable, daysObserved, daysMissing, skippedCount, factorRole, ' +
-    'wouldFireV1Rule, wouldFireBriefRule, wouldFireV3Rule) ' +
-    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    s.computedOn, s.protocolId, s.factorId, s.wordingVersion, s.relation,
-    s.levelA, s.levelB, s.nA, s.nB, s.meanA, s.meanB, s.delta,
-    s.deltaFirstHalf, s.deltaSecondHalf, s.directionStable,
-    s.daysObserved, s.daysMissing, s.skippedCount, s.factorRole,
-    s.wouldFireV1Rule, s.wouldFireBriefRule, s.wouldFireV3Rule
-  );
-}
-
 export function getShadowEvals(): ShadowEval[] {
   return conn().getAllSync<ShadowEval>('SELECT * FROM shadow_eval ORDER BY id');
-}
-
-export function countShadowEvals(): number {
-  const r = conn().getFirstSync<{ n: number }>('SELECT COUNT(*) AS n FROM shadow_eval');
-  return r ? r.n : 0;
-}
-
-export function clearShadowEvals(): void {
-  conn().runSync('DELETE FROM shadow_eval');
 }
 
 /* ── Apple Health context ────────────────────────────────────
@@ -786,9 +624,6 @@ export function setHealthSyncStatus(status: HealthSyncStatus): void {
  *  travel only when the person carrying them says so. */
 export function getDiagnosticsInExport(): boolean {
   return getPref<boolean>('export.diagnostics', false);
-}
-export function setDiagnosticsInExport(on: boolean): void {
-  setPref('export.diagnostics', on);
 }
 
 /* ── the function goal ──────────────────────────────────────── */
@@ -952,23 +787,6 @@ export function getExperiment(): Experiment | null {
 export function getExperimentHistory(): Experiment[] {
   return getPref<Experiment[]>(EXPERIMENTS_PREF, []);
 }
-export function startExperiment(what: string, todayIso: string): Experiment {
-  const e: Experiment = {
-    id: Date.now(), what: what.trim().slice(0, EXPERIMENT_WHAT_MAX), from: todayIso, status: 'running',
-  };
-  setPref(EXPERIMENT_PREF, e);
-  return e;
-}
-/** close the running experiment — done by time, or stopped by hand —
- *  and file it. Its answers stay on their days. */
-export function endExperiment(status: 'done' | 'stopped', endedOn: string): Experiment | null {
-  const e = getExperiment();
-  if (!e) return null;
-  const closed: Experiment = { ...e, status, endedOn };
-  setPref(EXPERIMENTS_PREF, getExperimentHistory().concat(closed));
-  setPref(EXPERIMENT_PREF, null);
-  return closed;
-}
 /** every experiment, for the backup: the running one first */
 export function getExperiments(): Experiment[] {
   const a = getExperiment();
@@ -1054,12 +872,6 @@ export function deleteAll(): void {
   });
   /* the other file; not in the transaction because it is not in the db */
   clearHealthDays();
-}
-
-/** dev helper: normalize a single raw entry through the model (used by seeds) */
-export function putClean(date: string, raw: unknown): void {
-  const e = cleanEntry(raw);
-  if (e) put(date, e);
 }
 
 /* ── the coach (coach.ts) ─────────────────────────────────────

@@ -895,10 +895,6 @@ export const SYMPTOMIDS = Object.keys(SYMPTOM_NAMES);
  *  no connected source measures, that fit one row */
 export const SYMPTOMS_ASKED = ['fatigue', 'fog', 'stiffness'];
 
-export function cleanSymptoms(a: unknown): string[] | undefined {
-  return cleanIds(a, SYMPTOMIDS);
-}
-
 /** what tends to make it better or worse — asked once with the protocol,
  *  not daily. A stable characteristic of the pain, not a variable, and
  *  asking it every day would be pure burden for a value that rarely moves. */

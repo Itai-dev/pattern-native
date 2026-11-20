@@ -212,11 +212,6 @@ export async function cancelAll(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-/** what iOS actually holds — used to prove the schedule, not to guess at it */
-export async function scheduledCount(): Promise<number> {
-  return (await Notifications.getAllScheduledNotificationsAsync()).length;
-}
-
 export function fmt(s: Slot): string {
   return String(s.hour).padStart(2, '0') + ':' + String(s.minute).padStart(2, '0');
 }

@@ -62,7 +62,7 @@ import {
 } from '../thresholds';
 import { HealthDay } from './types';
 import { morningPain } from './windows';
-import { capitalise, workoutName } from './workoutNames';
+import { workoutName } from './workoutNames';
 
 export type SessionOutcome = 'fine' | 'harder' | 'pending' | 'unknown';
 export type EffortBand = 'easy' | 'moderate' | 'hard';

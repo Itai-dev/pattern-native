@@ -27,9 +27,8 @@
  * same words, pinned by tests, because a quiet rewording of a sentence
  * about someone's pain is a change to a medical description.
  */
-import { Entries, Protocol } from './model';
 import { formatScore } from './painScale';
-import { FactorProgress, reviewProgress } from './protocol';
+import { FactorProgress } from './protocol';
 import { ReportData } from './report';
 import { PATTERN_MIN_DELTA } from './thresholds';
 
@@ -135,12 +134,3 @@ export function progressCard(f: FactorProgress): DigestCard | null {
   };
 }
 
-export function checkinBuys(
-  protocol: Protocol | null, entries: Entries, todayIso: string
-): DigestCard[] {
-  if (!protocol || protocol.status !== 'active') return [];
-  return reviewProgress(protocol, entries, todayIso)
-    .factors
-    .map(progressCard)
-    .filter((c): c is DigestCard => c != null);
-}

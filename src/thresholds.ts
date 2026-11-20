@@ -145,17 +145,9 @@ export const IMPACT_PROMOTE_WINDOW = 21;
 
 /* ── observation protocols ──────────────────────────────────── */
 
-/** factors active at once. Two is the whole point: broad underneath,
- *  narrow for the user. */
-export const PROTOCOL_FACTOR_COUNT = 2;
-
 /** days from a protocol's start to its first review. A review point, not
  *  a promise that a conclusion will be available. */
 export const PROTOCOL_REVIEW_DAYS = 14;
-
-/** logged days before the hypothesis setup is offered — a person with no
- *  record has nothing to form a hypothesis about */
-export const HYPOTHESIS_OFFER_AFTER_DAYS = 7;
 
 /* ── experiments ─────────────────────────────────────────────
    One thing tried for a fortnight, the evening answer against the
@@ -267,7 +259,6 @@ export const DOSE_EARLY_MIN_PAIRS = 3;
  *  this far apart, per factor kind. */
 export const HEALTH_SLEEP_MIN_SPREAD_MINUTES = 60;
 export const HEALTH_STEPS_MIN_SPREAD = 2000;
-export const HEALTH_ENERGY_MIN_SPREAD_KCAL = 150;
 /** Workout-load groups (total workout minutes on the day) must differ by
  *  at least this much. Twenty minutes: below that, a "harder" and a
  *  "lighter" workout day are one stretching session apart, and the
@@ -482,11 +473,6 @@ export const BG_PROMPTS_MAX_PER_DAY = 2;
  *  Forty-five: past it a workout the store handed over late is context
  *  for the day and the planned prompt has already done its job */
 export const BG_PROMPT_STALE_MIN = 45;
-
-/** how far above the day's earlier check-ins a number must be before
- *  "where" is asked again that day. Two points: a change worth
- *  locating, not the slider's ordinary drift */
-export const WHERE_REASK_DELTA = 2;
 
 /* ── the clinician PDF ─────────────────────────────────────── */
 

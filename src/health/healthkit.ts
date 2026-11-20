@@ -476,8 +476,3 @@ export function startBackgroundDelivery(
   return () => { subs.forEach((s) => { try { s.remove(); } catch { /* gone already */ } }); };
 }
 
-/** what the app actually uses: the real store when the binary carries
- *  it, the honest nothing otherwise */
-export function healthAvailableOnThisBinary(): boolean {
-  return new HealthKitService().available();
-}

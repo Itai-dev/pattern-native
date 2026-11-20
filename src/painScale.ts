@@ -17,7 +17,6 @@
  *   reader can tell which label set the numbers were captured under.
  */
 import { DEFAULT_PAIN_THEME, PAIN_THEMES, PainTheme, PainThemeId } from './theme';
-import { DAY_SHAPE_MIN_DELTA } from './thresholds';
 
 export const SCALE_VERSION = 3;
 export const PAIN_MIN = 0;
@@ -53,8 +52,6 @@ export const PAIN_END_LOW = 'No pain';
 export const PAIN_END_HIGH = 'Most intense';
 
 /** ability at the named activity — a separate scale, never mixed with pain */
-export const ABILITY_MIN = 0;
-export const ABILITY_MAX = 10;
 export const ABILITY_END_LOW = 'Not able at all';
 export const ABILITY_END_HIGH = 'Fully able';
 
@@ -192,26 +189,6 @@ export function formatCheckins(n: number, today = false): string {
  *  claimed, which is why this is a range and not a spread or a variance. */
 export function formatRange(low: number, high: number): string {
   return low === high ? formatScore(low) : formatScore(low) + '–' + formatScore(high);
-}
-
-/**
- * Today, in one phrase: where the latest check-in sits against the first
- * one of the same day.
- *
- * A reading of two numbers the user typed in, not a fourth number derived
- * from them — it is a sentence, it is never stored, and it changes only
- * when a check-in is added. No arrow, no percentage, no comparison to
- * yesterday or to last week: this says what today has done so far and
- * stops there, which is the only comparison the record can make honestly
- * before the day is over.
- *
- * Below DAY_SHAPE_MIN_DELTA it says neither — see the threshold for why a
- * one-point difference is not worth a word.
- */
-export function dayShape(first: number, latest: number): string {
-  const d = latest - first;
-  if (Math.abs(d) < DAY_SHAPE_MIN_DELTA) return 'About the same as earlier today';
-  return d > 0 ? 'Higher than earlier today' : 'Lower than earlier today';
 }
 
 /** a VoiceOver sentence for a score, spoken as words plus the number */
