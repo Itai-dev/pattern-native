@@ -34,7 +34,7 @@ import { fmtDay } from './DayScreen';
 import { color, font } from './theme';
 
 /** the check-in sheet's ground — see CheckinScreen's SHEET_BG */
-const SHEET_BG = '#0E0E10';
+const SHEET_BG = '#211F1B';
 /** the redesign's capsule height */
 const BUTTON_H = 54;
 
@@ -167,11 +167,11 @@ const styles = StyleSheet.create({
   /* the one filled action: white, black words, a capsule */
   doneBtn: {
     minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
-    backgroundColor: color.textPrimary, paddingHorizontal: 16,
+    backgroundColor: color.accent, paddingHorizontal: 16,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
   pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
-  doneText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
+  doneText: { color: '#1C1A17', fontSize: font.body, fontWeight: '600' },
   clearBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   clearText: { color: summary.secondary, fontSize: font.subheadline, fontWeight: '600' },
 });

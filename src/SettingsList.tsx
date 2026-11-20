@@ -21,10 +21,10 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Icon, { IconName } from './Icon';
 import { ROUNDED, summary } from './SummaryCard';
-import { font } from './theme';
+import { color, font } from './theme';
 
 export const list = {
-  ground: '#000000',
+  ground: '#1C1A17',
   surface: summary.surface,
   text: summary.text,
   secondary: summary.secondary,
@@ -76,7 +76,7 @@ export const settings = StyleSheet.create({
   navBtnText: { color: list.text, fontSize: font.body, fontWeight: '600' },
   /** iOS's large title, at the mockup's 34 and −2.2% tracking */
   largeTitle: {
-    color: list.text, fontSize: font.largeTitle, fontWeight: '700', letterSpacing: -0.75,
+    color: list.text, fontSize: font.largeTitle, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0,
     marginHorizontal: 4, marginBottom: 18,
   },
   body: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 48 },
@@ -125,11 +125,11 @@ export const settings = StyleSheet.create({
   /* ── the two buttons a sheet may carry ── */
   /** the one filled action: white, black words, a capsule */
   primary: {
-    minHeight: 54, borderRadius: 27, borderCurve: 'continuous', backgroundColor: list.text,
+    minHeight: 54, borderRadius: 27, borderCurve: 'continuous', backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, marginTop: 20,
   },
   primaryOff: { opacity: 0.5 },
-  primaryText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
+  primaryText: { color: '#1C1A17', fontSize: font.body, fontWeight: '600' },
   /** everything else that is a button: the card's own grey */
   secondary: {
     minHeight: 50, borderRadius: 25, borderCurve: 'continuous', backgroundColor: list.surface,

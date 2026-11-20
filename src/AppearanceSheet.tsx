@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   swatches: { flexDirection: 'row', gap: 5 },
   swatch: {
     width: 26, height: 26, borderRadius: 7, borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(237,230,218,0.18)',
   },
   check: { width: 22, alignItems: 'center' },
   checkOff: { opacity: 0 },

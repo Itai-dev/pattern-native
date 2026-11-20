@@ -199,7 +199,7 @@ const chip = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     /* the mockup's 0.5pt inset edge: a 10 is near-black on the card, and
        without an edge the square would vanish into it */
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(237,230,218,0.18)',
   },
   num: { fontFamily: ROUNDED, fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
 });
@@ -1089,7 +1089,7 @@ export default function TrendsScreen({
   const outcomes = useMemo(() => {
     const order: Response[] = ['better', 'same', 'worse', 'unsure'];
     const tints: Record<Response, string> = {
-      better: '#E5E5EA', same: color.textTertiary,
+      better: '#E5DDD0', same: color.textTertiary,
       worse: color.bgSegmentActive, unsure: color.borderControl,
     };
     return order
@@ -1990,7 +1990,7 @@ const styles = StyleSheet.create({
      (i) that qualifies all of them — Highlights' 20pt, from the mockup */
   sectionHead: { marginTop: 24, marginBottom: 0, paddingHorizontal: 4 },
   sectionTitle: {
-    color: summary.text, fontSize: 20, fontWeight: '700', letterSpacing: -0.24,
+    color: summary.text, fontSize: 20, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0,
   },
   /* the stand-out card: Health's Highlights anatomy — the glyph and the
      sentence on one line, the chevron at the end, the line under it */
@@ -2028,7 +2028,7 @@ const styles = StyleSheet.create({
   sheetBody: { padding: size.sheetX, paddingTop: 22, paddingBottom: 60 },
   sheetIcon: { marginBottom: 10, alignSelf: 'flex-start' },
   sheetHeadline: {
-    color: summary.text, fontSize: font.title2, fontWeight: '700', letterSpacing: -0.3, lineHeight: 28,
+    color: summary.text, fontSize: font.title2, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0, lineHeight: 28,
   },
   sheetDetail: { marginTop: 14 },
   sheetNote: {
@@ -2065,7 +2065,7 @@ const styles = StyleSheet.create({
      keeps the darkest band visible on the card */
   keySquare: {
     width: 10, height: 10, borderRadius: 3,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(237,230,218,0.18)',
   },
   keyText: {
     color: summary.secondary, fontSize: font.footnote, fontVariant: ['tabular-nums'],
@@ -2073,7 +2073,7 @@ const styles = StyleSheet.create({
   splitWrap: { marginBottom: 14 },
   splitCells: { flexDirection: 'row', gap: 3 },
   splitCell: { flex: 1, height: 22, borderRadius: 6, borderCurve: 'continuous' },
-  splitLit: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)' },
+  splitLit: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(237,230,218,0.18)' },
   splitOff: { backgroundColor: color.bgSegmentTrack },
   splitAxis: {
     flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, gap: 8,
@@ -2090,7 +2090,7 @@ const styles = StyleSheet.create({
     backgroundColor: summary.separator,
   },
   /* the floor a touch brighter than the lines above it, as Health rules it */
-  gridBase: { backgroundColor: '#48484A' },
+  gridBase: { backgroundColor: '#4A443C' },
   gutter: { width: 20, height: PLOT_H },
   gutterText: {
     position: 'absolute', left: 0, right: 0,
@@ -2101,8 +2101,8 @@ const styles = StyleSheet.create({
      than remembered */
   easierBand: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#48484A',
+    backgroundColor: 'rgba(237,230,218,0.06)', borderRadius: 3,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#4A443C',
   },
   chartRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: PLOT_H,
@@ -2113,7 +2113,7 @@ const styles = StyleSheet.create({
   bar: {
     borderTopLeftRadius: 4, borderTopRightRadius: 4,
     borderBottomLeftRadius: 1, borderBottomRightRadius: 1,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(237,230,218,0.18)',
   },
   /* a gap is still a target: without one, the days you did not log are the
      only ones you cannot ask about */
@@ -2136,7 +2136,7 @@ const styles = StyleSheet.create({
      mockup's #636366 for the chosen width */
   segment: {
     flexDirection: 'row', gap: 2, padding: 2, height: 32, borderRadius: 9, borderCurve: 'continuous',
-    backgroundColor: 'rgba(118,118,128,0.24)', marginTop: 14,
+    backgroundColor: 'rgba(167,158,144,0.24)', marginTop: 14,
   },
   segItem: {
     flex: 1, borderRadius: 7, borderCurve: 'continuous',

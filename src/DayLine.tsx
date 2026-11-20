@@ -56,7 +56,7 @@ const DAY_MINUTES = 1440;
  *  a phone at arm's length. It stays neutral for the reason above, so the
  *  only way to make it readable is weight and value, not colour. */
 const LINE_W = 3;
-const LINE_COLOR = 'rgba(255,255,255,0.5)';
+const LINE_COLOR = 'rgba(237,230,218,0.5)';
 
 /** the three levels the eye needs to read a height off this chart. More
  *  would be a grid; fewer and 5 stops being a landmark. */
@@ -83,8 +83,8 @@ const EV_H = 9;
  *  in the separator grey, the floor one step lighter so 0 reads as the
  *  ground. Solid, so nothing depends on how iOS draws a dotted border on
  *  a hairline box — the reason the old grid drew its dots one by one. */
-const GRID_LINE = '#38383A';
-const GRID_FLOOR = '#48484A';
+const GRID_LINE = '#3A352E';
+const GRID_FLOOR = '#4A443C';
 
 export interface DayLineProps {
   logs: Moment[];
@@ -328,11 +328,11 @@ const styles = StyleSheet.create({
      it is what keeps a 10 visible on a near-black card */
   dot: {
     position: 'absolute',
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1.5, borderColor: 'rgba(237,230,218,0.9)',
   },
   ring: {
     position: 'absolute',
-    borderWidth: RING_W, borderColor: 'rgba(255,255,255,0.9)',
+    borderWidth: RING_W, borderColor: 'rgba(237,230,218,0.9)',
   },
   evMark: {
     position: 'absolute', bottom: 0, width: EV_W, height: EV_H, borderRadius: EV_W / 2,

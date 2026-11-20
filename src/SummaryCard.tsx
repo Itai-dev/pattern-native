@@ -33,14 +33,14 @@ import Icon, { FALLBACK, IconName as SFName } from './Icon';
 export const ROUNDED = 'ui-rounded';
 
 export const summary = {
-  surface: '#1C1C1E',
-  text: '#FFFFFF',
+  surface: '#25221E',
+  text: '#EDE6DA',
   /** a fact beside a label, the line under a value */
-  secondary: '#98989F',
+  secondary: '#A79E90',
   /** the "not" line */
-  tertiary: '#8E8E93',
-  chevron: '#636366',
-  separator: '#38383A',
+  tertiary: '#8A8276',
+  chevron: '#6E665B',
+  separator: '#3A352E',
   radius: 16,
   /** between one card and the next */
   gap: 10,
@@ -142,14 +142,14 @@ export const card = StyleSheet.create({
   /** what the numbers are not — inside the card, last, quiet */
   fine: { color: summary.tertiary, fontSize: 13, lineHeight: 18 },
   /** a question the card puts to the person — the check-in's */
-  question: { color: summary.text, fontSize: 20, fontWeight: '700', letterSpacing: -0.24, lineHeight: 25 },
+  question: { color: summary.text, fontSize: 20, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0, lineHeight: 25 },
   rule: { height: StyleSheet.hairlineWidth, backgroundColor: summary.separator },
   /** the one filled action: white, black words, fully rounded */
   primary: {
-    height: 48, borderRadius: 24, borderCurve: 'continuous', backgroundColor: summary.text,
+    height: 48, borderRadius: 24, borderCurve: 'continuous', backgroundColor: '#9DB38A',
     alignItems: 'center', justifyContent: 'center',
   },
-  primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
+  primaryText: { color: '#1C1A17', fontSize: 17, fontWeight: '600' },
 });
 
 const styles = StyleSheet.create({

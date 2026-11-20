@@ -89,7 +89,7 @@ const BUTTON_H = 54;
 /** the sheet's own ground — a step up from Today's black, so the sheet
  *  reads as lifted over it (Morning.dc.html) while staying far darker
  *  than the #1C1C1E of the pill and of a card */
-const SHEET_BG = '#0E0E10';
+const SHEET_BG = '#211F1B';
 
 /* the part of the day, said the way a person says it. "This" for today,
    "that" for a remembered day — the line under the question already
@@ -108,7 +108,7 @@ const WHEN_ICON: Record<TimeBandKey, IconName> = {
 };
 /** the pill's ink — a hair under white, as the mockup sets it, so the
  *  context reads as a label and not as a control */
-const PILL_INK = '#EBEBF0';
+const PILL_INK = '#EBE4D8';
 
 export interface CheckinScreenProps {
   /** the day being written. Absent = today, the normal case. A PAST day
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   },
   pillText: { flexShrink: 1, color: PILL_INK, fontSize: font.footnote, fontWeight: '600' },
   title: {
-    color: color.textPrimary, fontSize: 26, fontWeight: '700', letterSpacing: -0.5,
+    color: color.textPrimary, fontSize: 26, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0,
     lineHeight: 31, textAlign: 'center', marginTop: 10,
   },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -632,11 +632,11 @@ const styles = StyleSheet.create({
     minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', marginTop: 18, paddingHorizontal: 16,
   },
-  primaryOn: { backgroundColor: color.textPrimary },
+  primaryOn: { backgroundColor: color.accent },
   /* waiting: the surface colour, so the pill is visibly there and
      visibly not yet a button — a neutral, never a tint of the ramp */
   primaryOff: { backgroundColor: color.bgSegmentTrack },
   primaryText: { fontSize: font.body, fontWeight: '600' },
-  primaryTextOn: { color: '#000000' },
+  primaryTextOn: { color: '#1C1A17' },
   primaryTextOff: { color: color.textTertiary },
 });

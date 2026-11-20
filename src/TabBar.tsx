@@ -111,7 +111,7 @@ const TABS: { key: Tab; label: string; icon: IconName }[] = [
 
 /* the mockup's quiet grey for a place you are not — SummaryCard's
    secondary, so the bar and the cards above it share one grey */
-const IDLE = '#98989F';
+const IDLE = '#A79E90';
 
 /** one surface of glass, whichever material this binary has */
 function Glass({ style, children }: { style: object[]; children: React.ReactNode }) {
@@ -218,13 +218,13 @@ const styles = StyleSheet.create({
      hairline that catches light along the edge */
   liquid: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(237,230,218,0.18)',
   },
   /* pre-26 fallback: chrome material with a whisper of lift, same shape */
   blurFallback: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(237,230,218,0.04)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: 'rgba(237,230,218,0.16)',
   },
   item: {
     flex: 1, minHeight: ITEM_H, borderRadius: ITEM_H / 2, borderCurve: 'continuous',
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7,
   },
   /* the light wash is where you are */
-  itemActive: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  itemActive: { backgroundColor: 'rgba(237,230,218,0.12)' },
   label: { fontSize: 11, fontWeight: '600', color: IDLE, letterSpacing: 0.1 },
   labelActive: { color: color.textPrimary },
 });

@@ -127,7 +127,7 @@ export interface IconProps {
   weight?: 'regular' | 'medium' | 'semibold' | 'bold';
 }
 
-export default function Icon({ name, size = 18, color = '#FFFFFF', weight = 'semibold' }: IconProps) {
+export default function Icon({ name, size = 18, color = '#EDE6DA', weight = 'semibold' }: IconProps) {
   const fallback = <Ionicons name={FALLBACK[name]} size={size} color={color} />;
   if (!SYMBOL) return fallback;
   return (

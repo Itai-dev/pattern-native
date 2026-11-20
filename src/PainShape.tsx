@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     /* at 10 the surface is nearly black — the hairline keeps it present
        on the black ground without adding a second layer */
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1, borderColor: 'rgba(237,230,218,0.16)',
   },
   /* every number in the app is SF Pro Rounded: 'ui-rounded' is the
      system font's rounded design on iOS, so no font file ships */

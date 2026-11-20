@@ -277,7 +277,7 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                               backgroundColor: painColor(avg),
                               /* keeps a near-black high-pain day visible on
                                  the black ground */
-                              borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+                              borderWidth: 1, borderColor: 'rgba(237,230,218,0.14)',
                               alignItems: 'center', justifyContent: 'center',
                             },
                       ]}
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10,
   },
   monthName: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700', letterSpacing: -0.2,
+    color: color.textPrimary, fontSize: font.title3, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0,
   },
   monthCount: {
     color: color.textTertiary, fontSize: font.footnote, fontVariant: ['tabular-nums'],

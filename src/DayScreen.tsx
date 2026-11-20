@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
   /* the redesign's title weight and tracking (System.dc.html: 34 / 800,
      −2.2%), a step smaller because a date is longer than a word */
   title: {
-    flex: 1, color: color.textPrimary, fontSize: 30, fontWeight: '800',
+    flex: 1, color: color.textPrimary, fontSize: 30, fontFamily: 'ui-rounded', fontWeight: '600',
     letterSpacing: -0.6,
   },
   todayBtn: { minHeight: 38, justifyContent: 'center', paddingLeft: 6 },

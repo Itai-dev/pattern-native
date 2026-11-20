@@ -241,9 +241,9 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
 
 /* the redesign's greys, named here until theme.ts carries them: the
    secondary text, the grouped list's hairline, and an unchosen circle */
-const GREY_TEXT = '#98989F';
-const HAIRLINE = '#38383A';
-const CIRCLE_OFF = '#48484A';
+const GREY_TEXT = '#A79E90';
+const HAIRLINE = '#3A352E';
+const CIRCLE_OFF = '#4A443C';
 
 const styles = StyleSheet.create({
   group: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'transparent', backgroundColor: color.bgSurface,
   },
   chipText: { color: color.textPrimary, fontSize: 14, fontWeight: '500' },
-  chipTextOn: { color: '#000000', fontWeight: '600' },
+  chipTextOn: { color: '#1C1A17', fontWeight: '600' },
   input: {
     marginTop: 10, minHeight: 48, borderRadius: 14, borderCurve: 'continuous',
     paddingHorizontal: 14, paddingVertical: 12,

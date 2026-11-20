@@ -153,7 +153,7 @@ function StageRow({ s, last, activity, next }: {
           {now && <Icon name={activityIcon(activity)} size={18} color="#000000" />}
           {!done && !now && s.goal && <Icon name="flag.fill" size={13} color="#8E8E93" />}
         </View>
-        {!last && <View style={[styles.line, { backgroundColor: done ? '#FFFFFF' : '#3A3A3C' }]} />}
+        {!last && <View style={[styles.line, { backgroundColor: done ? '#9DB38A' : '#3D3831' }]} />}
       </View>
       <View style={{ flex: 1, paddingTop: now ? 4 : 2, paddingBottom: last ? 12 : 20 }}>
         <Text style={[styles.stageTitle, now && styles.stageTitleNow, !done && !now && { color: color.textSecondary }]}
@@ -223,7 +223,7 @@ function AchievementsPage({ view, activity, onOpen, onSetGoal }: {
                   accessibilityLabel={a.title + (a.earnedOn ? ', earned ' + shortDate(a.earnedOn) : ', not yet')}>
                   <Medal a={a} size={84} activity={activity} />
                   <Text style={styles.cellTitle} numberOfLines={2} maxFontSizeMultiplier={1.3}>{a.title}</Text>
-                  <Text style={[styles.cellDate, !a.earnedOn && { color: '#636366' }]} maxFontSizeMultiplier={1.3}>
+                  <Text style={[styles.cellDate, !a.earnedOn && { color: '#6E665B' }]} maxFontSizeMultiplier={1.3}>
                     {a.earnedOn ? shortDate(a.earnedOn) : 'Not yet'}
                   </Text>
                 </Press>
@@ -260,7 +260,7 @@ function Detail({ a, activity, onClose }: { a: Achievement | null; activity: str
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000000' },
+  root: { flex: 1, backgroundColor: '#1C1A17' },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6,
@@ -272,16 +272,16 @@ const styles = StyleSheet.create({
   navBtnText: { color: color.tint, fontSize: font.body, fontWeight: '600' },
   body: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 48 },
   large: {
-    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700', letterSpacing: -0.7,
+    color: color.textPrimary, fontSize: font.largeTitle, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0,
     marginHorizontal: 4, marginBottom: 16,
   },
-  card: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 16 },
+  card: { backgroundColor: '#25221E', borderRadius: 16, padding: 16 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headLabel: { color: color.textPrimary, fontSize: 15, fontWeight: '600', flex: 1 },
-  headMeta: { color: '#98989F', fontSize: 15, fontFamily: ROUND, fontWeight: '600' },
-  cardLine: { color: '#98989F', fontSize: 15, lineHeight: 21 },
-  cardFine: { color: '#8E8E93', fontSize: 13, lineHeight: 18, marginTop: 12 },
-  note: { color: '#8E8E93', fontSize: 13, lineHeight: 18, marginTop: 10, marginHorizontal: 4 },
+  headMeta: { color: '#A79E90', fontSize: 15, fontFamily: ROUND, fontWeight: '600' },
+  cardLine: { color: '#A79E90', fontSize: 15, lineHeight: 21 },
+  cardFine: { color: '#8A8276', fontSize: 13, lineHeight: 18, marginTop: 12 },
+  note: { color: '#8A8276', fontSize: 13, lineHeight: 18, marginTop: 10, marginHorizontal: 4 },
   changeGoal: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', marginTop: 18 },
   recentRow: { flexDirection: 'row', gap: 14, marginTop: 12 },
   recentItem: { width: 76, alignItems: 'center', gap: 6 },
@@ -290,44 +290,44 @@ const styles = StyleSheet.create({
   stage: { flexDirection: 'row', gap: 14 },
   rail: { width: 32, alignItems: 'center' },
   node: { alignItems: 'center', justifyContent: 'center' },
-  nodeOn: { backgroundColor: '#FFFFFF' },
-  nodeOff: { backgroundColor: '#2C2C2E', borderWidth: 1.5, borderColor: '#3A3A3C' },
+  nodeOn: { backgroundColor: '#9DB38A' },
+  nodeOff: { backgroundColor: '#2E2A25', borderWidth: 1.5, borderColor: '#3D3831' },
   line: { width: 3, flex: 1, minHeight: 22, borderRadius: 2, marginVertical: 4 },
   stageTitle: { color: color.textPrimary, fontSize: 17, fontWeight: '600', letterSpacing: -0.2 },
-  stageTitleNow: { fontSize: 20, fontWeight: '700' },
-  stageSub: { color: '#98989F', fontSize: 14, marginTop: 2, fontFamily: ROUND, fontWeight: '600' },
-  nowPanel: { marginTop: 12, backgroundColor: '#2C2C2E', borderRadius: 14, padding: 14, gap: 6 },
-  nowLabel: { color: '#98989F', fontSize: 13, fontWeight: '600' },
+  stageTitleNow: { fontSize: 20, fontFamily: 'ui-rounded', fontWeight: '600' },
+  stageSub: { color: '#A79E90', fontSize: 14, marginTop: 2, fontFamily: ROUND, fontWeight: '600' },
+  nowPanel: { marginTop: 12, backgroundColor: '#2E2A25', borderRadius: 14, padding: 14, gap: 6 },
+  nowLabel: { color: '#A79E90', fontSize: 13, fontWeight: '600' },
   valueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   nowValue: { color: color.textPrimary, fontFamily: ROUND, fontWeight: '700', fontSize: 34, letterSpacing: -0.6 },
-  nowUnit: { color: '#98989F', fontFamily: ROUND, fontWeight: '600', fontSize: 18 },
-  nowLine: { color: '#C7C7CC', fontSize: 14, lineHeight: 20 },
+  nowUnit: { color: '#A79E90', fontFamily: ROUND, fontWeight: '600', fontSize: 18 },
+  nowLine: { color: '#CFC7BA', fontSize: 14, lineHeight: 20 },
 
   sectionRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   section: {
-    color: color.textPrimary, fontSize: font.title3, fontWeight: '700', letterSpacing: -0.3,
+    color: color.textPrimary, fontSize: font.title3, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0,
     marginTop: 26, marginBottom: 12, marginHorizontal: 4,
   },
-  sectionAside: { color: '#98989F', fontSize: 15 },
+  sectionAside: { color: '#A79E90', fontSize: 15 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 18 },
   cell: { width: '33.333%', alignItems: 'center', gap: 7, paddingHorizontal: 4 },
   cellTitle: { color: color.textPrimary, fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 16 },
-  cellDate: { color: '#98989F', fontSize: 12, fontFamily: ROUND, fontWeight: '600' },
+  cellDate: { color: '#A79E90', fontSize: 12, fontFamily: ROUND, fontWeight: '600' },
 
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#1C1C1E',
+    position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#25221E',
     borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 40,
     alignItems: 'center',
   },
-  grabber: { width: 36, height: 5, borderRadius: 3, backgroundColor: '#48484A' },
-  sheetTitle: { color: color.textPrimary, fontSize: 24, fontWeight: '700', letterSpacing: -0.4, marginTop: 18, textAlign: 'center' },
-  sheetBody: { color: '#C7C7CC', fontSize: 16, lineHeight: 23, marginTop: 8, textAlign: 'center' },
-  sheetStatus: { color: '#98989F', fontSize: 15, marginTop: 10, fontFamily: ROUND, fontWeight: '600' },
+  grabber: { width: 36, height: 5, borderRadius: 3, backgroundColor: '#4A443C' },
+  sheetTitle: { color: color.textPrimary, fontSize: 24, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0, marginTop: 18, textAlign: 'center' },
+  sheetBody: { color: '#CFC7BA', fontSize: 16, lineHeight: 23, marginTop: 8, textAlign: 'center' },
+  sheetStatus: { color: '#A79E90', fontSize: 15, marginTop: 10, fontFamily: ROUND, fontWeight: '600' },
   primary: {
-    alignSelf: 'stretch', height: 54, borderRadius: 27, backgroundColor: '#FFFFFF',
+    alignSelf: 'stretch', height: 54, borderRadius: 27, backgroundColor: '#9DB38A',
     alignItems: 'center', justifyContent: 'center', marginTop: 24,
   },
-  primaryText: { color: '#000000', fontSize: 17, fontWeight: '600' },
+  primaryText: { color: '#1C1A17', fontSize: 17, fontWeight: '600' },
 });
 

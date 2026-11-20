@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: list.ground },
   body: { padding: 20, paddingTop: 14, paddingBottom: 48 },
   title: {
-    color: list.text, fontSize: font.title2, fontWeight: '700',
+    color: list.text, fontSize: font.title2, fontFamily: 'ui-rounded', fontWeight: '600',
     letterSpacing: -0.33, lineHeight: 28, marginBottom: 10,
   },
   lead: { color: list.text, fontSize: font.subheadline, lineHeight: 21 },

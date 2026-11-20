@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
      pain square, and the hairline that keeps a 10 visible on #1C1C1E */
   square: {
     width: 56, height: 56, borderRadius: 12, borderCurve: 'continuous',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1, borderColor: 'rgba(237,230,218,0.2)',
   },
   momentMain: { flex: 1 },
   num: {
@@ -488,8 +488,8 @@ const styles = StyleSheet.create({
   /* the one filled action on the page: white, black words, a capsule */
   primary: {
     minHeight: BUTTON_H, borderRadius: BUTTON_H / 2, borderCurve: 'continuous',
-    backgroundColor: color.textPrimary,
+    backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingHorizontal: 16,
   },
-  primaryText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
+  primaryText: { color: '#1C1A17', fontSize: font.body, fontWeight: '600' },
 });

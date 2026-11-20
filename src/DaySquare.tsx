@@ -67,5 +67,5 @@ export default function DaySquare({
 
 const styles = StyleSheet.create({
   centre: { alignItems: 'center', justifyContent: 'center' },
-  defined: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  defined: { borderWidth: 1, borderColor: 'rgba(237,230,218,0.14)' },
 });

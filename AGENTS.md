@@ -148,10 +148,21 @@ These were argued out and paid for. They are not preferences, and a change
 that breaks one is a regression even when it looks like an improvement.
 
 **Colour means pain, or it is not a colour.** The ramp runs near-black to
-near-white and a hue on this screen carries a score. Buttons are white on
-every theme; counts and non-pain measures are white or neutral; only actual
-pain values take the ramp. A button tinted with the pain palette borrows a
-meaning it does not have.
+near-white and a hue on this screen carries a score. The one exception is
+moss (`color.accent`), Tomo's leading colour, and it is spent on exactly two
+things: the primary action — the one thing to do next — and a step of the
+plan that is done (21 Nov 2026). No pain ramp runs through olive, so it
+cannot be read as a score; it never touches a pain value, a chart or a
+selection. Every other control is rice-paper ink or neutral; counts and
+non-pain measures are ink or neutral; only actual pain values take the
+ramp. A button tinted with the pain palette borrows a meaning it does not
+have.
+
+**Pattern speaks Tomo's visual language (21 Nov 2026).** Warm sumi
+neutrals, rice-paper text, moss for the next step, SF Pro Rounded titles
+at 600 — Tomo's `src/design/theme.ts` in Itai-dev/attend is the source.
+The binary is locked dark (`userInterfaceStyle`), so only the night half
+ships over the air; washi by day needs the next build.
 
 **Nothing rewards looking at your pain.** No streaks, no rings, no
 week-over-week deltas on pain, no arrows, no completion percentages, and

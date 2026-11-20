@@ -1,20 +1,32 @@
 /**
  * Pattern design tokens — single source of truth for the native app.
- * Values are lifted verbatim from the shipped PWA and the Figma
- * design system ("Pattern — Design System", collection "Pattern / Core").
+ *
+ * SUMI (21 Nov 2026): Pattern now speaks Tomo's visual language — "a
+ * quiet Japanese clinic" (Itai-dev/attend, src/design/theme.ts). By day
+ * that is washi, warm paper and sumi ink; at night it is sumi, warm
+ * charcoal and rice-paper text. Pattern's binary is locked dark
+ * (app.json userInterfaceStyle), and changing that is native, so this
+ * over-the-air step ships the night half only. The day half comes with
+ * the next build, when these become DynamicColorIOS pairs as Tomo's are.
+ *
+ * The greys are not iOS's cool greys any more: every neutral is warmed
+ * toward the paper, so nothing on the screen is blue-black. The pain
+ * ramp below is untouched — it is still the only place a hue means
+ * a score.
  */
 
 export const color = {
-  bgRoot: '#000000',
-  bgSheet: '#242426',
-  bgSurface: '#1C1C1E',
-  bgSegmentTrack: '#2C2C2E',
-  bgSegmentActive: '#48484A',
-  borderDivider: '#2E2E30',
-  borderControl: '#3A3A3C',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#A0A0A8',
-  textTertiary: '#8E8E93',
+  bgRoot: '#1C1A17',
+  bgSheet: '#2A2722',
+  bgSurface: '#25221E',
+  bgSegmentTrack: '#2E2A25',
+  bgSegmentActive: '#4A443C',
+  borderDivider: '#34302A',
+  borderControl: '#3D3831',
+  /** rice paper, not white: pure white on warm charcoal glares */
+  textPrimary: '#EDE6DA',
+  textSecondary: '#A79E90',
+  textTertiary: '#8A8276',
   /** the soft terracotta this app uses for destructive TEXT — a warning
    *  that does not shout on a screen about pain */
   danger: '#E0795A',
@@ -24,20 +36,33 @@ export const color = {
    *  shouted (16 Sep 2026). It is a pill now, not a slab, so it can be
    *  quieter and still be the only red on the screen. */
   destructive: '#F05A50',
-  shieldOk: '#7CC9A6',
-  /** the app's interactive tint — nav actions, links, selection. WHITE
-   *  (18 Oct 2026): #5BA8FF sat between stops 3 and 4 of Pattern Blue,
-   *  so every link wore a score. Links differ by weight, not hue.
-   *  Switches do not use it: a white track swallows the white thumb. */
-  tint: '#FFFFFF',
-  /** Pattern blue — the icon's rim, the brand's anchor hue */
-  brand: '#0A84FF',
+  shieldOk: '#9DB38A',
+  /** the app's interactive tint — nav actions, links, selection. INK
+   *  (18 Oct 2026, warmed 21 Nov): #5BA8FF sat between stops 3 and 4 of
+   *  Pattern Blue, so every link wore a score. Links differ by weight,
+   *  not hue. Switches do not use it: an ink track swallows the thumb. */
+  tint: '#EDE6DA',
+  /** MOSS, Tomo's one leading colour (21 Nov 2026). It replaces the
+   *  white primary button and nothing else: the one thing to do next,
+   *  and a step of the plan that is done. Earthy and low in chroma so it
+   *  soothes rather than signals, and far from every pain ramp — no
+   *  theme runs through olive — so it cannot be read as a score. Never
+   *  on a pain value, a chart or a selection. */
+  accent: '#9DB38A',
+  /** ink on moss, and on any rice-paper fill (a selected chip) */
+  onAccent: '#1C1A17',
+  /** the brand's anchor hue — moss, as Tomo's is */
+  brand: '#9DB38A',
 } as const;
+
+/** SF Pro Rounded, the system font's rounded design: titles use it, as
+ *  Tomo's do, and every number already did. Gentle, never heavy. */
+export const rounded = 'ui-rounded';
 
 /** The pain colour scale is a single brightness ramp of one hue:
  *  0 is a pale near-white and 10 sinks to near-black — pain deepens as
- *  darkness, an amount rather than a verdict. Pure white is reserved for
- *  controls and selection, so 0 always stops short of it.
+ *  darkness, an amount rather than a verdict. Rice-paper ink is reserved
+ *  for controls and selection, so 0 always stops short of pure white.
  *  Anchors are interpolated smoothly in painScale.painColor.
  *
  *  LIGHT IS LESS (29 Sep 2026). The ramp first ran the other way, dark

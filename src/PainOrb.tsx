@@ -86,7 +86,7 @@ function Orb({ progress, size, sk }: PainOrbProps & { sk: SkiaLib }) {
     fill.setAntiAlias(true);
     const rim = Skia.Paint();
     rim.setAntiAlias(true);
-    rim.setColor(Skia.Color('rgba(255,255,255,0.16)'));
+    rim.setColor(Skia.Color('rgba(237,230,218,0.16)'));
 
     const t0 = Date.now();
     let raf = 0;

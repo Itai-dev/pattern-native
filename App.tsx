@@ -1616,7 +1616,7 @@ const styles = StyleSheet.create({
      buttons beside it so the row has one height */
   backToToday: {
     borderRadius: 18, borderCurve: 'continuous', overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(237,230,218,0.18)',
   },
   pillHit: { minHeight: HEAD_BTN, paddingHorizontal: 14, justifyContent: 'center' },
   backToTodayText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
@@ -1629,12 +1629,12 @@ const styles = StyleSheet.create({
   profileBtn: {
     width: HEAD_BTN, height: HEAD_BTN, borderRadius: HEAD_BTN / 2,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#3A3A3C',
+    backgroundColor: '#3D3831',
   },
   /* iOS's large title, at the mockup's 34 and −2.2% tracking; the
      date shrinks to fit on a narrow phone rather than wrapping */
   wordmark: {
-    color: color.textPrimary, fontSize: font.largeTitle, fontWeight: '700',
+    color: color.textPrimary, fontSize: font.largeTitle, fontFamily: 'ui-rounded', fontWeight: '600',
     letterSpacing: -0.75, flex: 1,
   },
   /* room at the bottom so the last content clears the floating bar, and

@@ -76,7 +76,7 @@ export default function ConnectedDataSheet({ days, categories, status, today, re
 }
 const styles = StyleSheet.create({
   body: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 48 },
-  title: { color: list.text, fontSize: font.title2, fontWeight: '700', letterSpacing: -0.33, marginHorizontal: 4 },
+  title: { color: list.text, fontSize: font.title2, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0, marginHorizontal: 4 },
   lede: { color: list.secondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 8, marginBottom: 10, marginHorizontal: 4 },
   card: {
     borderRadius: list.radius, borderCurve: 'continuous', backgroundColor: list.surface,

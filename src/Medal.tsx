@@ -54,30 +54,30 @@ interface Material {
   flat: string;
 }
 
-const facet = ['#FFFFFF', '#D1D1D6', '#F2F2F7', '#AEAEB2', '#FFFFFF', '#C7C7CC', '#E5E5EA', '#98989F'];
+const facet = ['#EDE6DA', '#D8D0C3', '#F2ECE2', '#B5AC9E', '#EDE6DA', '#CFC7BA', '#E5DDD0', '#A79E90'];
 
 const MATERIALS: Record<MedalKind, Material> = {
   roadmap: {
-    sweep: ['#8E8E93', '#F2F2F7', '#AEAEB2', '#FFFFFF', '#8E8E93', '#E5E5EA', '#8E8E93'],
-    base: '#D1D1D6', shine: 0.9, rim: 'rgba(255,255,255,0.35)', ink: '#1C1C1E', flat: '#D1D1D6',
+    sweep: ['#8A8276', '#F2ECE2', '#B5AC9E', '#EDE6DA', '#8A8276', '#E5DDD0', '#8A8276'],
+    base: '#D8D0C3', shine: 0.9, rim: 'rgba(237,230,218,0.35)', ink: '#25221E', flat: '#D8D0C3',
   },
   pacing: {
-    sweep: null, base: '#2C2C2E', shine: 0.42, rim: 'rgba(255,255,255,0.28)', ink: '#FFFFFF', flat: '#3A3A3C',
+    sweep: null, base: '#2E2A25', shine: 0.42, rim: 'rgba(237,230,218,0.28)', ink: '#EDE6DA', flat: '#3D3831',
   },
   finding: {
     /* hard stops: each colour held across its eighth, so the sweep
        breaks into facets instead of blending */
     sweep: facet.reduce<string[]>((a, c) => a.concat([c, c]), []),
     positions: facet.reduce<number[]>((a, _c, i) => a.concat([i / 8, (i + 1) / 8]), []),
-    base: '#E5E5EA', shine: 0, rim: 'rgba(255,255,255,0.5)', ink: '#1C1C1E', flat: '#E5E5EA',
+    base: '#E5DDD0', shine: 0, rim: 'rgba(237,230,218,0.5)', ink: '#25221E', flat: '#E5DDD0',
   },
   time: {
-    sweep: ['#1C1C1E', '#636366', '#2C2C2E', '#8E8E93', '#1C1C1E', '#48484A', '#1C1C1E'],
-    base: '#2C2C2E', shine: 0.45, rim: 'rgba(255,255,255,0.22)', ink: '#FFFFFF', flat: '#48484A',
+    sweep: ['#25221E', '#6E665B', '#2E2A25', '#8A8276', '#25221E', '#4A443C', '#25221E'],
+    base: '#2E2A25', shine: 0.45, rim: 'rgba(237,230,218,0.22)', ink: '#EDE6DA', flat: '#4A443C',
   },
 };
 
-const LOCKED = { fill: '#1C1C1E', rim: '#2C2C2E', ink: '#48484A' };
+const LOCKED = { fill: '#25221E', rim: '#2E2A25', ink: '#4A443C' };
 
 /** the outline, in a w×h box: circle, hexagon (points left and right),
  *  or an octagonal gem — the same shapes as the approved mockup */
@@ -160,14 +160,14 @@ export default function Medal({ a, size, activity }: MedalProps) {
                 <SweepGradient c={vec(w / 2, h / 2)} colors={m.sweep} positions={m.positions} />
               ) : (
                 <LinearGradient start={vec(0, 0)} end={vec(w, h)}
-                  colors={['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.26)']}
+                  colors={['rgba(237,230,218,0.42)', 'rgba(237,230,218,0.10)', 'rgba(237,230,218,0.04)', 'rgba(237,230,218,0.26)']}
                   positions={[0, 0.46, 0.54, 1]} />
               )}
             </Path>
             {m.shine > 0 && (
               <Path path={p}>
                 <RadialGradient c={vec(w * 0.3, h * 0.22)} r={size * 0.42}
-                  colors={['rgba(255,255,255,' + m.shine + ')', 'rgba(255,255,255,0)']} />
+                  colors={['rgba(237,230,218,' + m.shine + ')', 'rgba(237,230,218,0)']} />
               </Path>
             )}
             <Path path={p} style="stroke" strokeWidth={Math.max(1.5, size * 0.035)} color={m.rim} />

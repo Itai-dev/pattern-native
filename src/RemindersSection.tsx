@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   /* a time is a number, so it is rounded; its chip is the grey a
      control takes on the card, never a hue */
   time: {
-    backgroundColor: '#2C2C2E', borderRadius: radius.segment, borderCurve: 'continuous',
+    backgroundColor: '#2E2A25', borderRadius: radius.segment, borderCurve: 'continuous',
     paddingVertical: 7, paddingHorizontal: 12,
   },
   timeText: {
@@ -291,8 +291,8 @@ const styles = StyleSheet.create({
   pickerTitle: { color: list.secondary, fontSize: font.footnote, fontWeight: '600', textAlign: 'center', marginBottom: 4 },
   /* the redesign's primary: a white capsule, black words */
   doneBtn: {
-    height: 54, borderRadius: 27, borderCurve: 'continuous', backgroundColor: list.text,
+    height: 54, borderRadius: 27, borderCurve: 'continuous', backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
-  doneText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
+  doneText: { color: '#1C1A17', fontSize: font.body, fontWeight: '600' },
 });

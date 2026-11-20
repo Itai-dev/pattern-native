@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   interview: { flex: 1 },
   qBody: { padding: 20, paddingTop: 22, flexGrow: 1 },
   qTitle: {
-    color: list.text, fontSize: font.title2, fontWeight: '700',
+    color: list.text, fontSize: font.title2, fontFamily: 'ui-rounded', fontWeight: '600',
     letterSpacing: -0.33, lineHeight: 28, marginBottom: 10,
   },
   qInput: { minHeight: 96, marginTop: 14, fontSize: font.body, lineHeight: 23 },

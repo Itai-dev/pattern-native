@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   body: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 48 },
   headline: {
-    color: list.text, fontSize: font.title2, fontWeight: '700',
+    color: list.text, fontSize: font.title2, fontFamily: 'ui-rounded', fontWeight: '600',
     letterSpacing: -0.33, marginBottom: 8, marginHorizontal: 4,
   },
   lede: {

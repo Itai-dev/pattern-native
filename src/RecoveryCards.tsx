@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     marginHorizontal: size.pageX, marginTop: 6, paddingBottom: 4,
   },
   goalText: { flex: 1, gap: 2 },
-  goalTitle: { color: summary.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.33 },
+  goalTitle: { color: summary.text, fontSize: 22, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0 },
   goalLine: { color: summary.secondary, fontSize: 15, lineHeight: 20 },
 
   /* the activity card, in the Summary grammar (SummaryCard.tsx) */

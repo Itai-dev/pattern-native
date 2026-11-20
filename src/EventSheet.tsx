@@ -39,7 +39,7 @@ import { Num, ROUNDED, summary } from './SummaryCard';
 import { color, font, size } from './theme';
 
 /** the check-in sheet's ground — see CheckinScreen's SHEET_BG */
-const SHEET_BG = '#0E0E10';
+const SHEET_BG = '#211F1B';
 /** the redesign's capsule height */
 const BUTTON_H = 54;
 
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: size.pageX, paddingTop: 16, paddingBottom: 40 },
   /* a question, at the check-in's question weight a size down — this
      sheet asks several, and each is a heading for the rotor */
-  q: { color: color.textPrimary, fontSize: 20, fontWeight: '700', letterSpacing: -0.3, lineHeight: 25 },
+  q: { color: color.textPrimary, fontSize: 20, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0, lineHeight: 25 },
   qLater: { marginTop: 28 },
   sub: { color: summary.secondary, fontSize: font.subheadline, lineHeight: 21, marginTop: 6 },
   /* a grouped row: the clock, the time in the rounded face, the word
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   },
   pickOn: { backgroundColor: color.textPrimary },
   pickText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
-  pickTextOn: { color: '#000000' },
+  pickTextOn: { color: '#1C1A17' },
   input: {
     marginTop: 12, minHeight: 60, borderRadius: summary.radius, borderCurve: 'continuous',
     paddingHorizontal: 16, paddingVertical: 12,

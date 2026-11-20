@@ -142,11 +142,11 @@ const REMINDER = 5;
 const STEPS = [PROMISE, GOAL, PLACES, DIAGNOSIS, HEALTH, REMINDER];
 
 /* the redesign's greys, named here until theme.ts carries them */
-const GREY_TEXT = '#98989F';
-const WELCOME_TEXT = '#C7C7CC';
-const HAIRLINE = '#38383A';
-const SEG_ON = '#636366';
-const SWITCH_OFF = '#39393D';
+const GREY_TEXT = '#A79E90';
+const WELCOME_TEXT = '#CFC7BA';
+const HAIRLINE = '#3A352E';
+const SEG_ON = '#6E665B';
+const SWITCH_OFF = '#3D3831';
 
 /* an icon per activity — Health's own figure for it (Icon.tsx,
    activityIcon), white, because nothing here is a pain value. On a
@@ -393,7 +393,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
 
   const goalTile = (a: GoalActivity) => {
     const on = goal === a;
-    const ink = on ? '#000000' : color.textPrimary;
+    const ink = on ? '#1C1A17' : color.textPrimary;
     return (
       <View key={a} style={styles.tileCell}>
         <Press
@@ -687,7 +687,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                   onValueChange={toggleReminder}
                   accessibilityLabel="Morning reminder"
                   trackColor={{ true: color.textPrimary, false: SWITCH_OFF }}
-                  thumbColor={remindOn ? '#000000' : color.textPrimary}
+                  thumbColor={remindOn ? '#1C1A17' : color.textPrimary}
                   ios_backgroundColor={SWITCH_OFF}
                 />
               </View>
@@ -837,17 +837,17 @@ const styles = StyleSheet.create({
      the ramp does not vanish into the black ground */
   mark: {
     width: 30, height: 30, borderRadius: 9, borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.16)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(237,230,218,0.16)',
   },
   welcomeTitle: {
-    color: color.textPrimary, fontSize: 40, fontWeight: '800',
+    color: color.textPrimary, fontSize: 40, fontFamily: 'ui-rounded', fontWeight: '600',
     letterSpacing: -1.1, lineHeight: 42, marginTop: 28,
   },
   welcomeBody: {
     color: WELCOME_TEXT, fontSize: font.body, lineHeight: 25, marginTop: 14,
   },
   title: {
-    color: color.textPrimary, fontSize: 32, fontWeight: '800',
+    color: color.textPrimary, fontSize: 32, fontFamily: 'ui-rounded', fontWeight: '600',
     letterSpacing: -0.8, lineHeight: 35,
   },
   lede: { color: GREY_TEXT, fontSize: 16, lineHeight: 22, marginTop: 10 },
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
   },
   chipOn: { backgroundColor: color.textPrimary },
   chipText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
-  chipTextOn: { color: '#000000' },
+  chipTextOn: { color: '#1C1A17' },
   input: {
     color: color.textPrimary, borderRadius: 12, borderCurve: 'continuous',
     padding: 12, marginTop: 12, fontSize: font.body,
@@ -926,12 +926,12 @@ const styles = StyleSheet.create({
   primary: {
     minHeight: 54, borderRadius: 27, borderCurve: 'continuous',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
-    backgroundColor: color.textPrimary,
+    backgroundColor: color.accent,
   },
   /* a skip is not a lesser button, only a quieter one: the same size,
      the same place, and it still records that the question was put */
   primarySkip: { backgroundColor: color.bgSurface },
-  primaryText: { color: '#000000', fontSize: font.body, fontWeight: '600' },
+  primaryText: { color: '#1C1A17', fontSize: font.body, fontWeight: '600' },
   primaryTextSkip: { color: color.textPrimary },
   healthMark: {
     width: 64, height: 64, borderRadius: 16, backgroundColor: color.bgSurface,

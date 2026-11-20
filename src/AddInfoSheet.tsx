@@ -65,9 +65,9 @@ import { color, font, size } from './theme';
 /** the check-in sheet's ground (CheckinScreen's SHEET_BG): a step up
  *  from Today's black, so the sheet reads as lifted, and far under the
  *  #1C1C1E of a chip or a row */
-const SHEET_BG = '#0E0E10';
+const SHEET_BG = '#211F1B';
 /** the context pill's ink, a hair under white — a label, not a control */
-const PILL_INK = '#EBEBF0';
+const PILL_INK = '#EBE4D8';
 
 export interface AddInfoSheetProps {
   dateIso: string;
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   /* each section opens on a question — the check-in's question weight,
      a size down, since this sheet asks several */
   sectionTitle: {
-    color: color.textPrimary, fontSize: 20, fontWeight: '700', letterSpacing: -0.3, lineHeight: 25,
+    color: color.textPrimary, fontSize: 20, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0, lineHeight: 25,
   },
   subTitle: {
     color: summary.secondary, fontSize: font.footnote, fontWeight: '600',
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   chipBig: { minHeight: 48, borderRadius: 24 },
   chipOn: { backgroundColor: color.textPrimary },
   chipText: { color: color.textPrimary, fontSize: font.subheadline, fontWeight: '600' },
-  chipTextOn: { color: '#000000' },
+  chipTextOn: { color: '#1C1A17' },
   more: {
     minHeight: 40, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5,
   },
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
   },
   optText: { flex: 1, color: color.textPrimary, fontSize: font.body, fontWeight: '600', lineHeight: 21 },
   optRowOn: { backgroundColor: color.textPrimary },
-  optTextOn: { color: '#000000' },
+  optTextOn: { color: '#1C1A17' },
   qNoteAdd: { alignSelf: 'flex-start', minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 5 },
   qNoteAddText: { color: summary.secondary, fontSize: font.subheadline, fontWeight: '500' },
   ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2, paddingHorizontal: 6 },
