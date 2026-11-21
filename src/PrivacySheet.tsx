@@ -34,7 +34,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'What is sent',
     body: [
-      'Anonymous usage counts, so we can tell whether the app is used — for example that a check-in was completed, roughly how many seconds it took, and whether the record was opened.',
+      'Pattern counts anonymous usage events so we can tell whether the app is used — for example that a check-in was completed, roughly how many seconds it took, and whether the record was opened.',
       'They never contain anything about your body: no pain score, body area, answer, note or free text of any kind. The code enforces it — event names come from a fixed list, and each value is a number, a true-or-false, or at most 24 characters.',
       'They go to Aptabase, an open-source analytics service, on servers in the European Union, tied to a session identifier that changes every launch and is linked to nothing and no one. There is no lasting identifier for your device or for you. Aptabase also records your operating system version, the app version and your device’s language.',
       'Turn it off in Profile with “Anonymous usage counts”. Nothing is sent after that.',
