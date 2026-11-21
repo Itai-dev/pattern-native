@@ -1557,8 +1557,9 @@ export default function TrendsScreen({
   return (
     <View style={styles.page}>
       {/* ── 1. your pain ─────────────────────────────────────
-          The record itself leads: the chart, the two figures, and the
-          sentences that read it. The extremes open their days.
+          The record itself leads: the average, the chart, and the two
+          extremes, which open their days. One grey line says what the
+          numbers are not; the rest of reading the chart is its (i).
 
           THE CARD'S VALUE IS THE AVERAGE OF WHAT WAS ENTERED, set like
           Today's — the big rounded figure, its word as the unit — and
@@ -1744,224 +1745,221 @@ export default function TrendsScreen({
           The appendix, folded WHOLE since 30 Sep 2026: the band chart
           and the most-recorded lines used to show above the fold, and
           Patterns read as three screens of counts before the report.
-          Closed, it is a title, one row, and the sentence about what it
-          is not. Counts, never findings, and the card says so inside
-          itself. */}
-      <Card
-        icon="list.bullet"
-        title="Your record"
-        note="Counts of what you recorded, never findings. What you noticed is your own read of a day, so it can’t be weighed against the days you didn’t notice it."
-      >
-        {!recordOpen ? (
-          <Press
-            onPress={() => setRecordOpen(true)}
-            pressOpacity={0.7}
-            style={styles.foldOpen}
-            accessibilityRole="button"
-            accessibilityLabel="Show your record: how the days split, the hardest and easiest days, the tables and the events"
-          >
-            <Text style={styles.foldOpenText} allowFontScaling maxFontSizeMultiplier={1.3}>Show details</Text>
+          Closed, it is ONE ROW since the Tomo pass (21 Nov 2026): the
+          title and the chevron, like a row in Tomo's lists. The sentence
+          about what it is not appears with the counts it qualifies —
+          a closed row shows none. Counts, never findings, and the open
+          card says so inside itself. */}
+      {!recordOpen ? (
+        <Press
+          onPress={() => setRecordOpen(true)}
+          pressOpacity={0.7}
+          style={[summaryCard.box, styles.box]}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: false }}
+          accessibilityLabel="Your record. Show details"
+        >
+          <View style={styles.recordRow}>
+            <View style={styles.recordHead}><CardHeader icon="list.bullet" label="Your record" /></View>
             <Door down />
+          </View>
+        </Press>
+      ) : (
+        <Card
+          icon="list.bullet"
+          title="Your record"
+          note="Counts of what you recorded, not findings — your own read of each day."
+        >
+          {/* the two halves of the range — see Direction for why they
+              live here rather than under the chart */}
+          {!!data.halves && (
+            <Direction first={data.halves.first} second={data.halves.second} />
+          )}
+          {feltBands.length > 0 && (
+            <>
+              <Text style={styles.subhead}>Days like this</Text>
+              <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
+              <Key items={feltBands} square />
+              <InfoTip
+                label="About days like this"
+                text={'Your ' + data.days.length + ' logged ' + (data.days.length === 1 ? 'day' : 'days')
+                  + ', counted by how they averaged. How many days, not how you are doing.'}
+              />
+            </>
+          )}
+          {/* "Most recorded areas" and "Most used words" went here until
+              the Tomo pass (21 Nov 2026): the top three of the Where and
+              Described as lists, a few rows above those lists */}
+
+          {!!he && (
+            <View style={styles.subBlock}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                Hardest and easiest days
+              </Text>
+              <Split low={he.boundaryLow} high={he.boundaryHigh} />
+              <End
+                title="Hardest days"
+                when={formatScore(he.boundaryHigh) + ' and above'}
+                e={he.harder}
+              />
+              <End
+                title="Easiest days"
+                when={formatScore(he.boundaryLow) + ' and below'}
+                e={he.easier}
+              />
+              {he.contrasts.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>What was different</Text>
+                  {he.contrasts.map((c) => (
+                    <View
+                      key={c.kind + c.id}
+                      style={styles.contrastRow}
+                      accessible
+                      accessibilityLabel={c.name + ': on ' + c.harderDays + ' of '
+                        + he.harder.days + ' hardest days, '
+                        + c.easierDays + ' of ' + he.easier.days + ' easiest'}
+                    >
+                      <Text style={styles.contrastName} allowFontScaling maxFontSizeMultiplier={1.3}>
+                        {c.name}
+                      </Text>
+                      <Say style={styles.contrastCount}>
+                        {c.harderDays + '/' + he.harder.days + ' hardest · '
+                          + c.easierDays + '/' + he.easier.days + ' easiest'}
+                      </Say>
+                    </View>
+                  ))}
+                </>
+              )}
+              <InfoTip
+                label="About hardest and easiest days"
+                text={'Your highest and lowest third of days; the middle '
+                  + he.middleDays + (he.middleDays === 1 ? ' day is' : ' days are')
+                  + ' set aside. Where it was and how you described it, not what caused it.'}
+              />
+            </View>
+          )}
+
+          {(data.locations.length > 0 || data.qualities.length > 0 || data.symptoms.length > 0 || data.timeOfDay.length > 0) && (
+            <View style={styles.subBlock}>
+              {data.locations.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>Where</Text>
+                  <FoldedList
+                    bars
+                    label="body areas"
+                    items={data.locations.map((l) => ({
+                      key: l.id,
+                      left: l.name,
+                      right: l.days + (l.days === 1 ? ' day' : ' days'),
+                      frac: l.days / Math.max(1, data.locations[0].days),
+                      tint: summary.text,
+                    }))}
+                  />
+                </>
+              )}
+              {data.qualities.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>Described as</Text>
+                  <FoldedList
+                    bars
+                    label="words"
+                    items={data.qualities.map((q) => ({
+                      key: q.id,
+                      left: q.name,
+                      right: '×' + q.count,
+                      frac: q.count / Math.max(1, data.qualities[0].count),
+                      tint: summary.text,
+                    }))}
+                  />
+                </>
+              )}
+              {data.symptoms.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>Also marked</Text>
+                  <FoldedList
+                    bars
+                    label="symptoms"
+                    items={data.symptoms.map((x) => ({
+                      key: x.id,
+                      left: x.name,
+                      right: x.days + (x.days === 1 ? ' day' : ' days'),
+                      frac: x.days / Math.max(1, data.symptoms[0].days),
+                      tint: summary.text,
+                    }))}
+                  />
+                  {/* the sentence about what the count is not, inside
+                      the card it qualifies */}
+                  <InfoTip
+                    label="About the symptoms count"
+                    text="Days you marked it at a check-in. A day without a mark is not a day without it."
+                  />
+                </>
+              )}
+              {data.timeOfDay.length > 0 && (
+                <>
+                  <Text style={styles.subhead}>Time of day</Text>
+                  {/* averages of pain, so squares in the ramp — the
+                      one list in this card that is not a count */}
+                  {data.timeOfDay.map((b) => (
+                    <ChipRow
+                      key={b.key}
+                      v={b.avg}
+                      label={b.label}
+                      sub={b.range + ' · ' + b.checkins
+                        + (b.checkins === 1 ? ' check-in' : ' check-ins')}
+                    />
+                  ))}
+                  <InfoTip
+                    label="About time of day"
+                    text="Averages of when you happened to check in, not when pain is worst."
+                  />
+                </>
+              )}
+            </View>
+          )}
+
+          {data.events.length > 0 && (
+            <View style={styles.subBlock}>
+              <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
+                Events
+              </Text>
+              {outcomes.length > 0 && (
+                <>
+                  <Stack segments={outcomes.map((o) => ({ key: o.key, n: o.n, tint: o.tint }))} />
+                  <Key items={outcomes} />
+                </>
+              )}
+              <FoldedList
+                label="events"
+                items={data.events.slice().reverse().map((ev, i) => ({
+                  key: ev.id != null ? 'e' + ev.id : 'ei' + i,
+                  left: shortDate(ev.date) + ' ' + fmtClock(ev.h) + ' · '
+                    + (ev.intervention
+                      ? INTERVENTIONS[ev.intervention] || ev.intervention
+                      : EVENT_LABELS[ev.kind])
+                    + (ev.text ? ' — ' + ev.text : ''),
+                  right: outcomeOf(ev),
+                }))}
+              />
+              <InfoTip
+                label="About events"
+                text={'Timing doesn’t prove an event caused a change.'
+                  + (tried.length > 0 ? ' Impressions are your own, as you gave them.' : '')}
+              />
+            </View>
+          )}
+
+          <Press
+            onPress={() => setRecordOpen(false)}
+            pressOpacity={0.7}
+            style={styles.more}
+            accessibilityRole="button"
+            accessibilityLabel="Hide the details"
+          >
+            <Text style={styles.moreText}>Show less</Text>
           </Press>
-        ) : (
-          <>
-            {feltBands.length > 0 && (
-              <>
-                <Text style={styles.subhead}>Days like this</Text>
-                <Stack segments={feltBands.map((b) => ({ key: b.key, n: b.n, tint: b.tint }))} />
-                <Key items={feltBands} square />
-                <InfoTip
-                  label="About days like this"
-                  text={'Your ' + data.days.length + ' logged ' + (data.days.length === 1 ? 'day' : 'days')
-                    + ', grouped by how they averaged — the same days as the chart, counted by band. It says how many days were like this, not how you are doing.'}
-                />
-              </>
-            )}
-            {data.locations.length > 0 && (
-              <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-                <Text style={styles.profileKey}>Most recorded areas   </Text>
-                {data.locations.slice(0, 3).map((l) => l.name).join(' · ')}
-              </Text>
-            )}
-            {data.qualities.length > 0 && (
-              <Text style={styles.profileLine} allowFontScaling maxFontSizeMultiplier={1.4}>
-                <Text style={styles.profileKey}>Most used words   </Text>
-                {data.qualities.slice(0, 3).map((q) => q.name).join(' · ')}
-              </Text>
-            )}
-
-            {!!he && (
-              <View style={styles.subBlock}>
-                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Hardest and easiest days
-                </Text>
-                <Split low={he.boundaryLow} high={he.boundaryHigh} />
-                <End
-                  title="Hardest days"
-                  when={formatScore(he.boundaryHigh) + ' and above'}
-                  e={he.harder}
-                />
-                <End
-                  title="Easiest days"
-                  when={formatScore(he.boundaryLow) + ' and below'}
-                  e={he.easier}
-                />
-                {he.contrasts.length > 0 && (
-                  <>
-                    <Text style={styles.subhead}>What was different</Text>
-                    {he.contrasts.map((c) => (
-                      <View
-                        key={c.kind + c.id}
-                        style={styles.contrastRow}
-                        accessible
-                        accessibilityLabel={c.name + ': on ' + c.harderDays + ' of '
-                          + he.harder.days + ' hardest days, '
-                          + c.easierDays + ' of ' + he.easier.days + ' easiest'}
-                      >
-                        <Text style={styles.contrastName} allowFontScaling maxFontSizeMultiplier={1.3}>
-                          {c.name}
-                        </Text>
-                        <Say style={styles.contrastCount}>
-                          {c.harderDays + '/' + he.harder.days + ' hardest · '
-                            + c.easierDays + '/' + he.easier.days + ' easiest'}
-                        </Say>
-                      </View>
-                    ))}
-                  </>
-                )}
-                <InfoTip
-                  label="About hardest and easiest days"
-                  text={'The highest and lowest third of your logged days, with the middle third ('
-                    + he.middleDays + (he.middleDays === 1 ? ' day' : ' days')
-                    + ') set aside. This describes where the pain was and how you described it — not what caused it.'}
-                />
-              </View>
-            )}
-
-            {(data.locations.length > 0 || data.qualities.length > 0 || data.symptoms.length > 0 || data.timeOfDay.length > 0) && (
-              <View style={styles.subBlock}>
-                {data.locations.length > 0 && (
-                  <>
-                    <Text style={styles.subhead}>Where</Text>
-                    <FoldedList
-                      bars
-                      label="body areas"
-                      items={data.locations.map((l) => ({
-                        key: l.id,
-                        left: l.name,
-                        right: l.days + (l.days === 1 ? ' day' : ' days'),
-                        frac: l.days / Math.max(1, data.locations[0].days),
-                        tint: summary.text,
-                      }))}
-                    />
-                  </>
-                )}
-                {data.qualities.length > 0 && (
-                  <>
-                    <Text style={styles.subhead}>Described as</Text>
-                    <FoldedList
-                      bars
-                      label="words"
-                      items={data.qualities.map((q) => ({
-                        key: q.id,
-                        left: q.name,
-                        right: '×' + q.count,
-                        frac: q.count / Math.max(1, data.qualities[0].count),
-                        tint: summary.text,
-                      }))}
-                    />
-                  </>
-                )}
-                {data.symptoms.length > 0 && (
-                  <>
-                    <Text style={styles.subhead}>Also marked</Text>
-                    <FoldedList
-                      bars
-                      label="symptoms"
-                      items={data.symptoms.map((x) => ({
-                        key: x.id,
-                        left: x.name,
-                        right: x.days + (x.days === 1 ? ' day' : ' days'),
-                        frac: x.days / Math.max(1, data.symptoms[0].days),
-                        tint: summary.text,
-                      }))}
-                    />
-                    {/* the sentence about what the count is not, inside
-                        the card it qualifies */}
-                    <InfoTip
-                      label="About the symptoms count"
-                      text="Days you marked it at a check-in. A day without a mark is not a day without it."
-                    />
-                  </>
-                )}
-                {data.timeOfDay.length > 0 && (
-                  <>
-                    <Text style={styles.subhead}>Time of day</Text>
-                    {/* averages of pain, so squares in the ramp — the
-                        one list in this card that is not a count */}
-                    {data.timeOfDay.map((b) => (
-                      <ChipRow
-                        key={b.key}
-                        v={b.avg}
-                        label={b.label}
-                        sub={b.range + ' · ' + b.checkins
-                          + (b.checkins === 1 ? ' check-in' : ' check-ins')}
-                      />
-                    ))}
-                    <InfoTip
-                      label="About time of day"
-                      text="These are the averages of when you happened to check in — not a claim about when your pain is worst."
-                    />
-                  </>
-                )}
-              </View>
-            )}
-
-            {data.events.length > 0 && (
-              <View style={styles.subBlock}>
-                <Text style={styles.subBlockTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Events
-                </Text>
-                {outcomes.length > 0 && (
-                  <>
-                    <Stack segments={outcomes.map((o) => ({ key: o.key, n: o.n, tint: o.tint }))} />
-                    <Key items={outcomes} />
-                  </>
-                )}
-                <FoldedList
-                  label="events"
-                  items={data.events.slice().reverse().map((ev, i) => ({
-                    key: ev.id != null ? 'e' + ev.id : 'ei' + i,
-                    left: shortDate(ev.date) + ' ' + fmtClock(ev.h) + ' · '
-                      + (ev.intervention
-                        ? INTERVENTIONS[ev.intervention] || ev.intervention
-                        : EVENT_LABELS[ev.kind])
-                      + (ev.text ? ' — ' + ev.text : ''),
-                    right: outcomeOf(ev),
-                  }))}
-                />
-                <InfoTip
-                  label="About events"
-                  text={'Events sit alongside your check-ins. Their timing doesn’t prove they caused a change'
-                    + (tried.length > 0
-                      ? '; impressions are your own, afterwards, recorded as you gave them.'
-                      : '.')}
-                />
-              </View>
-            )}
-
-            <Press
-              onPress={() => setRecordOpen(false)}
-              pressOpacity={0.7}
-              style={styles.more}
-              accessibilityRole="button"
-              accessibilityLabel="Hide the details"
-            >
-              <Text style={styles.moreText}>Show less</Text>
-            </Press>
-          </>
-        )}
-      </Card>
+        </Card>
+      )}
 
     </View>
   );
@@ -2088,7 +2086,7 @@ const styles = StyleSheet.create({
   splitAxis: {
     flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, gap: 8,
   },
-  direction: { marginTop: 12, gap: 2 },
+  direction: { marginTop: 2, gap: 2 },
   directionSub: {
     color: summary.tertiary, fontSize: font.footnote, lineHeight: 18, fontVariant: ['tabular-nums'],
   },
@@ -2163,12 +2161,9 @@ const styles = StyleSheet.create({
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   foldText: { color: summary.text, fontSize: font.subheadline, fontWeight: '600' },
-  /* the closed appendix: one row, the word and the chevron that opens it */
-  foldOpen: {
-    minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: summary.separator,
-  },
-  foldOpenText: { color: summary.text, fontSize: font.body },
+  /* the closed record: Tomo's row — the header, then the chevron */
+  recordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 24 },
+  recordHead: { flex: 1 },
   contrastRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     gap: 10, minHeight: 36,
@@ -2218,10 +2213,6 @@ const styles = StyleSheet.create({
   },
   extremeKey: { flex: 1, color: summary.text, fontSize: font.body },
   extremeVal: { color: summary.secondary, fontSize: font.subheadline, fontVariant: ['tabular-nums'] },
-  profileLine: {
-    color: summary.text, fontSize: font.subheadline, lineHeight: 22, marginTop: 6,
-  },
-  profileKey: { color: summary.secondary, fontSize: font.footnote, fontWeight: '600' },
   shareBtn: { marginTop: 16 },
   /* while the PDF is made: the same button, quieter, so a second tap is
      visibly not going to start a second one */

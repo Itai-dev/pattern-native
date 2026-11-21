@@ -56,6 +56,14 @@
  * and when it shows are as they were. The mockup also draws a week of
  * squares and a Sleep card; they are not added here, because a re-skin
  * that brings new content brings it unreviewed.
+ *
+ * FEWER WORDS (Tomo pass, 21 Nov 2026). Same cards, same order, same
+ * offers and every action they had; what went is the text. The check-in
+ * card is the number, one "not" line and Add information; the empty one
+ * is a question and a button, without the sentence about how quick a
+ * check-in is. Each offer is a headline, one short line and its actions:
+ * the paragraphs that explained the app moved out or went. Every card
+ * that shows a number still says, in one line, what it is not.
  */
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
@@ -351,7 +359,7 @@ export default function HomeScreen({
           accessibilityRole="button"
           accessibilityLabel={'Today, ' + speakScore(value)
             + (latest ? ', last check-in ' + fmtClock(latest.h) : '')}
-          accessibilityHint="Opens the day’s detail, where you can edit or remove it"
+          accessibilityHint="Opens the day, to edit or remove"
           /* the "Add information" row inside this card is its own press,
              but VoiceOver folds a nested button into its accessible parent
              and never lands on it. A named action on the card is the way
@@ -361,9 +369,10 @@ export default function HomeScreen({
         >
           {/* the latest check-in's time, as a fact beside the name
               rather than as the name — the tap opens the day, which is
-              what the chevron promises */}
+              what the chevron promises. The bare time, as Health sets a
+              sample's (Tomo pass, 21 Nov 2026: "Last check-in" went) */}
           <CardHeader icon="calendar" label="Today" chevron
-            meta={latest ? 'Last check-in ' + fmtClock(latest.h) : undefined} />
+            meta={latest ? fmtClock(latest.h) : undefined} />
 
           {/* THE NUMBER LEADS, THE SQUARE SITS WHERE HEALTH PUTS ITS
               MINI-CHART. The value and its word are what was entered, set
@@ -402,7 +411,7 @@ export default function HomeScreen({
               the mockup's line. "Lighter is less" holds in every theme:
               each ramp falls in brightness from 0 to 10 (theme.ts). */}
           <Text style={[summaryCard.fine, styles.fineGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-            The number you entered. Lighter squares are less.
+            What you entered. Lighter is less.
           </Text>
 
           {/* the door to everything the check-in no longer asks — where,
@@ -421,7 +430,7 @@ export default function HomeScreen({
             hitSlop={{ bottom: 6 }}
             accessibilityRole="button"
             accessibilityLabel="Add information"
-            accessibilityHint="Opens a sheet: where it hurts, how it feels, and a note"
+            accessibilityHint="Where it hurts, how it feels, a note"
           >
             <Text style={styles.footLink} allowFontScaling maxFontSizeMultiplier={1.3}>
               Add information ›
@@ -447,7 +456,12 @@ export default function HomeScreen({
            check-in this morning would answer a waiting session
            (guidance.checkIn). On any other empty afternoon nothing is
            due — a check-in is offered, never owed — and a label saying
-           otherwise would be the app scolding a day for being quiet. */
+           otherwise would be the app scolding a day for being quiet.
+
+           A QUESTION AND A BUTTON (Tomo pass, 21 Nov 2026). The header is
+           "Today", as on the filled card, so the card is one card in two
+           states; the line under the question ("A check-in takes a few
+           seconds…") explained the app and went. */
         <Press
           onPress={onLog}
           pressScale={0.985}
@@ -455,15 +469,11 @@ export default function HomeScreen({
           style={summaryCard.box}
           accessibilityRole="button"
           accessibilityLabel="No check-ins yet today. Check in."
-          accessibilityHint="Records how your pain is right now"
+          accessibilityHint="Records your pain right now"
         >
-          <CardHeader icon="clock.fill" label="Check-in" meta={guidance.checkIn ? 'Due now' : undefined} />
+          <CardHeader icon="clock.fill" label="Today" meta={guidance.checkIn ? 'Due now' : undefined} />
           <Text style={[summaryCard.question, styles.question]} allowFontScaling maxFontSizeMultiplier={1.3}>
-            No check-ins yet today
-          </Text>
-          <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-            A check-in takes a few seconds, and the record is only ever
-            what you put in it.
+            No check-ins yet
           </Text>
           <View style={[summaryCard.primary, styles.primaryGap]}>
             <Text style={summaryCard.primaryText} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -476,11 +486,6 @@ export default function HomeScreen({
     ),
     appt: (
       <>
-      {/* the event capture used to be a button here. It lives in the
-          check-in now — a flare happens on the same occasion as the
-          number — and on the day screen, where events are read back.
-          Today keeps to the two cards and one offer. */}
-
       {/* ── the appointment, when one is near ──────────────
           THE ONE MOMENT WITH EXTERNAL STAKES. Two days before the date
           the person gave, the summary is offered here — the record is
@@ -490,10 +495,9 @@ export default function HomeScreen({
       {apptSoon && (
         <View style={summaryCard.box}>
           <CardHeader icon="doc.text.fill"
-            label={appointment === t ? 'Your appointment is today' : 'Your appointment is on ' + fmtDay(appointment)} />
+            label={appointment === t ? 'Appointment today' : 'Appointment ' + fmtDay(appointment)} />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            The PDF of the last three months is ready whenever you want it —
-            the numbers, your background, and what they do and don’t mean.
+            Your last three months, ready as a PDF.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -594,13 +598,12 @@ export default function HomeScreen({
       {/* ── the reminder offer ────────────────────────────── */}
       {offer === 'reminder' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="bell.fill" label={showActivity ? 'Want a morning reminder?' : 'Want a daily reminder?'} />
+          <CardHeader icon="bell.fill" label={showActivity ? 'A morning reminder?' : 'A daily reminder?'} />
+          {/* Tomo pass, 21 Nov 2026: one line. Why mornings is the
+              activity card's "Why?"; the promise that matters stays —
+              quiet once checked in, never a word about a missed day */}
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            {showActivity
-              ? 'Your activity card learns from a check-in on the morning of a session and the morning after. '
-              : 'Checking in around the same time makes your record more useful. '}
-            It stays quiet on a day you have already checked in around then,
-            and it never mentions a missed day.
+            Quiet once you’ve checked in. Never about a missed day.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -630,7 +633,7 @@ export default function HomeScreen({
               pressOpacity={0.7}
               hitSlop={OFFER_SLOP}
               accessibilityRole="button"
-              accessibilityLabel="Not now — reminders stay in Profile"
+              accessibilityLabel="Not now. Reminders are in Profile"
             >
               <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Not now
@@ -643,12 +646,11 @@ export default function HomeScreen({
       {/* ── Apple Health, offered once ────────────────────── */}
       {offer === 'health' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="heart.fill" label="Some of this can arrive on its own" />
+          <CardHeader icon="heart.fill" label="Connect Apple Health?" />
+          {/* Tomo pass, 21 Nov 2026: what it brings and the privacy
+              promise, in one line; the rest is on the setup sheet */}
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Connect Apple Health, and last night’s sleep and today’s activity
-            sit beside your check-ins without being asked for. You choose what
-            Pattern can read, nothing is written back, and it stays on this
-            iPhone.
+            Sleep and sessions beside your check-ins. Read only, on this iPhone.
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -659,7 +661,7 @@ export default function HomeScreen({
               accessibilityLabel="Connect Apple Health"
             >
               <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Connect Apple Health
+                Connect
               </Text>
             </Press>
             <Press
@@ -667,7 +669,7 @@ export default function HomeScreen({
               pressOpacity={0.7}
               hitSlop={OFFER_SLOP}
               accessibilityRole="button"
-              accessibilityLabel="Not now — Apple Health stays in Profile"
+              accessibilityLabel="Not now. Apple Health is in Profile"
             >
               <Text style={styles.bgOfferLater} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Not now
@@ -680,17 +682,18 @@ export default function HomeScreen({
       {/* ── the copy: this phone is the only place it lives ──
           Plain about the failure it prevents, because the failure is
           silent: nothing warns you, and you find out on the reinstall.
-          No number about the pain, only a count of days at risk. */}
+          No number about the pain, only a count of days at risk.
+          Tomo pass, 21 Nov 2026: the count and the remedy, nothing else —
+          the iPhone-backup nuance went; the headline already says a
+          reinstall is the risk. */}
       {offer === 'copy' && (
         <View style={summaryCard.box}>
-          <CardHeader icon="folder.fill" label="A reinstall would start this record over" />
+          <CardHeader icon="folder.fill" label="A reinstall would start over" />
           <Text style={styles.bgOfferBody} allowFontScaling maxFontSizeMultiplier={1.4}>
             <Num>{(lastCopy
-              ? unsaved + (unsaved === 1 ? ' day was added' : ' days were added') + ' after your last saved copy.'
-              : unsaved + (unsaved === 1 ? ' day has' : ' days have') + ' never been saved anywhere else.')
-              + ' Your iPhone’s backup brings your record to a new phone, but not back into a'
-              + ' reinstall on this one — delete Pattern and these go with it. A copy you keep'
-              + ' in Files does not.'}</Num>
+              ? unsaved + (unsaved === 1 ? ' day' : ' days') + ' since your last copy.'
+              : unsaved + (unsaved === 1 ? ' day' : ' days') + ' saved nowhere else.')
+              + ' A copy in Files survives a reinstall.'}</Num>
           </Text>
           <View style={styles.bgOfferActions}>
             <Press
@@ -699,7 +702,7 @@ export default function HomeScreen({
               hitSlop={OFFER_SLOP}
               accessibilityRole="button"
               accessibilityLabel="Save a copy of your record"
-              accessibilityHint="Opens the share sheet with a copy of your record. Choose Save to Files to keep it outside the app."
+              accessibilityHint="Opens the share sheet. Choose Save to Files."
             >
               <Text style={styles.bgOfferGo} allowFontScaling maxFontSizeMultiplier={1.3}>
                 Save a copy
@@ -764,9 +767,8 @@ const styles = StyleSheet.create({
   fineGap: { marginTop: 8 },
 
   /* the check-in card: the mockup's 12 between header, question and
-     button, with the grey line held close under the question it explains */
+     button */
   question: { marginTop: 12 },
-  subGap: { marginTop: 6 },
   primaryGap: { marginTop: 14 },
 
   rule: {

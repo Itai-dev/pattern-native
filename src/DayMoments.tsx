@@ -29,6 +29,12 @@
  * redesign's capsules: white for adding a check-in, the thing this page
  * can do next, and #1C1C1E for the flare or treatment beside it. The
  * moment's square is still the one hue on the page.
+ *
+ * TOMO PASS (21 Nov 2026): shorter words, nothing moved. The "Tap
+ * another dot" line under the moment's actions went — the dots answer a
+ * tap on their own, the chart's (i) says so, and VoiceOver hears it from
+ * the chart's own hint — and each block's "not" line was cut to its
+ * clause.
  */
 import React, { useCallback } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
@@ -194,16 +200,6 @@ export default function DayMoments({
             >
               <Text style={[styles.actText, styles.actQuiet]}>Delete</Text>
             </Press>
-            {logs.length > 1 && (
-              <Text
-                style={styles.actHint} allowFontScaling maxFontSizeMultiplier={1.3}
-                /* a screen reader does not tap dots — the chart is one
-                   adjustable element, so this names its gesture instead */
-                accessibilityLabel="Swipe up or down on the chart for another check-in"
-              >
-                Tap another dot for another check-in
-              </Text>
-            )}
           </View>
         </View>
       )}
@@ -226,7 +222,7 @@ export default function DayMoments({
                 accessibilityLabel={fmtClock(ev.h) + ', ' + EVENT_LABELS[ev.kind]
                   + (ev.intervention ? ', ' + (INTERVENTIONS[ev.intervention] || ev.intervention) : '')
                   + (ev.text ? ', ' + ev.text : '')}
-                accessibilityHint="Opens this event to edit."
+                accessibilityHint="Opens it to edit"
               >
                 <Text style={styles.time} allowFontScaling maxFontSizeMultiplier={1.3}>{fmtClock(ev.h)}</Text>
                 <View style={styles.rowMid}>
@@ -245,7 +241,7 @@ export default function DayMoments({
             ))}
           </View>
           <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Shown alongside your check-ins without assuming they caused a change.
+            Beside your check-ins, not a cause of any change.
           </Text>
         </View>
       )}
@@ -256,7 +252,7 @@ export default function DayMoments({
         style={styles.secondary}
         accessibilityRole="button"
         accessibilityLabel="Log a flare or treatment"
-        accessibilityHint="Opens a short set of questions about a flare or a treatment"
+        accessibilityHint="A few questions about it"
       >
         <Text style={styles.secondaryText} maxFontSizeMultiplier={1.4}>Log a flare or treatment</Text>
       </Press>
@@ -301,7 +297,7 @@ export default function DayMoments({
         if (!shown.length) return null;
         return (
           <View style={styles.card}>
-            <CardHeader icon="list.bullet" label="That day’s questions" />
+            <CardHeader icon="list.bullet" label="Answers" />
             <View style={styles.rows}>
               {shown.map(({ id, m: met, a }, i) => {
                 const skipped = a.skipped === 1;
@@ -369,9 +365,8 @@ export default function DayMoments({
               </View>
             ))}
             <Text style={[styles.fine, styles.fineLoose]} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Read from Health for context beside what you recorded. Sitting next to
-              each other is not a claim that one caused the other
-              {doses.length ? ', and a dose beside a number is not a claim about the dose' : ''}.
+              For context. Side by side is not cause
+              {doses.length ? ', and not a verdict on a dose' : ''}.
             </Text>
           </View>
         );
@@ -450,7 +445,6 @@ const styles = StyleSheet.create({
   /* the destructive word in the quiet colour, not red: it asks before it
      acts, and a red word on a card about pain shouts */
   actQuiet: { color: summary.tertiary, fontWeight: '500' },
-  actHint: { flex: 1, textAlign: 'right', color: summary.tertiary, fontSize: 12 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: summary.separator },

@@ -62,6 +62,9 @@
  * segment (Sessions.dc.html). The day's own pain stays on the dots and on
  * the one square below; the figures stay white, because an average and a
  * range are read as numbers, and the ramp is for the values entered.
+ *
+ * TOMO PASS (21 Nov 2026): the chart's (i) and the timeless-day line
+ * were cut to their claim; the layout is untouched.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -293,8 +296,7 @@ function DayPage({
                      below are still true; there is simply no clock to put
                      them on, and drawing one would invent a time. */
                   <Text style={styles.empty} allowFontScaling maxFontSizeMultiplier={1.4}>
-                    This day was recorded without a time, so there is nothing to
-                    place against the clock.
+                    Recorded without a time, so there is no clock to draw.
                   </Text>
                 )}
 
@@ -674,8 +676,8 @@ export default function DayScreen({
       <InfoTip
         label="About this chart"
         style={styles.fineTip}
-        text={'Tap a dot to see that check-in. '
-          + 'The line joins the times you checked in. The stretches between them are hours you didn’t record, not hours without pain. Average and range are of those check-ins alone.'}
+        text={'Tap a dot to see that check-in. Between dots is time you didn’t record, '
+          + 'not time without pain. Average and range are of these check-ins only.'}
       />
 
       {/* the rest of the day, keyed by date so walking to another day

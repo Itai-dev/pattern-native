@@ -181,7 +181,7 @@ export default function MapScreen({ entries, onDayPress, flat }: MapScreenProps)
                 aside={logged + ' of ' + shown.length + ' logged'}
                 asideStyle={styles.monthCount}
                 label="How to read the calendar"
-                text="Colour is the day’s average pain, 0–10. The dots under a day count its check-ins. Scroll for earlier months."
+                text="Colour is the day’s average pain; lighter is less. Dots count check-ins."
                 style={styles.monthHead}
               />
             ) : (

@@ -26,6 +26,12 @@
  * Deterministic throughout, same discipline as daySummary: same data,
  * same words, pinned by tests, because a quiet rewording of a sentence
  * about someone's pain is a change to a medical description.
+ *
+ * TOMO PASS (21 Nov 2026): the evidence and caveat lines were cut to
+ * what a card can carry in one line each — the figures and the "not"
+ * clause, without the restatement around them. The titles, which the
+ * tests pin, did not move, and nothing here changed what is said, only
+ * how many words it takes.
  */
 import { formatScore } from './painScale';
 import { FactorProgress } from './protocol';
@@ -69,11 +75,11 @@ export function recordSays(data: ReportData): DigestCard[] {
         key: 'bands',
         title: 'Your ' + high.label.toLowerCase() + 's run higher than your '
           + low.label.toLowerCase() + 's.',
-        evidence: high.label + ' average ' + formatScore(high.avg) + ' · '
-          + low.label.toLowerCase() + ' average ' + formatScore(low.avg) + ' — '
-          + (high.checkins + low.checkins) + ' check-ins across '
+        evidence: high.label + ' average ' + formatScore(high.avg) + ', '
+          + low.label.toLowerCase() + ' ' + formatScore(low.avg) + ' · '
+          + (high.checkins + low.checkins) + ' check-ins, '
           + Math.max(high.days, low.days) + ' days.',
-        caveat: 'A description of when you recorded more pain, not why.',
+        caveat: 'When you recorded more pain, not why.',
       });
     }
   }
@@ -91,8 +97,8 @@ export function recordSays(data: ReportData): DigestCard[] {
         title: 'On your hardest days, you most often recorded '
           + (where && word ? where + ', and called it ' + word.toLowerCase()
             : (where || word)) + '.',
-        evidence: 'Your hardest third — ' + h.days + ' days averaging '
-          + formatScore(h.avg) + ' — against the rest of the record.',
+        evidence: 'Your hardest third: ' + h.days + ' days, averaging '
+          + formatScore(h.avg) + '.',
         caveat: 'What those days looked like, not what made them hard.',
       });
     }

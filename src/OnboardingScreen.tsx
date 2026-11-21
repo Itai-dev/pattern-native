@@ -1,5 +1,6 @@
 /**
- * The first ninety seconds — five screens, then a check-in or Today.
+ * The first ninety seconds — one question a screen, then a check-in or
+ * Today.
  *
  * What this deliberately does NOT do is the whole design. It asks for no
  * account, no medication list, no Health permission and no choice of
@@ -45,7 +46,17 @@
  * Every screen after the first can be passed over, and a pass is stored
  * as a pass. The button says Skip for now when nothing is chosen — the
  * check-in's rule — so someone who installs this during a flare reaches
- * the check-in in five taps.
+ * the check-in in seven taps.
+ *
+ * ONE QUESTION A SCREEN (Tomo pass, 21 Nov 2026). The goal screen also
+ * asked sessions a week, and the place screen also asked how long; each
+ * is now its own screen, with its own Skip. Sessions a week is asked
+ * only once a goal is chosen — without one it has nothing to count —
+ * so the flow is a list built from the answers so far, and `step` is
+ * a position in it. Every question is still asked, in the same words
+ * where its words are stored, and every one can still be passed over.
+ * The ledes went where the title already said it; what is left is the
+ * one line a person needs to answer.
  *
  * THE SAFETY TEXT IS SHORT ON PURPOSE. A page of medical disclaimer is
  * read by nobody and protects no one — it is the interface equivalent of
@@ -123,11 +134,17 @@ export interface OnboardingScreenProps {
   health?: OnboardingHealth;
 }
 
-/** the five screens, by name, so the code reads as the flow does.
- *  PROMISE is the welcome: the promise and the boundaries together. */
+/** the screens, by name, so the code reads as the flow does.
+ *  PROMISE is the welcome: the promise and the boundaries together.
+ *  PROMISE is 0 and always first, so it is both the screen and its
+ *  position — `step > PROMISE` means "past the welcome". */
 const PROMISE = 0;
 const GOAL = 1;
+/* sessions a week: its own screen, and only after a goal (Tomo pass) */
+const WEEKLY = 7;
 const PLACES = 2;
+/* how long: its own screen, after the place (Tomo pass) */
+const DURATION = 6;
 const DIAGNOSIS = 3;
 /* APPLE HEALTH EARNED A SCREEN (21 Oct 2026). It was asked on Today on
    day two, after the app had shown its worth, on the argument that a
@@ -139,7 +156,9 @@ const DIAGNOSIS = 3;
    it can live without, and Today still offers it later. */
 const HEALTH = 4;
 const REMINDER = 5;
-const STEPS = [PROMISE, GOAL, PLACES, DIAGNOSIS, HEALTH, REMINDER];
+/** the flow for the answers so far: sessions a week only with a goal */
+const flowFor = (withWeekly: boolean) => [PROMISE, GOAL]
+  .concat(withWeekly ? [WEEKLY] : [], [PLACES, DURATION, DIAGNOSIS, HEALTH, REMINDER]);
 
 /* the redesign's greys, named here until theme.ts carries them */
 const GREY_TEXT = '#A79E90';
@@ -205,7 +224,7 @@ const MORNING_DEFAULT = (() => {
 })();
 const MORNING_TIMES = [7 * 60, 7 * 60 + 30, 8 * 60, 8 * 60 + 30];
 /* the same words Profile's reminder row uses when iOS says no */
-const DENIED = 'Notifications are off for Pattern — turn them on in iPhone Settings.';
+const DENIED = 'Notifications are off. Turn them on in iPhone Settings.';
 
 export default function OnboardingScreen({ onDone, review, onRestore, health }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
@@ -223,6 +242,11 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
   const [place, setPlace] = useState<string | null>(null);
   const [side, setSide] = useState<Side | null>(null);
   const placeSided = !!(PLACE_LIST.find((x) => x.key === place) || {}).pair;
+  /* `step` is a position in the flow; `at` is the screen there. The
+     flow changes only on the goal screen (a goal chosen or un-chosen),
+     which is before WEEKLY, so a position already passed never moves. */
+  const flow = flowFor(goalAnswered);
+  const at = flow[step];
   /* the reminder starts OFF, as every reminder in this app does: one
      defaulting on would be scheduled before iOS ever granted it */
   const [remindOn, setRemindOn] = useState(false);
@@ -238,7 +262,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
   /* reading it again from Profile stops at the boundaries — the row says
      "what Pattern is and isn't", and re-asking questions of someone who
      answered them weeks ago is not what they tapped */
-  const lastStep = review ? PROMISE : REMINDER;
+  const lastStep = review ? PROMISE : flow.length - 1;
 
   const result = (then: OnboardingResult['then']): OnboardingResult => ({
     where: placeIds(place, placeSided ? side : null),
@@ -322,14 +346,16 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
   /* There is no separate skip door. Every screen's one button leaves
      with whatever was filled in, everything being optional, and says
      Skip for now when nothing on its screen is chosen. */
-  const answered = step === GOAL ? goalAnswered
-    : step === PLACES ? !!place || !!duration
-      : step === DIAGNOSIS ? !!diagnosis.status
-        : true;
+  const answered = at === GOAL ? goalAnswered
+    : at === WEEKLY ? weekly != null
+      : at === PLACES ? !!place
+        : at === DURATION ? !!duration
+          : at === DIAGNOSIS ? !!diagnosis.status
+            : true;
   const primaryLabel = review ? 'Done'
-    : step === HEALTH ? (!healthAvailable || healthAsked ? 'Continue' : 'Connect Apple Health')
-    : step === PROMISE ? 'Get started'
-      : step === REMINDER ? 'Take your first check-in'
+    : at === HEALTH ? (!healthAvailable || healthAsked ? 'Continue' : 'Connect Apple Health')
+    : at === PROMISE ? 'Get started'
+      : at === REMINDER ? 'Check in'
         : answered ? 'Continue' : 'Skip for now';
   const skipLook = !review && !answered;
 
@@ -439,7 +465,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
           screens as five segments, white up to this one. A step count,
           not a score: it moves only when the person moves. The welcome
           has neither, and sits lower, as the mockup draws it. */}
-      <View style={[styles.header, step === PROMISE && styles.headerWelcome]}>
+      <View style={[styles.header, at === PROMISE && styles.headerWelcome]}>
         {step > PROMISE && (
           <Press
             onPress={back}
@@ -454,9 +480,9 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
         )}
         {step > PROMISE && (
           <View style={styles.progress} accessible
-            accessibilityLabel={'Step ' + (step + 1) + ' of ' + STEPS.length}>
-            {STEPS.map((i) => (
-              <View key={i} style={[styles.progressSeg, i <= step && styles.progressSegDone]} />
+            accessibilityLabel={'Step ' + (step + 1) + ' of ' + flow.length}>
+            {flow.map((id, i) => (
+              <View key={id} style={[styles.progressSeg, i <= step && styles.progressSegDone]} />
             ))}
           </View>
         )}
@@ -466,7 +492,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {step === PROMISE ? (
+        {at === PROMISE ? (
           <>
             {/* five squares of the app's own language, light to dark —
                 the scale explained before a word of it is read. Squares
@@ -488,9 +514,8 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                 Today — a watch sentence would be false for everyone on
                 day one */}
             <Text style={styles.welcomeBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-              One number, a few seconds. With Apple Health, Pattern looks at
-              how your mornings go after a workout and suggests a small next
-              step.
+              One number, a few seconds. With Apple Health, it suggests your
+              next small step.
             </Text>
 
             {/* the boundaries, on the first screen and not a second one:
@@ -510,9 +535,8 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                   <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>
                     Sudden severe pain, chest pain, a serious injury, or pain with
                     numbness, weakness, fever, or loss of bladder or bowel control
-                    needs medical attention now — not a check-in. Pattern does not
-                    diagnose, identify causes, advise on medication, or replace
-                    medical care.
+                    needs medical help now, not a check-in. Pattern doesn’t
+                    diagnose, find causes, advise on medication or replace care.
                   </Text>
                 </View>
                 <View style={styles.groupSep} />
@@ -527,19 +551,17 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                     Your record stays on this iPhone
                   </Text>
                   <Text style={styles.cardBody} allowFontScaling maxFontSizeMultiplier={1.4}>
-                    No account, no sign-in, nothing sent to Pattern. It rides in your
-                    iPhone’s own backup, so a new phone gets it back. What you write
-                    leaves your hands only if you save a copy or share the PDF
-                    yourself.
+                    No account, nothing sent to Pattern. Your iPhone’s own backup
+                    brings it to a new phone. It leaves only if you save a copy or
+                    share the PDF.
                   </Text>
                 </View>
               </View>
             </View>
           </>
-        ) : step === GOAL ? (
+        ) : at === GOAL ? (
           <>
             {title('What are you getting back to?')}
-            {lede('Pattern reads how your body responds to it, from your own sessions in Apple Health.')}
             <View style={styles.tiles} accessibilityRole="radiogroup" accessibilityLabel="Activity">
               {goalRows.map((row) => (
                 <View key={row.join()} style={styles.tileRow}>{row.map(goalTile)}</View>
@@ -554,27 +576,28 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                 placeholder="In your words" placeholderTextColor={color.textTertiary}
                 accessibilityLabel="Your activity, in your words" style={styles.input} />
             )}
-            {goalAnswered && (
-              <View style={styles.field}>
-                {fieldLabel('Sessions a week · optional')}
-                {segmented<number | 'none'>(
-                  'Sessions a week',
-                  (WEEKLY_CHOICES as (number | 'none')[]).concat('none').map((w) => ({
-                    id: w,
-                    text: w === 'none' ? 'None' : String(w),
-                    a11y: w === 'none' ? 'No weekly target' : w + ' a week',
-                  })),
-                  weekly,
-                  (w) => pickOne(weekly, setWeekly, w),
-                  { numeric: true }
-                )}
-              </View>
-            )}
           </>
-        ) : step === PLACES ? (
+        ) : at === WEEKLY ? (
+          <>
+            {title('How many sessions a week?')}
+            <View style={styles.field}>
+              {segmented<number | 'none'>(
+                'Sessions a week',
+                (WEEKLY_CHOICES as (number | 'none')[]).concat('none').map((w) => ({
+                  id: w,
+                  text: w === 'none' ? 'None' : String(w),
+                  a11y: w === 'none' ? 'No weekly target' : w + ' a week',
+                })),
+                weekly,
+                (w) => pickOne(weekly, setWeekly, w),
+                { numeric: true }
+              )}
+            </View>
+          </>
+        ) : at === PLACES ? (
           <>
             {title('Where does it hurt?')}
-            {lede('Pick the one you’re working back from. You can add other places on any check-in.')}
+            {lede('The one you’re working back from.')}
             <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Body part">
               {PLACE_LIST.map((p) => {
                 const on = place === p.key;
@@ -610,11 +633,14 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
               </View>
             )}
 
+          </>
+        ) : at === DURATION ? (
+          <>
+            {title('How long has it been going on?')}
             {/* the same three answers as before, in the same words: they
                 are what becomes the background's onset line, and a new
                 label would print a sentence nobody chose */}
             <View style={styles.field}>
-              {fieldLabel('How long has it been going on? · optional')}
               {segmented<'weeks' | 'months' | 'years'>(
                 'How long',
                 [
@@ -627,7 +653,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
               )}
             </View>
           </>
-        ) : step === HEALTH ? (
+        ) : at === HEALTH ? (
           <>
             <View style={styles.healthMark} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <Icon name="heart.fill" size={34} />
@@ -635,12 +661,12 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
             {title('Connect Apple Health')}
             {healthAvailable ? (
               <>
-                {lede('So Pattern can see how your mornings go after a session. It only reads, and nothing leaves this iPhone.')}
+                {lede('It only reads, and nothing leaves this iPhone.')}
                 <View style={styles.group}>
                   {([
-                    ['figure.run', 'Workouts', 'Type, length and effort. Your next step and your roadmap are built from these.'],
-                    ['bed.double.fill', 'Sleep', 'Hours asleep, shown next to the morning after.'],
-                    ['figure.walk', 'Steps and activity', 'A daily total, so a busy day without a workout still counts.'],
+                    ['figure.run', 'Workouts', 'Your next step and roadmap come from these.'],
+                    ['bed.double.fill', 'Sleep', 'Hours asleep, beside the morning after.'],
+                    ['figure.walk', 'Steps and activity', 'A busy day counts, even without a workout.'],
                   ] as const).map(([icon, name, body], i) => (
                     <View key={name} style={styles.groupRow}>
                       <View style={styles.groupIcon}><Icon name={icon} size={24} /></View>
@@ -654,26 +680,26 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                 </View>
                 <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
                   {healthAsked
-                    ? 'Asked. You can change what Pattern reads in the Health app, or in Profile.'
-                    : 'Pattern never writes to Apple Health. Without it, check-ins still work — the activity card just has no sessions to learn from. You can connect later in Profile.'}
+                    ? 'Asked. Change it in Health or in Profile.'
+                    : 'Never writes to Health. Check-ins work without it; connect later in Profile.'}
                 </Text>
               </>
             ) : (
-              lede('Apple Health needs the newest version of Pattern from TestFlight. Once it’s installed, connect it in Profile — the activity card and your roadmap are built from it.')
+              lede('Needs the newest Pattern from TestFlight. Connect it later in Profile.')
             )}
           </>
-        ) : step === DIAGNOSIS ? (
+        ) : at === DIAGNOSIS ? (
           <>
             {title('Do you have a diagnosis?')}
-            {lede('It decides what Pattern is for you. You can change it later.')}
+            {lede('You can change it later.')}
             <View style={styles.field}>
               <DiagnosisStep draft={diagnosis} onChange={setDiagnosis} />
             </View>
           </>
         ) : (
           <>
-            {title('A reminder each morning, if you want one')}
-            {lede('How you feel the morning after a session is what decides the next one. A reminder can ask once each morning, and it never mentions a missed day.')}
+            {title('A morning reminder?')}
+            {lede('Once a morning. Never about a missed day.')}
             <View style={styles.group}>
               <View style={styles.switchRow}>
                 <Icon name="bell.fill" size={22} />
@@ -729,9 +755,8 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                 move once Health knows when this person wakes, and the
                 reminder never makes anything but pain mandatory */}
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Change it in Profile. Once Apple Health is connected, the time can
-              follow when you usually wake. Pain is the only question you have
-              to answer.
+              With Apple Health, the time can follow when you wake. Pain is the
+              only question you have to answer.
             </Text>
           </>
         )}
@@ -739,7 +764,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
 
       <View style={styles.bottom}>
         <Press
-          onPress={() => (step === HEALTH && healthAvailable && !review ? connectHealth() : advance('checkin'))}
+          onPress={() => (at === HEALTH && healthAvailable && !review ? connectHealth() : advance('checkin'))}
           disabled={healthBusy}
           pressScale={0.985}
           style={[styles.primary, skipLook && styles.primarySkip]}
@@ -753,7 +778,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
         {/* the way to finish without a check-in: the reminder screen is
             the last, and "now" is not always the moment for the first
             number. Everything above is stored the same either way. */}
-        {!review && step === HEALTH && healthAvailable && !healthAsked && (
+        {!review && at === HEALTH && healthAvailable && !healthAsked && (
           <Press
             onPress={() => advance()}
             pressOpacity={0.7}
@@ -766,16 +791,16 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
           </Press>
         )}
 
-        {!review && step === REMINDER && (
+        {!review && at === REMINDER && (
           <Press
             onPress={() => advance('today')}
             pressOpacity={0.7}
             style={styles.linkBtn}
             accessibilityRole="button"
-            accessibilityLabel="Later — go to Today"
+            accessibilityLabel="Go to Today"
           >
             <Text style={styles.linkText} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Later — go to Today
+              Go to Today
             </Text>
           </Press>
         )}
@@ -792,7 +817,7 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
             The phone's own backup does NOT cover this case — iOS gives a
             reinstalled app an empty container and never consults it — so
             this line is the only way back for someone who has a file. */}
-        {!review && step === PROMISE && onRestore && (
+        {!review && at === PROMISE && onRestore && (
           <Press
             onPress={onRestore}
             pressOpacity={0.7}
