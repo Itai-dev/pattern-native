@@ -92,8 +92,8 @@ ok('an easy run and a hard run are levelled apart', (() => {
   [10, 12, 14].forEach((day) => sess(E, H, day, wk(20, 8, '37'), 4, 4));
   const v = cap.capacityView(E, H, TODAY);
   return v.insights.length === 2
-    && v.insights.some((i) => /^Your easy running sessions went fine so far\. Next time, 44 minutes\.$/.test(i.text))
-    && v.insights.some((i) => /^Your hard running sessions went fine so far\. Next time, 22 minutes\.$/.test(i.text));
+    && v.insights.some((i) => /^Easy running went fine so far\. Next time, 44 minutes\.$/.test(i.text))
+    && v.insights.some((i) => /^Hard running went fine so far\. Next time, 22 minutes\.$/.test(i.text));
 })());
 
 group('the level and the next step');
@@ -103,7 +103,7 @@ ok('short of CAPACITY_MIN_SESSIONS known sessions: no conclusion, and what it wa
   sess(E, H, 12, wk(20, 2), 4, 4);
   const v = cap.capacityView(E, H, TODAY);
   return v.insights.length === 0
-    && v.collecting === 'Pattern will have an answer about easy walking after one more session with a morning check-in that day and the next.';
+    && v.collecting === 'Easy walking: an answer after one more session.';
 })());
 ok('up: ten per cent, at least one minute and at most five', (() => {
   const s = (min) => { const E = {}, H = {}; [10, 12, 14].forEach((day) => sess(E, H, day, wk(min), 4, 4)); return cap.capacityView(E, H, TODAY).insights[0].text; };
@@ -115,7 +115,7 @@ ok('hold after one harder morning', (() => {
   sess(E, H, 12, wk(30, 5), 4, 4);
   sess(E, H, 14, wk(40, 5), 4, 7);
   const i = cap.capacityView(E, H, TODAY).insights[0];
-  return i.text === 'Your last moderate walking session was followed by a harder next morning. Next time, 30 minutes again, rather than longer.';
+  return i.text === 'A harder morning followed your last moderate walking session. Next time, 30 minutes again.';
 })());
 ok('ease after two of three, with the easier effort offered', (() => {
   const E = {}, H = {};
@@ -124,12 +124,12 @@ ok('ease after two of three, with the easier effort offered', (() => {
   sess(E, H, 12, wk(30, 8), 4, 4);
   sess(E, H, 14, wk(40, 8), 4, 7);
   const i = cap.capacityView(E, H, TODAY).insights[0];
-  return /^Your recent hard walking sessions were mostly followed by a harder next morning\. Next time, 27 minutes or a moderate effort instead/.test(i.text);
+  return /^Harder mornings mostly followed recent hard walking sessions\. Next time, 27 minutes or a moderate effort instead/.test(i.text);
 })());
 ok('"so far" drops once the level rests on a full window', (() => {
   const E = {}, H = {};
   for (let i = 0, day = 1; i < th.CAPACITY_RECENT; i++, day += 2) sess(E, H, day, wk(20, 2), 4, 4);
-  return cap.capacityView(E, H, TODAY).insights[0].text === 'Your easy walking sessions went fine. Next time, 22 minutes.';
+  return cap.capacityView(E, H, TODAY).insights[0].text === 'Easy walking went fine. Next time, 22 minutes.';
 })());
 
 group('the conclusion that leads');
@@ -140,22 +140,22 @@ ok('within one activity, easy going well beside hard costing: one contrast, firs
   [15, 17, 19].forEach((day) => sess(E, H, day, wk(40, 2, '46'), 4, 4));
   const v = cap.capacityView(E, H, TODAY);
   return v.insights.length === 2 && v.insights[0].key === 'contrast.running'
-    && /^Your easy running sessions went fine; the hard ones were mostly followed by a harder next morning\. Next time, 33 minutes at an easy effort\.$/.test(v.insights[0].text)
-    && /easy running/.test(v.insights[0].why) && /hard running/.test(v.insights[0].why)
-    && /^Your easy swimming/.test(v.insights[1].text);
+    && /^Easy running went fine; harder mornings mostly followed hard running\. Next time, 33 minutes at an easy effort\.$/.test(v.insights[0].text)
+    && /easy running/i.test(v.insights[0].why) && /hard running/i.test(v.insights[0].why)
+    && /^Easy swimming/.test(v.insights[1].text);
 })());
 ok('warnings lead conclusions that are going well', (() => {
   const E = {}, H = {};
   [1, 3, 5].forEach((day) => sess(E, H, day, wk(30, 2), 4, 4));
   [9, 11, 13].forEach((day) => sess(E, H, day, wk(25, 8, '46'), 4, 7));
   const v = cap.capacityView(E, H, TODAY);
-  return /^Your recent hard swimming/.test(v.insights[0].text) && /^Your easy walking/.test(v.insights[1].text);
+  return /recent hard swimming/.test(v.insights[0].text) && /^Easy walking/.test(v.insights[1].text);
 })());
 ok('a session with no effort is read as its own group, and Why says so', (() => {
   const E = {}, H = {};
   [10, 12, 14].forEach((day) => sess(E, H, day, wk(30), 4, 4));
   const i = cap.capacityView(E, H, TODAY).insights[0];
-  return /^Your walking sessions went fine/.test(i.text) && /had no effort/.test(i.why) && /3 of your last 3/.test(i.why);
+  return /^Walking went fine/.test(i.text) && /No effort recorded/.test(i.why) && /3 of your last 3/.test(i.why);
 })());
 
 group('the week');
@@ -170,7 +170,7 @@ ok('minutes that went fine, and the effort they mostly were', (() => {
   const E = {}, H = {};
   sess(E, H, 28, wk(60, 2), 4, 4);
   sess(E, H, 29, wk(20, 8, '37'), 4, 4);
-  return cap.capacityView(E, H, '2026-10-01').headline === 'This week, 80 minutes of activity went fine, mostly easy.';
+  return cap.capacityView(E, H, '2026-10-01').headline === 'This week, 80 minutes went fine, mostly easy.';
 })());
 ok('a rest day changes nothing', (() => {
   const E = {}, H = {};

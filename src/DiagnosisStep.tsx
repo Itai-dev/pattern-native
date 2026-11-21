@@ -35,6 +35,10 @@
  * circle at the right where Settings puts a chosen row's mark. The
  * words did not change, and neither did the rule that a chosen row is
  * marked in white and only the mark.
+ *
+ * Tomo pass, 21 Nov 2026: each row's line cut to one short sentence.
+ * What each answer means is still said in the row, and the line about
+ * what the named list is NOT stays under it.
  */
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -83,17 +87,17 @@ const OPTIONS: { id: DiagnosisStatus; label: string; body: string }[] = [
   {
     id: 'yes',
     label: 'Yes',
-    body: 'Understand what affects your pain and what helps you stay active.',
+    body: 'See what affects your pain and keeps you active.',
   },
   {
     id: 'looking',
     label: 'Not yet — still being looked into',
-    body: 'Build a clearer picture of your pain, see its patterns, and bring better information to your doctor.',
+    body: 'Build a clearer picture to bring to your doctor.',
   },
   {
     id: 'no',
     label: 'No, and not looking for one',
-    body: 'Understand what affects it and what helps you keep doing what you do. Nothing here needs a name.',
+    body: 'See what affects it. Nothing here needs a name.',
   },
 ];
 
@@ -174,8 +178,7 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
             What has been diagnosed?
           </Text>
           <Text style={styles.namedHint} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Tap any that apply. It prints on the first page of the
-            PDF, as you chose it here.
+            Tap any that apply. They print on page one of the PDF.
           </Text>
           <View style={styles.chips}>
             {DIAGNOSES.map((d) => {
@@ -213,7 +216,7 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
             <TextInput
               value={draft.other}
               onChangeText={(t) => onChange({ ...draft, other: t })}
-              placeholder="In your words — one name, as your clinician said it"
+              placeholder="As your clinician said it"
               placeholderTextColor={color.textTertiary}
               maxLength={DIAGNOSIS_OTHER_MAX}
               style={styles.input}
@@ -229,9 +232,8 @@ export default function DiagnosisStep({ draft, onChange }: DiagnosisStepProps) {
               applied to the one list in the app that could be mistaken
               for the app's own opinion */}
           <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Only what a clinician has actually told you. Pattern never
-            suggests a diagnosis, and nothing you pick here is analysed
-            or sent anywhere.
+            Only what a clinician has told you. Pattern never suggests
+            a diagnosis, and nothing here is analysed or sent.
           </Text>
         </View>
       )}

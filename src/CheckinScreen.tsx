@@ -46,6 +46,14 @@
  * — is the only thing the app promises. The tick springs in, then
  * settles into a slow breath. Reduce Motion turns all of it off and the
  * mark is simply there.
+ *
+ * TOMO PASS, 21 NOV 2026: nearly wordless. The pill that said "This
+ * morning" went — the clock top right already says when — and so did
+ * the line under the question ("Editing the 9:00 check-in", "For Mon 3
+ * Nov, from memory"): the bar says Edit, the time control says the
+ * time, and a past day's date now rides in the pill, which appears only
+ * when it says something the rest of the screen does not. The question
+ * stays word for word: it is the notifications' question too.
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -64,7 +72,7 @@ import SquarePicker, { PREF_SQUARE_PICKER } from './SquarePicker';
 import PainShape from './PainShape';
 import * as db from './db';
 import { Press, useReduceMotion } from './motion';
-import Icon, { IconName } from './Icon';
+import Icon from './Icon';
 import { healthNowHint } from './health/context';
 import { HealthDay } from './health/types';
 import { track, trackCheckin } from './analytics';
@@ -74,7 +82,6 @@ import {
   SCALE_VERSION,
 } from './painScale';
 import { Moment, MomentMeta, logsOf, minutesNow, nowMeta, readLocParts, todayISO } from './model';
-import { TimeBandKey, bandOf } from './metrics';
 import { fmtClock } from './clock';
 
 /** the hero at full size — the mockup's 172 */
@@ -91,21 +98,6 @@ const BUTTON_H = 54;
  *  than the #1C1C1E of the pill and of a card */
 const SHEET_BG = '#211F1B';
 
-/* the part of the day, said the way a person says it. "This" for today,
-   "that" for a remembered day — the line under the question already
-   names which day. The bands are metrics.ts's, the same ones the
-   reminders and the engine use, so "this morning" here is the morning
-   the activity card reads. */
-const WHEN_TODAY: Record<TimeBandKey, string> = {
-  morning: 'this morning', afternoon: 'this afternoon', evening: 'this evening', night: 'tonight',
-};
-const WHEN_PAST: Record<TimeBandKey, string> = {
-  morning: 'that morning', afternoon: 'that afternoon', evening: 'that evening', night: 'that night',
-};
-/** white glyphs, never a hue: the time of day is not a pain value */
-const WHEN_ICON: Record<TimeBandKey, IconName> = {
-  morning: 'sun.haze.fill', afternoon: 'sun.max.fill', evening: 'moon.stars.fill', night: 'moon.fill',
-};
 /** the pill's ink — a hair under white, as the mockup sets it, so the
  *  context reads as a label and not as a control */
 const PILL_INK = '#EBE4D8';
@@ -263,7 +255,7 @@ export default function CheckinScreen({
   const save = (): boolean => {
     if (writtenAt != null && writtenAt !== minutes
       && logsOf(db.getDay(today)).some((l) => l.h === minutes)) {
-      Alert.alert('There’s already a check-in at that time', 'Choose another minute to keep both entries.');
+      Alert.alert('A check-in already has that time', 'Pick another minute to keep both.');
       return false;
     }
     db.writeMoment(
@@ -333,24 +325,19 @@ export default function CheckinScreen({
     );
   }
 
-  /* writing the past must never look like writing the present — and
-     editing must never look like a new entry */
-  const retroLine = editing
-    ? 'Editing the ' + fmtClock(edit!.h) + ' check-in' + (retro ? ' on ' + fmtDay(today) : '')
-    : retro ? 'For ' + fmtDay(today) + ', from memory' : null;
-
-  /* THE CONTEXT PILL SAYS ONLY WHAT THE APP ALREADY KNOWS. The part of
-     the day always — it is the clock, not a guess. A body place only
-     when this moment carries one, which today means an edit of a
-     moment that had places added to it: a new check-in records no
-     place (that is Add information's job, after the number), so naming
-     one here — the onboarding's usual places, say — would put a place
-     on a number the record will not hold it against. */
-  const band = bandOf(minutes);
+  /* THE CONTEXT PILL SAYS ONLY WHAT THE APP ALREADY KNOWS, and only
+     what the rest of the screen does not. Writing the past must never
+     look like writing the present, so a remembered day's date is in it
+     — that, the past-tense question and the time control are what tell
+     the two apart. A body place only when this moment carries one,
+     which today means an edit of a moment that had places added to it:
+     a new check-in records no place (that is Add information's job,
+     after the number), so naming one here — the onboarding's usual
+     places, say — would put a place on a number the record will not
+     hold it against. Neither: no pill. Editing never looks like a new
+     entry because the bar says "Edit check-in". */
   const places = editing ? readLocParts(edit!.loc || []).map((p) => p.label) : [];
-  const when = (retro ? WHEN_PAST : WHEN_TODAY)[band];
-  const context = places.length ? places.join(', ') + ' · ' + when
-    : when.charAt(0).toUpperCase() + when.slice(1);
+  const context = [places.join(', '), retro ? fmtDay(today) : ''].filter(Boolean).join(' · ');
 
   /* the slider's value, as VoiceOver reads it: "3, Mild". The label
      already says "0 to 10", so the range is not said twice. */
@@ -367,7 +354,7 @@ export default function CheckinScreen({
       <View style={styles.topBar}>
         <Press onPress={leave} style={[styles.navBtn, styles.navLeft]} hitSlop={10}
           accessibilityRole="button" accessibilityLabel="Cancel"
-          accessibilityHint={writtenAt == null ? 'Leaves without recording anything' : 'Leaves'}>
+          accessibilityHint={writtenAt == null ? 'Records nothing' : undefined}>
           <Text style={styles.navBtnText} maxFontSizeMultiplier={1.4}>Cancel</Text>
         </Press>
         {/* the flow's name sits between two equal-width ends, so it is
@@ -376,30 +363,32 @@ export default function CheckinScreen({
           accessibilityRole="header">
           {editing ? 'Edit check-in' : 'Check-in'}
         </Text>
+        {/* the clock, when the time is now. A chosen time (a past day,
+            an edit) is said once, by the control that changes it, so
+            this end stays empty rather than saying it twice */}
         <View style={[styles.navBtn, styles.navRight]}>
-          <Text style={styles.navTime} maxFontSizeMultiplier={1.4}>{fmtClock(minutes)}</Text>
+          {!timed && (
+            <Text style={styles.navTime} maxFontSizeMultiplier={1.4}>{fmtClock(minutes)}</Text>
+          )}
         </View>
       </View>
 
       <View style={styles.head}>
-        <View
-          style={styles.pill}
-          accessible
-          accessibilityLabel={context.replace(' · ', ', ')}
-        >
-          <Icon name={WHEN_ICON[band]} size={14} color={PILL_INK} />
-          <Text style={styles.pillText} numberOfLines={1} maxFontSizeMultiplier={1.4}>
-            {context}
-          </Text>
-        </View>
+        {!!context && (
+          <View
+            style={styles.pill}
+            accessible
+            accessibilityLabel={context.replace(' · ', ', ')}
+          >
+            <Icon name={places.length ? 'figure.stand' : 'calendar'} size={14} color={PILL_INK} />
+            <Text style={styles.pillText} numberOfLines={1} maxFontSizeMultiplier={1.4}>
+              {context}
+            </Text>
+          </View>
+        )}
         <Text style={styles.title} accessibilityRole="header">
           {timed ? 'How intense was\nyour pain?' : 'How intense is your\npain right now?'}
         </Text>
-        {!!retroLine && (
-          <Text style={styles.retroLine} allowFontScaling maxFontSizeMultiplier={1.3}>
-            {retroLine}
-          </Text>
-        )}
       </View>
 
       {/* AND WHEN EVEN THE FLOOR IS NOT ENOUGH, IT SCROLLS. At the largest
@@ -427,8 +416,8 @@ export default function CheckinScreen({
               pressOpacity={0.7}
               style={styles.retroWhen}
               accessibilityRole="button"
-              accessibilityLabel={'This check-in is for ' + fmtClock(minutes)
-                + '. Changes the time'}
+              accessibilityLabel={'Time, ' + fmtClock(minutes)}
+              accessibilityHint="Changes the time"
             >
               <Text style={styles.retroWhenText} allowFontScaling maxFontSizeMultiplier={1.3}>
                 At {fmtClock(minutes)} · change
@@ -529,8 +518,8 @@ export default function CheckinScreen({
           pressScale={0.97}
           accessibilityRole="button"
           accessibilityState={{ disabled: !moved }}
-          accessibilityLabel={editing ? 'Save the check-in' : 'Record the pain and finish'}
-          accessibilityHint={moved ? undefined : 'Choose a value on the slider first'}
+          accessibilityLabel="Save"
+          accessibilityHint={moved ? undefined : 'Choose a number first'}
           style={[styles.primary, moved ? styles.primaryOn : styles.primaryOff]}
         >
           <Text style={[styles.primaryText, moved ? styles.primaryTextOn : styles.primaryTextOff]}
@@ -588,10 +577,6 @@ const styles = StyleSheet.create({
      can centre inside, centred so the column reads as one */
   above: { alignSelf: 'stretch', alignItems: 'center' },
   below: { alignSelf: 'stretch', alignItems: 'center' },
-  retroLine: {
-    color: color.textSecondary, fontSize: font.footnote, fontWeight: '600',
-    textAlign: 'center', marginTop: 6,
-  },
   retroWhen: { minHeight: 36, justifyContent: 'center', marginBottom: 10 },
   retroWhenText: { color: color.tint, fontSize: font.subheadline, fontWeight: '600' },
   /* the category under the square — the same five words everywhere */

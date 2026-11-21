@@ -24,6 +24,12 @@
  * never "caused", "safe to train" or "push harder". An association read
  * from someone's own week is not a claim about what the exercise did,
  * and a suggestion about a session is not clearance to do it.
+ *
+ * SHORT (Tomo pass, 21 Nov 2026). Every sentence here lands on Today,
+ * the screen read most, so each is cut to one plain clause: what the
+ * record shows, or what would move it. How a session is read lives in
+ * the card's "Why?", not in these lines. The hedges above survive the
+ * cut — "followed", never "caused".
  */
 import { Entries, logsOf, mondayOf } from './model';
 import { MORNING_FROM, MORNING_UNTIL } from './metrics';
@@ -150,10 +156,10 @@ function currentLevel(gs: Session[]): ActivityLevel | null {
 }
 
 function statusOf(level: ActivityLevel | null): RecoveryStatus {
-  if (!level) return { kind: 'learning', line: 'Still learning how your body responds.' };
-  if (level.step === 'up') return { kind: 'tolerating', line: 'Your recent sessions went fine.' };
-  if (level.step === 'hold') return { kind: 'hold', line: 'Your last session was followed by a harder next morning.' };
-  return { kind: 'lighter', line: 'Your recent sessions were mostly followed by a harder next morning.' };
+  if (!level) return { kind: 'learning', line: 'Still learning how you respond.' };
+  if (level.step === 'up') return { kind: 'tolerating', line: 'Recent sessions went fine.' };
+  if (level.step === 'hold') return { kind: 'hold', line: 'Your last session: a harder next morning.' };
+  return { kind: 'lighter', line: 'Recent sessions: mostly a harder next morning.' };
 }
 
 /** the hero's content, or null without an answered goal */
@@ -215,7 +221,7 @@ export interface DailyGuidance {
    engine. Not "flares aren't damage": for inflammatory pain a flare can
    be active disease. (18 Oct 2026) */
 export const FLARE_NOTE =
-  'You logged a flare today, so nothing longer is suggested. Your flare plan, or your clinician’s, comes first.';
+  'Flare logged, so nothing longer today. Your flare plan, or your clinician’s, comes first.';
 
 function atEffort(band: EffortBand | null): string {
   return band ? ' at ' + (band === 'easy' ? 'an easy' : band === 'moderate' ? 'a moderate' : 'a hard') + ' effort' : '';
@@ -257,8 +263,8 @@ export function dailyGuidance(
       state: 'noActivity', sufficiency: 'none', recommendedLoad: null, checkIn: false,
       headline: healthOff ? 'Pattern can’t see your sessions yet.' : 'No sessions recorded yet.',
       recommendation: healthOff
-        ? 'They come from Apple Health, which isn’t connected. It’s in Profile, whenever you want it.'
-        : 'When Apple Health records one, Pattern starts learning how your body responds.',
+        ? 'Apple Health isn’t connected. It’s in Profile.'
+        : 'Pattern starts learning once Apple Health records one.',
     };
   }
 
@@ -286,7 +292,7 @@ export function dailyGuidance(
       return {
         state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: false,
         headline: yesterday ? 'Yesterday’s session is in.' : 'Today’s session is in.',
-        recommendation: 'Pattern reads a session by comparing a morning check-in that day with the next morning’s.',
+        recommendation: 'Sessions are read from morning check-ins.',
       };
     }
     /* yesterday's session and no morning check-in yet today: the one
@@ -300,12 +306,12 @@ export function dailyGuidance(
     const inBand = nowMin >= MORNING_FROM;
     return {
       state: 'waiting', sufficiency: 'early', recommendedLoad: null, checkIn: (mine || both) && inBand,
-      headline: mine ? 'Yesterday’s session is waiting on this morning’s check-in.'
+      headline: mine ? 'Yesterday’s session needs this morning’s check-in.'
         : 'Today’s session is in.',
       recommendation: both
-        ? (inBand ? 'A check-in this morning and one tomorrow morning show how it went.'
-          : 'A check-in once it’s morning, and one tomorrow morning, show how it went.')
-        : !mine ? 'Tomorrow morning’s check-in will show how it went.'
+        ? (inBand ? 'A check-in this morning and one tomorrow show how it went.'
+          : 'A check-in once it’s morning, and one tomorrow, show how it went.')
+        : !mine ? 'Tomorrow morning’s check-in shows how it went.'
         : inBand ? 'One check-in shows how it went.'
         : 'A check-in once it’s morning shows how it went.',
     };
@@ -316,7 +322,7 @@ export function dailyGuidance(
     if (level.step === 'up' && flareToday) {
       return {
         state: 'repeat', sufficiency: 'enough', checkIn: false,
-        headline: 'Your recent sessions went fine.',
+        headline: 'Recent sessions went fine.',
         recommendation: 'A similar session.',
         recommendedLoad: level.level + ' min' + atEffort(level.band),
         note: FLARE_NOTE,
@@ -325,7 +331,7 @@ export function dailyGuidance(
     if (level.step === 'up') {
       return {
         state: 'repeat', sufficiency: 'enough', checkIn: false,
-        headline: 'Your recent sessions went fine.',
+        headline: 'Recent sessions went fine.',
         recommendation: 'A similar session, or a little longer.',
         recommendedLoad: level.level + '–' + level.next + ' min' + atEffort(level.band),
       };
@@ -333,15 +339,15 @@ export function dailyGuidance(
     if (level.step === 'hold') {
       return {
         state: 'lighter', sufficiency: 'enough', checkIn: false,
-        headline: 'Your last session was followed by a harder next morning.',
+        headline: 'A harder morning followed your last session.',
         recommendation: 'The same length again, rather than longer.',
         recommendedLoad: 'Up to ' + level.level + ' min' + atEffort(level.band),
       };
     }
     return {
       state: 'lighter', sufficiency: 'enough', checkIn: false,
-      headline: 'Your recent sessions were mostly followed by a harder next morning.',
-      recommendation: 'A little less for now, then building back up.',
+      headline: 'Harder mornings mostly followed recent sessions.',
+      recommendation: 'A little less for now, then build back up.',
       recommendedLoad: 'Around ' + level.next + ' min' + easier(level.band),
     };
   }
@@ -355,13 +361,13 @@ export function dailyGuidance(
   if (lastKnown && lastKnown.outcome === 'harder') {
     return {
       state: 'lighter', sufficiency: 'early', recommendedLoad: null, checkIn: false,
-      headline: 'Your last session was followed by a harder next morning.',
+      headline: 'A harder morning followed your last session.',
       recommendation: 'The same length again, rather than longer.',
     };
   }
   return {
     state: 'learning', sufficiency: known.length ? 'early' : 'none', recommendedLoad: null, checkIn: false,
-    headline: lastKnown ? 'Your last session went fine.' : 'Still learning how your sessions go.',
-    recommendation: moreWords + ' with a morning check-in that day and the next, and Pattern will have an answer.',
+    headline: lastKnown ? 'Your last session went fine.' : 'Still learning how sessions go.',
+    recommendation: moreWords + ' with morning check-ins, then an answer.',
   };
 }

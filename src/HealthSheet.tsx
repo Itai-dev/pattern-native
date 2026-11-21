@@ -94,18 +94,15 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
           /* an old binary, or not an iPhone. Not an error — a fact about
              this install, with the way forward named. */
           <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Apple Health needs the newest version of Pattern from TestFlight.
-            Once it’s installed, this screen will offer the connection.
+            Apple Health needs the newest Pattern from TestFlight.
           </Text>
         ) : (
           <>
-            <Text style={styles.headline} allowFontScaling maxFontSizeMultiplier={1.3}>
-              Fewer questions, with Apple Health
-            </Text>
+            {/* Tomo pass, 21 Nov 2026: the headline went (the bar already
+                says Apple Health) and the lede is two short sentences */}
             <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Connect Apple Health to let Pattern quietly compare your pain with
-              sleep, activity and the doses you log. You choose what to share,
-              and the data stays on this iPhone.
+              Compare your pain with sleep, activity and doses. You choose
+              what; it stays on this iPhone.
             </Text>
 
             {/* a row that opens a page, drawn as one: its own group, the
@@ -171,12 +168,9 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
             </Press>
 
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Apple will show its own screen where you decide, type by type —
-              and for medications, a second one where you pick which ones.
-              Pattern only reads — it never writes to Health — and you can
-              change or withdraw access any time in Health ▸ Profile ▸ Apps.
-              Pattern can’t see what you allowed there; it only sees what
-              data arrives.
+              Apple asks next, type by type. Pattern only reads, never writes.
+              Change it any time in Health ▸ Profile ▸ Apps — Pattern can’t see
+              what you allowed, only what arrives.
             </Text>
 
             {!!requestedOn && (
@@ -191,8 +185,8 @@ export default function HealthSheet({ service, onChanged, onDone, onOpenData }: 
                   <Text style={styles.ghostText}>Stop using Apple Health</Text>
                 </Press>
                 <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Stopping removes the imported context from Pattern. Your pain
-                  record isn’t touched, and nothing changes in the Health app.
+                  Removes imported data from Pattern. Your pain record and the
+                  Health app are untouched.
                 </Text>
               </>
             )}
@@ -211,10 +205,6 @@ const styles = StyleSheet.create({
     minHeight: 48, paddingHorizontal: 16, marginBottom: 20,
   },
   body: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 48 },
-  headline: {
-    color: list.text, fontSize: font.title2, fontFamily: 'ui-rounded', fontWeight: '600',
-    letterSpacing: -0.33, marginBottom: 8, marginHorizontal: 4,
-  },
   lede: {
     color: list.secondary, fontSize: font.subheadline, lineHeight: 21,
     marginBottom: 20, marginHorizontal: 4,

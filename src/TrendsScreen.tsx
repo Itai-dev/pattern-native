@@ -33,13 +33,23 @@
  * screen says, in what order, behind which gate, is unchanged — the
  * mockup's new Highlights (a usual morning range, a "for your physio"
  * PDF row) are new content and wait for their own change.
+ *
+ * TOMO PASS (21 Nov 2026): less to read, nothing removed. The range line
+ * above the first card went (the chart's axis already names both ends;
+ * its short-record caveat moved into the chart's (i)); the two halves
+ * moved into Your record, beside the other descriptions of the range;
+ * What stands out shows its first STANDOUTS_OPEN cards and folds the
+ * rest behind "Show N more"; Your record is one row until opened; and
+ * every sentence was cut to its claim plus the one line saying what it
+ * is not. What each number means and how it was reached lives behind
+ * the card's tap or its (i), never on the surface.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextStyle, View,
 } from 'react-native';
 import { Press } from './motion';
-import InfoTip, { InfoGlyph, InfoTitle } from './InfoTip';
+import InfoTip, { InfoTitle } from './InfoTip';
 import {
   EVENT_LABELS, Entries, FuncEntry, INTERVENTIONS, PainEvent,
   RESPONSE_LABELS, Response, dateFromISO, } from './model';
@@ -233,12 +243,16 @@ const PLOT_H = 112;
 const GRID = [10, 5, 0];
 
 function MiniChart({
-  data, span, selected, onSelect, onOpenDay,
+  data, span, selected, onSelect, onOpenDay, shortNote,
 }: {
   data: ReportData;
   span: number;
   selected: string | null;
   onSelect: (key: string | null) => void;
+  /** the short-record caveat, when it applies — it was the (i) on the
+   *  range line above the card until 21 Nov 2026, and lives with the
+   *  chart now that the line is gone */
+  shortNote?: string;
   /** the second tap: a bar answers in the readout, the readout opens
    *  the day itself — which is how a specific day is reached from this
    *  chart without a calendar standing around for the purpose. A WEEK
@@ -265,7 +279,7 @@ function MiniChart({
     return (
       <View style={styles.readout}>
         <Text style={styles.readoutText} allowFontScaling maxFontSizeMultiplier={1.3}>
-          Nothing logged in this range — try All.
+          Nothing logged here. Try All.
         </Text>
       </View>
     );
@@ -381,17 +395,16 @@ function MiniChart({
         <Say style={styles.axisText}>{shortDate(cols[0].from)}</Say>
         <Say style={styles.axisText}>{shortDate(cols[cols.length - 1].to)}</Say>
       </View>
-      {(weekly || easier != null) && (
+      {(weekly || easier != null || !!shortNote) && (
         <InfoTip
           label="How to read the chart"
           text={[
-            weekly
-              ? 'Each bar is a week: the average of the days you logged in it. A week with nothing logged stays blank.'
-              : '',
+            weekly ? 'Each bar is a week’s average of the days you logged.' : '',
             easier != null
-              ? 'The shaded band is your own easier third — ' + formatScore(easier)
-                + ' and below. Lower is less pain on this chart, so a bar that ends inside the band is in the range of your easier days.'
+              ? 'Lower is less pain. The shaded band is your easier third: '
+                + formatScore(easier) + ' and below.'
               : '',
+            shortNote || '',
           ].filter(Boolean).join(' ')}
         />
       )}
@@ -426,12 +439,18 @@ function MiniChart({
  * between two opens on the same day. The redesign's big rounded value
  * stays the record's average; the two halves are never given one, since
  * two big numbers side by side are a delta the reader does in their head.
+ *
+ * IN YOUR RECORD since 21 Nov 2026 (Tomo pass). Under the chart it was a
+ * second caveated sentence on the card a person opens most, and two
+ * averages set side by side there are the comparison this screen
+ * refuses to lead with. Folded with the other descriptions of the
+ * range, it is one tap away and still says what it is not.
  */
 function Direction({ first, second }: { first: number; second: number }) {
   return (
     <View style={styles.direction}>
       <Say style={styles.directionSub}>
-        {'First half of this range averaged ' + formatScore(first) + ', second half '
+        {'First half averaged ' + formatScore(first) + ', second half '
           + formatScore(second) + '. Averages of what you entered, not a measure of how you are doing.'}
       </Say>
     </View>
@@ -851,7 +870,17 @@ const digestStyles = StyleSheet.create({
 /** the sentence every stand-out card is qualified by — inside the sheet
  *  that opens it and behind the (i) on the section, never far from the
  *  numbers it qualifies */
-const STANDOUT_NOTE = 'A pattern in what you recorded, never proof of cause. Nothing here moves on its own — only when you add a check-in or Apple Health adds a day.';
+const STANDOUT_NOTE = 'A pattern in what you recorded, never proof of cause. It changes only when a day is added.';
+
+/** how many stand-out cards show before "Show N more". Tomo pass, 21 Nov
+ *  2026: with Health connected this section reached a dozen cards, and
+ *  a dozen sentences is a page to read, not a thing that stands out.
+ *  The cards are pushed in the order they earned (the record's own
+ *  sentences, the budget, the one headline claim), so the first three
+ *  are the ones with the most to say; the rest are one tap away and
+ *  none is dropped. A display count, not a gate: it decides what is on
+ *  the surface, never what a person can be told. */
+const STANDOUTS_OPEN = 3;
 
 /**
  * One thing that stands out: the sentence, one line under it, and what
@@ -913,10 +942,11 @@ function StandoutCard({ card, onOpen }: { card: Standout; onOpen: () => void }) 
         <Say style={styles.noticeTitle}>{card.title}</Say>
         {opens && <View style={styles.standoutChev}><Door /></View>}
       </View>
-      {/* three lines when the card opens to the rest; all of it when it
-          does not, since a clipped sentence with no door was a sentence
-          nobody could finish */}
-      <Say style={styles.standoutLine} lines={opens ? 3 : undefined}>{card.line}</Say>
+      {/* two lines when the card opens to the rest (three until the Tomo
+          pass, 21 Nov 2026 — the sheet holds the whole of it); all of it
+          when it does not, since a clipped sentence with no door was a
+          sentence nobody could finish */}
+      <Say style={styles.standoutLine} lines={opens ? 2 : undefined}>{card.line}</Say>
       {!!card.note && (
         <Say style={styles.standoutNote}>{card.note}</Say>
       )}
@@ -937,7 +967,7 @@ function StandoutCard({ card, onOpen }: { card: Standout; onOpen: () => void }) 
       style={[summaryCard.box, styles.box]}
       accessibilityRole="button"
       accessibilityLabel={card.title + '. ' + card.line + (card.note ? ' ' + card.note : '')}
-      accessibilityHint="Opens this in full: the numbers behind it and what it does not mean"
+      accessibilityHint="Shows the numbers behind it"
     >
       {body}
     </Press>
@@ -972,22 +1002,6 @@ function StandoutSheet({ card, onClose }: { card: Standout; onClose: () => void 
   );
 }
 
-/** the range the screen is showing, with what to make of it behind the
- *  (i) — the InfoTitle shape, built here so the dates take the rounded
- *  face like every other figure on the page */
-function RangeHead({ title, text }: { title: string; text: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <View style={styles.rangeHead}>
-      <View style={styles.rangeRow}>
-        <Say style={styles.sub}>{title}</Say>
-        <InfoGlyph open={open} onPress={() => setOpen((v) => !v)} label="About this screen" />
-      </View>
-      {open && <Text style={styles.rangeNote} allowFontScaling maxFontSizeMultiplier={1.4}>{text}</Text>}
-    </View>
-  );
-}
-
 export default function TrendsScreen({
   entries, events, func, goalText, todayIso, onOpenDay, onSpanChange,
   healthNoticed, onShare, sharing,
@@ -1008,9 +1022,10 @@ export default function TrendsScreen({
   /* THE FIRST DAYS, FOLDED. Ten comparisons can be licensed at once, and
      in the first week every one of them has one to three paired days —
      ten titled lists of dates, each closed by the same caption, was the
-     wall of text on the second card. Two stay open; the rest are one
-     tap away; the caption is said once, under all of them. */
-  const [firstOpen, setFirstOpen] = useState(false);
+     wall of text on the second card. Since the Tomo pass (21 Nov 2026)
+     the fold holds every card past STANDOUTS_OPEN too, and one "Show N
+     more" opens both. */
+  const [moreOpen, setMoreOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
   /* "All" measures from the first day ever logged, so the chart spans the
@@ -1106,8 +1121,7 @@ export default function TrendsScreen({
     return (
       <View style={[styles.page, styles.emptyWrap]}>
         <Text style={styles.empty}>
-          Nothing logged yet. Check in once and this fills in from your own
-          entries — nothing here is ever filled in for you.
+          Nothing logged yet. Your check-ins fill this in.
         </Text>
       </View>
     );
@@ -1365,25 +1379,25 @@ export default function TrendsScreen({
     });
   });
   doseEarly.forEach((e) => standouts.push({
-    key: 'de.' + e.medId, title: e.med + ', around your doses so far',
-    line: e.pairs + ' doses with a check-in before and after.',
+    key: 'de.' + e.medId, title: e.med + ' doses, so far',
+    line: e.pairs + ' with a check-in either side.',
     detail: (
       <>
         <DoseBars a={e} />
         <Say style={styles.noticeMeta}>
-          {e.pairs + ' doses with a check-in before and after. ' + EARLY_NOTE}
+          {e.pairs + ' doses with a check-in either side. ' + EARLY_NOTE}
         </Say>
       </>
     ),
   }));
   workoutEarly.forEach((e) => standouts.push({
-    key: 'we.' + e.activity, title: capitalise(e.activity) + ', before and after so far',
-    line: e.pairs + ' workouts with a check-in before and after.',
+    key: 'we.' + e.activity, title: capitalise(e.activity) + ', so far',
+    line: e.pairs + ' with a check-in either side.',
     detail: (
       <>
         <WorkoutBars a={e} />
         <Say style={styles.noticeMeta}>
-          {e.pairs + ' workouts with a check-in before and after. ' + EARLY_NOTE}
+          {e.pairs + ' workouts with a check-in either side. ' + EARLY_NOTE}
         </Say>
       </>
     ),
@@ -1412,7 +1426,7 @@ export default function TrendsScreen({
     ),
   }));
   doseFirst.forEach((fd) => standouts.push({
-    key: 'df.' + fd.medId, title: fd.med + ', around the first doses',
+    key: 'df.' + fd.medId, title: fd.med + ', first doses',
     line: fd.pairs.length + (fd.pairs.length === 1 ? ' dose' : ' doses') + ' so far.',
     detail: (
       <>
@@ -1428,8 +1442,8 @@ export default function TrendsScreen({
           </Text>
         ))}
         <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-          The doses so far, as recorded — a picture starts at three, and a dose is
-          often taken when pain is high.
+          As recorded. A picture starts at three, and doses often come when
+          pain is high.
         </Text>
       </>
     ),
@@ -1438,7 +1452,7 @@ export default function TrendsScreen({
      it is exactly the fact a person went in for, and it is shown as
      that — two numbers and a date, with the sentence still to come. */
   workoutFirst.forEach((fd) => standouts.push({
-    key: 'wf.' + fd.activity, title: capitalise(fd.activity) + ', before and after',
+    key: 'wf.' + fd.activity, title: capitalise(fd.activity) + ', first workouts',
     line: fd.pairs.length + (fd.pairs.length === 1 ? ' workout' : ' workouts') + ' so far.',
     detail: (
       <>
@@ -1454,8 +1468,8 @@ export default function TrendsScreen({
           </Text>
         ))}
         <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
-          The workouts so far, as recorded — a picture starts at three, and a workout
-          happens on the days you felt able to.
+          As recorded. A picture starts at three, and workouts happen on the
+          days you felt able.
         </Text>
       </>
     ),
@@ -1464,7 +1478,7 @@ export default function TrendsScreen({
      or — for a change that did not lead — no words beyond the timing
      and the regression line */
   doseGroups.forEach((a) => standouts.push({
-    key: 'd.' + a.medId, title: a.med + ', around your doses',
+    key: 'd.' + a.medId, title: a.med + ', before and after',
     line: a.verdict === 'observation' ? doseObservationCopy(a) : DOSE_TIMING,
     detail: (
       <>
@@ -1495,48 +1509,53 @@ export default function TrendsScreen({
   }));
   otherGroups.forEach((a) => {
     const w = groupLabels(a.kind);
-    const line = 'No meaningful difference in ' + w.outcome + ' between these groups so far — '
-      + 'that is a finding about these ' + a.pairedDays + ' days, not a failure of them.';
+    /* the card says the finding; the sheet says why it is one */
+    const line = 'No clear difference in ' + w.outcome + ' so far.';
     standouts.push({
-      key: 'g.' + a.kind, title: w.factor + ', against your record', line,
+      key: 'g.' + a.kind, title: w.factor, line,
       detail: (
         <>
-          <Say style={styles.noticeBody}>{line}</Say>
+          <Say style={styles.noticeBody}>
+            {'No meaningful difference in ' + w.outcome + ' between these groups so far — '
+              + 'that is a finding about these ' + a.pairedDays + ' days, not a failure of them.'}
+          </Say>
           <GroupBars a={a} />
           <Say style={styles.noticeMeta}>{w.timing}</Say>
         </>
       ),
     });
   });
-  /* what is still short of a picture — a fact about the wait, so the
-     card has nothing further to open */
+  /* what is still short of a picture. The card names what and how far;
+     what a paired day takes opens behind it (Tomo pass, 21 Nov 2026 —
+     it was two explanatory sentences on the surface, and the card had
+     nothing to open) */
   if (collectingShown.length > 0) {
     const lines: string[] = [];
-    if (notYetPaired.length > 0) {
-      lines.push('No paired day yet for ' + notYetPaired.join(', ') + '. A comparison needs the '
-        + 'days on both sides of it — a morning check-in for sleep, an evening one for movement.');
-    }
-    if (stillCounting.length > 0) {
-      lines.push('Still counting: ' + stillCounting.join(' · ') + ' — paired days on both sides of '
-        + 'the comparison, a few of each, before a picture can be drawn.');
-    }
-    standouts.push({ key: 'collecting', title: 'Still collecting', line: lines.join(' '), detail: null });
+    if (notYetPaired.length > 0) lines.push('Not yet paired: ' + notYetPaired.join(', ') + '.');
+    if (stillCounting.length > 0) lines.push('Counting: ' + stillCounting.join(' · ') + '.');
+    standouts.push({
+      key: 'collecting', title: 'Still collecting', line: lines.join(' '),
+      detail: (
+        <>
+          {lines.map((l) => <Say key={l} style={styles.noticeBody}>{l}</Say>)}
+          <Text style={styles.noticeMeta} allowFontScaling maxFontSizeMultiplier={1.4}>
+            A comparison needs days on both sides of it — a morning check-in for
+            sleep, an evening one for movement — and a few of each before a
+            picture can be drawn.
+          </Text>
+        </>
+      ),
+    });
   }
+
+  /* the surface: the first STANDOUTS_OPEN cards that are not first-days
+     lists past FIRST_DAYS_OPEN; everything else waits for one tap */
+  const surfaced = standouts.filter((c) => !c.folded).slice(0, STANDOUTS_OPEN);
+  const shownCards = moreOpen ? standouts : surfaced;
+  const heldBack = moreOpen ? 0 : standouts.length - surfaced.length;
 
   return (
     <View style={styles.page}>
-      {/* the range is the fact; what to make of it folds behind the (i),
-          with the short-record caveat while it applies */}
-      <RangeHead
-        title={fmtReportDate(data.rangeStart) + ' – ' + fmtReportDate(data.rangeEnd)}
-        text={'What you’ve recorded over this range, and nothing inferred from it.'
-          + (data.limited
-            ? ' Still a short record — ' + data.loggedDays
-              + (data.loggedDays === 1 ? ' day' : ' days')
-              + ' logged, so changes over time aren’t worth reading much into yet.'
-            : '')}
-      />
-
       {/* ── 1. your pain ─────────────────────────────────────
           The record itself leads: the chart, the two figures, and the
           sentences that read it. The extremes open their days.
@@ -1549,7 +1568,7 @@ export default function TrendsScreen({
       <Card
         icon="chart.bar.fill"
         title={data.limited ? 'Pain recorded so far' : 'Your pain'}
-        note="Blank days were not logged. Colour is the day’s average pain, 0–10. Every number here is an average of what you entered — not a score of how you are doing."
+        note="Blank days weren’t logged. Averages of what you entered — not a score of how you are doing."
       >
         <View
           style={styles.painHead}
@@ -1563,11 +1582,11 @@ export default function TrendsScreen({
         >
           <BigValue compact prefix="Average" value={formatScore(data.avg)} unit={painLabel(data.avg)} />
           <Say style={summaryCard.sub}>
-            {data.loggedDays + ' ' + (data.loggedDays === 1 ? 'day' : 'days') + ' recorded'
+            {data.loggedDays + ' ' + (data.loggedDays === 1 ? 'day' : 'days')
               /* the second number, beside the first and never blended
                  with it: how much it cost, on the evenings that said */
               + (data.limitation
-                ? ' · limited by pain ' + data.limitation.avg + '/10 across '
+                ? ' · limited by pain ' + data.limitation.avg + '/10 on '
                   + data.limitation.days + (data.limitation.days === 1 ? ' evening' : ' evenings')
                 : '')}
           </Say>
@@ -1601,10 +1620,11 @@ export default function TrendsScreen({
           selected={picked}
           onSelect={setPicked}
           onOpenDay={onOpenDay}
+          shortNote={data.limited
+            ? 'A short record so far — ' + data.loggedDays
+              + (data.loggedDays === 1 ? ' day' : ' days') + ', so change over time means little yet.'
+            : undefined}
         />
-        {!!data.halves && (
-          <Direction first={data.halves.first} second={data.halves.second} />
-        )}
 
         {/* the extremes, as doors — a summary that names a day opens it.
             Two rows of Health's inset list: the word, the figure and its
@@ -1659,28 +1679,25 @@ export default function TrendsScreen({
         label="About what stands out"
         text={STANDOUT_NOTE}
       />
-      {(firstOpen ? standouts : standouts.filter((c) => !c.folded)).map((c) => (
+      {shownCards.map((c) => (
         <StandoutCard key={c.key} card={c} onOpen={() => setOpenCard(c)} />
       ))}
-      {!firstOpen && standouts.some((c) => c.folded) && (
+      {heldBack > 0 && (
         <Press
-          onPress={() => setFirstOpen(true)}
+          onPress={() => setMoreOpen(true)}
           pressOpacity={0.7}
           style={styles.more}
           accessibilityRole="button"
-          accessibilityLabel={'Show ' + standouts.filter((c) => c.folded).length + ' more first-days lists'}
+          accessibilityLabel={'Show ' + heldBack + ' more'}
         >
-          <Say style={styles.moreText}>
-            {'Show ' + standouts.filter((c) => c.folded).length + ' more'}
-          </Say>
+          <Say style={styles.moreText}>{'Show ' + heldBack + ' more'}</Say>
           <Door down />
         </Press>
       )}
       {standouts.length === 0 && (
         <View style={[summaryCard.box, styles.box]}>
           <Text style={summaryCard.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Nothing yet. This fills as the record does — a few days of check-ins,
-            and Apple Health if you connect it.
+            Nothing yet. A few days of check-ins fill this in.
           </Text>
         </View>
       )}
@@ -1704,11 +1721,10 @@ export default function TrendsScreen({
           this screen exists to let a person do. */}
       {!!onShare && (
         <Card icon="doc.text.fill" title="Share with your clinician">
+          {/* Tomo pass, 21 Nov 2026: what the PDF holds is on the PDF;
+              the card keeps where it is made and what it is not */}
           <Text style={summaryCard.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
-            A PDF of this record — your background, the numbers above, and what
-            they do and don’t mean. Made on this iPhone, sent only where you
-            send it, and it says on its face that it is self-recorded and not a
-            diagnosis.
+            Made on this iPhone. Self-recorded, not a diagnosis.
           </Text>
           <Press
             onPress={onShare}
@@ -1963,12 +1979,6 @@ const styles = StyleSheet.create({
   cardNote: { marginTop: 14 },
   emptyWrap: { paddingTop: 8 },
   empty: { color: summary.secondary, fontSize: font.body, lineHeight: 24 },
-  /* the range above the first card: grey, like the meta beside a
-     Highlights title, with the (i) at its end */
-  rangeHead: { paddingHorizontal: 4 },
-  rangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sub: { flex: 1, color: summary.secondary, fontSize: font.subheadline, lineHeight: 20 },
-  rangeNote: { color: summary.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 6 },
   /* one paired day as a line: the date in grey, the numbers in ink —
      no square, because a single day's number beside its date is a fact
      in a sentence, and the sentence already says it is pain */

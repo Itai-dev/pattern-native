@@ -12,6 +12,11 @@
  * comes back after a fortnight gets one moment, not a queue. The first
  * run after this shipped shows nothing at all (coach.ts,
  * unseenAchievement) — months of record are not a pile of surprises.
+ *
+ * TOMO PASS, 21 NOV 2026: no "NEW ACHIEVEMENT" kicker over the title —
+ * the medal says it, and VoiceOver hears it in the title's label. The
+ * "not by how it felt" line stays: it is the sentence that says what
+ * the medal does not mean.
  */
 import React, { useEffect } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
@@ -50,25 +55,25 @@ export default function UnlockSheet({ a, activity, roadmap, onClose, onOpenRoadm
       {a && (
         <View style={styles.sheet} accessibilityViewIsModal>
           <View style={styles.grabber} />
-          <Text style={styles.kicker}>NEW ACHIEVEMENT</Text>
-          <Animated.View style={[{ marginTop: 18 }, style]}>
+          <Animated.View style={[{ marginTop: 26 }, style]}>
             <Medal a={a} size={148} activity={activity} />
           </Animated.View>
-          <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={1.3}>{a.title}</Text>
+          <Text style={styles.title} accessibilityRole="header" accessibilityLabel={'New achievement: ' + a.title}
+            maxFontSizeMultiplier={1.3}>{a.title}</Text>
           <Text style={styles.body} maxFontSizeMultiplier={1.4}>{a.body}</Text>
           {now && (
             <Press style={styles.next} onPress={onOpenRoadmap} accessibilityRole="button"
-              accessibilityLabel={'Next on your roadmap: ' + now.title}>
+              accessibilityLabel={'Next stage: ' + now.title}>
               <Icon name="flag.fill" size={20} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.nextLabel}>Next on your roadmap</Text>
+                <Text style={styles.nextLabel}>Next stage</Text>
                 <Text style={styles.nextTitle}>{now.title}</Text>
               </View>
               <Icon name="chevron.right" size={14} color="#636366" weight="bold" />
             </Press>
           )}
-          <Text style={styles.fine} maxFontSizeMultiplier={1.4}>Earned by what you did, not by how it felt.</Text>
-          <Press style={styles.primary} onPress={onClose} accessibilityRole="button">
+          <Text style={styles.fine} maxFontSizeMultiplier={1.4}>Earned by what you did, not how it felt.</Text>
+          <Press style={styles.primary} onPress={onClose} accessibilityRole="button" accessibilityLabel="Done">
             <Text style={styles.primaryText}>Done</Text>
           </Press>
         </View>
@@ -85,7 +90,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   grabber: { width: 36, height: 5, borderRadius: 3, backgroundColor: '#4A443C' },
-  kicker: { marginTop: 26, color: '#A79E90', fontSize: 13, fontWeight: '700', letterSpacing: 0.8 },
   title: { marginTop: 22, color: '#EDE6DA', fontSize: 26, fontFamily: 'ui-rounded', fontWeight: '600', letterSpacing: 0, textAlign: 'center' },
   body: { marginTop: 8, color: '#CFC7BA', fontSize: 16, lineHeight: 23, textAlign: 'center' },
   next: {

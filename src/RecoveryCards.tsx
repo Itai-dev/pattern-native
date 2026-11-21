@@ -17,8 +17,8 @@
  * smaller number.
  *
  * NEUTRAL THROUGHOUT. Nothing here is a pain value, so nothing takes
- * the ramp. The one qualifying sentence sits behind the (i), inside the
- * card, per the house rule.
+ * the ramp. The "not medical advice" line sits under the minutes, and
+ * the full note behind "Why?", both inside the card, per the house rule.
  *
  * HEALTH'S ANATOMY (21 Oct 2026, the approved Main mockup). The goal
  * stands on the ground above the card as Today's section title, the way
@@ -26,10 +26,17 @@
  * the suggested minutes as a big rounded value and keeps every sentence
  * it had. Only the look moved — the order of Today, what the card says
  * and when it says it are recovery.ts's, untouched.
+ *
+ * QUIETER (Tomo pass, 21 Nov 2026). The card had grown to a header, a
+ * value, the suggestion, what it rests on, a "not" line, a toggle and an
+ * (i) row — seven things before the check-in. It shows the minutes, the
+ * one suggestion and the "not" line now; what the record shows, the
+ * per-activity conclusions and the note all sit behind one "Why?". The
+ * goal header keeps one line under it; the roadmap stage it also wrote
+ * is in the roadmap the header opens, and in the header's VoiceOver label.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import InfoTip from './InfoTip';
 import { Press } from './motion';
 import {
   DailyGuidance, GOAL_ACTIVITIES, GoalActivity, RecoveryGoal, RecoveryHero, goalLabel,
@@ -84,7 +91,7 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
       <View style={card}>
         {head}
         <Text style={title} allowFontScaling maxFontSizeMultiplier={1.3}>
-          How many sessions a week are you aiming for?
+          How many sessions a week?
         </Text>
         <View style={styles.chips}>
           {WEEKLY_CHOICES.map((n) => (
@@ -133,9 +140,8 @@ export function GoalSetup({ initial, onSave, onSkip, onCancel, onRemove, flush }
           </Press>
         </>
       )}
-      <Text style={styles.body} allowFontScaling maxFontSizeMultiplier={1.4}>
-        Pattern reads how your body responds to it, from your own sessions and mornings.
-      </Text>
+      {/* the line that explained what Pattern does with the answer went
+          (Tomo pass, 21 Nov 2026): the question is enough to answer it */}
       <View style={styles.actions}>
         {(onSkip || onCancel) && (
           <Press onPress={onCancel || onSkip} style={styles.link} accessibilityRole="button"
@@ -210,6 +216,10 @@ export function GoalRow({ goal, today, onChange }: {
  * goal and its line are found here and only here, so whatever this
  * comes to open (it opens the goal's setup today) changes in one place.
  * The chevron is the promise that it opens something.
+ *
+ * ONE LINE UNDER IT (Tomo pass, 21 Nov 2026): the week's sessions. The
+ * roadmap stage that stood as a third line is spoken, not drawn — the
+ * roadmap it describes is what this header opens.
  */
 export function GoalHeader({ hero, onPress, roadmapLine }: {
   hero: RecoveryHero; onPress: () => void;
@@ -220,7 +230,7 @@ export function GoalHeader({ hero, onPress, roadmapLine }: {
   return (
     <Press onPress={onPress} pressOpacity={0.7} style={styles.goalHead} accessibilityRole="button"
       accessibilityLabel={hero.title + '. ' + hero.progressLine + (roadmapLine ? '. ' + roadmapLine : '')}
-      accessibilityHint={roadmapLine ? 'Opens your roadmap and achievements' : 'Change your goal'}>
+      accessibilityHint={roadmapLine ? 'Opens your roadmap' : 'Change your goal'}>
       <View style={styles.goalText}>
         <Text style={styles.goalTitle} allowFontScaling maxFontSizeMultiplier={1.3}>{hero.title}</Text>
         <Text style={styles.goalLine} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -258,9 +268,16 @@ function splitLoad(load: string): { prefix?: string; minutes: string; effort?: s
 /* ── the activity card ──────────────────────────────────── */
 
 /**
- * The goal, today's suggestion, and — folded — what each activity's
- * sessions have shown. `hero` is null without an answered goal; the
- * card still speaks when there are sessions to read.
+ * The goal, today's suggestion, and — folded — what the record shows.
+ * `hero` is null without an answered goal; the card still speaks when
+ * there are sessions to read.
+ *
+ * QUIET CARD (Tomo pass, 21 Nov 2026). On the surface: the minutes and
+ * the one suggestion, or, with no minutes to name, what the record shows
+ * and what would move it — two short lines either way. Behind "Why?":
+ * the headline that sat under the minutes, the week's line, the
+ * per-activity conclusions with what each rests on, and the note that
+ * was behind its own (i). One fold instead of a toggle and an (i).
  */
 export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, roadmapLine, onRoadmap, activity }: {
   hero: RecoveryHero | null;
@@ -276,7 +293,6 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
   activity?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const detail = !!capacity && (capacity.insights.length > 0 || !!capacity.collecting);
   const load = guidance.recommendedLoad ? splitLoad(guidance.recommendedLoad) : null;
   return (
     <>
@@ -284,12 +300,12 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
         ? <GoalHeader hero={hero} onPress={onRoadmap} roadmapLine={roadmapLine} />
         : <GoalHeader hero={hero} onPress={onEdit} />)}
       <View style={summaryCard.box}>
-        <CardHeader icon={activityIcon(activity)} label="Your activity" meta={load ? load.effort : undefined} />
+        <CardHeader icon={activityIcon(activity)} label="Next session" meta={load ? load.effort : undefined} />
 
         {load ? (
-          /* WITH A NUMBER: the minutes first, as Health leads with the
-             value; then what to consider doing; then what it rests on.
-             VoiceOver hears the load exactly as recovery.ts wrote it. */
+          /* WITH A NUMBER: the minutes, as Health leads with the value,
+             then the suggestion. VoiceOver hears the load exactly as
+             recovery.ts wrote it. */
           <>
             <View style={styles.value} accessible accessibilityLabel={guidance.recommendedLoad!}>
               <BigValue prefix={load.prefix} value={load.minutes} unit="min" />
@@ -297,20 +313,16 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
             <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.3}>
               <Num>{guidance.recommendation}</Num>
             </Text>
-            <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-              <Num>{guidance.headline}</Num>
-            </Text>
           </>
         ) : (
-          /* WITHOUT ONE: the sentences in the order they always had —
-             what the record shows, then what would move it. No value is
-             drawn, because a big number the card does not have would be
-             the one thing on it that is made up. */
+          /* WITHOUT ONE: what the record shows, then what would move it.
+             No value is drawn, because a big number the card does not
+             have would be the one thing on it that is made up. */
           <>
-            <Text style={[summaryCard.sub, styles.first]} allowFontScaling maxFontSizeMultiplier={1.4}>
+            <Text style={[styles.lead, styles.first]} allowFontScaling maxFontSizeMultiplier={1.3}>
               <Num>{guidance.headline}</Num>
             </Text>
-            <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.3}>
+            <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
               <Num>{guidance.recommendation}</Num>
             </Text>
             {!!guidance.recommendedLoad && (
@@ -320,75 +332,86 @@ export function ActivityCard({ hero, guidance, capacity, onEdit, onCheckIn, road
             )}
           </>
         )}
+        {/* the flare note stays on the surface: it is the reason the
+            suggestion is not longer today, and belongs beside it */}
         {!!guidance.note && (
           <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
             {guidance.note}
           </Text>
         )}
-        {/* the "not" line the mockup carries under the minutes: a number
-            this card suggests is the one most likely to be read as an
-            instruction, so the sentence that says it is not one sits in
-            plain view beside it. The full note stays behind the (i). */}
+        {/* the "not" line under the minutes: a number this card suggests
+            is the one most likely to be read as an instruction, so the
+            sentence that says it is not one stays in plain view */}
         {!!guidance.recommendedLoad && (
           <Text style={[summaryCard.fine, styles.fineGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-            From your own sessions — not medical advice.
+            From your own sessions. Not medical advice.
           </Text>
         )}
-        {guidance.checkIn && (
-          <Press onPress={onCheckIn} style={styles.link} accessibilityRole="button" accessibilityLabel="Check in">
-            <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>Check in</Text>
-          </Press>
-        )}
-
-        {/* the per-activity conclusions: the evidence under the one
-            suggestion above, for whoever wants it — folded, because the
-            suggestion is the answer and this is the working */}
-        {detail && (
-          <>
-            <Press onPress={() => setOpen(!open)} style={styles.link} accessibilityRole="button"
-              accessibilityState={{ expanded: open }} accessibilityLabel="What your sessions show">
-              <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {open ? 'Hide' : 'What your sessions show'}
-              </Text>
+        <View style={styles.actions}>
+          {guidance.checkIn && (
+            <Press onPress={onCheckIn} style={styles.link} accessibilityRole="button" accessibilityLabel="Check in">
+              <Text style={styles.linkGo} allowFontScaling maxFontSizeMultiplier={1.3}>Check in</Text>
             </Press>
-            {open && (
-              <View style={styles.detail}>
-                <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  <Num>{capacity!.headline}</Num>
-                </Text>
-                {capacity!.insights.slice(0, 3).map((c) => (
-                  <View key={c.key} style={styles.insight}>
-                    <Text style={styles.insightText} allowFontScaling maxFontSizeMultiplier={1.4}>
-                      <Num>{c.text}</Num>
-                    </Text>
-                    <Text style={[summaryCard.fine, styles.whyGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-                      <Num>{c.why}</Num>
-                    </Text>
-                  </View>
-                ))}
-                {!!capacity!.collecting && (
-                  <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
-                    <Num>{capacity!.collecting}</Num>
-                  </Text>
-                )}
-              </View>
+          )}
+          <Press onPress={() => setOpen(!open)} style={styles.link} accessibilityRole="button"
+            accessibilityState={{ expanded: open }} accessibilityLabel="Why?"
+            accessibilityHint={open ? 'Hides the reasons' : 'Shows what this rests on'}>
+            <Text style={guidance.checkIn ? styles.linkLater : styles.linkGo}
+              allowFontScaling maxFontSizeMultiplier={1.3}>
+              {open ? 'Hide' : 'Why?'}
+            </Text>
+          </Press>
+        </View>
+
+        {/* the working under the one suggestion above, for whoever wants
+            it — folded, because the suggestion is the answer */}
+        {open && (
+          <View style={styles.detail}>
+            {!!load && (
+              <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Num>{guidance.headline}</Num>
+              </Text>
             )}
-          </>
+            {!!capacity && (
+              <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Num>{capacity.headline}</Num>
+              </Text>
+            )}
+            {!!capacity && capacity.insights.slice(0, 3).map((c) => (
+              <View key={c.key} style={styles.insight}>
+                <Text style={styles.insightText} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  <Num>{c.text}</Num>
+                </Text>
+                <Text style={[summaryCard.fine, styles.whyGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  <Num>{c.why}</Num>
+                </Text>
+              </View>
+            ))}
+            {!!capacity && !!capacity.collecting && (
+              <Text style={[summaryCard.sub, styles.subGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+                <Num>{capacity.collecting}</Num>
+              </Text>
+            )}
+            <Text style={[summaryCard.fine, styles.noteGap]} allowFontScaling maxFontSizeMultiplier={1.4}>
+              <Num>{ACTIVITY_NOTE}</Num>
+            </Text>
+          </View>
         )}
-        <InfoTip label="What this is based on" text={ACTIVITY_NOTE} />
       </View>
     </>
   );
 }
 
-/** what the card is and is not — inside the card, behind its (i). The
- *  two notes the old cards carried, said once. */
+/** what the card is and is not — inside the card, behind its "Why?".
+ *  Cut to what a reader needs (Tomo pass, 21 Nov 2026); the rule, the
+ *  reasons a morning can be harder, and "not medical advice" stay. */
 export const ACTIVITY_NOTE =
-  'Read from your own sessions: a session went fine when your next morning’s check-in was less than '
-  + CAPACITY_HARDER_POINTS + ' points above that day’s morning. It shows what followed your sessions, '
-  + 'not what caused anything. A morning can also be harder for reasons that have nothing to do with the session — a bad night, a flare, or the morning stiffness some conditions bring — which is why one harder morning only holds the next step, and never sets it back on its own. Soreness after exercise is common and is not damage. Effort is Apple’s '
-  + '1–10 from your Watch or your own rating in Fitness. This is not medical advice, and a clinician’s '
-  + 'plan comes first.';
+  'A session went fine when your next morning’s check-in was less than ' + CAPACITY_HARDER_POINTS
+  + ' points above that day’s morning. That shows what followed, not what caused it. A morning can be '
+  + 'harder for reasons that have nothing to do with the session — a bad night, a flare, '
+  + 'morning stiffness — so one harder morning only holds the next step. Soreness after exercise is common and '
+  + 'is not damage. Effort is Apple’s 1–10 from your Watch or Fitness. Not medical advice; a '
+  + 'clinician’s plan comes first.';
 
 const styles = StyleSheet.create({
   card: {
@@ -420,6 +443,7 @@ const styles = StyleSheet.create({
   subGap: { marginTop: 6 },
   fineGap: { marginTop: 10 },
   whyGap: { marginTop: 4 },
+  noteGap: { marginTop: 14 },
   load: { color: summary.text, fontSize: font.subheadline, lineHeight: 21, marginTop: 4 },
   detail: { marginTop: 2 },
   insight: { marginTop: 12 },

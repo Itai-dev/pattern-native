@@ -18,6 +18,13 @@
  * Delete is a #1C1C1E capsule in white, not a red word: it asks first,
  * the alert carries the system's destructive red, and a hue on a screen
  * about a flare reads as part of the flare.
+ *
+ * TOMO PASS, 21 NOV 2026: the questions are as short as a person in a
+ * flare can read them, the examples in the fields are a few words, and
+ * the two sentences under answers are one short line each. Both stay:
+ * "your impression; Pattern doesn't advise" is what keeps a "Better"
+ * from reading as advice, and "never as a cause" is the events-are-
+ * not-triggers rule said where the event is written.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -48,7 +55,7 @@ const BUTTON_H = 54;
  *  unanswered stays out of the row entirely (see save). A sighted
  *  person sees the pill let go; VoiceOver only hears "selected", so it
  *  is told. Not on "What happened?", which always has an answer. */
-const CLEAR_HINT = 'Double-tap again to clear this answer';
+const CLEAR_HINT = 'Double-tap again to clear';
 
 export interface EventSheetProps {
   /** present = edit this event instead of creating a new one */
@@ -175,8 +182,7 @@ export default function EventSheet({
   const confirmDelete = () => {
     Alert.alert(
       'Delete this event?',
-      'The ' + fmtClock(event!.h) + ' ' + EVENT_LABELS[event!.kind].toLowerCase() +
-        ' event will be removed. This cannot be undone.',
+      'This can’t be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -221,7 +227,7 @@ export default function EventSheet({
     if (!dirty) { onClose(); return; }
     Alert.alert(
       editing ? 'Discard your changes?' : 'Discard this event?',
-      editing ? 'The event stays as it was before you opened it.' : 'Nothing here has been saved.',
+      editing ? 'The event stays as it was.' : 'Nothing here has been saved.',
       [
         { text: 'Keep editing', style: 'cancel' },
         { text: 'Discard', style: 'destructive', onPress: onClose },
@@ -270,7 +276,7 @@ export default function EventSheet({
           hitSlop={10}
           accessibilityRole="button"
           accessibilityState={{ disabled: saving }}
-          accessibilityLabel="Save event"
+          accessibilityLabel="Save"
         >
           <Text style={[styles.navBtnText, styles.navBtnStrong, saving && styles.navBtnOff]}
             maxFontSizeMultiplier={1.4}>
@@ -373,8 +379,7 @@ export default function EventSheet({
 
             <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How did it go?</Text>
             <Text style={styles.sub}>
-              Your own impression, afterwards. Pattern records it; it does not
-              advise on treatment.
+              Your impression. Pattern doesn’t advise on treatment.
             </Text>
             <View style={styles.pickRow}>
               {RESPONSES.map((r) => {
@@ -405,7 +410,7 @@ export default function EventSheet({
                 the sheet says so rather than silently hiding it */}
             {editing && event!.helped != null && (
               <Text style={styles.sub}>
-                <Num>{'Recorded earlier as ' + event!.helped + '/10 on the old scale — kept as it was.'}</Num>
+                <Num>{'Recorded as ' + event!.helped + '/10 on the old scale. Kept.'}</Num>
               </Text>
             )}
           </>
@@ -448,25 +453,25 @@ export default function EventSheet({
             <TextInput
               value={doing}
               onChangeText={setDoing}
-              placeholder="e.g. carrying shopping up the stairs"
+              placeholder="e.g. carrying shopping"
               placeholderTextColor={color.textTertiary}
               style={styles.input}
               multiline
-              accessibilityLabel="What you were doing when it started"
+              accessibilityLabel="What you were doing"
             />
 
-            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">Does it spread anywhere?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">Does it spread?</Text>
             <TextInput
               value={spread}
               onChangeText={setSpread}
-              placeholder="e.g. down the back of my left leg"
+              placeholder="e.g. down my left leg"
               placeholderTextColor={color.textTertiary}
               style={styles.input}
               multiline
-              accessibilityLabel="Where the pain spreads to"
+              accessibilityLabel="Where it spreads"
             />
 
-            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How long has it lasted?</Text>
+            <Text style={[styles.q, styles.qLater]} accessibilityRole="header">How long so far?</Text>
             <View style={styles.pickRow}>
               {DURATIONS.map((d) => {
                 const on = duration === d;
@@ -499,14 +504,14 @@ export default function EventSheet({
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder={kind === 'treatment' ? 'e.g. 20 minutes, on the lower back' : 'Optional'}
+          placeholder={kind === 'treatment' ? 'e.g. 20 min, lower back' : 'Optional'}
           placeholderTextColor={color.textTertiary}
           style={styles.input}
           multiline
-          accessibilityLabel="Optional note"
+          accessibilityLabel="Note"
         />
         <Text style={styles.sub}>
-          Events are shown alongside your check-ins without assuming they caused a change.
+          Shown beside your check-ins, never as a cause.
         </Text>
 
         {editing && (
@@ -515,10 +520,10 @@ export default function EventSheet({
             pressScale={0.97}
             style={styles.deleteRow}
             accessibilityRole="button"
-            accessibilityLabel="Delete this event"
+            accessibilityLabel="Delete event"
           >
             <Icon name="trash" size={17} color={summary.text} />
-            <Text style={styles.deleteText} maxFontSizeMultiplier={1.4}>Delete this event</Text>
+            <Text style={styles.deleteText} maxFontSizeMultiplier={1.4}>Delete event</Text>
           </Press>
         )}
       </ScrollView>

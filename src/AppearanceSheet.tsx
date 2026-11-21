@@ -39,9 +39,10 @@ export default function AppearanceSheet({ onPick, onDone }: AppearanceSheetProps
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {/* what the swatches mean, kept beside them (Tomo pass, 21 Nov
+            2026: one line, not a paragraph) */}
         <Text style={styles.lede}>
-          The colour that carries your pain scale. Lighter always means less,
-          darker always means more — only the hue changes.
+          Lighter is less, darker is more. Only the hue changes.
         </Text>
 
         <View style={styles.group}>

@@ -6,6 +6,12 @@
  * person deciding whether to trust Pattern with their pain does not
  * have to leave it to find out what it does with the answer. Update
  * both when either changes — the date under the title is the check.
+ *
+ * Tomo pass, 21 Nov 2026: the in-app wording was tightened by about a
+ * third. Every claim is still here, none softened or added, so the
+ * date did not move; docs/privacy.html keeps the long form. Shorten a
+ * sentence here, never a promise — and if a promise changes, both
+ * texts and the date change together.
  */
 import React from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -20,49 +26,49 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'What stays on your device',
     body: [
-      'Every check-in: pain score, time, body areas, quality words. Everything you write: notes, what you tried, the one thing you are testing for a fortnight. Your answers to the daily questions, and which questions were asked or skipped. Events, reminders, and your app preferences.',
-      'This lives in a database inside the app’s own storage, protected by your device’s encryption and passcode. Deleting Pattern deletes all of it.',
-      'Your record is part of your iPhone’s own backup — iCloud Backup, or a backup to a computer — if you have one turned on. That backup is Apple’s, made and encrypted under your Apple Account; Pattern does not make it, cannot see it and cannot turn it off. It is what brings your record back on a new phone, and it is the only copy anywhere other than one you save yourself.',
+      'Every check-in (pain score, time, body areas, quality words), everything you write (notes, what you tried, what you are testing for a fortnight), your answers to the daily questions and which were asked or skipped, events, reminders and your preferences.',
+      'It lives in the app’s own storage, protected by your device’s encryption and passcode. Deleting Pattern deletes all of it.',
+      'It is part of your iPhone’s own backup — iCloud Backup, or a backup to a computer — if you have one on. That backup is Apple’s, made and encrypted under your Apple Account; Pattern does not make it, cannot see it and cannot turn it off. It is how a new phone gets your record back, and the only copy other than one you save yourself.',
     ],
   },
   {
     title: 'What is sent',
     body: [
-      'Pattern counts anonymous usage events so we can tell whether the app is actually being used — for example that a check-in was completed, roughly how many seconds it took, and whether the record was opened.',
-      'These counts never contain anything you told us about your body. No pain score, no body area, no answer, no note, no free text of any kind. This is enforced in the code: event names come from a fixed list, and any accompanying value is a number, a true-or-false, or a string capped at 24 characters — long enough for “evening”, far too short for anything a person wrote about themselves.',
-      'Events are sent to Aptabase, an open-source analytics service, on servers in the European Union. They are tied to a session identifier that changes every time the app starts and is linked to nothing and to no one; there is no lasting identifier for your device or for you. Alongside each event, Aptabase records the standard technical context: your operating system version, the app version, and your device’s language setting.',
-      'You can turn this off. Open Profile and switch off “Share anonymous usage counts”. Nothing is sent after that.',
-      'Separately, when Pattern opens it asks Expo’s update service whether a newer version of the app’s code is available, the way many apps update between App Store releases. That request carries the app’s version and platform and an installation identifier for the update system — never anything from your record, and it is not analytics.',
+      'Anonymous usage counts, so we can tell whether the app is used — for example that a check-in was completed, roughly how many seconds it took, and whether the record was opened.',
+      'They never contain anything about your body: no pain score, body area, answer, note or free text of any kind. The code enforces it — event names come from a fixed list, and each value is a number, a true-or-false, or at most 24 characters.',
+      'They go to Aptabase, an open-source analytics service, on servers in the European Union, tied to a session identifier that changes every launch and is linked to nothing and no one. There is no lasting identifier for your device or for you. Aptabase also records your operating system version, the app version and your device’s language.',
+      'Turn it off in Profile with “Anonymous usage counts”. Nothing is sent after that.',
+      'Separately, when Pattern opens it asks Expo’s update service whether newer app code is available. That request carries the app’s version, platform and an installation identifier for updates — never anything from your record. It is not analytics.',
     ],
   },
   {
     title: 'What we never do',
     body: [
-      'No advertising, and no advertising identifiers. No selling or sharing of data with anyone, for any purpose. No third-party trackers or SDKs beyond the analytics named above. No location tracking. No contact list, photo, or microphone access. Calendar access only if you turn it on, and then read-only.',
+      'No advertising or advertising identifiers. No selling or sharing of data with anyone, for any purpose. No third-party trackers or SDKs beyond the analytics above. No location tracking. No contacts, photos or microphone. Calendar only if you turn it on, and then read-only.',
     ],
   },
   {
     title: 'When you share something yourself',
     body: [
-      'Pattern can produce a PDF summary of your record for a clinician. It is generated on your device and handed to the iOS share sheet — it goes only where you send it, and never to us. The same is true of the copy of your record you can save: it is written locally, and what happens to it afterwards is entirely your choice.',
+      'The PDF for a clinician is made on your device and handed to the iOS share sheet. It goes only where you send it, never to us. A copy of your record you save is the same: written locally, and yours to place.',
     ],
   },
   {
     title: 'Apple Health',
     body: [
-      'If you connect Apple Health, Pattern reads only the categories you choose, never writes to Health, and keeps what it reads on this iPhone — apart from your record, in a place iOS leaves out of backups, so a new phone reads Health afresh rather than inheriting readings it never took. It is not in a copy you save, and it is removed when you disconnect.',
+      'If you connect it, Pattern reads only the categories you choose and never writes to Health. What it reads stays on this iPhone, apart from your record and outside backups, so a new phone reads Health afresh. It is not in a copy you save, and disconnecting removes it.',
     ],
   },
   {
     title: 'Your calendar',
     body: [
-      'If you turn on “Use my calendar” in Profile, Pattern reads the titles and times of your calendar events on this iPhone, to ask about your pain after the ones that read as exertion and to show what is booked against your own record. It never writes to your calendar — the one action it offers opens Apple’s own event editor. What it reads is not stored, is not in a saved copy, and is not sent anywhere.',
+      'If you turn on “Use my calendar”, Pattern reads event titles and times on this iPhone — to ask about pain after the ones that read as exertion, and to show what is booked beside your record. It never writes to your calendar; its one action opens Apple’s own editor. What it reads is not stored, not in a saved copy, and not sent.',
     ],
   },
   {
     title: 'Reminders',
     body: [
-      'Reminders are scheduled locally by iOS. No push server is involved and no notification content leaves your phone.',
+      'Scheduled locally by iOS. No push server, and no notification content leaves your phone.',
     ],
   },
   {
@@ -74,19 +80,19 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: 'Your rights',
     body: [
-      'Because your health record never reaches us, there is nothing for us to hand over, correct, or delete on your behalf — you already hold all of it, and deleting the app erases it. For the anonymous usage counts, switching analytics off in Profile stops collection; because those counts are not linked to your identity, we cannot single out or retrieve past events for an individual person.',
+      'Your health record never reaches us, so there is nothing for us to hand over, correct or delete — you hold all of it, and deleting the app erases it. Switching usage counts off stops collection; they are not linked to your identity, so we cannot single out past events for one person.',
     ],
   },
   {
     title: 'Medical disclaimer',
     body: [
-      'Pattern is a record-keeping tool, not a medical device. It does not diagnose, treat, or give medical advice, and nothing it shows you is a clinical finding. Always speak to a qualified healthcare professional about your symptoms.',
+      'Pattern is a record-keeping tool, not a medical device. It does not diagnose, treat or give medical advice, and nothing it shows is a clinical finding. Always speak to a qualified healthcare professional about your symptoms.',
     ],
   },
   {
     title: 'Changes',
     body: [
-      'If this policy changes in a way that affects what is collected, the date at the top will change and the app will say so before the change takes effect.',
+      'If what is collected changes, the date at the top changes and the app says so before it takes effect.',
     ],
   },
 ];
@@ -115,14 +121,13 @@ export default function PrivacySheet({ onDone, contactEmail }: PrivacySheetProps
           <Num>{'Last updated ' + PRIVACY_UPDATED}</Num>
         </Text>
         <Text style={styles.lede} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Nothing you record about your body is ever sent to Pattern. Your pain
-          scores, body areas, descriptions, notes and answers are stored on
-          your iPhone, and Pattern has no server that could receive them.
+          Nothing you record about your body is ever sent to Pattern. It is
+          stored on your iPhone, and Pattern has no server that could
+          receive it.
         </Text>
         <Text style={styles.p} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Pattern has no accounts, no login, and no cloud sync of its own.
-          There is nowhere for us to store your health record even if we
-          wanted to, and no way for us to read it.
+          No accounts, no login, no cloud sync of its own. There is nowhere
+          for us to store your health record, and no way for us to read it.
         </Text>
         {SECTIONS.map((s) => (
           <View key={s.title} style={styles.section}>
@@ -141,7 +146,7 @@ export default function PrivacySheet({ onDone, contactEmail }: PrivacySheetProps
             accessibilityLabel={'Email ' + contactEmail}
           >
             <Text style={[styles.p, styles.link]} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Questions about privacy, or anything else: {contactEmail}
+              Questions: {contactEmail}
             </Text>
           </Press>
         </View>

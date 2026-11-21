@@ -21,6 +21,11 @@
  * this app is a pain value; clearing a date is not one, and it is undone
  * by setting it again. The row keeps Profile's geometry so it lines up
  * with its neighbours, with the calendar as a white SF Symbol.
+ *
+ * TOMO PASS, 21 NOV 2026: the picker's line under the title is one
+ * short sentence, "Today offers the PDF two days before." The second
+ * ("Nothing else is done with the date") went: the sheet has nothing
+ * else on it to do anything with.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -86,7 +91,7 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
         style={settings.row}
         accessibilityRole="button"
         accessibilityLabel={'Next appointment, ' + (value ? fmtDay(value) : 'not set')}
-        accessibilityHint="Opens a date picker. Two days before, Today offers the PDF."
+        accessibilityHint="Today offers the PDF two days before"
       >
         <RowIcon name="calendar.badge.clock" />
         <View style={settings.rowMain}>
@@ -114,8 +119,7 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
             <View style={styles.grabber} accessibilityElementsHidden importantForAccessibility="no" />
             <Text style={styles.title} accessibilityRole="header">Next appointment</Text>
             <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Two days before, Today will offer the PDF. Nothing else is
-              done with the date.
+              Today offers the PDF two days before.
             </Text>
             <DateTimePicker
               value={dateFromISO(draft)}
@@ -133,7 +137,7 @@ export default function AppointmentRow({ value, onChange, openOnMount }: Appoint
             </Pressable>
             {!!value && (
               <Pressable onPress={clear} style={styles.clearBtn}
-                accessibilityRole="button" accessibilityLabel="Clear the appointment">
+                accessibilityRole="button" accessibilityLabel="Clear">
                 <Text style={styles.clearText}>Clear</Text>
               </Pressable>
             )}

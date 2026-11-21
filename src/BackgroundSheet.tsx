@@ -58,9 +58,9 @@ const HINTS: Record<string, string> = {
  *  The same nine fields as the form — the interview is pacing, not a
  *  different document. */
 const QUESTIONS: Record<string, string> = {
-  body: 'To start — anything about you that feels relevant?',
+  body: 'Anything about you that feels relevant?',
   onset: 'How did this pain begin?',
-  diagnoses: 'Anything more about a diagnosis — who made it, when, what was ruled out?',
+  diagnoses: 'Anything more about a diagnosis?',
   medications: 'What do you take regularly?',
   allergies: 'Any allergies worth knowing about?',
   lifestyle: 'What does an ordinary week look like?',
@@ -153,15 +153,16 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
         >
+          {/* Tomo pass, 21 Nov 2026: two paragraphs to two lines. The
+              audience is still named first, and the promise kept whole:
+              on this iPhone, never analysed, printed as written, only in
+              a PDF the person shares. */}
           <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.4}>
-            This goes on the first page of the PDF you share with a clinician —
-            the background they would otherwise ask for in the room. In your own
-            words; every field is optional.
+            Page one of the PDF, in your words. Every field is optional.
           </Text>
           <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Kept on this iPhone with the rest of your record. Nothing here is
-            analysed or compared — it is printed exactly as written, only in the
-            PDF you choose to share.
+            Kept on this iPhone. Never analysed — printed as written, only in
+            a PDF you share.
           </Text>
 
           {BACKGROUND_FIELDS.map(({ key, label }) => (
@@ -192,9 +193,7 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
             What you said
           </Text>
           <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Exactly as written, and exactly how it will print on the first page
-            of the PDF. Tap anything to change it; everything can
-            be edited later from Profile.
+            This is how it prints. Tap an answer to change it.
           </Text>
           {BACKGROUND_FIELDS.map(({ key, label }, i) => (
             draft[key].trim() ? (
@@ -217,8 +216,7 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
           ))}
           {BACKGROUND_FIELDS.every(({ key }) => !draft[key].trim()) && (
             <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              Nothing yet — every question was skipped.
-              The PDF leaves the background section out.
+              Every question skipped. The PDF leaves this out.
             </Text>
           )}
           <Press
@@ -243,9 +241,8 @@ export default function BackgroundSheet({ onClose }: BackgroundSheetProps) {
             </Text>
             {at === 0 && (
               <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
-                A few questions, one at a time — the background a clinician
-                would ask for in the room, for the first page of the PDF.
-                Skip anything; it all stays on this iPhone, in your words.
+                For page one of the PDF. Skip anything; it stays on this
+                iPhone, in your words.
               </Text>
             )}
             <TextInput

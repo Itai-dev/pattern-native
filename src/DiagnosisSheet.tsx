@@ -64,15 +64,16 @@ export default function DiagnosisSheet({ onClose }: DiagnosisSheetProps) {
         <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.3}>
           Do you have a diagnosis?
         </Text>
+        {/* Tomo pass, 21 Nov 2026: the paragraph on what each answer
+            makes Pattern went — each row says it for itself. What is
+            left is the one thing a returning person needs (it can
+            change) and where it goes and does not go. */}
         <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.4}>
-          It decides what Pattern is for you. Without one, it helps you build
-          a clearer picture to bring to your doctor. With one, it helps you
-          see what affects your pain and what keeps you active. Change it
-          whenever it changes.
+          Change it whenever it changes.
         </Text>
         <Text style={styles.leadFine} allowFontScaling maxFontSizeMultiplier={1.4}>
-          Printed on the first page of the PDF, exactly as you set it
-          here. Kept on this iPhone; never analysed, never sent.
+          Printed on page one of the PDF, as you set it. Kept on this
+          iPhone; never analysed, never sent.
         </Text>
         <View style={styles.step}>
           <DiagnosisStep draft={draft} onChange={setDraft} />

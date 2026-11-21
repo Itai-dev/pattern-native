@@ -39,6 +39,14 @@
  * colour, which made a "burning" or a "left knee" look like a score —
  * a chip is a word the person marked, and only a pain value takes the
  * ramp. Every number is in the rounded face.
+ *
+ * TOMO PASS, 21 NOV 2026: short labels and one line of fine print. The
+ * pill says "9:00 check-in", the sections are bare questions, the note's
+ * three-sentence footer is one ("Never analysed. In the PDF only if you
+ * choose." — the on-phone promise is the whole app's, not this field's), the
+ * event door has the event sheet's own name, and the closing paragraph
+ * is "All optional. Never read as a cause." — the attribution rule,
+ * kept, in six words.
  */
 import React, { useMemo, useState } from 'react';
 import {
@@ -220,7 +228,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           pressOpacity={0.7}
           style={styles.qNoteAdd}
           accessibilityRole="button"
-          accessibilityLabel={'Add a note about: ' + m.name}
+          accessibilityLabel={'Add a note: ' + m.name}
         >
           <Icon name="plus" size={15} color={summary.secondary} weight="semibold" />
           <Text style={styles.qNoteAddText}>Add a note</Text>
@@ -231,7 +239,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
       <TextInput
         value={notes[m.id] || ''}
         onChangeText={(t) => setNotes((n) => ({ ...n, [m.id]: t }))}
-        placeholder={m.notePlaceholder || 'In your own words — optional'}
+        placeholder={m.notePlaceholder || 'In your words'}
         placeholderTextColor={color.textTertiary}
         style={styles.input}
         multiline
@@ -270,7 +278,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
               accessibilityLabel={l.label}
-              accessibilityHint={on ? 'Tap again to unselect' : undefined}
+              accessibilityHint={on ? 'Tap again to clear' : undefined}
               style={({ pressed }) => [
                 styles.optRow, on && styles.optRowOn, pressed && { opacity: 0.8 },
               ]}
@@ -345,7 +353,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           style={[styles.navBtn, styles.navRight]}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel="Save and close"
+          accessibilityLabel="Done"
         >
           <Text style={[styles.navBtnText, styles.navBtnStrong]} maxFontSizeMultiplier={1.4}>Done</Text>
         </Press>
@@ -354,8 +362,7 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
       {!entry ? (
         <View style={styles.body}>
           <Text style={styles.lead} allowFontScaling maxFontSizeMultiplier={1.4}>
-            Information goes with a check-in, and there isn’t one on this day to
-            add it to.
+            No check-in on this day yet.
           </Text>
         </View>
       ) : (
@@ -367,17 +374,14 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
         >
           {/* which check-in the chips below belong to — said once, at
               the top, so an answer about "where" is never ambiguous
-              about when */}
-          {/* as a pill, the check-in sheet's context pill: a label, not a
-              control */}
+              about when. A pill: a label, not a control */}
           <View style={styles.about}>
             <Icon name="clock.fill" size={13} color={PILL_INK} />
             <Text style={styles.aboutText} allowFontScaling maxFontSizeMultiplier={1.4}>
               <Num>
                 {moment
-                  ? 'About the ' + fmtClock(moment.h) + ' check-in'
-                    + (isToday ? '' : ' on ' + fmtDay(dateIso))
-                  : isToday ? 'About today' : 'About ' + fmtDay(dateIso)}
+                  ? fmtClock(moment.h) + ' check-in' + (isToday ? '' : ' · ' + fmtDay(dateIso))
+                  : isToday ? 'Today' : fmtDay(dateIso)}
               </Num>
             </Text>
           </View>
@@ -385,14 +389,14 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           {moment && (
             <>
               {/* ── where ─────────────────────────────────────
-                  The main places, your usual ones first. "Show every
-                  place" ADDS the sided vocabulary below in anatomical
+                  The main places, your usual ones first. "More
+                  places" ADDS the sided vocabulary below in anatomical
                   sections; the main chips stay put, because more
                   precision must never rearrange what is already on
                   screen. Both levels share one selection. */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-                  Where in your body?
+                  Where?
                 </Text>
                 {/* the shortcut, only while nothing is chosen: once you
                     have said where it hurts, an offer to overwrite that
@@ -421,9 +425,9 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                     style={styles.more}
                     pressOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel="Show every place, left and right, in sections"
+                    accessibilityLabel="More places, left and right"
                   >
-                    <Text style={styles.moreText}>Show every place</Text>
+                    <Text style={styles.moreText}>More places</Text>
                     <Icon name="chevron.down" size={12} color={summary.secondary} weight="semibold" />
                   </Press>
                 ) : (
@@ -453,8 +457,8 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
                 </View>
                 {!allWords && (
                   <Press onPress={() => setAllWords(true)} style={styles.more} pressOpacity={0.7}
-                    accessibilityRole="button" accessibilityLabel="Show every word">
-                    <Text style={styles.moreText}>Show every word</Text>
+                    accessibilityRole="button" accessibilityLabel="More words">
+                    <Text style={styles.moreText}>More words</Text>
                     <Icon name="chevron.down" size={12} color={summary.secondary} weight="semibold" />
                   </Press>
                 )}
@@ -489,21 +493,19 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
           {/* ── the note ──────────────────────────────────── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.4}>
-              {isToday ? 'A note about today' : 'A note about this day'}
+              Note for the day
             </Text>
             <TextInput
               value={noteDraft}
               onChangeText={setNoteDraft}
               multiline
-              placeholder="Anything about this day worth remembering"
+              placeholder="Anything worth remembering"
               placeholderTextColor={color.textTertiary}
               style={[styles.input, styles.noteInput]}
               accessibilityLabel={isToday ? 'Note about today' : 'Note about this day'}
             />
             <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-              One note per day, in your words. Kept on this iPhone with the rest of
-              your record. Never analysed — it goes into the PDF only if you say so
-              when you share.
+              Never analysed. In the PDF only if you choose.
             </Text>
           </View>
 
@@ -515,20 +517,19 @@ export default function AddInfoSheet({ dateIso, h, onDone, onClose, onEvent }: A
               pressOpacity={0.7}
               style={styles.eventRow}
               accessibilityRole="button"
-              accessibilityLabel="Something happened: log a flare or treatment"
-              accessibilityHint="Closes this sheet and opens the flare or treatment questions"
+              accessibilityLabel="Flare or treatment"
+              accessibilityHint="Opens the flare or treatment sheet"
             >
               <Icon name="flame.fill" size={18} color={summary.text} />
               <Text style={styles.eventLink} allowFontScaling maxFontSizeMultiplier={1.3}>
-                Something happened? Log a flare or treatment
+                Flare or treatment
               </Text>
               <Icon name="chevron.right" size={14} color={summary.chevron} weight="semibold" />
             </Press>
           )}
 
           <Text style={styles.fine} allowFontScaling maxFontSizeMultiplier={1.4}>
-            All of this is optional. A check-in with the number alone is complete;
-            what you add here is shown back as what you marked, never read as a cause.
+            All optional. Never read as a cause.
           </Text>
         </ScrollView>
       )}

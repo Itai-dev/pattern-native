@@ -33,12 +33,13 @@ import {
 import { fmtClock } from './clock';
 import { Num, ROUNDED } from './SummaryCard';
 import { ROW_TEXT_X, RowIcon, list, settings } from './SettingsList';
+import { InfoGlyph } from './InfoTip';
 import { color, font, radius } from './theme';
 
 const LABELS: Record<Slot['key'], string> = { m: 'Morning', d: 'Midday', e: 'Evening' };
 /** a slot's time as the phone writes times */
 const fmt = (s: Slot) => fmtClock(s.hour * 60 + s.minute);
-const DENIED = 'Notifications are off for Pattern — turn them on in iPhone Settings.';
+const DENIED = 'Notifications are off. Turn them on in iPhone Settings.';
 
 export default function RemindersSection() {
   const [slots, setSlots] = useState<Slot[]>(() => savedSlots());
@@ -51,6 +52,9 @@ export default function RemindersSection() {
 
   const anyOn = slots.some((sl) => sl.on);
   const [adaptive, setAdaptiveState] = useState<boolean>(() => adaptiveOn());
+  /* what Follow Apple Health does, folded behind the (i) — open for this
+     look only, like every InfoTip */
+  const [whyOpen, setWhyOpen] = useState(false);
 
   /* the status line says what will actually fire today — learned times
      starred, and the after-something prompts named — so a moved hour
@@ -163,19 +167,26 @@ export default function RemindersSection() {
       </View>
 
       {/* the learned schedule. Under the daily switch because it only
-          means anything with one on; visible always, because a moved
-          hour needs its explanation within reach */}
+          means anything with one on. Tomo pass, 21 Nov 2026: its
+          paragraph is one tap away behind the (i), not always on — a
+          moved hour's explanation is still within reach, and the * in
+          the status line is still explained there. */}
       {anyOn && (
         <View style={styles.subRow}>
           <View style={[settings.rowMain, settings.rowRuleTop, styles.subMain]}>
             <View style={{ flex: 1 }}>
-              <Text style={settings.rowLabel}>Follow Apple Health</Text>
-              <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
-                Morning after you usually wake, evening before you usually sleep, a prompt
-                after the workouts and doses Health sees you log, before and after what your
-                calendar reads as exertion — and your workout budget before a usual workout,
-                once your record has one. Times marked * were learned.
-              </Text>
+              <View style={styles.labelRow}>
+                <Text style={[settings.rowLabel, styles.labelTight]}>Follow Apple Health</Text>
+                <InfoGlyph open={whyOpen} onPress={() => setWhyOpen((v) => !v)}
+                  label="What Follow Apple Health does" />
+              </View>
+              {whyOpen && (
+                <Text style={styles.hint} allowFontScaling maxFontSizeMultiplier={1.4}>
+                  Morning after you usually wake, evening before you sleep, after
+                  workouts and doses, around busy calendar events, and your budget
+                  before a usual workout. Times marked * were learned.
+                </Text>
+              )}
             </View>
             <Switch
               value={adaptive}
@@ -215,7 +226,7 @@ export default function RemindersSection() {
           does" line in Profile sits with the thing it qualifies. Its
           times are numbers, so they are rounded. */}
       <Text style={styles.sub} allowFontScaling maxFontSizeMultiplier={1.4}>
-        <Num>{status || 'Gentle notifications at your times. Scheduled on this phone — nothing is sent anywhere, and a slot stays quiet on a day you have already checked in around then.'}</Num>
+        <Num>{status || 'Set on this iPhone, nothing sent. Quiet if you have already checked in.'}</Num>
       </Text>
 
       {/* the iPhone's own wheel, in a bottom card — Done is the only button,
@@ -269,6 +280,9 @@ const styles = StyleSheet.create({
   },
   customise: { color: list.text, fontSize: font.subheadline, fontWeight: '600' },
   hint: { color: list.tertiary, fontSize: font.footnote, lineHeight: 18, marginTop: 3 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  /* the (i) sits beside the words, not pushed against the switch */
+  labelTight: { flex: 0, flexShrink: 1 },
   /* a time is a number, so it is rounded; its chip is the grey a
      control takes on the card, never a hue */
   time: {

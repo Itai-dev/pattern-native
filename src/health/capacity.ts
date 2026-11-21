@@ -198,7 +198,12 @@ export function activityLevel(
 /* ── the conclusions ─────────────────────────────────────────
    Fixed sentence shapes, the numbers inserted. Each is one thing to
    know and, where there is one, one thing to do. Never "great job",
-   never a verdict on today, never a pain number. */
+   never a verdict on today, never a pain number.
+
+   Tomo pass, 21 Nov 2026: each shape cut to the activity and its next
+   step — "Easy walking went fine. Next time, 33 minutes." The "Your
+   … sessions" frame and the restated "rather than longer" went; the
+   minutes say it. "Followed", never "caused", stays. */
 
 export interface Insight {
   key: string;
@@ -217,37 +222,42 @@ function named(activity: string, band: EffortBand | null): string {
   return band ? band + ' ' + activity : activity;
 }
 
+/** the same, opening a sentence */
+function Named(activity: string, band: EffortBand | null): string {
+  const n = named(activity, band);
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
 /** confidence, in words: "so far" until the level rests on a full window */
 function sofar(l: ActivityLevel): string {
   return l.known >= CAPACITY_RECENT ? '' : ' so far';
 }
 
 function whyOf(l: ActivityLevel): string {
-  const who = named(l.activity, l.band);
-  const base = l.fine + ' of your last ' + l.known + ' ' + who + ' sessions went fine'
-    + (l.fine === 1 ? ', and it lasted about ' + l.level + ' minutes.'
-      : l.fine ? ', and those usually lasted about ' + l.level + ' minutes.' : '.');
-  return l.band ? base : base + ' Apple Health had no effort for these sessions, so they are read together.';
+  const base = Named(l.activity, l.band) + ': ' + l.fine + ' of your last ' + l.known + ' went fine'
+    + (l.fine === 1 ? ', about ' + l.level + ' minutes.'
+      : l.fine ? ', usually about ' + l.level + ' minutes.' : '.');
+  return l.band ? base : base + ' No effort recorded, so read together.';
 }
 
 export function levelInsight(l: ActivityLevel): Insight {
   const who = named(l.activity, l.band);
+  const Who = Named(l.activity, l.band);
   const key = 'level.' + l.activity + '.' + (l.band || 'none');
   let text: string;
   let rank: number;
   if (l.step === 'up') {
     rank = 3;
-    text = 'Your ' + who + ' sessions went fine' + sofar(l) + '. Next time, '
-      + l.next + ' minutes.';
+    text = Who + ' went fine' + sofar(l) + '. Next time, ' + l.next + ' minutes.';
   } else if (l.step === 'hold') {
     rank = 2;
-    text = 'Your last ' + who + ' session was followed by a harder next morning. Next time, '
-      + l.next + ' minutes again, rather than longer.';
+    text = 'A harder morning followed your last ' + who + ' session. Next time, '
+      + l.next + ' minutes again.';
   } else {
     rank = 1;
     const easier = l.band === 'hard' ? ' or a moderate effort instead' : l.band === 'moderate' ? ' or an easy effort instead' : '';
-    text = 'Your recent ' + who + ' sessions were mostly followed by a harder next morning. '
-      + 'Next time, ' + l.next + ' minutes' + easier + ', then building back up.';
+    text = 'Harder mornings mostly followed recent ' + who + ' sessions. '
+      + 'Next time, ' + l.next + ' minutes' + easier + ', then build back up.';
   }
   return { key, text, why: whyOf(l), last: l.last, rank };
 }
@@ -262,8 +272,8 @@ export function levelInsight(l: ActivityLevel): Insight {
 function contrastInsight(good: ActivityLevel, bad: ActivityLevel): Insight {
   return {
     key: 'contrast.' + good.activity,
-    text: 'Your ' + named(good.activity, good.band) + ' sessions went fine; the ' + bad.band
-      + ' ones were mostly followed by a harder next morning. Next time, ' + good.next
+    text: Named(good.activity, good.band) + ' went fine; harder mornings mostly followed '
+      + named(bad.activity, bad.band) + '. Next time, ' + good.next
       + ' minutes at ' + (good.band === 'easy' ? 'an easy' : 'a moderate') + ' effort.',
     why: whyOf(good) + ' ' + whyOf(bad),
     last: good.last > bad.last ? good.last : bad.last,
@@ -314,9 +324,9 @@ function headlineOf(all: Session[], todayIso: string): string {
   const bands = (['easy', 'moderate', 'hard'] as EffortBand[]).filter((b) => mins[b]);
   const mostly = bands.length > 1
     ? bands.slice().sort((a, b) => mins[b] - mins[a])[0] : null;
-  return 'This week, ' + fine + ' minutes of activity went fine'
+  return 'This week, ' + fine + ' minutes went fine'
     + (mostly ? ', mostly ' + mostly : bands.length === 1 && !mins.none ? ', all ' + bands[0] : '') + '.'
-    + (pending ? ' ' + pending + ' more don’t have a next-morning answer yet.' : '');
+    + (pending ? ' ' + pending + ' more are still waiting.' : '');
 }
 
 /**
@@ -367,9 +377,8 @@ export function capacityView(
   const names = Object.keys(waiting).sort();
   const most = names.reduce((m, n) => Math.max(m, waiting[n]), 0);
   const collecting = names.length
-    ? 'Pattern will have an answer about ' + joinWords(names) + ' after '
-      + (most === 1 ? 'one more session' : 'up to ' + most + ' more sessions')
-      + ' with a morning check-in that day and the next.'
+    ? Named(joinWords(names), null) + ': an answer after '
+      + (most === 1 ? 'one more session.' : 'up to ' + most + ' more sessions.')
     : null;
 
   return { headline: headlineOf(all, todayIso), insights, collecting };

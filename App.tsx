@@ -1259,8 +1259,12 @@ export default function App() {
               {/* FIVE GROUPS, NOT ELEVEN (30 Sep 2026). Profile had a group
                   per setting and a paragraph under most of them, and read
                   as a terms page. The settings are all still here; they
-                  are grouped by what they are for, and each group carries
-                  one sentence — the one that says what it does not do. */}
+                  are grouped by what they are for.
+                  Tomo pass, 21 Nov 2026: a row is a label and at most a
+                  short value. Footers stay only where they carry a promise
+                  or a warning (calendar titles, the reinstall, usage
+                  counts); what a row does lives in its accessibility hint
+                  or one tap in, never in grey under it. */}
 
               <Text style={settings.groupTitle}>Check-ins</Text>
               <View style={settings.group}>
@@ -1282,7 +1286,7 @@ export default function App() {
                         onValueChange={async (on) => {
                           if (on && !(await requestCalendar())) {
                             Alert.alert('Calendar access is off',
-                              'Turn it on for Pattern in iPhone Settings and the prompts will follow your calendar.');
+                              'Turn it on for Pattern in iPhone Settings.');
                             return;
                           }
                           setCalendarOn(on);
@@ -1334,24 +1338,30 @@ export default function App() {
                   </View>
                 </View>
               </View>
-              <Text style={settings.groupFooter}>
-                Calendar titles are read on this iPhone and never stored or sent.
-                Off, the lock screen shows only that you checked in.
-              </Text>
+              {/* the calendar's promise stays beside its switch, one line;
+                  the lock-screen sentence went — the row's label says it */}
+              {calendarAvailable() && (
+                <Text style={settings.groupFooter}>
+                  Calendar titles are read here, never stored or sent.
+                </Text>
+              )}
 
               {/* Only offered where the binary can actually do it — a row
                   promising a connection an old build cannot make is a
                   broken promise on a settings screen. Connected data is
                   one tap further, inside the Health sheet. */}
+              {/* Tomo pass, 21 Nov 2026: no group title that repeats the
+                  one row under it, and no footer — "read-only, stays on
+                  this iPhone" is said one tap in, where the choice is */}
               {health.available() && (
                 <>
-                  <Text style={settings.groupTitle}>Apple Health</Text>
                   <View style={settings.group}>
                     <Pressable
                       onPress={() => { track('health_setup_opened'); setHealthPanel('setup'); setHealthSheet(true); }}
                       style={settings.row}
                       accessibilityRole="button"
-                      accessibilityLabel="Apple Health. Use sleep and activity to add context automatically."
+                      accessibilityLabel="Apple Health"
+                      accessibilityHint="Sleep and activity, read-only, kept on this iPhone"
                     >
                       <RowIcon name="heart.fill" />
                       <View style={[settings.rowMain, settings.rowLine, settings.rowLineLast]}>
@@ -1363,9 +1373,6 @@ export default function App() {
                       </View>
                     </Pressable>
                   </View>
-                  <Text style={settings.groupFooter}>
-                    Read-only, and everything imported stays on this iPhone.
-                  </Text>
                 </>
               )}
 
@@ -1379,7 +1386,7 @@ export default function App() {
                   style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Diagnosis"
-                  accessibilityHint="Whether you have one, and what it is — the first line of the PDF"
+                  accessibilityHint="The first line of the PDF"
                 >
                   <RowIcon name="stethoscope" />
                   <View style={[settings.rowMain, settings.rowLine]}>
@@ -1393,7 +1400,7 @@ export default function App() {
                   style={settings.row}
                   accessibilityRole="button"
                   accessibilityLabel="Background for the PDF"
-                  accessibilityHint="Diagnoses, medications, history — printed on the first page of the PDF, in your words"
+                  accessibilityHint="Your history, in your words, on page one of the PDF"
                 >
                   <RowIcon name="doc.text.fill" />
                   <View style={[settings.rowMain, settings.rowLine]}>
@@ -1413,9 +1420,9 @@ export default function App() {
                   }}
                 />
               </View>
-              <Text style={settings.groupFooter}>
-                Two days before the appointment, Today offers the PDF.
-              </Text>
+              {/* Tomo pass, 21 Nov 2026: "two days before, Today offers
+                  the PDF" went — it explained a behaviour that shows
+                  itself on Today when it happens */}
 
               <Text style={settings.groupTitle}>Your data</Text>
               <View style={settings.group}>
@@ -1423,11 +1430,21 @@ export default function App() {
                   onPress={exportBackup}
                   style={settings.row}
                   accessibilityRole="button"
-                  accessibilityLabel="Save a copy"
+                  accessibilityLabel={'Save a copy' + (lastCopy
+                    ? ', last saved ' + fmtDay(lastCopy.on) + ', holding ' + lastCopy.days
+                      + (lastCopy.days === 1 ? ' day' : ' days')
+                    : ', none saved yet')}
                 >
                   <RowIcon name="square.and.arrow.up" />
                   <View style={[settings.rowMain, settings.rowLine]}>
                     <Text style={settings.rowLabel}>Save a copy</Text>
+                    {/* when the record last had a home other than this
+                        phone, as the row's value (Tomo pass, 21 Nov 2026:
+                        it was the first sentence of a three-line footer).
+                        The day count is in the spoken label. */}
+                    {!!lastCopy && (
+                      <Text style={settings.rowValue}><Num>{fmtDay(lastCopy.on)}</Num></Text>
+                    )}
                     <RowChevron />
                   </View>
                 </Pressable>
@@ -1471,17 +1488,13 @@ export default function App() {
                   </View>
                 </Pressable>
               </View>
-              {/* It opens with when the record last had a home other than
-                  this phone, because that is the sentence that decides
-                  whether the rest matters today. The reinstall sentence
-                  stays: a tester lost a record to exactly that. */}
+              {/* The reinstall sentence stays: a tester lost a record to
+                  exactly that. So does what usage counts are not — the
+                  sentence next to the switch it qualifies. */}
               <Text style={settings.groupFooter}>
-                <Num>{(lastCopy
-                  ? 'Last copy saved ' + fmtDay(lastCopy.on) + ', holding '
-                    + lastCopy.days + (lastCopy.days === 1 ? ' day. ' : ' days. ')
-                  : 'No copy saved yet. ')
-                  + 'Reinstalling Pattern starts it empty; a copy you saved is the only way back. '
-                  + 'Usage counts say that something happened, never what you recorded.'}</Num>
+                {(lastCopy ? '' : 'No copy saved yet. ')
+                  + 'Reinstalling starts empty; a saved copy is the only way back. '
+                  + 'Usage counts never say what you recorded.'}
               </Text>
 
               <Text style={settings.groupTitle}>About</Text>
@@ -1507,11 +1520,11 @@ export default function App() {
                   onPress={() => setAbout(true)}
                   style={settings.row}
                   accessibilityRole="button"
-                  accessibilityLabel="What Pattern is, and when not to log"
+                  accessibilityLabel="About Pattern, and when not to log"
                 >
                   <RowIcon name="info.circle.fill" />
                   <View style={[settings.rowMain, settings.rowLine]}>
-                    <Text style={settings.rowLabel}>What Pattern is — and isn’t</Text>
+                    <Text style={settings.rowLabel}>About Pattern</Text>
                     <RowChevron />
                   </View>
                 </Pressable>
@@ -1544,13 +1557,14 @@ export default function App() {
                   style={[settings.row, settings.rowCentre]}
                   accessibilityRole="button"
                   accessibilityLabel="Delete all my data"
+                  accessibilityHint="Asks twice before anything is removed"
                 >
                   <Text style={styles.danger}>Delete all my data</Text>
                 </Pressable>
               </View>
-              <Text style={settings.groupFooter}>
-                Removes everything from this iPhone. There is no copy anywhere else.
-              </Text>
+              {/* Tomo pass, 21 Nov 2026: the footer went — both of wipe's
+                  alerts say what is lost and that no other copy exists,
+                  at the moment it matters */}
             </ScrollView>
 
             {/* the theme picker, pushed on top the way Settings pushes a
