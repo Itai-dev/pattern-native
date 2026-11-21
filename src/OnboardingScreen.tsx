@@ -632,7 +632,6 @@ export default function OnboardingScreen({ onDone, review, onRestore, health }: 
                 )}
               </View>
             )}
-
           </>
         ) : at === DURATION ? (
           <>

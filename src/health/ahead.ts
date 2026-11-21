@@ -99,7 +99,8 @@ export function bookedPastLine(
  *  screen, which owns the clock's formatting. Deterministic: same
  *  numbers, same words. */
 export function aheadBody(b: BookedAhead): string {
-  return 'That is ' + b.overBy + (b.overBy === 1 ? ' minute' : ' minutes') + ' past '
-    + b.budget.pastMinutes + ', where your next mornings ran harder. Your usual is about '
+  /* Tomo pass, 21 Nov 2026: one clause per fact — the overrun, the
+     line, the usual — and the note. Same facts, about half the words. */
+  return b.overBy + ' min past ' + b.budget.pastMinutes + ', where next mornings ran harder. Usual: about '
     + b.budget.usualMinutes + '. ' + BUDGET_NOTE_SHORT;
 }

@@ -210,7 +210,7 @@ ok('a dismissed booking stays dismissed as booked, and asks again if it moves', 
 ok('the body names the overrun, the line, the usual, and what it is not — never a verb at the person', (() => {
   const b = ahead.bookedPastLine({ [TOMORROW]: [ev(18 * 60, 60, 'Gym')] }, BUDGET, TODAY, TOMORROW, 0, []);
   const s = ahead.aheadBody(b);
-  return s === 'That is 12 minutes past 48, where your next mornings ran harder. Your usual is about 35. A description of your record, not a limit.'
+  return s === '12 min past 48, where next mornings ran harder. Usual: about 35. A description of your record, not a limit.'
     && !/stop|dial|should|shorten|skip/i.test(s);
 })());
 

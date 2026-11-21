@@ -196,7 +196,7 @@ export function coachView(
       const a: Achievement = {
         id: 'len' + m, kind: 'roadmap', icon: 'number', num: String(m),
         title: m + ' minutes',
-        body: 'A ' + m + '-minute ' + one + ', easy or with no effort recorded, no longer than the plan suggested.',
+        body: 'An easy ' + m + '-minute ' + one + ' (or one with no effort recorded), no longer than the plan suggested.',
         earnedOn: s ? s.date : null,
       };
       achievements.push(a);
@@ -212,8 +212,8 @@ export function coachView(
     const steady: Achievement = {
       id: 'steady', kind: 'roadmap', icon: 'activity',
       title: 'First steady ' + one,
-      body: 'A ' + one + ' at a moderate effort, starting short again at up to ' + COACH_STEADY_START_MIN
-        + ' minutes. The plan offers it once easy ' + many + ' reach ' + topMin + '.',
+      body: 'A moderate ' + one + ', starting again at up to ' + COACH_STEADY_START_MIN
+        + ' minutes. Offered once easy ' + many + ' reach ' + topMin + '.',
       earnedOn: steadyS ? steadyS.date : null,
     };
     achievements.push(steady);
@@ -286,13 +286,13 @@ export function coachView(
   const held = firstWhere(all, (s) => s.step === 'hold' && s.suggested != null && s.onPlan);
   achievements.push({
     id: 'held', kind: 'pacing', icon: 'hold', title: 'Held the line',
-    body: 'Kept a session the same length after a harder morning. Holding is part of the plan, not a step back.',
+    body: 'Kept the same length after a harder morning. Holding is part of the plan.',
     earnedOn: held ? held.date : null,
   });
   const eased = firstWhere(all, (s) => s.step === 'ease' && s.suggested != null && s.onPlan);
   achievements.push({
     id: 'eased', kind: 'pacing', icon: 'ease', title: 'Eased back',
-    body: 'Took the shorter session the plan suggested, to build up again from there.',
+    body: 'Took the shorter session the plan suggested.',
     earnedOn: eased ? eased.date : null,
   });
   achievements.push({
@@ -304,7 +304,7 @@ export function coachView(
   /* finding out */
   achievements.push({
     id: 'report', kind: 'finding', icon: 'report', title: 'For your clinician',
-    body: 'Made your first report to take to an appointment.',
+    body: 'Made your first PDF for an appointment.',
     earnedOn: extras.reportOn || null,
   });
   achievements.push({
@@ -331,7 +331,7 @@ export function coachView(
     });
   };
   totals(COACH_SESSION_TOTALS, 's', 'number', all.length, (n) => all[n - 1].date,
-    (n) => [n + ' sessions', n + ' sessions in your record. Rest days in between never count against it.']);
+    (n) => [n + ' sessions', n + ' sessions in your record. Rest days never count against it.']);
   const weekStarts: string[] = [];
   const weekDone: string[] = [];
   all.forEach((s) => {
@@ -363,13 +363,16 @@ export function unseenAchievement(v: CoachView, seen: string[] | null): Achievem
   return fresh.slice().sort((a, b) => (a.earnedOn! < b.earnedOn! ? 1 : a.earnedOn! > b.earnedOn! ? -1 : 0))[0];
 }
 
-/** what the achievements do not mean — inside the list, at its top */
+/** what the achievements do not mean — inside the list, at its top.
+ *  Tomo pass, 21 Nov 2026: two sentences, every rule kept — never a
+ *  pain number, nothing resets or expires, nothing for going past */
 export const COACH_NOTE =
-  'Earned by what you did and how you paced it — never by a pain number, so there is never a reason '
-  + 'to answer lower. Nothing resets, nothing expires, and going past the plan earns nothing extra.';
+  'Earned by what you did, never by a pain number. Nothing resets or expires, '
+  + 'and going past the plan earns nothing extra.';
 
-/** what the roadmap does not mean — under the stages */
+/** what the roadmap does not mean — under the stages. The pacing rule
+ *  itself (a tenth, held, eased) is said beside the next session, so it
+ *  is not repeated here (Tomo pass, 21 Nov 2026) */
 export const ROADMAP_NOTE =
-  'Built from your own sessions: each one grows by at most a tenth, a harder morning holds it, and two '
-  + 'ease it back. Staying on a stage a while is normal. A plan, not a promise, and not medical advice — '
-  + 'check a big change with your clinician.';
+  'From your own sessions. Staying on a stage a while is normal. A plan, not a promise, '
+  + 'and not medical advice — check a big change with your clinician.';

@@ -885,7 +885,8 @@ const STANDOUTS_OPEN = 3;
 /**
  * One thing that stands out: the sentence, one line under it, and what
  * opens when the card is tapped. `detail` null is a card with nothing
- * further to say — a fact about the wait, drawn without the chevron.
+ * further to say, drawn without the chevron (Still collecting was the
+ * one, until its explanation moved behind the tap on 21 Nov 2026).
  */
 interface Standout {
   key: string;

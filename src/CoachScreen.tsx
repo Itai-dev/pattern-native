@@ -11,6 +11,10 @@
  * and grey; the medals are grey-to-white materials (Medal.tsx). The
  * sentences about what this does not mean sit inside the sheet, under
  * the things they qualify.
+ *
+ * Tomo pass, 21 Nov 2026: every line here cut to one short sentence;
+ * the not-sentences (never a pain number; not medical advice) stay,
+ * shortened, next to what they qualify.
  */
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -83,9 +87,9 @@ export default function CoachScreen({ view, activity, onClose, onSetGoal, start 
 /* ── the roadmap ─────────────────────────────────────────────── */
 
 function stepLine(step: 'up' | 'hold' | 'ease'): string {
-  if (step === 'hold') return 'Held at this length after a harder morning. Holding is part of the plan.';
-  if (step === 'ease') return 'Eased back after harder mornings, to build up again from here.';
-  return 'Each session grows by at most a tenth, and only after mornings that went fine.';
+  if (step === 'hold') return 'Held after a harder morning. Holding is part of the plan.';
+  if (step === 'ease') return 'Eased back after harder mornings, to build again from here.';
+  return 'At most a tenth longer, and only after a morning that went fine.';
 }
 
 function RoadmapPage({ view, activity, onAchievements, onChangeGoal }: {
@@ -124,12 +128,13 @@ function RoadmapPage({ view, activity, onAchievements, onChangeGoal }: {
             ))}
           </View>
         ) : (
-          <Text style={styles.cardLine}>Your first one comes with your first session.</Text>
+          <Text style={styles.cardLine}>Your first comes with your first session.</Text>
         )}
-        <Text style={styles.cardFine}>Earned by what you did, never by a pain number.</Text>
+        <Text style={styles.cardFine}>Earned by doing, never by a pain number.</Text>
       </Press>
       {onChangeGoal && (
-        <Press onPress={onChangeGoal} style={styles.changeGoal} accessibilityRole="button">
+        <Press onPress={onChangeGoal} style={styles.changeGoal} accessibilityRole="button"
+          accessibilityLabel="Change goal">
           <Text style={styles.navBtnText}>Change goal</Text>
         </Press>
       )}
@@ -176,7 +181,7 @@ function StageRow({ s, last, activity, next }: {
               </>
             ) : (
               <Text style={styles.nowLine} maxFontSizeMultiplier={1.4}>
-                Still learning — a few more sessions with a morning check-in that day and the next.
+                Still learning. A few more sessions, with a morning check-in after each.
               </Text>
             )}
           </View>
@@ -204,8 +209,9 @@ function AchievementsPage({ view, activity, onOpen, onSetGoal }: {
           return (
             <View key={sec.kind}>
               <Text style={styles.section}>{sec.title}</Text>
-              <Press onPress={onSetGoal} style={styles.card} accessibilityRole="button">
-                <Text style={styles.cardLine}>Set what you are getting back to, and a roadmap toward it appears here.</Text>
+              <Press onPress={onSetGoal} style={styles.card} accessibilityRole="button"
+                accessibilityLabel="Set a goal">
+                <Text style={styles.cardLine}>Set a goal to see your roadmap here.</Text>
               </Press>
             </View>
           );
@@ -250,7 +256,7 @@ function Detail({ a, activity, onClose }: { a: Achievement | null; activity: str
             {a.earnedOn ? 'Earned ' + shortDate(a.earnedOn) : 'Not yet' + (a.sofar ? ' · ' + a.sofar : '')}
           </Text>
           <Press style={styles.primary} onPress={() => { Haptics.selectionAsync().catch(() => {}); onClose(); }}
-            accessibilityRole="button">
+            accessibilityRole="button" accessibilityLabel="Done">
             <Text style={styles.primaryText}>Done</Text>
           </Press>
         </View>
